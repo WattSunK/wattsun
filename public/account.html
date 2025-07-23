@@ -1,0 +1,248 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>My Account - WattSun Solar</title>
+<link href="main.css" rel="stylesheet"/>
+<style>body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding-bottom: 56px;
+      background: #fefdf8;
+    }
+    header {
+      background-color: #fff;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    .header-bar h1 {
+      font-size: 1.5em;
+      margin: 0;
+    }
+    nav {
+      display: none;
+    }
+    nav.nav-open {
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      position: absolute;
+      top: 56px;
+      right: 0;
+      width: 80%;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+      z-index: 1000;
+    }
+    nav a {
+      padding: 14px;
+      text-decoration: none;
+      color: #333;
+      border-bottom: 1px solid #eee;
+    }
+    .nav-toggle {
+      font-size: 1.8em;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+    .account-section {
+      max-width: 800px;
+      margin: 20px auto;
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .account-section h2 {
+      font-size: 1.2em;
+      color: #444;
+      margin-bottom: 10px;
+    }
+    .account-section p {
+      font-size: 0.95em;
+      color: #555;
+    }
+    .account-section input, .account-section button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+    .account-section button {
+      background-color: #f4a940;
+      color: white;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+    }
+    .account-section button:hover {
+      background-color: #e7991f;
+    }
+    .mobile-nav {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      .mobile-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        height: 56px;
+        width: 100%;
+        background-color: #f4a940;
+        justify-content: space-around;
+        align-items: center;
+        z-index: 1000;
+        box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
+        padding: 0;
+      }
+      .mobile-nav a {
+        font-size: 20px;
+        height: 56px;
+        line-height: 56px;
+        padding: 0;
+        margin: 0;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        color: black;
+        position: relative;
+      }
+      #cart-count {
+        position: absolute;
+        top: 6px;
+        right: 10px;
+        background: red;
+        color: white;
+        font-size: 11px;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        padding: 0 5px;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+  padding: 6px 12px;
+  margin-left: 10px;
+}
+.brand-name {
+  font-size: 1.8em;
+  font-weight: bold;
+  color: white;
+  white-space: nowrap;
+}
+.site-logo {
+  height: 48px;
+  max-width: 48px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+@media (max-width: 768px) {
+  .logo-container {
+    padding: 4px 12px;
+    height: 56px;
+  }
+  .site-logo {
+    height: auto;
+    max-height: 36px;
+    object-fit: contain;
+  }
+  .brand-name {
+    font-size: 1.3em;
+  }
+}
+    /* === Desktop & Mobile Logo Styles from index.html === */
+    .logo-container { display: none; }
+    .desktop-logo { display: block; }
+    .brand-name { font-size: 1.8em; font-weight: bold; color: white; white-space: nowrap; }
+    .site-logo { height: 48px; max-width: 48px; object-fit: contain; vertical-align: middle; }
+    @media (max-width: 768px) {
+      .desktop-logo { display: none; }
+      .logo-container { display: flex; align-items: center; gap: 12px; white-space: nowrap; padding: 4px 12px; height: 56px; margin-left: 10px; }
+      .site-logo { height: auto; max-height: 36px; object-fit: contain; }
+      .brand-name { font-size: 1.3em; }
+    }
+    @media (max-width: 768px) {
+      h1 img.site-logo { width: auto !important; max-height: 32px !important; margin-right: 8px; }
+    }
+</style>
+</head>
+<body>
+<header>
+<div class="header-bar">
+<h1 class="desktop-logo">
+<img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
+  WattSun Solar
+</h1>
+<div class="logo-container">
+<img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
+<span class="brand-name">WattSun Solar</span>
+</div>
+
+
+
+<button aria-label="Toggle Menu" class="nav-toggle" onclick="document.querySelector('nav').classList.toggle('nav-open')">☰</button>
+</div>
+<nav>
+<a href="index.html">Home</a>
+<a href="shop.html">Shop</a>
+<a href="calculators/calculator.html">Calculator</a>
+<a href="financing.html">Financing</a>
+<a href="projects.html">Projects</a>
+<a href="contact.html">Contact</a>
+</nav>
+</header>
+<div class="account-section">
+<h2>Track Your Order or Financing</h2>
+<p>Enter your phone number to view your status:</p>
+<input placeholder="+254 7XX XXX XXX" type="tel"/>
+<button>Check Status</button>
+</div>
+<div class="account-section">
+<h2>Need Help?</h2>
+<p><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></p>
+<p><a href="contact.html">Contact Page</a> | <!--Removed broken link to faq.html--></p>
+</div>
+<footer class="mobile-nav">
+<a aria-label="Home" href="index.html">🏠</a>
+<a aria-label="Account" href="account.html">👤</a>
+<a aria-label="Cart" href="cart.html">🛒<span id="cart-count">0</span></a>
+<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('nav').classList.toggle('nav-open')">☰</a>
+</footer>
+<script>
+function updateCartCountBadge() {
+  let count = 0;
+  try {
+    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  } catch (e) {}
+
+  const badge = document.getElementById('cart-count');
+  if (badge) {
+    badge.textContent = count;
+  }
+}
+document.addEventListener('DOMContentLoaded', updateCartCountBadge);
+window.addEventListener('storage', updateCartCountBadge);
+</script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+"cloudflared tunnel run" accepts only one argument, the ID or name of the tunnel to run.
+See 'cloudflared tunnel run --help'.
+"cloudflared tunnel run" accepts only one argument, the ID or name of the tunnel to run.
+See 'cloudflared tunnel run --help'.
+"cloudflared tunnel run" accepts only one argument, the ID or name of the tunnel to run.
+See 'cloudflared tunnel run --help'.
+2025-07-22T05:36:24Z ERR Cannot determine default origin certificate path. No file cert.pem in [~/.cloudflared ~/.cloudflare-warp ~/cloudflare-warp /etc/cloudflared /usr/local/etc/cloudflared]. You need to specify the origin certificate path by specifying the origincert option in the configuration file, or set TUNNEL_ORIGIN_CERT environment variable originCertPath=
+error parsing tunnel ID: Error locating origin cert: client didn't specify origincert path
+2025-07-22T05:42:24Z ERR Cannot find a valid certificate for your origin at the path:
+
+    /var/services/homes/53Bret/.cloudflared/cert.pem
+
+If the path above is wrong, specify the path with the -origincert option.
+If you don't have a certificate signed by Cloudflare, run the command:
+
+	cloudflared login
+ originCertPath=~/.cloudflared/cert.pem
+error parsing tunnel ID: Error locating origin cert: cannot find a valid certificate at the path /var/services/homes/53Bret/.cloudflared/cert.pem
+error parsing tunnel ID: Error decoding origin cert: missing token in the certificate
+2025-07-22T07:31:48Z INF Starting tunnel tunnelID=f64de399-2e24-4c0c-8c40-a1bb95dee012
+2025-07-22T07:31:48Z INF Version 2025.7.0 (Checksum 51e3909335fd7ba2ed5c696b0a6fb7d4a74f6a15bf36615cea0fccba620cfb3f)
+2025-07-22T07:31:48Z INF GOOS: linux, GOVersion: go1.24.4, GoArch: amd64
+2025-07-22T07:31:48Z INF Settings: map[config:/volume1/web/wattsun/.cloudflared/config.yaml cred-file:/volume1/web/wattsun/.cloudflared/f64de399-2e24-4c0c-8c40-a1bb95dee012.json credentials-file:/volume1/web/wattsun/.cloudflared/f64de399-2e24-4c0c-8c40-a1bb95dee012.json origincert:/volume1/web/wattsun/.cloudflared/cert.pem]
+2025-07-22T07:31:48Z INF Autoupdate frequency is set autoupdateFreq=86400000
+2025-07-22T07:31:49Z INF Generated Connector ID: 91ea0d15-c70e-47e5-9888-55721756503b
+2025-07-22T07:31:49Z INF Initial protocol quic
+2025-07-22T07:31:49Z INF ICMP proxy will use 192.168.1.200 as source for IPv4
+2025-07-22T07:31:49Z INF ICMP proxy will use ::1 in zone lo as source for IPv6
+2025-07-22T07:31:49Z WRN The user running cloudflared process has a GID (group ID) that is not within ping_group_range. You might need to add that user to a group within that range, or instead update the range to encompass a group the user is already in by modifying /proc/sys/net/ipv4/ping_group_range. Otherwise cloudflared will not be able to ping this network error="Group ID 100 is not between ping group 1 to 0"
+2025-07-22T07:31:49Z WRN ICMP proxy feature is disabled error="cannot create ICMPv4 proxy: Group ID 100 is not between ping group 1 to 0 nor ICMPv6 proxy: socket: permission denied"
+2025-07-22T07:31:49Z INF ICMP proxy will use 192.168.1.200 as source for IPv4
+2025-07-22T07:31:49Z INF ICMP proxy will use ::1 in zone lo as source for IPv6
+2025-07-22T07:31:49Z INF Starting metrics server on 127.0.0.1:20241/metrics
+2025-07-22T07:31:49Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=0 event=0 ip=198.41.200.63
+2025/07/22 09:31:49 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/quic-go/quic-go/wiki/UDP-Buffer-Sizes for details.
+2025-07-22T07:31:50Z INF Registered tunnel connection connIndex=0 connection=512b8fa5-4c78-4430-b49a-85065d37dcba event=0 ip=198.41.200.63 location=sof01 protocol=quic
+2025-07-22T07:31:50Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=1 event=0 ip=198.41.192.67
+2025-07-22T07:31:50Z INF Registered tunnel connection connIndex=1 connection=fd7a76ed-1b9d-4544-a936-33c4f63430b7 event=0 ip=198.41.192.67 location=mxp04 protocol=quic
+2025-07-22T07:31:51Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=2 event=0 ip=198.41.200.43
+2025-07-22T07:31:51Z INF Registered tunnel connection connIndex=2 connection=63e41459-07cd-404c-8fc7-5446544b81f0 event=0 ip=198.41.200.43 location=ams17 protocol=quic
+2025-07-22T07:31:52Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=3 event=0 ip=198.41.192.167
+2025-07-22T07:31:52Z INF Registered tunnel connection connIndex=3 connection=fb441d4c-48f7-4ae7-8b05-5ce8f7d65d71 event=0 ip=198.41.192.167 location=ams08 protocol=quic
+2025-07-22T08:30:19Z WRN Failed to serve tunnel connection error="context canceled" connIndex=0 event=0 ip=198.41.200.63
+2025-07-22T08:30:19Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.63
+2025-07-22T08:30:20Z WRN Connection terminated error="context canceled" connIndex=0
+2025-07-22T08:30:34Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=0 event=0 ip=198.41.200.63
+2025-07-22T08:30:35Z INF Registered tunnel connection connIndex=0 connection=7ce4c1a2-2f0c-4114-9b54-722ae2196c0e event=0 ip=198.41.200.63 location=sof01 protocol=quic
+2025-07-22T08:30:35Z INF Updated to new configuration config="{\"ingress\":[{\"hostname\":\"api.wattsun.co.ke\",\"originRequest\":{\"noTLSVerify\":true},\"service\":\"https://localhost:3000\"},{\"originRequest\":{},\"service\":\"http_status:404\"}],\"warp-routing\":{\"enabled\":false}}" version=1
+2025-07-22T09:15:03Z INF Initiating graceful shutdown due to signal terminated ...
+2025-07-22T09:15:03Z ERR Failed to serve tunnel connection error="context canceled" connIndex=1 event=0 ip=198.41.192.67
+2025-07-22T09:15:03Z INF Retrying connection in up to 1s connIndex=1 event=0 ip=198.41.192.67
+2025-07-22T09:15:04Z ERR Failed to serve tunnel connection error="context canceled" connIndex=3 event=0 ip=198.41.192.167
+2025-07-22T09:15:04Z INF Retrying connection in up to 1s connIndex=3 event=0 ip=198.41.192.167
+2025-07-22T09:15:04Z ERR Failed to serve tunnel connection error="context canceled" connIndex=2 event=0 ip=198.41.200.43
+2025-07-22T09:15:04Z INF Retrying connection in up to 1s connIndex=2 event=0 ip=198.41.200.43
+2025-07-22T09:15:04Z ERR Failed to serve tunnel connection error="context canceled" connIndex=0 event=0 ip=198.41.200.63
+2025-07-22T09:15:04Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.63
+2025-07-22T09:15:04Z ERR no more connections active and exiting
+2025-07-22T09:15:04Z INF Tunnel server stopped
+2025-07-22T09:15:04Z INF Metrics server stopped
+2025-07-22T09:23:52Z INF Starting tunnel tunnelID=f64de399-2e24-4c0c-8c40-a1bb95dee012
+2025-07-22T09:23:52Z INF Version 2025.7.0 (Checksum 51e3909335fd7ba2ed5c696b0a6fb7d4a74f6a15bf36615cea0fccba620cfb3f)
+2025-07-22T09:23:52Z INF GOOS: linux, GOVersion: go1.24.4, GoArch: amd64
+2025-07-22T09:23:52Z INF Settings: map[config:/volume1/web/wattsun/.cloudflared/config.yaml cred-file:/volume1/web/wattsun/.cloudflared/f64de399-2e24-4c0c-8c40-a1bb95dee012.json credentials-file:/volume1/web/wattsun/.cloudflared/f64de399-2e24-4c0c-8c40-a1bb95dee012.json origincert:/volume1/web/wattsun/.cloudflared/cert.pem]
+2025-07-22T09:23:52Z INF Autoupdate frequency is set autoupdateFreq=86400000
+2025-07-22T09:23:52Z INF Generated Connector ID: 849a1cb4-f7ca-45a2-9325-55d2274d9d8d
+2025-07-22T09:23:52Z WRN No ingress rules were defined in provided config (if any) nor from the cli, cloudflared will return 503 for all incoming HTTP requests
+2025-07-22T09:23:52Z INF Initial protocol quic
+2025-07-22T09:23:52Z INF ICMP proxy will use 192.168.1.200 as source for IPv4
+2025-07-22T09:23:52Z INF ICMP proxy will use ::1 in zone lo as source for IPv6
+2025-07-22T09:23:52Z WRN The user running cloudflared process has a GID (group ID) that is not within ping_group_range. You might need to add that user to a group within that range, or instead update the range to encompass a group the user is already in by modifying /proc/sys/net/ipv4/ping_group_range. Otherwise cloudflared will not be able to ping this network error="Group ID 100 is not between ping group 1 to 0"
+2025-07-22T09:23:52Z WRN ICMP proxy feature is disabled error="cannot create ICMPv4 proxy: Group ID 100 is not between ping group 1 to 0 nor ICMPv6 proxy: socket: permission denied"
+2025-07-22T09:23:52Z INF ICMP proxy will use 192.168.1.200 as source for IPv4
+2025-07-22T09:23:52Z INF ICMP proxy will use ::1 in zone lo as source for IPv6
+2025-07-22T09:23:52Z INF Starting metrics server on 127.0.0.1:20241/metrics
+2025-07-22T09:23:53Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=0 event=0 ip=198.41.192.167
+2025/07/22 11:23:53 failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/quic-go/quic-go/wiki/UDP-Buffer-Sizes for details.
+2025-07-22T09:23:53Z INF Registered tunnel connection connIndex=0 connection=a0969cd9-1ca9-4ab3-a90a-59a0d093ddeb event=0 ip=198.41.192.167 location=mxp06 protocol=quic
+2025-07-22T09:23:53Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=1 event=0 ip=198.41.200.193
+2025-07-22T09:23:53Z INF Updated to new configuration config="{\"ingress\":[{\"hostname\":\"api.wattsun.co.ke\",\"originRequest\":{\"noTLSVerify\":true},\"service\":\"https://localhost:3000\"},{\"originRequest\":{},\"service\":\"http_status:404\"}],\"warp-routing\":{\"enabled\":false}}" version=1
+2025-07-22T09:23:54Z INF Registered tunnel connection connIndex=1 connection=613346ea-6d8f-4c55-a57c-be1834101ab6 event=0 ip=198.41.200.193 location=sof01 protocol=quic
+2025-07-22T09:23:54Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=2 event=0 ip=198.41.200.33
+2025-07-22T09:23:55Z INF Registered tunnel connection connIndex=2 connection=d4000fbe-4860-4d55-a301-ccfa71e7983a event=0 ip=198.41.200.33 location=sof01 protocol=quic
+2025-07-22T09:23:55Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=3 event=0 ip=198.41.192.37
+2025-07-22T09:23:56Z INF Registered tunnel connection connIndex=3 connection=b949d7b5-9780-4d5d-a170-339587cebf0c event=0 ip=198.41.192.37 location=mxp01 protocol=quic
+2025-07-22T10:25:43Z INF Initiating graceful shutdown due to signal terminated ...
+2025-07-22T10:25:43Z ERR Failed to serve tunnel connection error="context canceled" connIndex=1 event=0 ip=198.41.200.193
+2025-07-22T10:25:43Z ERR Failed to serve tunnel connection error="context canceled" connIndex=0 event=0 ip=198.41.192.167
+2025-07-22T10:25:43Z INF Retrying connection in up to 1s connIndex=1 event=0 ip=198.41.200.193
+2025-07-22T10:25:43Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.192.167
+2025-07-22T10:25:44Z ERR Failed to serve tunnel connection error="context canceled" connIndex=3 event=0 ip=198.41.192.37
+2025-07-22T10:25:44Z INF Retrying connection in up to 1s connIndex=3 event=0 ip=198.41.192.37
+2025-07-22T10:25:44Z ERR Failed to serve tunnel connection error="context canceled" connIndex=2 event=0 ip=198.41.200.33
+2025-07-22T10:25:44Z INF Retrying connection in up to 1s connIndex=2 event=0 ip=198.41.200.33
+2025-07-22T10:25:44Z ERR no more connections active and exiting
+2025-07-22T10:25:44Z INF Tunnel server stopped
+2025-07-22T10:25:44Z INF Metrics server stopped

@@ -1,0 +1,19 @@
+backend:
+  name: github
+  repo: WattSunK/wattsun-solar1107  # CHANGE THIS to your GitHub repo
+  branch: main
+
+media_folder: "blog/uploads"
+public_folder: "/blog/uploads"
+
+collections:
+  - name: "posts"
+    label: "Blog Posts"
+    folder: "blog/posts"
+    create: true
+    slug: "{{slug}}"
+    fields:
+      - {label: "Title", name: "title", widget: "string"}
+      - {label: "Publish Date", name: "date", widget: "datetime"}
+      - {label: "Summary", name: "summary", widget: "string", required: false, hint: "Used as the post excerpt"}
+      - {label: "Body", name: "body", widget: "markdown"}

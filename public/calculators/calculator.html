@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+
+<!DOCTYPE html>
+
+<html lang="en">
+<head><style>
+@media (min-width: 769px) {
+  footer.mobile-nav {
+    display: none !important;
+  }
+}</style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Solar Kit Calculator - WattSun Solar</title>
+<link href="../main.css" rel="stylesheet"/>
+<style>
+    body { background: #fafafa; }
+    .container { width: 100%; max-width: 600px; margin: 44px auto 40px auto; background: #fff; border-radius: 18px; box-shadow: 0 4px 22px rgba(44,62,80,0.10); padding: 38px 22px 34px 22px; }
+    .result-flash { background: #fffbe7 !important; transition: background 0.7s; }
+    .calc-grid { display: grid; grid-template-columns: 1fr 90px; gap: 0 8px; align-items: center; }
+    .calc-section.collapsed .calc-section-body { display: none; }
+    .calc-section-header { font-size: 1.13em; font-weight: bold; color: #184211; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 9px 0; user-select: none; }
+    .calc-chevron { font-size: 1.2em; transition: transform 0.2s; color: #b39708; }
+    .calc-section.collapsed .calc-chevron { transform: rotate(-90deg);}
+    .calc-btn-row { display: flex; flex-direction: column; gap: 9px; margin-top: 12px; }
+    .btn-main, .calc-btn-row button, .calc-btn-row a { padding: 13px 0; width: 94%; max-width: 350px; font-size: 1.08em; border: none; border-radius: 24px; font-weight: 600; box-shadow: 0 2px 14px rgba(247,183,51,0.11); background: linear-gradient(90deg, #f7b733 0%, #fcf6ba 100%); color: #184211; transition: background 0.15s, color 0.12s, transform 0.1s; text-decoration: none; margin: 0 auto; cursor: pointer; text-align: center; display: block; }
+    .calc-btn-row button:hover, .calc-btn-row a:hover, .btn-main:hover { background: linear-gradient(90deg, #fcf6ba 0%, #f7b733 100%); color: #b37900 !important; transform: translateY(-1px) scale(1.02); }
+    .calc-btn-row .secondary { background: #eee; color: #555; border: 1px solid #d5c99c; }
+    .calc-btn-row .secondary:hover { background: #ffe180; color: #7a6000; }
+    #sizingPanel { position: fixed; top: 0; right: -420px; width: 390px; height: 100vh; z-index: 2001; background: #fffbeef6; box-shadow: -3px 0 24px 0 #efd97d55; border-left: 3px solid #f7b733; overflow-y: auto; transition: right 0.28s cubic-bezier(.73,.11,.41,.95); padding: 28px 19px 22px 19px; display: flex; flex-direction: column; }
+    #sizingOverlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0005; z-index: 2000; }
+    input[type="number"] { width: 94%; max-width: 350px; padding: 10px; font-size: 1em; border-radius: 12px; border: 1px solid #ccc; box-sizing: border-box; margin: 0 auto 10px auto; display: block; }
+    @media (max-width: 700px) { .container { max-width: 97vw; width: 100vw !important; border-radius: 0 !important; padding-left: 2vw !important; padding-right: 2vw !important; } .calc-grid { grid-template-columns: 1fr !important; gap: 2px 0 !important; } #sizingPanel { width: 98vw !important; min-width: 0 !important; right: -102vw !important; padding-left: 4vw !important; padding-right: 4vw !important; border-radius: 18px 0 0 0 !important;} .calc-section-header { font-size: 1.1em !important; padding: 8px 0 !important; } .calc-section-body label, .calc-section-body input { width: 100% !important; max-width: 100vw !important; font-size: 1em !important;} h2 { font-size: 1.3em !important; word-break: break-word;} .btn-main, .calc-btn-row button, .calc-btn-row a { min-width: 0 !important; font-size: 1em !important;} }
+    @media (max-width: 768px) { .nav-toggle { display: block; font-size: 1.8em; background: none; border: none; color: white; } header nav { display: none; flex-direction: column; background-color: #ffb347; width: 100%; text-align: center; } header.nav-open nav { display: flex; } .calc-grid { grid-template-columns: 1fr !important; gap: 8px 0 !important; } }
+    .calculator-form input[type="number"], .calculator-form button.loan-btn { border-radius: 24px; }
+    .loan-btn { padding: 14px 0; font-size: 1.1em; font-weight: 600; border: none; background: linear-gradient(90deg, #f7b733 0%, #fcf6ba 100%); box-shadow: 0 2px 14px rgba(247,183,51,0.11); color: #184211; cursor: pointer; transition: background 0.15s, color 0.12s, transform 0.1s; margin: 22px auto 0 auto; width: 94%; max-width: 350px; display: block; }
+    .cart-notification { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); z-index: 3000; background: #184211; color: #fffbe7; font-weight: 600; font-size: 1.13em; border-radius: 28px; padding: 13px 32px; box-shadow: 0 4px 18px #b3970833; opacity: 0; pointer-events: none; transition: opacity 0.35s, bottom 0.35s; display: none; }
+    .cart-notification.show { opacity: 1; bottom: 80px; pointer-events: auto; display: block; }
+
+    /* Cart Icon in NavBar */
+    .cart-icon-link {
+      position: relative;
+      display: inline-block;
+      text-decoration: none;
+      color: inherit;
+      vertical-align: middle;
+      margin-left: 10px;
+    }
+    .cart-icon {
+      font-size: 1.24em;
+      display: flex;
+      align-items: center;
+      position: relative;
+    }
+    .cart-count-badge {
+      position: absolute;
+      top: -0.7em;
+      right: -0.7em;
+      background: #19c37d;
+      color: #fff;
+      font-size: 0.8em;
+      min-width: 1.15em;
+      height: 1.15em;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      box-shadow: 0 0 0.13em #0001;
+      transition: background 0.2s;
+      pointer-events: none;
+      z-index: 1;
+      display: none;
+    }
+  
+@media (max-width: 768px) {
+  .mobile-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    height: 56px;
+    width: 100%;
+    background-color: #f4a940;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 1000;
+    box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
+    padding: 0;
+  }
+  .mobile-nav a {
+    font-size: 20px;
+    height: 56px;
+    line-height: 56px;
+    padding: 0;
+    margin: 0;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: black;
+    position: relative;
+  }
+  #cart-count {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    background: red;
+    color: white;
+    font-size: 11px;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    padding: 0 5px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+        </style>
+</head>
+<body>
+<header>
+<div class="header-bar">
+<h1 class="desktop-logo">
+<img alt="WattSun Solar Logo" src="../assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
+  WattSun Solar
+</h1>
+<div class="logo-container">
+<img alt="WattSun Solar Logo" class="site-logo" src="../assets/logo/Wattsun Solar log2.png"/>
+<span class="brand-name">WattSun Solar</span>
+</div>
+
+
+<button aria-label="Menu" class="nav-toggle" onclick="toggleNav()">☰</button>
+</div>
+<nav>
+<a href="../index.html">Home</a>
+<a href="../solutions.html">Solutions</a>
+<a href="../shop.html">Shop</a>
+<a href="calculator.html">Calculator</a>
+<a href="../financing.html">Financing</a>
+<a href="../projects.html">Projects</a>
+<a href="../contact.html">Contact</a>
+<!-- Cart Icon START -->
+<a aria-label="View shopping cart" class="cart-icon-link" href="../cart.html" title="View cart">
+<span class="cart-icon">
+        🛒
+        <span class="cart-count-badge" id="cart-count-badge">0</span>
+</span>
+</a>
+<!-- Cart Icon END -->
+</nav>
+</header>
+<div class="container">
+<!-- TITLE AND SIZING TABLE BUTTON ROW -->
+<div style="display:flex; align-items:center; justify-content:center; gap:18px; margin-bottom:16px;">
+<h2 style="margin-bottom:0; font-size:2.1em; font-weight:700; color:#222;">Solar Kit Calculator</h2>
+<button class="btn-main" id="showSizingBtn" type="button">Sizing Table</button>
+</div>
+<p style="text-align:center; color:#666; margin-bottom:30px; font-size:1.13em;">
+    Select the appliances you want to power, then click <b>Calculate</b> to see the best solar kit for your needs!
+  </p>
+<form autocomplete="off" class="calculator-form" id="solarForm">
+<!-- Lighting & Devices (expanded) -->
+<div class="calc-section" id="section-lighting">
+<div class="calc-section-header" onclick="toggleSection('section-lighting')">
+<span class="calc-chevron" id="chevron-lighting">▼</span> Lighting &amp; Devices
+      </div>
+<div class="calc-section-body calc-grid">
+<label for="led_bulb">LED Bulbs</label>
+<input id="led_bulb" min="0" name="led_bulb" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="tv">TV</label>
+<input id="tv" min="0" name="tv" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="laptop">Laptop</label>
+<input id="laptop" min="0" name="laptop" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="phone">Phone Charging</label>
+<input id="phone" min="0" name="phone" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="radio">Radio</label>
+<input id="radio" min="0" name="radio" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="fan">Fan</label>
+<input id="fan" min="0" name="fan" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="cctv">CCTV/Security System</label>
+<input id="cctv" min="0" name="cctv" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+</div>
+</div>
+<!-- Kitchen Appliances (collapsed by default) -->
+<div class="calc-section collapsed" id="section-kitchen">
+<div class="calc-section-header" onclick="toggleSection('section-kitchen')">
+<span class="calc-chevron" id="chevron-kitchen">▼</span> Kitchen Appliances
+      </div>
+<div class="calc-section-body calc-grid">
+<label for="fridge">Fridge</label>
+<input id="fridge" min="0" name="fridge" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="kettle">Kettle</label>
+<input id="kettle" min="0" name="kettle" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="cooker">Cooker/Hotplate</label>
+<input id="cooker" min="0" name="cooker" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="microwave">Microwave</label>
+<input id="microwave" min="0" name="microwave" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="oven">Electric Oven</label>
+<input id="oven" min="0" name="oven" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="freezer">Deep Freezer</label>
+<input id="freezer" min="0" name="freezer" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="washer">Washing Machine</label>
+<input id="washer" min="0" name="washer" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+</div>
+</div>
+<!-- Heavy Loads (collapsed by default) -->
+<div class="calc-section collapsed" id="section-heavy">
+<div class="calc-section-header" onclick="toggleSection('section-heavy')">
+<span class="calc-chevron" id="chevron-heavy">▼</span> Heavy Loads
+      </div>
+<div class="calc-section-body calc-grid">
+<label for="pump">Water Pump (small)</label>
+<input id="pump" min="0" name="pump" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="iron">Iron Box</label>
+<input id="iron" min="0" name="iron" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="heater">Water Heater</label>
+<input id="heater" min="0" name="heater" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="ac">AC (Split Unit)</label>
+<input id="ac" min="0" name="ac" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="tools">Power Tools</label>
+<input id="tools" min="0" name="tools" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+<label for="borehole">Borehole Pump</label>
+<input id="borehole" min="0" name="borehole" oninput="sanitizeInput(this)" step="1" type="number" value="0"/>
+</div>
+</div>
+<button class="loan-btn" onclick="calculateKit()" type="button">Calculate</button>
+</form>
+<div class="form-section" id="result" style="display:none; text-align:center; margin-top:26px;"></div>
+<div class="form-note">
+    * This is an indicative estimate. Actual system sizing may vary.
+  </div>
+</div>
+<!-- Sizing Table Side Panel -->
+<div id="sizingPanel">
+<button id="closeSizingPanel" style="position:absolute; top:15px; right:18px; background:transparent; border:none; font-size:2em; color:#ccb147; cursor:pointer;" type="button">×</button>
+<h3 style="text-align:center; font-size:1.32em; font-weight:700; color:#b39708; margin-bottom:18px;">WattSun Solar Kit Sizing Table</h3>
+<div style="overflow-x:auto;">
+<table style="width:100%; border-collapse:collapse; font-size:0.97em;">
+<thead style="background: #fff7cd;">
+<tr style="color:#85620c; font-weight:bold;">
+<th style="padding:8px 6px; border-bottom:2px solid #ffe58f;">Kit Size</th>
+<th style="padding:8px 6px; border-bottom:2px solid #ffe58f;">Use Case</th>
+<th style="padding:8px 6px; border-bottom:2px solid #ffe58f;">Example Appliances</th>
+</tr>
+</thead>
+<tbody style="background: #fff;">
+<tr>
+<td style="padding:7px 6px; font-weight:600;">1 kW</td>
+<td style="padding:7px 6px;">Small home, bedsitter, small shop, basic backup</td>
+<td style="padding:7px 6px;">6 LED bulbs, TV, phone/laptop, Wi-Fi, POS, small fridge</td>
+</tr>
+<tr style="background:#fffbeee7;">
+<td style="padding:7px 6px; font-weight:600;">3 kW</td>
+<td style="padding:7px 6px;">Medium home, small office, kiosk, essential business</td>
+<td style="padding:7px 6px;">All above + microwave/iron/freezer; Up to 2 fridges, POS, CCTV</td>
+</tr>
+<tr>
+<td style="padding:7px 6px; font-weight:600;">6 kW</td>
+<td style="padding:7px 6px;">Large home, small business, restaurant, critical backup</td>
+<td style="padding:7px 6px;">All above + 2-3 kitchen appliances (fridge, freezer, microwave, fryer); Computers, CCTV, Wi-Fi</td>
+</tr>
+<tr style="background:#fffbeee7;">
+<td style="padding:7px 6px; font-weight:600;">9 kW</td>
+<td style="padding:7px 6px;">Large home, mid-size business, fast food with partial kitchen</td>
+<td style="padding:7px 6px;">All above + 3 kitchen devices at once; Commercial freezer, fryer, coffee machine</td>
+</tr>
+<tr>
+<td style="padding:7px 6px; font-weight:600;">12 kW</td>
+<td style="padding:7px 6px;">Large business, full backup for fast food/supermarket</td>
+<td style="padding:7px 6px;">All above + multiple fryers/ovens/fridges; full IT, CCTV, AC, coffee, and more</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div style="text-align:center; margin-top:14px; color:#887b19; font-size:0.97em;">
+    *For indicative purposes. Final kit sizing should be confirmed after site survey.
+  </div>
+</div>
+<!-- Overlay for side panel -->
+<div id="sizingOverlay"></div>
+<!-- Notification Bubble -->
+<div class="cart-notification" id="cart-notification">Added to cart!</div>
+<footer>
+  © 2025 WattSun Solar Kenya | 
+  <div class="footer-contacts">
+<a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>
+</div>
+</footer>
+<script src="calculator.js"></script>
+<footer class="mobile-nav">
+<a aria-label="Home" href="../index.html">🏠</a>
+<a aria-label="Account" href="../account.html">👤</a>
+<a aria-label="Cart" href="../cart.html">🛒<span id="cart-count">0</span></a>
+<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
+</footer>
+</body>
+</html>
