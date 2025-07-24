@@ -176,6 +176,8 @@
 <!-- Cart Icon END -->
 </nav>
 </header>
+<div id="shop-products" class="product-container"></div>
+
 <div class="container">
 <h2>Available Solar Systems</h2>
 <p style="text-align:center; font-style:italic; color:#666;">
@@ -363,5 +365,63 @@
       link.addEventListener('click', () => document.querySelector('header').classList.remove('nav-open'));
     });
   </script>
+
+<script>
+async function loadProducts() {
+  try {
+    const response = await fetch('/api/items');
+    const products = await response.json();
+    const container = document.getElementById('shop-products');
+    const categoryGroups = {};
+
+    products.forEach(p => {
+      if (!categoryGroups[p.category_name]) {
+        categoryGroups[p.category_name] = [];
+      }
+      categoryGroups[p.category_name].push(p);
+    });
+
+    container.innerHTML = '';
+
+    for (const category in categoryGroups) {
+      const section = document.createElement('section');
+      section.innerHTML = `<h2>${category}</h2><div class="product-grid"></div>`;
+
+      const grid = section.querySelector('.product-grid');
+      categoryGroups[category].forEach(prod => {
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        card.innerHTML = `
+          <img src="images/categories/${prod.image_path}" alt="${prod.name}" />
+          <h3>${prod.name}</h3>
+          <p>${prod.description}</p>
+          <p><strong>KSH ${prod.price.toLocaleString()}</strong></p>
+          <button onclick="addToCart('${prod.sku}', '${prod.name}', ${prod.price})">Buy Now</button>
+        `;
+        grid.appendChild(card);
+      });
+
+      container.appendChild(section);
+    }
+  } catch (error) {
+    console.error("❌ Error loading products:", error);
+  }
+}
+
+function addToCart(sku, name, price) {
+  const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+  const index = cart.findIndex(item => item.sku === sku);
+  if (index >= 0) {
+    cart[index].quantity += 1;
+  } else {
+    cart.push({ sku, name, price, quantity: 1 });
+  }
+  localStorage.setItem("cart", JSON.stringify(cart));
+  alert(`${name} added to cart`);
+}
+
+window.onload = loadProducts;
+</script>
+
 </body>
 </html>

@@ -1,26 +1,29 @@
 node:events:492
-      throw er; // Unhandled 'error' event
-      ^
-
-Error: listen EADDRINUSE: address already in use :::3000
-    at Server.setupListenHandle [as _listen2] (node:net:1872:16)
-    at listenInCluster (node:net:1920:12)
-    at Server.listen (node:net:2008:7)
-    at Object.<anonymous> (/volume1/web/wattsun/server.js:39:24)
-    at Module._compile (node:internal/modules/cjs/loader:1241:14)
-    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
-    at Module.load (node:internal/modules/cjs/loader:1091:32)
-    at Module._load (node:internal/modules/cjs/loader:938:12)
-    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:83:12)
-    at node:internal/main/run_main_module:23:47
-Emitted 'error' event on Server instance at:
-    at emitErrorNT (node:net:1899:8)
-    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
-  code: 'EADDRINUSE',
-  errno: -98,
-  syscall: 'listen',
-  address: '::',
-  port: 3000
+      throw er; // Unhandled '✅ New checkout received: {
+  fullName: 'stephen kamunyu',
+  email: 'mainakamunyu@gmail.com',
+  phone: '+254722761212',
+  address: 'Avenue de la Paix\n19',
+  cart_summary: '3 kW Solar System (x1) - Deposit: KES 150000',
+  timestamp: '2025-07-24T09:41:01.273Z'
 }
-
-Node.js v20.9.0
+❌ Failed to fetch items: [Error: select `items`.`name`, `items`.`sku`, `items`.`description`, `items`.`price`, `items`.`stock`, `categories`.`name` as `category_name`, `categories`.`image_path` from `items` inner join `categories` on `items`.`category_id` = `categories`.`id` - SQLITE_ERROR: no such column: items.stock] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`name`, `items`.`sku`, `items`.`description`, `items`.`price`, `items`.`stock`, `categories`.`name` as `category_name`, `categories`.`image_path` from `items` inner join `categories` on `items`.`category_id` = `categories`.`id` - SQLITE_ERROR: no such column: items.stock] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`name`, `items`.`sku`, `items`.`description`, `items`.`price`, `items`.`stock`, `categories`.`name` as `category_name`, `categories`.`image_path` from `items` inner join `categories` on `items`.`category_id` = `categories`.`id` - SQLITE_ERROR: no such column: items.stock] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`name`, `items`.`sku`, `items`.`description`, `items`.`price`, `items`.`stock`, `categories`.`name` as `category_name`, `categories`.`image_path` from `items` inner join `categories` on `items`.`category_id` = `categories`.`id` - SQLITE_ERROR: no such column: items.stock] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`name`, `items`.`sku`, `items`.`description`, `items`.`price`, `items`.`stock`, `categories`.`name` as `category_name`, `categories`.`image_path` from `items` inner join `categories` on `items`.`category_id` = `categories`.`id` - SQLITE_ERROR: no such column: items.stock] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}

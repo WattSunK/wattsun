@@ -1,9 +1,10 @@
 tunnel: f64de399-2e24-4c0c-8c40-a1bb95dee012
-credentials-file: /volume1/web/wattsun/.cloudflared/f64de399-2e24-4c0c-8c40-a1bb95dee012.json
+credentials-file: /etc/cloudflared/f64de399-2e24-4c0c-8c40-a1bb95dee012.json
 
 ingress:
   - hostname: api.wattsun.co.ke
     originRequest:
       noTLSVerify: true
-    service: http://localhost:3000
+    service: http://192.168.1.52:3001
+
   - service: http_status:404
