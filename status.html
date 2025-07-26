@@ -51,7 +51,7 @@
 </head>
 <body>
   <header>
-    <img src="assets/logo/Wattsun%20Solar%20log2.png" alt="WattSun Logo" />
+    <img src="/images/logo.png" alt="WattSun Logo" />
     <h1>System Status</h1>
   </header>
 
@@ -68,29 +68,30 @@
       const timestamp = document.getElementById('timestamp');
       container.innerHTML = '';
 
-      // Backend check
-      let backendStatus = await fetch('/api/health')
-        .then(res => res.ok ? '🟢 OK' : '🔴 DOWN')
-        .catch(() => '🔴 DOWN');
+      // Helper to build status blocks
+      function render(name, status) {
+        const isDown = status.includes('🔴');
+        const card = document.createElement('div');
+        card.className = 'status-card' + (isDown ? ' red' : '');
+        card.innerHTML = `<span class="status-label">${name}:</span> ${status}`;
+        container.appendChild(card);
+      }
 
-      // Tunnel check
-      let tunnelStatus = await fetch('https://api.wattsun.co.ke/api/health')
-        .then(res => res.ok ? '🟢 OK' : '🔴 DOWN')
-        .catch(() => '🔴 DOWN');
+      try {
+        const res = await fetch('/api/health');
+        render('Backend API', res.ok ? '🟢 OK' : '🔴 DOWN');
+      } catch {
+        render('Backend API', '🔴 DOWN');
+      }
 
-      // Render
-      container.innerHTML += `
-        <div class="status-card ${backendStatus.includes('🔴') ? 'red' : ''}">
-          <span class="status-label">Backend API:</span> ${backendStatus}
-        </div>
-      `;
-      container.innerHTML += `
-        <div class="status-card ${tunnelStatus.includes('🔴') ? 'red' : ''}">
-          <span class="status-label">Cloudflare Tunnel:</span> ${tunnelStatus}
-        </div>
-      `;
+      try {
+        const res = await fetch('https://api.wattsun.co.ke/api/health');
+        render('Cloudflare Tunnel', res.ok ? '🟢 OK' : '🔴 DOWN');
+      } catch {
+        render('Cloudflare Tunnel', '🔴 DOWN');
+      }
 
-      timestamp.innerText = \`Last checked: \${new Date().toLocaleTimeString()} — auto-refreshes every 30s\`;
+      timestamp.innerText = `Last checked: ${new Date().toLocaleTimeString()} — auto-refreshing every 30s`;
     }
 
     checkStatus();
