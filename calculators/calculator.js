@@ -67,38 +67,46 @@ const applianceWatts = {
 };
 
 /* Calculate Kit Recommendation */
-function calculateKit() {
-  let totalWatt = 0;
+
+/* API-based Kit Calculation */
+async function calculateKit() {
   const form = document.getElementById('solarForm');
-  Object.keys(applianceWatts).forEach(key => {
-    const qty = parseInt(form[key]?.value) || 0;
-    totalWatt += qty * applianceWatts[key];
-  });
-  let kit = kits.find(k => totalWatt <= k.maxW) || kits[kits.length - 1];
+  const formData = new FormData(form);
+  const data = {};
+  for (let [key, value] of formData.entries()) {
+    data[key] = parseInt(value) || 0;
+  }
   const resultBox = document.getElementById('result');
   resultBox.style.display = 'block';
-  setTimeout(() => {
-    resultBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    resultBox.classList.add('result-flash');
-    setTimeout(() => resultBox.classList.remove('result-flash'), 1000);
-  }, 100);
-  if (totalWatt === 0) {
-    resultBox.innerHTML = `<span style="color:#cf4c0a"><b>No appliances selected.</b><br>Select appliances to get your kit recommendation.</span>`;
-    return;
-  }
-  resultBox.innerHTML = `
-    <div style="margin:0 auto;max-width:350px;">
-      <b>Recommended Kit:</b> <span style="color:#0a7c48">${kit.name}</span><br>
-      <b>Total Estimated Power:</b> ${totalWatt} W<br>
-      <b>Estimated Price:</b> KES ${kit.price.toLocaleString()}<br><br>
-      <div class="calc-btn-row">
-        <button type="button" class="buy-now-btn" data-kit="${kit.name}">Buy Now</button>
-        <a href="solutions.html" class="secondary">Back to Solutions</a>
-      </div>
-    </div>
-  `;
-}
+  resultBox.innerHTML = '<p style="color:#666;">Calculating...</p>';
 
+  try {
+    const res = await fetch("/api/Kitcalculate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error("API error");
+    const result = await res.json();
+    resultBox.innerHTML = `
+      <div style="margin:0 auto;max-width:350px;">
+        <b>Recommended Kit:</b> <span style="color:#0a7c48">${result.recommended}</span><br>
+        <b>Total Estimated Power:</b> ${result.power}<br>
+        <b>Estimated Price:</b> ${result.price}<br><br>
+        <div class="calc-btn-row">
+          <button type="button" class="buy-now-btn" data-kit="${result.recommended}" data-price="${result.price}">Add to Cart</button>
+          <a href="solutions.html" class="secondary">Back to Solutions</a>
+        </div>
+      </div>`;
+    setTimeout(() => {
+      resultBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      resultBox.classList.add('result-flash');
+      setTimeout(() => resultBox.classList.remove('result-flash'), 1000);
+    }, 100);
+  } catch (err) {
+    resultBox.innerHTML = "<p style='color:red;'>Sorry, something went wrong. Please try again.</p>";
+  }
+}
 /* Add to Cart from Calculator */
 function addToCartFromCalculator(itemName, price) {
   const cart = JSON.parse(localStorage.getItem("cart")) || [];
@@ -132,7 +140,10 @@ function showCartNotification(message) {
 document.addEventListener('click', event => {
   if (event.target.classList.contains('buy-now-btn')) {
     const kitName = event.target.getAttribute('data-kit');
-    const kitInfo = kits.find(k => k.name === kitName);
+    
+    const price = event.target.getAttribute('data-price');
+    const kitInfo = kits.find(k => k.name === kitName) || { name: kitName, price: price.replace(/[^0-9]/g, ''), description: '' };
+    
     if (kitInfo) {
       addToCartFromCalculator(kitInfo.name, kitInfo.price);
     }

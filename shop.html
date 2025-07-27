@@ -154,9 +154,6 @@
 <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
 <span class="brand-name">WattSun Solar</span>
 </div>
-
-
-
 <button aria-label="Open menu" class="nav-toggle">☰</button>
 </div>
 <nav>
@@ -169,15 +166,13 @@
 <!-- Cart Icon START -->
 <a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
 <span class="cart-icon">
-          🛒
-          <span class="cart-count-badge" id="cart-count-badge">0</span>
+  🛒
+  <span class="cart-count-badge">0</span>
 </span>
 </a>
 <!-- Cart Icon END -->
 </nav>
 </header>
-<div id="shop-products" class="product-container"></div>
-
 <div class="container">
 <h2>Available Solar Systems</h2>
 <p style="text-align:center; font-style:italic; color:#666;">
@@ -316,112 +311,35 @@
 <footer class="mobile-nav">
 <a aria-label="Home" href="index.html">🏠</a>
 <a aria-label="Account" href="account.html">👤</a>
-<a aria-label="Cart" href="cart.html">🛒<span id="cart-count">0</span></a>
+<a aria-label="Cart" href="cart.html">
+<span class="cart-icon">
+  🛒
+  <span class="cart-count-badge">0</span>
+</span>
+</a>
 <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
 </footer>
-<script>
-    function addToCart(item, price, inputId, description) {
-      const depositValue = document.getElementById(inputId).value;
-      const deposit = Number(depositValue);
-      if (!deposit || isNaN(deposit) || deposit <= 0) {
-        alert("Please enter a valid deposit amount.");
-        return;
-      }
-      let cart = JSON.parse(localStorage.getItem("cart")) || [];
-      const index = cart.findIndex(prod => prod.name === item);
-      if (index !== -1) {
-        cart[index].quantity = (cart[index].quantity || 1) + 1;
-        cart[index].deposit = deposit;
-        if (description) cart[index].description = description;
-      } else {
-        cart.push({ name: item, price: price, quantity: 1, deposit: deposit, description: description });
-      }
-      localStorage.setItem("cart", JSON.stringify(cart));
-      updateCartCountBadge();
-      const toast = document.getElementById("toast");
-      toast.style.display = "block";
-      setTimeout(() => toast.style.display = "none", 3000);
-    }
 
-    function updateCartCountBadge() {
-      let count = 0;
-      try {
-        const cart = JSON.parse(localStorage.getItem("cart")) || [];
-        count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-      } catch (e) {}
-      const badge = document.getElementById('cart-count-badge');
-      if (badge) badge.textContent = count, badge.style.display = count > 0 ? 'flex' : 'none';
-      const mobileCount = document.getElementById('cart-count');
-      if (mobileCount) mobileCount.textContent = count;
-    }
-
-    document.addEventListener('DOMContentLoaded', updateCartCountBadge);
-    window.addEventListener('storage', updateCartCountBadge);
-
-    document.querySelector('.nav-toggle').addEventListener('click', () => {
-      document.querySelector('header').classList.toggle('nav-open');
-    });
-    document.querySelectorAll('header nav a').forEach(link => {
-      link.addEventListener('click', () => document.querySelector('header').classList.remove('nav-open'));
-    });
-  </script>
 
 <script>
-async function loadProducts() {
+function updateCartCountBadge() {
+  let count = 0;
   try {
-    const response = await fetch('/api/items');
-    const products = await response.json();
-    const container = document.getElementById('shop-products');
-    const categoryGroups = {};
-
-    products.forEach(p => {
-      if (!categoryGroups[p.category_name]) {
-        categoryGroups[p.category_name] = [];
-      }
-      categoryGroups[p.category_name].push(p);
-    });
-
-    container.innerHTML = '';
-
-    for (const category in categoryGroups) {
-      const section = document.createElement('section');
-      section.innerHTML = `<h2>${category}</h2><div class="product-grid"></div>`;
-
-      const grid = section.querySelector('.product-grid');
-      categoryGroups[category].forEach(prod => {
-        const card = document.createElement('div');
-        card.className = 'product-card';
-        card.innerHTML = `
-          <img src="images/categories/${prod.image_path}" alt="${prod.name}" />
-          <h3>${prod.name}</h3>
-          <p>${prod.description}</p>
-          <p><strong>KSH ${prod.price.toLocaleString()}</strong></p>
-          <button onclick="addToCart('${prod.sku}', '${prod.name}', ${prod.price})">Buy Now</button>
-        `;
-        grid.appendChild(card);
-      });
-
-      container.appendChild(section);
-    }
-  } catch (error) {
-    console.error("❌ Error loading products:", error);
+    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  } catch(e){}
+  document.querySelectorAll('.cart-count-badge').forEach(badge => {
+    badge.textContent = count;
+    badge.style.display = count > 0 ? 'flex' : 'none';
+  });
+  const mobileCount = document.getElementById('cart-count');
+  if (mobileCount) {
+    mobileCount.textContent = count;
+    mobileCount.style.display = count > 0 ? 'flex' : 'none';
   }
 }
-
-function addToCart(sku, name, price) {
-  const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-  const index = cart.findIndex(item => item.sku === sku);
-  if (index >= 0) {
-    cart[index].quantity += 1;
-  } else {
-    cart.push({ sku, name, price, quantity: 1 });
-  }
-  localStorage.setItem("cart", JSON.stringify(cart));
-  alert(`${name} added to cart`);
-}
-
-window.onload = loadProducts;
+document.addEventListener('DOMContentLoaded', updateCartCountBadge);
+window.addEventListener('storage', updateCartCountBadge);
 </script>
-
 </body>
 </html>

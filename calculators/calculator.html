@@ -131,8 +131,6 @@
 <img alt="WattSun Solar Logo" class="site-logo" src="../assets/logo/Wattsun Solar log2.png"/>
 <span class="brand-name">WattSun Solar</span>
 </div>
-
-
 <button aria-label="Menu" class="nav-toggle" onclick="toggleNav()">☰</button>
 </div>
 <nav>
@@ -144,10 +142,10 @@
 <a href="../projects.html">Projects</a>
 <a href="../contact.html">Contact</a>
 <!-- Cart Icon START -->
-<a aria-label="View shopping cart" class="cart-icon-link" href="../cart.html" title="View cart">
+<a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
 <span class="cart-icon">
-        🛒
-        <span class="cart-count-badge" id="cart-count-badge">0</span>
+  🛒
+  <span class="cart-count-badge">0</span>
 </span>
 </a>
 <!-- Cart Icon END -->
@@ -294,8 +292,34 @@
 <footer class="mobile-nav">
 <a aria-label="Home" href="../index.html">🏠</a>
 <a aria-label="Account" href="../account.html">👤</a>
-<a aria-label="Cart" href="../cart.html">🛒<span id="cart-count">0</span></a>
+<a aria-label="Cart" href="cart.html">
+<span class="cart-icon">
+  🛒
+  <span class="cart-count-badge">0</span>
+</span>
+</a>
 <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
 </footer>
+
+<script>
+function updateCartCountBadge() {
+  let count = 0;
+  try {
+    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  } catch(e){}
+  document.querySelectorAll('.cart-count-badge').forEach(badge => {
+    badge.textContent = count;
+    badge.style.display = count > 0 ? 'flex' : 'none';
+  });
+  const mobileCount = document.getElementById('cart-count');
+  if (mobileCount) {
+    mobileCount.textContent = count;
+    mobileCount.style.display = count > 0 ? 'flex' : 'none';
+  }
+}
+document.addEventListener('DOMContentLoaded', updateCartCountBadge);
+window.addEventListener('storage', updateCartCountBadge);
+</script>
 </body>
 </html>
