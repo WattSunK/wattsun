@@ -138,10 +138,39 @@
     @media (max-width: 768px) {
       h1 img.site-logo { width: auto !important; max-height: 32px !important; margin-right: 8px; }
     }
-  </style>
+  
+    .cart-count-badge {
+      background: #3E9F50 !important;  /* WattSun green */
+      color: white;
+      border-radius: 50%;
+      padding: 2px 6px;
+      font-size: 0.7em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      top: -0.7em;
+      right: -0.7em;
+      box-shadow: 0 0 0.13em #0001;
+      z-index: 1;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    main {
+      flex: 1;
+    }
+    </style>
 </head>
 <body>
-<div id="toast" style="display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#3E9F50; color:white; padding:12px 20px; border-radius:8px; font-size:0.95em; box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:9999; transition:opacity 0.3s ease;">
+<div id="toast" style="display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#3E9F50; color:white; padding:12px 20px; border-radius:8px; font-size:0.95em; box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:9999;">Added to cart!</div><div id="toast" style="display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#3E9F50; color:white; padding:12px 20px; border-radius:8px; font-size:0.95em; box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:9999; transition:opacity 0.3s ease;">
     Added to cart!
   </div>
 <header>
@@ -172,136 +201,7 @@
 </a>
 <!-- Cart Icon END -->
 </nav>
-</header>
-<div class="container">
-<h2>Available Solar Systems</h2>
-<p style="text-align:center; font-style:italic; color:#666;">
-      Note: A minimum deposit of 50% is required for installation to commence.
-    </p>
-<div class="grid">
-<!-- ... all product-cards unchanged ... -->
-<div class="product-card">
-<img alt="1kW Solar System" src="images/solar1kw.jpg"/>
-<div class="product-info">
-<h3>1 kW Solar System</h3>
-<p>Best for small homes, bedsitters, or shops. Runs lights, TV, phone/laptop, and a small fridge for backup.</p>
-<p>Total Price: KES 150,000</p>
-</div>
-<input id="dep1" placeholder="Enter your deposit (KES)" type="number"/>
-<button class="loan-btn" onclick="addToCart(
-          '1 kW Solar System',
-          150000,
-          'dep1',
-          'Best for small homes, bedsitters, or shops. Runs lights, TV, phone/laptop, and a small fridge for backup.'
-        )">Add to Cart</button>
-</div>
-<div class="product-card">
-<img alt="3kW Solar System" src="images/solar3kw.jpg"/>
-<div class="product-info">
-<h3>3 kW Solar System</h3>
-<p>For medium homes, small offices, kiosks or shops. Handles lighting, TV, phone/laptop, and fridge backup.</p>
-<p>Total Price: KES 300,000</p>
-</div>
-<input id="dep3" placeholder="Enter your deposit (KES)" type="number"/>
-<button class="loan-btn" onclick="addToCart(
-          '3 kW Solar System',
-          300000,
-          'dep3',
-          'For medium homes, small offices, kiosks or shops. Handles lighting, TV, phone/laptop, and fridge backup.'
-        )">Add to Cart</button>
-</div>
-<div class="product-card">
-<img alt="6kW Solar System" src="images/solar6kw.jpg"/>
-<div class="product-info">
-<h3>6 kW Solar System</h3>
-<p>Large homes, small businesses, restaurants. Runs multiple kitchen devices (freezer, microwave, fryer), computers, CCTV, Wi-Fi, lighting.</p>
-<p>Total Price: KES 700,000</p>
-</div>
-<input id="dep6" placeholder="Enter your deposit (KES)" type="number"/>
-<button class="loan-btn" onclick="addToCart(
-          '6 kW Solar System',
-          700000,
-          'dep6',
-          'Large homes, small businesses, restaurants. Runs multiple kitchen devices (freezer, microwave, fryer), computers, CCTV, Wi-Fi, lighting.'
-        )">Add to Cart</button>
-</div>
-<div class="product-card">
-<img alt="9kW Solar System" src="images/solar9kw.jpg"/>
-<div class="product-info">
-<h3>9 kW Solar System</h3>
-<p>Extra-large properties and commercial use. Handles full kitchen, multiple HVAC units, heavy machinery.</p>
-<p>Total Price: KES 1,050,000</p>
-</div>
-<input id="dep9" placeholder="Enter your deposit (KES)" type="number"/>
-<button class="loan-btn" onclick="addToCart(
-          '9 kW Solar System',
-          1050000,
-          'dep9',
-          'Extra-large properties and commercial use. Handles full kitchen, multiple HVAC units, heavy machinery.'
-        )">Add to Cart</button>
-</div>
-<div class="product-card">
-<img alt="450W Monocrystalline Solar Panel" src="images/panel450w.jpg"/>
-<div class="product-info">
-<h3>450W Monocrystalline Solar Panel</h3>
-<p>High efficiency solar module for home &amp; industrial use.</p>
-<p>Total Price: KES 29,000</p>
-</div>
-<input id="dep450" placeholder="Enter your deposit (KES)" type="number"/>
-<button class="loan-btn" onclick="addToCart(
-          '450W Monocrystalline Solar Panel',
-          29000,
-          'dep450',
-          'High efficiency solar module for home &amp; industrial use.'
-        )">Add to Cart</button>
-</div>
-<div class="product-card">
-<div class="product-img-placeholder"></div>
-<div class="product-info">
-<h3>Battery 24V 100Ah</h3>
-<p>LiFePO₄ Battery 24V 100Ah – Safe lithium storage with long life and fast charge.</p>
-<p>Total Price: KES 45,000</p>
-</div>
-<input id="dep_batt" placeholder="Enter your deposit (KES)" type="number"/>
-<button class="loan-btn" onclick="addToCart(
-          'Battery 24V 100Ah',
-          45000,
-          'dep_batt',
-          'LiFePO₄ Battery 24V 100Ah – Safe lithium storage with long life and fast charge.'
-        )">Add to Cart</button>
-</div>
-<div class="product-card">
-<div class="product-img-placeholder"></div>
-<div class="product-info">
-<h3>Solar Cleaning Kit</h3>
-<p>Essential tools for keeping your system at peak efficiency.</p>
-<p>Total Price: KES 8,500</p>
-</div>
-<input id="dep_clean" placeholder="Enter your deposit (KES)" type="number"/>
-<button class="loan-btn" onclick="addToCart(
-          'Solar Cleaning Kit',
-          8500,
-          'dep_clean',
-          'Essential tools for keeping your system at peak efficiency.'
-        )">Add to Cart</button>
-</div>
-<div class="product-card">
-<div class="product-img-placeholder"></div>
-<div class="product-info">
-<h3>5kW Inverter</h3>
-<p>Seamlessly manage solar and grid power with hybrid tech.</p>
-<p>Total Price: KES 85,000</p>
-</div>
-<input id="dep_inv5kw" placeholder="Enter your deposit (KES)" type="number"/>
-<button class="loan-btn" onclick="addToCart(
-          '5kW Inverter',
-          85000,
-          'dep_inv5kw',
-          'Seamlessly manage solar and grid power with hybrid tech.'
-        )">Add to Cart</button>
-</div>
-</div>
-</div>
+</header><main><div class="shop-wrapper" style="margin-top: 60px; padding: 10px;"><div class="grid" id="shop-products"></div></div></main>
 <footer>
 <div class="footer-contacts">
 <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>
@@ -319,27 +219,82 @@
 </a>
 <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
 </footer>
-
-
 <script>
 function updateCartCountBadge() {
   let count = 0;
   try {
     const cart = JSON.parse(localStorage.getItem("cart")) || [];
     count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  } catch(e){}
+  } catch (e) {}
   document.querySelectorAll('.cart-count-badge').forEach(badge => {
     badge.textContent = count;
     badge.style.display = count > 0 ? 'flex' : 'none';
   });
   const mobileCount = document.getElementById('cart-count');
-  if (mobileCount) {
-    mobileCount.textContent = count;
-    mobileCount.style.display = count > 0 ? 'flex' : 'none';
+  if (mobileCount) mobileCount.textContent = count;
+}
+
+async function loadProducts() {
+  const container = document.getElementById("shop-products");
+  try {
+    const res = await fetch("/api/items");
+    const products = await res.json();
+    container.innerHTML = "";
+
+    products.forEach((prod, i) => {
+      const id = `dep_${i}`;
+      const image = prod.image_path ? `images/categories/${prod.image_path}` : "images/placeholder.jpg";
+
+      const card = document.createElement("div");
+      card.className = "product-card";
+      card.innerHTML = `
+        <img src="${image}" alt="${prod.name}" />
+        <div class="product-info">
+          <h3>${prod.name}</h3>
+          <p>${prod.description}</p>
+          <p>Total Price: KES ${prod.price.toLocaleString()}</p>
+        </div>
+        <input type="number" id="${id}" placeholder="Enter your deposit (KES)" />
+        <button class="loan-btn" onclick="addToCart('${prod.sku}', '${prod.name}', ${prod.price}, '${id}', '${prod.description.replace("'", "\'")}')">Add to Cart</button>
+      `;
+      container.appendChild(card);
+    });
+
+    updateCartCountBadge();
+  } catch (err) {
+    container.innerHTML = "<p style='color:red;'>Failed to load products. Please try again.</p>";
+    console.error("❌ Error loading products:", err);
   }
 }
-document.addEventListener('DOMContentLoaded', updateCartCountBadge);
+
+function addToCart(sku, name, price, inputId, description) {
+  const depositValue = document.getElementById(inputId).value;
+  const deposit = Number(depositValue);
+  if (!deposit || isNaN(deposit) || deposit <= 0) {
+    alert("Please enter a valid deposit amount.");
+    return;
+  }
+
+  const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+  const index = cart.findIndex(item => item.sku === sku);
+  if (index >= 0) {
+    cart[index].quantity += 1;
+    cart[index].deposit = deposit;
+  } else {
+    cart.push({ sku, name, price, quantity: 1, deposit, description });
+  }
+  localStorage.setItem("cart", JSON.stringify(cart));
+  updateCartCountBadge();
+
+  const toast = document.getElementById("toast");
+  toast.style.display = "block";
+  setTimeout(() => toast.style.display = "none", 2500);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadProducts();
+  updateCartCountBadge();
+});
 window.addEventListener('storage', updateCartCountBadge);
-</script>
-</body>
+</script></body>
 </html>
