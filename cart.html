@@ -413,6 +413,30 @@
         justify-content: center;
       }
     }
+body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    main {
+      flex: 1;
+    }
+    footer {
+      margin-top: auto;
+    }
+table {
+        table-layout: auto !important;
+        word-break: break-word !important;
+      }
+      th, td {
+        white-space: normal !important;
+        font-size: 0.95em !important;
+      }
+@media (max-width: 768px) {
+        th.col-desc, td.col-desc {
+          display: none !important;
+        }
+      }
   </style>
 </head>
 <body>
@@ -440,27 +464,28 @@
 <a href="projects.html">Projects</a>
 <a href="contact.html">Contact</a>
 <!-- Cart Icon START -->
-<a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
-<span class="cart-icon">
-          🛒
-          <span class="cart-count-badge" id="cart-count-badge">0</span>
+<a href="cart.html">🛒 <span id="cart-count" style="color: #19c37d; font-weight: bold;">0</span></a>
+
+
+          <span style="color: #19c37d; font-weight: bold;" class="cart-count-badge" id="cart-count-badge">0</span>
 </span>
 </a>
 <!-- Cart Icon END -->
 </nav>
 </header>
+<main>
 <div class="container">
 <h2>Your Cart</h2>
 <div class="table-wrapper">
-<table id="cartTable">
-<thead>
+<table id="cartTable" style="border: 1px solid #eee; border-radius: 10px;">
+<thead style="background-color: #f9eabb;">
 <tr>
-<th>Product</th>
-<th>Description</th>
-<th class="compact-col">Qty</th>
-<th class="compact-col">Price (KES)</th>
-<th class="compact-col">Deposit (KES)</th>
-<th class="compact-col">Total (KES)</th>
+<th style="min-width:180px;">Product</th>
+<th style="min-width:280px;">Description</th>
+<th class="compact-col" style="min-width:60px; white-space:normal;" style="white-space:normal; word-break:keep-all;">Qty</th>
+<th class="compact-col" style="min-width:60px; white-space:normal;" style="white-space:normal;">Price<br>(KES)</th>
+<th class="compact-col" style="min-width:60px; white-space:normal;" style="white-space:normal;">Deposit<br>(KES)</th>
+<th class="compact-col" style="min-width:60px; white-space:normal;" style="white-space:normal;">Total<br>(KES)</th>
 </tr>
 </thead>
 <tbody></tbody>
@@ -472,96 +497,102 @@
 <button class="btn btn-clear" id="clearCartBtn" style="display:none;" type="button">Clear Cart</button>
 </div>
 </div>
+</main>
 <footer>
     © 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
 </footer>
 <script>
-    // Hamburger menu logic
-    function toggleNav() {
-      var nav = document.getElementById("mainNav");
-      nav.classList.toggle("active");
+  function toggleNav() {
+    document.getElementById("mainNav").classList.toggle("active");
+  }
+  window.addEventListener("resize", function () {
+    if (window.innerWidth > 800) {
+      document.getElementById("mainNav").classList.remove("active");
     }
-    window.addEventListener('resize', function() {
-      if (window.innerWidth > 800) {
-        document.getElementById("mainNav").classList.remove("active");
-      }
-    });
+  });
 
-    document.addEventListener("DOMContentLoaded", function () {
-      const cartTable = document.querySelector("#cartTable tbody");
-      const totalDisplay = document.getElementById("totalAmount");
-      const clearCartBtn = document.getElementById("clearCartBtn");
+  function updateCartCountBadge(count) {
+    const badge = document.getElementById("cart-count-badge");
+    const mobileCount = document.getElementById("cart-count");
+    if (badge) {
+      badge.style.display = count > 0 ? "flex" : "none";
+      badge.textContent = count;
+    }
+    if (mobileCount) {
+      mobileCount.textContent = count;
+    }
+  }
 
-      function loadCart() {
-        const cart = JSON.parse(localStorage.getItem("cart")) || [];
-        cartTable.innerHTML = "";
-        let totalDeposit = 0;
-        let totalCount = 0;
+<script>
+  function toggleNav() {
+    document.getElementById("mainNav").classList.toggle("active");
+  }
+  window.addEventListener("resize", function () {
+    if (window.innerWidth > 800) {
+      document.getElementById("mainNav").classList.remove("active");
+    }
+  });
 
-        cart.forEach(item => {
-          const qty = item.quantity || 1;
-          totalCount += qty;
-          const deposit = item.deposit;
-          const totalPrice = item.price * qty;
-          const totalItemDeposit = deposit * qty;
-          totalDeposit += totalItemDeposit;
+  function updateCartCountBadge(count) {
+    const badge = document.getElementById("cart-count-badge");
+    const mobileCount = document.getElementById("cart-count");
+    if (badge) {
+      badge.style.display = count > 0 ? "flex" : "none";
+      badge.textContent = count;
+    }
+    if (mobileCount) {
+      mobileCount.textContent = count;
+    }
+  }
 
-          const row = document.createElement("tr");
-          row.innerHTML = `
-            <td class="product-col">${item.name}</td>
-            <td class="product-col">${item.description || ''}</td>
-            <td class="compact-col">${qty}</td>
-            <td class="compact-col">${item.price.toLocaleString()}</td>
-            <td class="compact-col">${deposit.toLocaleString()}</td>
-            <td class="compact-col">${totalPrice.toLocaleString()}</td>
-          `;
-          cartTable.appendChild(row);
+  document.addEventListener("DOMContentLoaded", function () {
+    const cartTable = document.querySelector("#cartTable tbody");
+    const totalDisplay = document.getElementById("totalAmount");
+    const clearCartBtn = document.getElementById("clearCartBtn");
+
+    function loadCartFromAPI() {
+      fetch("/api/cart")
+        .then(res => res.json())
+        .then(cart => {
+          cartTable.innerHTML = "";
+          let totalDeposit = 0;
+          let totalCount = 0;
+
+          cart.forEach(item => {
+            const qty = item.quantity || 1;
+            totalCount += qty;
+            const deposit = item.deposit;
+            const totalPrice = item.price * qty;
+            const totalItemDeposit = deposit * qty;
+            totalDeposit += totalItemDeposit;
+
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td class="product-col">${item.name}</td>
+              <td class="product-col col-desc">${item.description || ""}</td>
+              <td class="compact-col">${qty}</td>
+              <td class="compact-col">${item.price.toLocaleString()}</td>
+              <td class="compact-col">${deposit.toLocaleString()}</td>
+              <td class="compact-col">${totalPrice.toLocaleString()}</td>
+            `;
+            cartTable.appendChild(row);
+          });
+
+          totalDisplay.innerText = "Total Deposit: KES " + totalDeposit.toLocaleString();
+          clearCartBtn.style.display = cart.length > 0 ? "inline-block" : "none";
+          updateCartCountBadge(totalCount);
+        })
+        .catch(err => {
+          console.error("Failed to load cart:", err);
         });
+    }
 
-        totalDisplay.innerText = "Total Deposit: KES " + totalDeposit.toLocaleString();
-        clearCartBtn.style.display = cart.length > 0 ? "inline-block" : "none";
-      }
-
-      function clearCart() {
-        localStorage.removeItem("cart");
-        loadCart();
-        updateCartCountBadge();
-      }
-
-      clearCartBtn.addEventListener("click", clearCart);
-      loadCart();
-      updateCartCountBadge();
+    clearCartBtn.addEventListener("click", () => {
+      fetch("/api/cart/clear", { method: "POST" })
+        .then(() => loadCartFromAPI())
+        .catch(err => console.error("Clear cart failed:", err));
     });
 
-    // --- CART BADGE LOGIC ---
-    function updateCartCountBadge() {
-      let count = 0;
-      try {
-        const cart = JSON.parse(localStorage.getItem("cart")) || [];
-        count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-      } catch(e){}
-      const badge = document.getElementById('cart-count-badge');
-      const mobileCount = document.getElementById('cart-count');
-      if (badge) {
-        if (count > 0) {
-          badge.textContent = count;
-          badge.style.display = 'flex';
-        } else {
-          badge.style.display = 'none';
-        }
-      }
-      if (mobileCount) {
-        mobileCount.textContent = count;
-      }
-    }
-    document.addEventListener('DOMContentLoaded', updateCartCountBadge);
-    window.addEventListener('storage', updateCartCountBadge);
-  </script>
-<footer class="mobile-nav">
-<a aria-label="Home" href="index.html">🏠</a>
-<a aria-label="Account" href="account.html">👤</a>
-<a aria-label="Cart" href="cart.html">🛒<span id="cart-count">0</span></a>
-<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
-</footer>
-</body>
-</html>
+    loadCartFromAPI();
+  });
+</script>
