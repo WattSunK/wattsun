@@ -65,19 +65,19 @@
 </head>
 <body>
 <header>
-  <div class="header-bar">
-    <h1 class="desktop-logo">
-      <img src="assets/logo/Wattsun Solar log2.png" alt="WattSun Solar Logo" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
+  <div class="header-bar" style="background: linear-gradient(90deg, #ffc371 0%, #ffb347 100%); padding: 1em; display: flex; justify-content: space-between; align-items: center;">
+    <h1 style="margin: 0; font-size: 1.6em; color: white; display: flex; align-items: center;">
+      <img src="assets/logo/Wattsun Solar log2.png" alt="WattSun Solar Logo" style="height: 40px; margin-right: 10px;" />
       WattSun Solar
     </h1>
-    <nav>
+    <nav style="display: flex; gap: 16px;">
       <a href="index.html">Home</a>
       <a href="solutions.html">Solutions</a>
       <a href="shop.html">Shop</a>
       <a href="financing.html">Financing</a>
       <a href="projects.html">Projects</a>
       <a href="contact.html">Contact</a>
-      <a class="cart-icon-link" href="cart.html">
+      <a class="cart-icon-link" href="cart.html" style="position: relative;">
         🛒 <span class="cart-count-badge">0</span>
       </a>
     </nav>
@@ -89,11 +89,9 @@
   </div>
   <div id="shop-products" class="grid"></div>
 </main>
-<footer>
-  <div class="footer-contacts">
-    <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>
-  </div>
-  <p style="text-align:center;">© 2025 WattSun Solar. All rights reserved.</p>
+<footer style="background: linear-gradient(90deg, #f4c14b 0%, #fbe68b 100%); text-align: center; padding: 1em;">
+  <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>
+  <p>© 2025 WattSun Solar. All rights reserved.</p>
 </footer>
 <script>
 function updateCartCountBadge() {
@@ -115,7 +113,7 @@ function parsePrice(rawPrice) {
 async function loadProducts() {
   const container = document.getElementById("shop-products");
   try {
-    const res = await fetch("/api/items");
+    const res = await fetch("http://192.168.1.52:3001/api/items");
     let products = await res.json();
     container.innerHTML = "";
 
