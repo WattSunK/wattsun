@@ -310,16 +310,6 @@
 <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
 </footer>
 <script>
-
-function syncCartToBackend() {
-  const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-  fetch("/api/cart", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(cart),
-  }).catch(console.error);
-}
-
 document.addEventListener("DOMContentLoaded", function () {
   const loanForm = document.getElementById("loanForm");
   const resultDiv = document.getElementById("result");
@@ -403,7 +393,6 @@ document.addEventListener("DOMContentLoaded", function () {
             monthly: kit.monthly
           });
           localStorage.setItem('cart', JSON.stringify(cart));
-          syncCartToBackend();
           updateCartCount();
           btn.remove();
           document.getElementById('loanForm').reset();
@@ -453,7 +442,6 @@ document.addEventListener("DOMContentLoaded", function () {
           monthly: kit.monthly
         });
         localStorage.setItem('cart', JSON.stringify(cart));
-          syncCartToBackend();
         updateCartCount();
         btn.remove();
         document.getElementById('loanForm').reset();
@@ -480,7 +468,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
-
+<!-- Updated for Git detection -->
 </script>
 <script>
 function updateCartCountBadge() {
@@ -502,7 +490,7 @@ function updateCartCountBadge() {
 document.addEventListener('DOMContentLoaded', updateCartCountBadge);
 window.addEventListener('storage', updateCartCountBadge);
 
-
+<!-- Updated for Git detection -->
 </script>
 </body>
 </html>

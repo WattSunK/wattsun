@@ -191,7 +191,7 @@ footer {
 <a href="projects.html">Projects</a>
 <a href="contact.html">Contact</a>
 <!-- Cart Icon START -->
-<a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
+<a aria-label="View shopping cart" class="cart-icon-link" href="/cart.html" title="View cart">
   <span class="cart-icon">
     🛒
     <span class="cart-count-badge" style="background:#19c37d; color:white; font-weight:bold;">0</span>
@@ -209,17 +209,6 @@ footer {
   <!-- Products will be dynamically loaded here -->
 </div>
 <script>
-
-function syncCartToBackend() {
-  const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-  console.log('📤 Syncing cart to backend...');
-  fetch("/api/cart", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(cart),
-  }).catch(console.error);
-}
-
   function parsePrice(raw) {
     return parseInt((raw || '').replace(/[^\d]/g, '')) || 0;
   }
@@ -285,7 +274,6 @@ function syncCartToBackend() {
         cart.push({ name: item, price: price, quantity: 1, deposit: deposit, description: description });
       }
       localStorage.setItem("cart", JSON.stringify(cart));
-      syncCartToBackend();
       updateCartCountBadge();
       const toast = document.getElementById("toast");
       toast.style.display = "block";

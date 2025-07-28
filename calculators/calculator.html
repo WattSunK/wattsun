@@ -142,7 +142,7 @@
 <a href="../projects.html">Projects</a>
 <a href="../contact.html">Contact</a>
 <!-- Cart Icon START -->
-<a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
+<a aria-label="View shopping cart" class="cart-icon-link" href="/cart.html" title="View cart">
   <span class="cart-icon">
     🛒
     <span class="cart-count-badge" style="background:#19c37d; color:white; font-weight:bold;">0</span>
@@ -301,16 +301,6 @@
 </footer>
 
 <script>
-
-function syncCartToBackend() {
-  const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-  fetch("/api/cart", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(cart),
-  }).catch(console.error);
-}
-
 function updateCartCountBadge() {
   let count = 0;
   try {
