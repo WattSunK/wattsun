@@ -192,13 +192,12 @@ footer {
 <a href="contact.html">Contact</a>
 <!-- Cart Icon START -->
 <a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
-<span class="cart-icon">
-          🛒
-          <span class="cart-count-badge" id="cart-count-badge">0</span>
-</span>
+  <span class="cart-icon">
+    🛒
+    <span class="cart-count-badge" style="background:#19c37d; color:white; font-weight:bold;">0</span>
+  </span>
 </a>
-<!-- Cart Icon END -->
-</nav>
+<!-- Cart Icon END --></nav>
 </header>
 <div class="container" style="flex: 1;">
 <h2>Available Solar Systems</h2>
@@ -265,7 +264,7 @@ function syncCartToBackend() {
 <footer class="mobile-nav">
 <a aria-label="Home" href="index.html">🏠</a>
 <a aria-label="Account" href="account.html">👤</a>
-<a aria-label="Cart" href="cart.html">🛒<span id="cart-count">0</span></a>
+<a aria-label="Cart" href="cart.html">🛒<span id="cart-count" style="background:#19c37d; color:white;">0</span></a>
 <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
 </footer>
 <script>

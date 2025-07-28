@@ -1,159 +1,77 @@
 <!DOCTYPE html>
 
+<!DOCTYPE html>
+
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<title>Flexible Solar Financing Options</title>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta charset="utf-8"/>
+<title>Shop - WattSun</title>
 <link href="main.css" rel="stylesheet"/>
 <style>
-    /* Fix hamburger alignment */
-    .header-bar {
+    html, body { height: 100%; min-height: 100%; box-sizing: border-box; }
+    body { display: flex; flex-direction: column; min-height: 100vh; background: #fffdf7; }
+    header {
+  order: 0; flex-shrink: 0; }
+    .container { max-width: 1200px; margin: 28px auto 0 auto; padding: 18px 5px 0 5px; flex: 1; display: flex; flex-direction: column; }
+    h2 { text-align: center; margin-bottom: 12px; }
+    .product-card { background: #fff; border-radius: 16px; box-shadow: 0 6px 28px -7px rgba(0,0,0,0.10); padding: 20px 18px 22px 18px; text-align: center; display: flex; flex-direction: column; align-items: center; min-width: 0; min-height: 0; border: none; transition: box-shadow 0.16s; }
+    .product-card:hover { box-shadow: 0 12px 36px -9px #f7b73355; transform: translateY(-2px) scale(1.03); box-shadow: 0 6px 22px #f7b73333; }
+    .product-card img, .product-img-placeholder { width: 100%; height: 90px; object-fit: cover; border-radius: 10px 10px 0 0; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); background: #f7f2e9; display: block; }
+    .product-info { min-height: 102px; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; width: 100%; }
+    .product-card h3 { font-size: 1.17em; margin: 7px 0 4px 0; color: #191813; font-weight: bold; text-align: center; width: 100%; letter-spacing: 0.05em; }
+    .product-card p { font-size: 14px; margin: 3px 0 0 0; color: #444; text-align: center; width: 100%; }
+    .product-card input { width: 100%; padding: 10px; margin: 15px 0 10px 0; border-radius: 7px; border: 1px solid #eee1b9; font-size: 15px; }
+    .product-card .loan-btn, .product-card button { background: linear-gradient(90deg, #f7b733 0%, #fcf6ba 100%); color: #965700 !important; padding: 7px 24px; font-size: 1em; font-weight: bold; border: none; border-radius: 9px; cursor: pointer; box-shadow: 0 3px 12px #f7b73333; transition: background 0.3s, transform 0.2s, box-shadow 0.2s; letter-spacing: 0.5px; width: auto; margin-top: 0; margin-bottom: 0; display: inline-block; align-self: center; min-width: 0; }
+    .product-card .loan-btn:hover, .product-card button:hover { background: linear-gradient(90deg, #fcf6ba 0%, #f7b733 100%); color: #b37900 !important; }
+    @media (max-width: 600px) {
+      .container { padding: 0.5em; }
+      .product-card img, .product-img-placeholder { height: 48px !important; max-height: 48px !important; }
+      .product-info { min-height: 50px !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
+      .grid { grid-template-columns: 1fr; gap: 16px 0; }
+    }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 36px 20px; }
+    @media (max-width: 1000px) { .grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 600px) { .grid { grid-template-columns: 1fr; gap: 16px 0; } }
+
+    /* Cart Icon in NavBar */
+    .cart-icon-link {
       position: relative;
+      display: inline-block;
+      text-decoration: none;
+      color: inherit;
+      vertical-align: middle;
+      margin-left: 10px;
+    }
+    .cart-icon {
+      font-size: 1.24em;
       display: flex;
-      justify-content: center;
       align-items: center;
+      position: relative;
     }
-    .nav-toggle {
+    .cart-count-badge {
       position: absolute;
-      right: 20px;
-      top: 50%;
-      transform: translateY(-50%);
-      display: flex !important;
-      cursor: pointer;
-      background: none;
-      border: none;
-      font-size: 2.2em;
-      color: #fff;
-      height: 44px;
-      width: 44px;
+      top: -0.7em;
+      right: -0.7em;
+      background: red;
+      color: white;
+      border-radius: 50%;
+      padding: 2px 6px;
+      font-size: 0.7em;
+      display: none;
       align-items: center;
       justify-content: center;
+      box-shadow: 0 0 0.13em #0001;
+      transition: background 0.2s;
+      pointer-events: none;
+      z-index: 1;
     }
 
-    /* Mobile nav toggle */
-    @media (max-width: 700px) {
-      nav {
-        display: none;
-      }
-      header.nav-open nav {
-        display: flex !important;
-        flex-direction: column;
-        background: #ffc947;
-        padding-bottom: 8px;
-        border-top: 1.5px solid #ffd67a;
-      }
-      nav a {
-        color: #fff;
-        padding: 12px 34px;
-        border-bottom: 1px solid #f2e2b6;
-        font-weight: 700;
-      }
-      nav a:last-child {
-        border-bottom: none;
-      }
-    }
-
-    /* Other styles */
-    body {
-      background: #f7f7f7;
-      margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
-      color: #333;
-    }
-    .container {
-      max-width: 700px;
-      margin: 40px auto;
-      background: #fff;
-      padding: 40px 35px 30px 35px;
-      border-radius: 12px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
-    }
-    h2 {
-      text-align: center;
-      margin-bottom: 20px;
-      font-size: 2em;
-      font-weight: bold;
-      letter-spacing: 0.1px;
-    }
-    p {
-      font-size: 1.13em;
-      line-height: 1.5;
-      margin-bottom: 28px;
-      text-align: center;
-    }
-    label {
-      display: block;
-      margin: 15px 0 6px 0;
-      font-weight: bold;
-      font-size: 1.11em;
-    }
-    input, select {
-      width: 100%;
-      padding: 13px 12px;
-      margin-bottom: 13px;
-      border: 1.2px solid #ccc;
-      border-radius: 5px;
-      font-size: 1em;
-      box-sizing: border-box;
-      background: #faf9f7;
-      transition: border-color 0.2s;
-    }
-    input:focus, select:focus {
-      border-color: #f7b733;
-      outline: none;
-    }
-    button {
-      width: 100%;
-      background: #ffc043;
-      color: #fff;
-      border: none;
-      padding: 15px;
-      border-radius: 6px;
-      font-size: 1.15em;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s, color 0.2s;
-      margin-top: 10px;
-      margin-bottom: 8px;
-      box-shadow: 0 3px 18px rgba(247,183,51,0.11);
-      letter-spacing: 0.04em;
-    }
-    button:hover {
-      background: #ffb347;
-      color: #965700;
-    }
-    .result {
-      margin-top: 18px;
-      text-align: center;
-      font-weight: bold;
-      font-size: 1.16em;
-    }
-    .disclaimer {
-      font-size: 0.98em;
-      text-align: center;
-      color: #888;
-      margin-top: 14px;
-    }
-    @media (max-width: 800px) {
-      .container {
-        max-width: 98vw;
-        padding: 22px 5vw;
-      }
-    }
-  
-    .cart-btn { background: #ffc043; color: white; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 3px 12px rgba(0,0,0,0.06); }
-
-/* === Mobile Enhancements === */
+    /* === Mobile Sticky Footer === */
     .mobile-nav {
       display: none;
     }
     @media (max-width: 768px) {
-      header {
-        height: 56px;
-      }
-
       .mobile-nav {
         display: flex;
         position: fixed;
@@ -165,41 +83,8 @@
         align-items: center;
         z-index: 1000;
         box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
-      }
-
-      .mobile-nav a {
-        font-size: 24px;
-        text-decoration: none;
-        color: black;
-        position: relative;
-        line-height: 1;
-      }
-
-      #cart-count {
-        background: red;
-        color: white;
-        border-radius: 50%;
-        padding: 2px 6px;
-        font-size: 12px;
-        position: absolute;
-        top: -8px;
-        right: -12px;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .mobile-nav a {
-        font-size: 20px;
-        padding: 6px;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .mobile-nav {
-        height: 56px;
         padding: 0;
       }
-
       .mobile-nav a {
         font-size: 20px;
         height: 56px;
@@ -210,15 +95,10 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        text-decoration: none;
+        color: black;
+        position: relative;
       }
-
-      #cart-count {
-        top: 4px;
-        right: 10px;
-      }
-    }
-
-    @media (max-width: 768px) {
       #cart-count {
         position: absolute;
         top: 6px;
@@ -237,11 +117,57 @@
       }
     }
 
+    /* === Desktop & Mobile Logo Styles from index.html === */
+    .logo-container { display: none; }
+    .desktop-logo { display: block; }
+    .brand-name { font-size: 1.8em; font-weight: bold; color: white; white-space: nowrap; }
+    .site-logo { height: 48px; max-width: 48px; object-fit: contain; vertical-align: middle; }
     @media (max-width: 768px) {
+      .desktop-logo { display: none; }
+      .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        white-space: nowrap;
+        padding: 4px 12px;
+        height: 56px;
+        margin-left: 10px;
+      }
+      .site-logo { height: auto; max-height: 36px; object-fit: contain; }
+      .brand-name { font-size: 1.3em; }
     }
+    @media (max-width: 768px) {
+      h1 img.site-logo { width: auto !important; max-height: 32px !important; margin-right: 8px; }
+    }
+  
+html, body {
+  height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.container {
+  flex: 1;
+}
+footer {
+  order: 99;
+  flex-shrink: 0;
+  margin-top: auto;
+  width: 100%;
+}
+
 </style>
 </head>
 <body>
+<div id="toast" style="display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#3E9F50; color:white; padding:12px 20px; border-radius:8px; font-size:0.95em; box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:9999; transition:opacity 0.3s ease;">
+    Added to cart!
+  </div>
+<footer>
+<div class="footer-contacts">
+<a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>
+</div>
+<p>© 2025 WattSun Solar. All rights reserved.</p>
+</footer>
 <header>
 <div class="header-bar">
 <h1 class="desktop-logo">
@@ -252,67 +178,41 @@
 <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
 <span class="brand-name">WattSun Solar</span>
 </div>
-<button aria-label="Open menu" class="nav-toggle" onclick="toggleNav()">☰</button>
+
+
+
+<button aria-label="Open menu" class="nav-toggle">☰</button>
 </div>
 <nav>
 <a href="index.html">Home</a>
 <a href="solutions.html">Solutions</a>
 <a href="shop.html">Shop</a>
-<a aria-current="page" class="active" href="financing.html">Financing</a>
+<a href="financing.html">Financing</a>
 <a href="projects.html">Projects</a>
 <a href="contact.html">Contact</a>
-<span id="cartLinkWrapper" style="display:none;">
-<a aria-label="View shopping cart" href="cart.html" title="View cart">
-<span class="cart-icon">
-  🛒
-  <span class="cart-count-badge">0</span>
-</span>
+<!-- Cart Icon START -->
+<a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
+  <span class="cart-icon">
+    🛒
+    <span class="cart-count-badge" style="background:#19c37d; color:white; font-weight:bold;">0</span>
+  </span>
 </a>
-</span>
-</nav>
+<!-- Cart Icon END --></nav>
 </header>
-<div class="container">
-<h2>Flexible Solar Financing Options</h2>
-<p>
-    WattSun Solar offers tailored financing plans to help you transition to clean, renewable energy without the burden of large upfront costs. Use the estimator below to calculate your expected monthly repayment based on system size and interest terms.
-  </p>
-<form id="loanForm">
-<label for="system">Select System Size:</label>
-<select id="system" required="">
-<option value="">-- Select --</option>
-<option value="150000">1 kW – KES 150,000</option>
-<option value="400000">3 kW – KES 400,000</option>
-<option value="700000">6 kW – KES 700,000</option>
-<option value="1050000">9 kW – KES 1,050,000</option>
-<option value="1420000">12 kW – KES 1,420,000</option>
-</select>
-<label for="deposit">Your Deposit (KES):</label>
-<input id="deposit" min="0" required="" type="number"/>
-<label for="term">Loan Term (Months):</label>
-<input id="term" max="36" min="6" required="" type="number" value="36"/>
-<button type="submit">Calculate Loan</button>
-</form>
-<div class="result" id="result"></div>
-<div class="disclaimer">* This is an indicative estimate. Actual loan terms may vary.</div>
+<div class="container" style="flex: 1;">
+<h2>Available Solar Systems</h2>
+<p style="text-align:center; font-style:italic; color:#666;">
+      Note: A minimum deposit of 50% is required for installation to commence.
+    </p>
+
+<div class="grid" id="shop-products">
+  <!-- Products will be dynamically loaded here -->
 </div>
-<footer>
-  © 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
-</footer>
-<footer class="mobile-nav">
-<a aria-label="Home" href="index.html">🏠</a>
-<a aria-label="Account" href="account.html">👤</a>
-<a aria-label="Cart" href="cart.html">
-<span class="cart-icon">
-  🛒
-  <span class="cart-count-badge">0</span>
-</span>
-</a>
-<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
-</footer>
 <script>
 
 function syncCartToBackend() {
   const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+  console.log('📤 Syncing cart to backend...');
   fetch("/api/cart", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -320,189 +220,99 @@ function syncCartToBackend() {
   }).catch(console.error);
 }
 
-document.addEventListener("DOMContentLoaded", function () {
-  const loanForm = document.getElementById("loanForm");
-  const resultDiv = document.getElementById("result");
-  const navToggle = document.querySelector(".nav-toggle");
-  const header = document.querySelector("header");
-  const nav = document.querySelector("header nav");
-
-  // Toggle menu open/close
-  if (navToggle && header) {
-    navToggle.addEventListener("click", function (e) {
-      e.stopPropagation();
-      header.classList.toggle("nav-open");
-    });
+  function parsePrice(raw) {
+    return parseInt((raw || '').replace(/[^\d]/g, '')) || 0;
   }
 
-  // Close menu if clicking outside
-  document.body.addEventListener("click", function (e) {
-    if (
-      header.classList.contains("nav-open") &&
-      !nav.contains(e.target) &&
-      !navToggle.contains(e.target)
-    ) {
-      header.classList.remove("nav-open");
-    }
-  }, true);
-
-  // Scroll and highlight result
-  
-  loanForm.addEventListener("submit", async function(e) {
-    e.preventDefault();
-
-    const price = parseFloat(document.getElementById('system').value);
-    const deposit = parseFloat(document.getElementById('deposit').value);
-    const term = parseInt(document.getElementById('term').value);
-    const resultDiv = document.getElementById("result");
-
-    if (!price || isNaN(deposit) || isNaN(term)) {
-      resultDiv.textContent = "Please fill in all fields.";
-      return;
-    }
-
+  async function loadProducts() {
+    const box = document.getElementById("shop-products");
     try {
-      const res = await fetch("/api/finance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ price, deposit, term })
+      const res = await fetch("/api/items");
+      const items = await res.json();
+      box.innerHTML = "";
+      const priority = ["SYS-1KW","SYS-3KW","SYS-6KW","SYS-9KW","INV-5KW","KIT-CLEAN","BATT-24V100AH","PANEL-450W"];
+      const sorted = [...items.filter(p=>priority.includes(p.sku)), ...items.filter(p=>!priority.includes(p.sku))];
+      sorted.forEach((prod, idx) => {
+        const img = prod.image ? "images/categories/" + prod.image : "images/placeholder.jpg";
+        const price = parsePrice(prod.price);
+        const id = "dep_" + idx;
+        const card = document.createElement("div");
+        card.className = "product-card";
+        const safeDesc = (prod.description || "").replace(/'/g, "");
+        card.innerHTML = `
+          <img src="${img}" alt="${prod.name}" onerror="this.src='images/placeholder.jpg'" />
+          <div class="product-info">
+            <h3>${prod.name}</h3>
+            <p>${prod.description}</p>
+            <p>Total Price: KES ${price.toLocaleString()}</p>
+          </div>
+          <input id="${id}" placeholder="Enter your deposit (KES)" type="number"/>
+          <button class="loan-btn" onclick="addToCart('${prod.name}', ${price}, '${id}', '${safeDesc}')">Add to Cart</button>
+        `;
+        box.appendChild(card);
       });
-
-      if (!res.ok) throw new Error("Finance API error");
-
-      const data = await res.json();
-      const display = "Loan Amount: KES " + Number(data.loanAmount).toLocaleString("en-KE") +
-                      " | Monthly Repayment: KES " + Number(data.monthly).toLocaleString("en-KE");
-
-      resultDiv.textContent = display;
-      resultDiv.scrollIntoView({ behavior: "smooth", block: "center" });
-      resultDiv.style.transition = "background 0.3s ease-in-out";
-      resultDiv.style.background = "#fff5c2";
-      setTimeout(() => {
-        resultDiv.style.background = "transparent";
-      }, 2200);
-
-      localStorage.setItem('loanKit', JSON.stringify(data));
-
-      if (!document.getElementById('addToCartBtn')) {
-        const btn = document.createElement('button');
-        btn.textContent = "Add to Cart";
-        btn.id = "addToCartBtn";
-        btn.className = "cart-btn";
-        btn.style.margin = '14px auto 0';
-        btn.style.display = 'block';
-        btn.style.padding = '12px 28px';
-        btn.onclick = function() {
-          const kit = JSON.parse(localStorage.getItem('loanKit'));
-          const cart = JSON.parse(localStorage.getItem('cart')) || [];
-          cart.push({
-            name: "Loan Kit – " + kit.system,
-            price: kit.price,
-            deposit: kit.deposit,
-            term: kit.term,
-            monthly: kit.monthly
-          });
-          localStorage.setItem('cart', JSON.stringify(cart));
-          syncCartToBackend();
-          updateCartCount();
-          btn.remove();
-          document.getElementById('loanForm').reset();
-          resultDiv.textContent = "Loan added to cart!";
-          resultDiv.scrollIntoView({ behavior: "smooth", block: "center" });
-        };
-        document.querySelector('.disclaimer').after(btn);
-      }
-
-    } catch (err) {
-      resultDiv.textContent = "Something went wrong. Please try again.";
-      console.error(err);
+    } catch (e) {
+      console.error("Failed to load products:", e);
+      box.innerHTML = "<p style='color:red;'>Failed to load products.</p>";
     }
-  });
-
-    resultDiv.style.transition = "background 0.3s ease-in-out";
-    resultDiv.style.background = "#fff5c2";
-    setTimeout(() => {
-      resultDiv.style.background = "transparent";
-    }, 2200);
-
-    localStorage.setItem('loanKit', JSON.stringify({
-      system: document.getElementById('system').selectedOptions[0].text,
-      price: price,
-      deposit: deposit,
-      loanAmount: loanAmount,
-      term: term,
-      monthly: monthlyRepayment.toFixed(0)
-    }));
-
-    if (!document.getElementById('addToCartBtn')) {
-      const btn = document.createElement('button');
-      btn.textContent = "Add to Cart";
-      btn.id = "addToCartBtn";
-      btn.className = "cart-btn";
-      btn.style.margin = '14px auto 0';
-      btn.style.display = 'block';
-      btn.style.padding = '12px 28px';
-      btn.onclick = function() {
-        const kit = JSON.parse(localStorage.getItem('loanKit'));
-        const cart = JSON.parse(localStorage.getItem('cart')) || [];
-        cart.push({
-          name: "Loan Kit – " + kit.system,
-          price: kit.price,
-          deposit: kit.deposit,
-          term: kit.term,
-          monthly: kit.monthly
-        });
-        localStorage.setItem('cart', JSON.stringify(cart));
-          syncCartToBackend();
-        updateCartCount();
-        btn.remove();
-        document.getElementById('loanForm').reset();
-        resultDiv.textContent = "Loan added to cart!";
-        resultDiv.scrollIntoView({ behavior: "smooth", block: "center" });
-      };
-      document.querySelector('.disclaimer').after(btn);
-    }
-  });
-
-  function updateCartCount() {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    const count = cart.length;
-    const badgeDesktop = document.getElementById("cartCount");
-    const badgeMobile = document.getElementById("cart-count");
-    if (badgeDesktop) badgeDesktop.textContent = count;
-    if (badgeMobile) badgeMobile.textContent = count;
   }
 
-  const wrapper = document.getElementById("cartLinkWrapper");
-  if (wrapper) {
-    wrapper.style.display = "inline-block";
-    updateCartCount();
-  }
-});
-
-
+  document.addEventListener('DOMContentLoaded', loadProducts);
 </script>
+
+
+<footer class="mobile-nav">
+<a aria-label="Home" href="index.html">🏠</a>
+<a aria-label="Account" href="account.html">👤</a>
+<a aria-label="Cart" href="cart.html">🛒<span id="cart-count" style="background:#19c37d; color:white;">0</span></a>
+<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
+</footer>
 <script>
-function updateCartCountBadge() {
-  let count = 0;
-  try {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  } catch(e){}
-  document.querySelectorAll('.cart-count-badge').forEach(badge => {
-    badge.textContent = count;
-    badge.style.display = count > 0 ? 'flex' : 'none';
-  });
-  const mobileCount = document.getElementById('cart-count');
-  if (mobileCount) {
-    mobileCount.textContent = count;
-    mobileCount.style.display = count > 0 ? 'flex' : 'none';
-  }
-}
-document.addEventListener('DOMContentLoaded', updateCartCountBadge);
-window.addEventListener('storage', updateCartCountBadge);
+    function addToCart(item, price, inputId, description) {
+      const depositValue = document.getElementById(inputId).value;
+      const deposit = Number(depositValue);
+      if (!deposit || isNaN(deposit) || deposit <= 0) {
+        alert("Please enter a valid deposit amount.");
+        return;
+      }
+      let cart = JSON.parse(localStorage.getItem("cart")) || [];
+      const index = cart.findIndex(prod => prod.name === item);
+      if (index !== -1) {
+        cart[index].quantity = (cart[index].quantity || 1) + 1;
+        cart[index].deposit = deposit;
+        if (description) cart[index].description = description;
+      } else {
+        cart.push({ name: item, price: price, quantity: 1, deposit: deposit, description: description });
+      }
+      localStorage.setItem("cart", JSON.stringify(cart));
+      syncCartToBackend();
+      updateCartCountBadge();
+      const toast = document.getElementById("toast");
+      toast.style.display = "block";
+      setTimeout(() => toast.style.display = "none", 3000);
+    }
 
+    function updateCartCountBadge() {
+      let count = 0;
+      try {
+        const cart = JSON.parse(localStorage.getItem("cart")) || [];
+        count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+      } catch (e) {}
+      const badge = document.getElementById('cart-count-badge');
+      if (badge) badge.textContent = count, badge.style.display = count > 0 ? 'flex' : 'none';
+      const mobileCount = document.getElementById('cart-count');
+      if (mobileCount) mobileCount.textContent = count;
+    }
 
-</script>
+    document.addEventListener('DOMContentLoaded', updateCartCountBadge);
+    window.addEventListener('storage', updateCartCountBadge);
+
+    document.querySelector('.nav-toggle').addEventListener('click', () => {
+      document.querySelector('header').classList.toggle('nav-open');
+    });
+    document.querySelectorAll('header nav a').forEach(link => {
+      link.addEventListener('click', () => document.querySelector('header').classList.remove('nav-open'));
+    });
+  </script>
 </body>
 </html>

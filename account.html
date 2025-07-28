@@ -244,5 +244,26 @@ function updateCartCountBadge() {
 document.addEventListener('DOMContentLoaded', updateCartCountBadge);
 window.addEventListener('storage', updateCartCountBadge);
 </script>
+
+<script>
+document.querySelector('button').addEventListener('click', async () => {
+  const phone = document.querySelector('input[type="tel"]').value.trim();
+  if (!phone) return alert("Please enter your phone number.");
+
+  const res = await fetch("/api/track", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone })
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    alert(data.error || "Something went wrong.");
+    return;
+  }
+
+  alert(`Status: ${data.status}\nLast Updated: ${new Date(data.updatedAt).toLocaleString()}\n\nItems: ${data.cart_summary}`);
+});
+</script>
 </body>
 </html>
