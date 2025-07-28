@@ -210,6 +210,16 @@ footer {
   <!-- Products will be dynamically loaded here -->
 </div>
 <script>
+
+function syncCartToBackend() {
+  const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+  fetch("/api/cart", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cart),
+  }).catch(console.error);
+}
+
   function parsePrice(raw) {
     return parseInt((raw || '').replace(/[^\d]/g, '')) || 0;
   }
@@ -275,6 +285,7 @@ footer {
         cart.push({ name: item, price: price, quantity: 1, deposit: deposit, description: description });
       }
       localStorage.setItem("cart", JSON.stringify(cart));
+      syncCartToBackend();
       updateCartCountBadge();
       const toast = document.getElementById("toast");
       toast.style.display = "block";
