@@ -213,6 +213,7 @@ footer {
 
 function syncCartToBackend() {
   const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+  console.log('📤 Syncing cart to backend...');
   fetch("/api/cart", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
