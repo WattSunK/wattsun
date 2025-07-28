@@ -257,6 +257,15 @@ footer {
 <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
 </footer>
 <script>
+    function syncCartToBackend() {
+      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+      fetch("/api/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cart)
+      }).catch(console.error);
+    }
+
     function addToCart(item, price, inputId, description) {
       const depositValue = document.getElementById(inputId).value;
       const deposit = Number(depositValue);
@@ -274,6 +283,7 @@ footer {
         cart.push({ name: item, price: price, quantity: 1, deposit: deposit, description: description });
       }
       localStorage.setItem("cart", JSON.stringify(cart));
+      syncCartToBackend();
       updateCartCountBadge();
       const toast = document.getElementById("toast");
       toast.style.display = "block";

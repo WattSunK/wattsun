@@ -1,387 +1,443 @@
 <!DOCTYPE html>
 
-<!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Checkout - WattSun Solar</title>
+<title>Cart - WattSun Solar</title>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
 <link href="main.css" rel="stylesheet"/>
-<style>.container {
-  max-width: 950px;
-  width: 98vw;
-  margin: 44px auto 0 auto;
-  padding: 38px 24px 30px 24px;
-  background: #fff;
-  border-radius: 13px;
-  box-shadow: 0 4px 20px rgba(247,183,51,0.10), 0 1.5px 9px rgba(0,0,0,0.04);
-  box-sizing: border-box;
-}
-h2 {
-  text-align: center;
-  margin-bottom: 26px;
-  font-size: 2em;
-  font-weight: bold;
-  color: #b47d08;
-}
-/* --- CART TABLE STYLE --- */
-.table-wrapper {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: auto;
-  box-sizing: border-box;
-  background: #fff;
-  border-radius: 10px;
-}
-.checkout-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  background: #fff;
-  margin-bottom: 22px;
-  border-radius: 10px;
-  box-shadow: 0 1px 8px rgba(0,0,0,0.07);
-  overflow: hidden;
-  table-layout: auto;
-  font-size: 0.97em;
-  box-sizing: border-box;
-}
-.checkout-table th, .checkout-table td {
-  text-align: left;
-  padding: 14px 12px;
-  border-bottom: 1px solid #f2e2b6;
-  font-size: 1em;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-}
-.checkout-table th {
-  background-color: #f9eabb;
-  color: #444;
-  font-weight: bold;
-  text-align: center;
-  vertical-align: middle;
-}
-.checkout-table td.product-col {
-  text-align: left;
-  font-weight: 500;
-  min-width: 120px;
-  max-width: 180px;
-  width: 24%;
-  word-break: break-word;
-  white-space: normal;
-}
-.checkout-table td.desc-col {
-  min-width: 110px;
-  max-width: 230px;
-  width: 28%;
-  white-space: normal;
-}
-.checkout-table th.compact-col, .checkout-table td.compact-col {
-  width: 70px;
-  min-width: 45px;
-  max-width: 90px;
-  text-align: right;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-  padding-left: 0;
-  padding-right: 0;
-  vertical-align: middle;
-}
-.checkout-table th.compact-col {
-  line-height: 1.15;
-}
-.checkout-table th.compact-col br {
-  display: block;
-  margin: 0;
-  padding: 0;
-  content: "";
-}
-@media (max-width: 900px) {
-  .checkout-table th, .checkout-table td { font-size: 0.98em; }
-}
-@media (max-width: 700px) {
-  .checkout-table th, .checkout-table td { padding: 8px 4px; font-size: 0.96em; }
-  .checkout-table td.product-col { min-width: 80px; max-width: 120px; }
-  .checkout-table td.desc-col { min-width: 50px; max-width: 120px; }
-}
-/* --- FORM STYLE (unchanged) --- */
-.checkout-form {
-  margin-top: 20px;
-}
-.checkout-form label {
-  display: block;
-  margin-bottom: 7px;
-  font-weight: bold;
-  font-size: 1.04em;
-  margin-top: 12px;
-}
-.checkout-form input,
-.checkout-form textarea {
-  width: 100%;
-  padding: 14px 12px;
-  margin-bottom: 16px;
-  border: 1.2px solid #ccc;
-  border-radius: 12px;
-  font-size: 1em;
-  background: #faf9f7;
-  transition: border-color 0.2s;
-  box-sizing: border-box;
-  max-width: 100%;
-  resize: vertical;
-  display: block;
-}
-.checkout-form input:focus,
-.checkout-form textarea:focus {
-  border-color: #f7b733;
-  outline: none;
-}
-@media (max-width: 700px) {
-  .checkout-form input,
-  .checkout-form textarea {
-    padding: 18px 14px;
-    margin-bottom: 20px;
-  }
-}
-.checkout-actions {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  margin-top: 12px;
-  margin-bottom: 6px;
-  width: 100%;
-}
-.checkout-actions .btn,
-.checkout-actions .loan-btn {
-  min-width: 120px;
-  max-width: 170px;
-  width: auto !important;
-  font-size: 1em;
-  padding: 9px 18px;
-  margin: 0;
-  display: inline-block;
-  box-sizing: border-box;
-}
-.btn, .loan-btn {
-  border: none;
-  border-radius: 8px;
-  color: #fff;
-  background: linear-gradient(90deg, #f7b733 0%, #fcf6ba 100%);
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(247,183,51, 0.14);
-  letter-spacing: 0.5px;
-  text-decoration: none;
-  transition: background 0.3s, transform 0.2s, box-shadow 0.2s;
-}
-.btn:hover, .loan-btn:hover {
-  background: linear-gradient(90deg, #fcf6ba 0%, #f7b733 100%);
-  color: #b37900 !important;
-  transform: translateY(-2px) scale(1.03);
-  box-shadow: 0 6px 20px rgba(247,183,51, 0.20);
-}
-.loan-btn.secondary {
-  background: #eee;
-  color: #555 !important;
-  border: 1px solid #d5c99c;
-  box-shadow: none;
-}
-.loan-btn.secondary:hover {
-  background: #ffe180;
-  color: #7a6000 !important;
-}
-@media (max-width:1000px) { .container { max-width: 98vw; padding: 16px 2vw; } }
-.nav-toggle {
-  display: none;
-  font-size: 2rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  margin-left: auto;
-}
-@media (max-width: 800px) {
-  .nav-toggle {
-    display: inline-block;
-    z-index: 1001;
-    position: absolute;
-    top: 18px;
-    right: 20px;
-  }
-  nav {
-    display: none;
-    flex-direction: column;
-    background: #fff;
-    position: absolute;
-    right: 0;
-    top: 60px;
-    width: 80vw;
-    border-radius: 0 0 0 20px;
-    box-shadow: 0 10px 32px #ccc;
-    padding: 30px 0 30px 0;
-    z-index: 1000;
-  }
-  nav.active {
-    display: flex !important;
-  }
-  nav a {
-    margin: 12px 0;
-    font-size: 1.3em;
-    padding-left: 28px;
-    color: #333;
-    border-bottom: 1px solid #eee;
-    width: 100%;
-    display: block;
-    text-align: left;
-  }
-  nav span {
-    display: block;
-    padding-left: 28px;
-    margin: 12px 0 0 0;
-  }
-}
-@media (max-width: 700px) {
-  .header-bar h1 { font-size: 1.4em; }
-  .checkout-table td.product-col { min-width: 54vw !important; max-width: 100vw !important; }
-  .container, .table-wrapper, table { width: 100vw !important; max-width: 100vw !important; }
-  .checkout-actions { flex-direction: column !important; align-items: center !important; gap: 12px !important; }
-  .checkout-actions .btn, .checkout-actions .loan-btn { width: 80vw !important; max-width: 96vw !important; min-width: 0 !important; font-size: 1em; }
-}
-.total {
-  text-align: right;
-  margin-top: 10px;
-  font-size: 1.08em;
-  font-weight: bold;
-  color: #1ab13d;
-  letter-spacing: 0.3px;
-  padding-right: 18px;
-  background: #f9eabb;
-  border-radius: 0 0 14px 14px;
-  box-shadow: 0 1px 8px rgba(0,0,0,0.07);
-  max-width: 100%;
-  overflow-x: auto;
-}
-/* Cart Icon in NavBar */
-.cart-icon-link {
-  position: relative;
-  display: inline-block;
-  text-decoration: none;
-  color: inherit;
-  vertical-align: middle;
-  margin-left: 10px;
-}
-.cart-icon {
-  font-size: 1.24em;
-  display: flex;
-  align-items: center;
-  position: relative;
-}
-.cart-count-badge {
-  position: absolute;
-  top: -0.7em;
-  right: -0.7em;
-  background: #19c37d;
-  color: #fff;
-  font-size: 0.8em;
-  min-width: 1.15em;
-  height: 1.15em;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  box-shadow: 0 0 0.13em #0001;
-  transition: background 0.2s;
-  pointer-events: none;
-  z-index: 1;
-  display: none;
-}
+<style>
+    html, body {
+      width: 100vw;
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+    body { background: #fafafa; }
+    .container {
+      max-width: 950px;
+      width: 95vw;
+      margin: 44px auto;
+      padding: 38px 12px 30px 12px;
+      background: #fff;
+      border-radius: 13px;
+      box-shadow: 0 4px 20px rgba(247,183,51,0.10), 0 1.5px 9px rgba(0,0,0,0.04);
+      box-sizing: border-box;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 2em;
+      font-weight: bold;
+      color: #b47d08;
+    }
+    .table-wrapper {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: auto;
+      box-sizing: border-box;
+      background: #fff;
+      border-radius: 10px;
+    }
+    table {
+      width: 100%;
+      min-width: 0;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: #fff;
+      margin-bottom: 22px;
+      border-radius: 10px;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.07);
+      overflow: hidden;
+      table-layout: auto;
+      font-size: 0.97em;
+      box-sizing: border-box;
+    }
+    th, td {
+      text-align: left;
+      padding: 14px 8px;
+      border-bottom: 1px solid #f2e2b6;
+      font-size: 1em;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+    th {
+      background-color: #f9eabb;
+      color: #444;
+      font-weight: bold;
+      text-align: center;
+    }
+    /* Compact numeric columns */
+    th.compact-col, td.compact-col {
+      width: 68px;
+      min-width: 48px;
+      max-width: 80px;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-variant-numeric: tabular-nums;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    /* Product column - widest */
+    td.product-col {
+      text-align: left;
+      font-weight: 500;
+      min-width: 180px;
+      max-width: 320px;
+      width: 38%;
+      word-break: break-word;
+      white-space: normal;
+    }
+    .total {
+      text-align: right;
+      margin-top: 15px;
+      font-size: 1.15em;
+      font-weight: bold;
+      color: #3E9F50;
+    }
+    /* --- Actions (Buttons) --- */
+    .actions {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 30px;
+      margin-bottom: 36px;
+      width: 100%;
+    }
+    .actions .btn,
+    .actions .btn-clear {
+      min-width: 120px;
+      max-width: 170px;
+      width: auto !important;
+      font-size: 1em;
+      padding: 9px 18px;
+      margin: 0;
+      display: inline-block;
+      box-sizing: border-box;
+    }
+    .btn {
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      background: linear-gradient(90deg, #f7b733 0%, #fcf6ba 100%);
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(247,183,51, 0.14);
+      letter-spacing: 0.5px;
+      text-decoration: none;
+      transition: background 0.3s, transform 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover {
+      background: linear-gradient(90deg, #fcf6ba 0%, #f7b733 100%);
+      color: #b37900 !important;
+      transform: translateY(-2px) scale(1.03);
+      box-shadow: 0 6px 20px rgba(247,183,51, 0.20);
+    }
 
-@media (max-width: 700px) {
-  .checkout-table th.desc-col, 
-  .checkout-table td.desc-col {
-    display: none;
-  }
-}
+    /* Hamburger & mobile nav styles */
+    .nav-toggle {
+      display: none;
+      font-size: 2rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    @media (max-width: 800px) {
+      .nav-toggle {
+        display: inline-block;
+        z-index: 1001;
+        position: absolute;
+        top: 18px;
+        right: 20px;
+      }
+      nav {
+        display: none;
+        flex-direction: column;
+        background: #fff;
+        position: absolute;
+        right: 0;
+        top: 60px;
+        width: 80vw;
+        border-radius: 0 0 0 20px;
+        box-shadow: 0 10px 32px #ccc;
+        padding: 30px 0;
+        z-index: 1000;
+      }
+      nav.active {
+        display: flex !important;
+      }
+      nav a {
+        margin: 12px 0;
+        font-size: 1.3em;
+        padding-left: 28px;
+        color: #333;
+        border-bottom: 1px solid #eee;
+        width: 100%;
+        display: block;
+        text-align: left;
+      }
+      nav span {
+        display: block;
+        padding-left: 28px;
+        margin: 12px 0 0 0;
+      }
+    }
+    @media (max-width: 700px) {
+      .container {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        box-sizing: border-box !important;
+      }
+      .table-wrapper {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        margin-left: 0 !important;
+      }
+      table {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        table-layout: fixed !important;
+      }
+      .col-unit, .col-total-deposit {
+        display: none;
+      }
+      th, td {
+        font-size: 0.96em;
+        padding: 8px 3px;
+        min-width: 36px;
+        max-width: 90px;
+      }
+      td.product-col {
+        width: 35% !important;
+        min-width: 100px !important;
+        max-width: 180px !important;
+        white-space: nowrap !important;
+      }
+      .actions {
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 12px !important;
+      }
+      .actions .btn,
+      .actions .btn-clear {
+        width: 80vw !important;
+        max-width: 96vw !important;
+        min-width: 0 !important;
+        font-size: 1em;
+      }
+    }
+    @media (max-width: 900px) {
+      .container { padding: 18px 5vw; }
+      table th, table td { font-size: 0.98em; }
+      .btn, .btn-clear { width: 100%; margin: 10px 0; }
+    }
+    @media (max-width: 700px) {
+      .container {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-sizing: border-box !important;
+      }
+      .table-wrapper {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+      th.col-desc, td.col-desc, th.col-unit, td.col-unit, th.col-total-deposit, td.col-total-deposit {
+        display: none !important;
+      }
+      td.product-col {
+        width: 40% !important;
+        min-width: 80px !important;
+        max-width: 140px !important;
+        white-space: nowrap !important;
+      }
+      table {
+        table-layout: fixed !important;
+      }
+      th, td {
+        padding: 8px 6px !important;
+        font-size: 0.9em !important;
+      }
+      .actions {
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 12px !important;
+      }
+      .actions .btn, .actions .btn-clear {
+        width: 80vw !important;
+        max-width: 96vw !important;
+        min-width: 0 !important;
+      }
+    }
 
-@media (max-width: 700px) {
-  .checkout-table th, .checkout-table td {
-    font-size: 0.92em;
-    padding: 6px 6px;
-  }
-  .checkout-table td.product-col {
-    min-width: 40vw !important;
-    max-width: 42vw !important;
-  }
-  .checkout-table th.compact-col, 
-  .checkout-table td.compact-col {
-    min-width: 12vw !important;
-    max-width: 15vw !important;
-    text-align: center;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-  }
-  .table-wrapper {
-    overflow-x: auto;
-  }
-}
+    /* Cart Icon in NavBar */
+    .cart-icon-link {
+      position: relative;
+      display: inline-block;
+      text-decoration: none;
+      color: inherit;
+      vertical-align: middle;
+      margin-left: 10px;
+    }
+    .cart-icon {
+      font-size: 1.24em;
+      display: flex;
+      align-items: center;
+      position: relative;
+    }
+    .cart-count-badge {
+      position: absolute;
+      top: -0.7em;
+      right: -0.7em;
+      background: #19c37d;
+      color: #fff;
+      font-size: 0.8em;
+      min-width: 1.15em;
+      height: 1.15em;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      box-shadow: 0 0 0.13em #0001;
+      transition: background 0.2s;
+      pointer-events: none;
+      z-index: 1;
+      display: none;
+    }
 
-/* === Mobile Sticky Footer === */
-.mobile-nav {
-  display: none;
-}
+    /* === Logo Styles from index.html === */
+    .logo-container {
+      display: none;
+    }
+    .desktop-logo {
+      display: block;
+    }
+    .brand-name {
+      font-size: 1.8em;
+      font-weight: bold;
+      color: white;
+      white-space: nowrap;
+    }
+    .site-logo {
+      height: 48px;
+      max-width: 48px;
+      object-fit: contain;
+      vertical-align: middle;
+    }
+    @media (max-width: 768px) {
+      header {
+        height: 56px;
+      }
+      .desktop-logo {
+        display: none;
+      }
+      .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        white-space: nowrap;
+        padding: 4px 12px;
+        height: 56px;
+        margin-left: 10px;
+      }
+      .site-logo {
+        height: auto;
+        max-height: 36px;
+        object-fit: contain;
+      }
+      .brand-name {
+        font-size: 1.3em;
+      }
+    }
+
+    /* === Mobile Sticky Footer === */
+    .mobile-nav {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      .mobile-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        height: 56px;
+        width: 100%;
+        background-color: #f4a940;
+        justify-content: space-around;
+        align-items: center;
+        z-index: 1000;
+        box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
+        padding: 0;
+      }
+      .mobile-nav a {
+        font-size: 20px;
+        height: 56px;
+        line-height: 56px;
+        padding: 0;
+        margin: 0;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        color: black;
+        position: relative;
+      }
+      #cart-count {
+        position: absolute;
+        top: 6px;
+        right: 10px;
+        background: red;
+        color: white;
+        font-size: 11px;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        padding: 0 5px;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
+body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    main {
+      flex: 1;
+    }
+    footer {
+      margin-top: auto;
+    }
+table {
+        table-layout: auto !important;
+        word-break: break-word !important;
+      }
+      th, td {
+        white-space: normal !important;
+        font-size: 0.95em !important;
+      }
 @media (max-width: 768px) {
-  .mobile-nav {
-    display: flex;
-    position: fixed;
-    bottom: 0;
-    height: 56px;
-    width: 100%;
-    background-color: #f4a940;
-    justify-content: space-around;
-    align-items: center;
-    z-index: 1000;
-    box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
-    padding: 0;
-  }
-
-  .mobile-nav a {
-    font-size: 20px;
-    height: 56px;
-    line-height: 56px;
-    padding: 0;
-    margin: 0;
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-    color: black;
-    position: relative;
-  }
-
-  #cart-count {
-    position: absolute;
-    top: 6px;
-    right: 10px;
-    background: red;
-    color: white;
-    font-size: 11px;
-    min-width: 16px;
-    height: 16px;
-    border-radius: 8px;
-    padding: 0 5px;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-}
-@media (max-width: 768px) {
-}
-    /* === Desktop & Mobile Logo Styles from index.html === */
-    @media (max-width: 768px) {</style>
+        th.col-desc, td.col-desc {
+          display: none !important;
+        }
+      }
+  </style>
 </head>
 <body>
 <header>
@@ -394,211 +450,153 @@ h2 {
 <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
 <span class="brand-name">WattSun Solar</span>
 </div>
-<button aria-label="Open menu" class="nav-toggle" onclick="toggleNav()">☰</button>
+
+
+
+<button aria-label="Menu" class="nav-toggle" onclick="toggleNav()">☰</button>
 </div>
 <nav id="mainNav">
 <a href="index.html">Home</a>
 <a href="solutions.html">Solutions</a>
 <a href="shop.html">Shop</a>
+<a href="calculators/calculator.html">Calculator</a>
 <a href="financing.html">Financing</a>
 <a href="projects.html">Projects</a>
 <a href="contact.html">Contact</a>
 <!-- Cart Icon START -->
+<a href="cart.html">🛒 <span id="cart-count" style="color: #19c37d; font-weight: bold;">0</span></a>
+
+
+          <span style="color: #19c37d; font-weight: bold;" class="cart-count-badge" id="cart-count-badge">0</span>
+</span>
+</a>
 <!-- Cart Icon END -->
-<a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart"><span class="cart-icon">🛒<span class="cart-count-badge" id="cart-count-badge">0</span></span></a></nav>
+</nav>
 </header>
+<main>
 <div class="container">
-<h2>Checkout</h2>
+<h2>Your Cart</h2>
 <div class="table-wrapper">
-<table class="checkout-table" id="cartTable">
-<thead>
+<table id="cartTable" style="border: 1px solid #eee; border-radius: 10px;">
+<thead style="background-color: #f9eabb;">
 <tr>
-<th class="product-col">Product</th>
-<th class="desc-col">Description</th>
-<th class="compact-col">Price<br/>(KES)</th>
-<th class="compact-col">Deposit<br/>(KES)</th>
-<th class="compact-col">Qty</th>
-<th class="compact-col">Total<br/>(KES)</th>
+<th style="min-width:180px;">Product</th>
+<th style="min-width:280px;">Description</th>
+<th class="compact-col" style="min-width:60px; white-space:normal;" style="white-space:normal; word-break:keep-all;">Qty</th>
+<th class="compact-col" style="min-width:60px; white-space:normal;" style="white-space:normal;">Price<br>(KES)</th>
+<th class="compact-col" style="min-width:60px; white-space:normal;" style="white-space:normal;">Deposit<br>(KES)</th>
+<th class="compact-col" style="min-width:60px; white-space:normal;" style="white-space:normal;">Total<br>(KES)</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
 </div>
 <div class="total" id="totalAmount">Total Deposit: KES 0</div>
-<form action="/thankyou.html" autocomplete="on" class="checkout-form" data-netlify="true" id="checkoutForm" method="POST" name="order">
-<input name="form-name" type="hidden" value="order"/>
-<input id="cart_summary" name="cart_summary" type="hidden"/>
-<label for="fullName">Full Name</label>
-<input id="fullName" name="fullName" placeholder="Your full name" required="" type="text"/>
-<label for="email">Email Address</label>
-<input id="email" name="email" placeholder="you@example.com" required="" type="email"/>
-<label for="phone">Phone Number</label>
-<input id="phone" name="phone" placeholder="+254 7XX XXX XXX" required="" type="tel"/>
-<label for="address">Delivery Address</label>
-<textarea id="address" name="address" placeholder="Enter delivery location" required="" rows="3"></textarea>
-<div class="checkout-actions">
-<a class="loan-btn secondary" href="shop.html">← Back to Shop</a>
-<button class="btn" type="submit">Place Order →</button>
+<div class="actions">
+<a class="btn" href="checkout.html">Proceed to Checkout</a>
+<button class="btn btn-clear" id="clearCartBtn" style="display:none;" type="button">Clear Cart</button>
 </div>
-</form>
 </div>
+</main>
 <footer>
-  © 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
+    © 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
 </footer>
 <script>
-function toggleNav() {
-  const nav = document.getElementById("mainNav");
-  nav.classList.toggle("active");
-}
-window.addEventListener('resize', () => {
-  if (window.innerWidth > 800) {
-    document.getElementById("mainNav").classList.remove("active");
+  function toggleNav() {
+    document.getElementById("mainNav").classList.toggle("active");
   }
-});
-
-document.addEventListener("DOMContentLoaded", function () {
-  const selectedKit = JSON.parse(localStorage.getItem("wattSunSelectedKit"));
-  if (selectedKit && selectedKit.kit && selectedKit.price) {
-    let cart = JSON.parse(localStorage.getItem("cart")) || [];
-    if (!cart.some(item => item.name === selectedKit.kit)) {
-      cart.push({
-        name: selectedKit.kit,
-        price: selectedKit.price,
-        deposit: Math.round(selectedKit.price * 0.5),
-        quantity: 1,
-        description: selectedKit.description || ""
-      });
-      localStorage.setItem("cart", JSON.stringify(cart));
-    }
-    localStorage.removeItem("wattSunSelectedKit");
-  }
-
-  function formatNumber(num) {
-    return Number(num).toLocaleString('en-US');
-  }
-
-  function truncateDesc(desc) {
-    return desc?.length > 60 ? desc.substring(0, 57) + '...' : desc;
-  }
-
-  function renderCart() {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    const tbody = document.querySelector("#cartTable tbody");
-    const summary = document.getElementById("cart_summary");
-    tbody.innerHTML = "";
-    let totalDeposit = 0;
-    let cartSummaryArr = [];
-
-    cart.forEach(item => {
-      const qty = item.quantity || 1;
-      const desc = item.description || "";
-      const deposit = item.deposit;
-      const totalPrice = item.price * qty;
-      const totalItemDeposit = deposit * qty;
-      totalDeposit += totalItemDeposit;
-
-      cartSummaryArr.push(
-        `${item.name} (x${qty}): Price ${item.price}, Deposit ${deposit}`
-      );
-
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td class="product-col">${item.name}</td>
-        <td class="desc-col">${truncateDesc(desc)}</td>
-        <td class="compact-col">${formatNumber(item.price)}</td>
-        <td class="compact-col">${formatNumber(deposit)}</td>
-        <td class="compact-col">${qty}</td>
-        <td class="compact-col">${formatNumber(totalPrice)}</td>
-      `;
-      tbody.appendChild(row);
-    });
-
-    document.getElementById("totalAmount").textContent =
-      "Total Deposit: KES " + totalDeposit.toLocaleString();
-    summary.value = cartSummaryArr.join("\n");
-  }
-
-  renderCart();
-
-  document.getElementById("checkoutForm").addEventListener("submit", async function(e) {
-    e.preventDefault();
-    let valid = true;
-
-    this.querySelectorAll('input[required], textarea[required]').forEach(input => {
-      if (!input.value.trim() || input.value.trim() === "0") {
-        input.style.borderColor = "red";
-        valid = false;
-      } else {
-        input.style.borderColor = "";
-      }
-    });
-
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    if (cart.length === 0) {
-      alert("Your cart is empty.");
-      valid = false;
-    }
-
-    if (!valid) return false;
-
-    const orderData = {
-      fullName: this.fullName.value.trim(),
-      email: this.email.value.trim(),
-      phone: this.phone.value.trim(),
-      address: this.address.value.trim(),
-      cart: cart,
-      cartSummary: document.getElementById("cart_summary").value
-    };
-
-    try {
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderData)
-      });
-
-      if (!response.ok) throw new Error("Checkout failed");
-
-      sessionStorage.setItem("clearCartOnThankYou", "true");
-      window.location.href = "thankyou.html";
-    } catch (err) {
-      alert("Order failed. Please try again later.");
-      console.error(err);
+  window.addEventListener("resize", function () {
+    if (window.innerWidth > 800) {
+      document.getElementById("mainNav").classList.remove("active");
     }
   });
-});
 
-function updateCartCountBadge() {
-  let count = 0;
-  try {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  } catch(e){}
-  
-document.querySelectorAll('.cart-count-badge').forEach(badge => {
-  if (count > 0) {
-    badge.textContent = count;
-    badge.style.display = 'flex';
-  } else {
-    badge.style.display = 'none';
+  function updateCartCountBadge(count) {
+    const badge = document.getElementById("cart-count-badge");
+    const mobileCount = document.getElementById("cart-count");
+    if (badge) {
+      badge.style.display = count > 0 ? "flex" : "none";
+      badge.textContent = count;
+    }
+    if (mobileCount) {
+      mobileCount.textContent = count;
+    }
   }
-});
 
+<script>
+  function toggleNav() {
+    document.getElementById("mainNav").classList.toggle("active");
   }
-}
-document.addEventListener('DOMContentLoaded', updateCartCountBadge);
-window.addEventListener('storage', updateCartCountBadge);
+  window.addEventListener("resize", function () {
+    if (window.innerWidth > 800) {
+      document.getElementById("mainNav").classList.remove("active");
+    }
+  });
 
-if (window.location.pathname.endsWith("thankyou.html") && sessionStorage.getItem("clearCartOnThankYou")) {
-  localStorage.removeItem("cart");
-  sessionStorage.removeItem("clearCartOnThankYou");
-}
+  function updateCartCountBadge(count) {
+    const badge = document.getElementById("cart-count-badge");
+    const mobileCount = document.getElementById("cart-count");
+    if (badge) {
+      badge.style.display = count > 0 ? "flex" : "none";
+      badge.textContent = count;
+    }
+    if (mobileCount) {
+      mobileCount.textContent = count;
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const cartTable = document.querySelector("#cartTable tbody");
+    const totalDisplay = document.getElementById("totalAmount");
+    const clearCartBtn = document.getElementById("clearCartBtn");
+
+    function loadCartFromAPI() {
+      fetch("/api/cart")
+        .then(res => res.json())
+        .then(cart => {
+          cartTable.innerHTML = "";
+          let totalDeposit = 0;
+          let totalCount = 0;
+
+          if (cart.length === 0) {
+      cartTable.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px;">Your cart is empty</td></tr>`;
+      return;
+    }
+    cart.forEach(item => {
+            const qty = item.quantity || 1;
+            totalCount += qty;
+            const deposit = item.deposit;
+            const totalPrice = item.price * qty;
+            const totalItemDeposit = deposit * qty;
+            totalDeposit += totalItemDeposit;
+
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td class="product-col">${item.name}</td>
+              <td class="product-col col-desc">${item.description || ""}</td>
+              <td class="compact-col">${qty}</td>
+              <td class="compact-col">${item.price.toLocaleString()}</td>
+              <td class="compact-col">${deposit.toLocaleString()}</td>
+              <td class="compact-col">${totalPrice.toLocaleString()}</td>
+            `;
+            cartTable.appendChild(row);
+          });
+
+          totalDisplay.innerText = "Total Deposit: KES " + totalDeposit.toLocaleString();
+          clearCartBtn.style.display = cart.length > 0 ? "inline-block" : "none";
+          updateCartCountBadge(totalCount);
+        })
+        .catch(err => {
+          console.error("Failed to load cart:", err);
+        });
+    }
+
+    clearCartBtn.addEventListener("click", () => {
+      fetch("/api/cart/clear", { method: "POST" })
+        .then(() => loadCartFromAPI())
+        .catch(err => console.error("Clear cart failed:", err));
+    });
+
+    loadCartFromAPI();
+  });
 </script>
-<footer class="mobile-nav">
-<a aria-label="Home" href="index.html">🏠</a>
-<a aria-label="Account" href="account.html">👤</a>
-<a aria-label="Cart" href="cart.html"><span class="cart-icon">&#128722;<span class="cart-count-badge">0</span></span></a>
-<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
-</footer>
-</body>
-</html>
