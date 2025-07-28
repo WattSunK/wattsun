@@ -498,23 +498,75 @@ table {
 </footer>
 
 <script>
-function updateCartCountBadge() {
-  let count = 0;
-  try {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  } catch(e){}
-  document.querySelectorAll('.cart-count-badge').forEach(badge => {
+<script>
+function toggleNav() {
+  document.getElementById("mainNav").classList.toggle("active");
+}
+window.addEventListener("resize", function () {
+  if (window.innerWidth > 800) {
+    document.getElementById("mainNav").classList.remove("active");
+  }
+});
+
+function updateCartCountBadge(count) {
+  document.querySelectorAll(".cart-count-badge").forEach(badge => {
     badge.textContent = count;
-    badge.style.display = count > 0 ? 'flex' : 'none';
+    badge.style.display = count > 0 ? "flex" : "none";
   });
   const mobileCount = document.getElementById("cart-count");
   if (mobileCount) {
     mobileCount.textContent = count;
-    mobileCount.style.display = count > 0 ? 'flex' : 'none';
+    mobileCount.style.display = count > 0 ? "flex" : "none";
   }
 }
-document.addEventListener("DOMContentLoaded", updateCartCountBadge);
-window.addEventListener("storage", updateCartCountBadge);
+
+document.addEventListener("DOMContentLoaded", function () {
+  const cartTable = document.querySelector("#cartTable tbody");
+  const totalDisplay = document.getElementById("totalAmount");
+  const clearCartBtn = document.getElementById("clearCartBtn");
+
+  function loadCartFromAPI() {
+    fetch("/api/cart")
+      .then(res => res.json())
+      .then(cart => {
+        cartTable.innerHTML = "";
+        let totalDeposit = 0;
+        let totalCount = 0;
+
+        cart.forEach(item => {
+          const qty = item.quantity || 1;
+          totalCount += qty;
+          const deposit = item.deposit;
+          const totalPrice = item.price * qty;
+          const totalItemDeposit = deposit * qty;
+          totalDeposit += totalItemDeposit;
+
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td class="product-col">${item.name}</td>
+            <td class="product-col col-desc">${item.description || ""}</td>
+            <td class="compact-col">${qty}</td>
+            <td class="compact-col">${item.price.toLocaleString()}</td>
+            <td class="compact-col">${deposit.toLocaleString()}</td>
+            <td class="compact-col">${totalPrice.toLocaleString()}</td>
+          `;
+          cartTable.appendChild(row);
+        });
+
+        totalDisplay.innerText = "Total Deposit: KES " + totalDeposit.toLocaleString();
+        clearCartBtn.style.display = cart.length > 0 ? "inline-block" : "none";
+        updateCartCountBadge(totalCount);
+      })
+      .catch(err => console.error("Failed to load cart:", err));
+  }
+
+  clearCartBtn.addEventListener("click", () => {
+    fetch("/api/cart/clear", { method: "POST" })
+      .then(() => loadCartFromAPI())
+      .catch(err => console.error("Clear cart failed:", err));
+  });
+
+  loadCartFromAPI();
+});
 </script>
 </body></html>
