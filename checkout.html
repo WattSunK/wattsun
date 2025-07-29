@@ -501,23 +501,25 @@ document.addEventListener("DOMContentLoaded", function () {
     cart.forEach(item => {
       const qty = item.quantity || 1;
       const desc = item.description || "";
-      const deposit = item.deposit;
-      const totalPrice = item.price * qty;
+      const deposit = parseInt((item.deposit || "0").toString().replace(/[^\d]/g, ""));
+    const price = parseInt((item.price || "0").toString().replace(/[^\d]/g, ""));
+      const totalPrice = price * qty;
+    const totalItemDeposit = deposit * qty;
       const totalItemDeposit = deposit * qty;
       totalDeposit += totalItemDeposit;
 
       cartSummaryArr.push(
-        `${item.name} (x${qty}): Price ${item.price}, Deposit ${deposit}`
+        `${item.name} (x${qty}): Price ${price}, Deposit ${deposit}`
       );
 
       const row = document.createElement('tr');
       row.innerHTML = `
         <td class="product-col">${item.name}</td>
         <td class="desc-col">${truncateDesc(desc)}</td>
-        <td class="compact-col">${formatNumber(item.price)}</td>
-        <td class="compact-col">${formatNumber(deposit)}</td>
+        <td class="compact-col">${!isNaN(price) ? price.toLocaleString() : "N/A"}</td>
+        <td class="compact-col">${!isNaN(deposit) ? deposit.toLocaleString() : "N/A"}</td>
         <td class="compact-col">${qty}</td>
-        <td class="compact-col">${formatNumber(totalPrice)}</td>
+        <td class="compact-col">${!isNaN(totalPrice) ? totalPrice.toLocaleString() : "N/A"}</td>
         
       `;
       tbody.appendChild(row);
