@@ -146,6 +146,8 @@ function addKitToCart(data) {
         cart.push({
             name: data.recommended,
             price: data.price,
+            deposit: parseInt((data.deposit || "0").toString().replace(/[^\d]/g, "")),
+            price: data.price,
             quantity: 1,
             description: `Recommended kit from calculator (${data.power}W)`
         });
