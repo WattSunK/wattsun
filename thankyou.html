@@ -2,51 +2,59 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Thank You - WattSun</title>
-  <link rel="stylesheet" href="/css/main.css">
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f3f3f3;
-      padding: 2rem;
-      text-align: center;
-    }
-    header img {
-      max-width: 180px;
-    }
-    .message-box {
-      background: #fff;
-      border: 2px solid #228B22;
-      padding: 2rem;
-      margin: 2rem auto;
-      max-width: 500px;
-      border-radius: 10px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.1);
-    }
-    h1 {
-      color: #228B22;
-    }
-    a.button {
-      display: inline-block;
-      margin-top: 1.5rem;
-      padding: 0.75rem 1.5rem;
-      background-color: #228B22;
-      color: white;
-      text-decoration: none;
-      border-radius: 5px;
-    }
-  </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Order Received - WattSun Solar</title>
+  <link rel="stylesheet" href="main.css" />
+  <link rel="icon" href="favicon.ico" />
 </head>
 <body>
-  <header>
-    <img src="/images/logo.png" alt="WattSun Logo" />
+  <header class="header">
+    <div class="container header-container">
+      <a href="index.html" class="logo">
+        <img src="images/logo.png" alt="WattSun Logo" />
+        <span>WattSun Solar</span>
+      </a>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html">Home</a></li>
+          <li><a href="shop.html">Shop</a></li>
+          <li><a href="calculator.html">Calculator</a></li>
+          <li><a href="financing.html">Financing</a></li>
+          <li><a href="projects.html">Projects</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li class="cart-icon"><a href="cart.html">🛒 <span id="cart-count">0</span></a></li>
+        </ul>
+      </nav>
+    </div>
   </header>
 
-  <div class="message-box">
-    <h1>Thank You!</h1>
-    <p>Your order has been received successfully.</p>
-    <a href="/shop.html" class="button">Continue Shopping</a>
-  </div>
+  <main class="container thankyou-content">
+    <h1>🎉 Thank You for Your Order!</h1>
+    <p>Your request has been received. Our team will reach out shortly to confirm installation and payment details.</p>
+    <a href="shop.html" class="btn">Back to Shop</a>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>© 2025 WattSun Solar. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Update cart badge count
+    function updateCartCountBadge() {
+      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+      document.getElementById("cart-count").textContent = cart.length;
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      updateCartCountBadge();
+      if (sessionStorage.getItem("clearCartOnThankYou") === "true") {
+        localStorage.removeItem("cart");
+        sessionStorage.removeItem("clearCartOnThankYou");
+      }
+    });
+  </script>
 </body>
 </html>
