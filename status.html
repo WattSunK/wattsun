@@ -1,90 +1,100 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>WattSun System Status</title>
-  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="main.css" />
   <style>
     body {
-      font-family: sans-serif;
+      font-family: Arial, sans-serif;
+      background: #f3f3f3;
+      color: #222;
       padding: 2rem;
-      max-width: 600px;
+      max-width: 700px;
       margin: auto;
     }
-    h1 {
+    header {
+      text-align: center;
       margin-bottom: 2rem;
+    }
+    header img {
+      max-width: 180px;
+    }
+    h1 {
+      color: #228B22;
+      font-size: 2rem;
+      margin-top: 0.5rem;
+    }
+    .status-card {
+      background: #fff;
+      padding: 1.2rem;
+      margin-bottom: 1rem;
+      border-left: 6px solid #228B22;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .status-card.red {
+      border-left-color: #cc0000;
+    }
+    .status-label {
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+    .timestamp {
+      font-size: 0.9rem;
+      color: #666;
+      margin-top: 1rem;
       text-align: center;
     }
-    .status-row {
-      display: flex;
-      align-items: center;
-      margin-bottom: 1.5rem;
-    }
-    .indicator {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      margin-right: 10px;
-    }
-    .ok { background-color: green; }
-    .fail { background-color: red; }
-    .label { font-size: 1.2rem; }
-    footer { text-align: center; margin-top: 4rem; font-size: 0.9rem; color: #666; }
   </style>
 </head>
 <body>
-
-  <!-- Header -->
   <header>
-    <nav>
-      <a href="/index.html">Home</a> |
-      <a href="/shop.html">Shop</a> |
-      <a href="/status.html" style="font-weight:bold;">System Status</a>
-    </nav>
-    <hr>
+    <img src="/images/logo.png" alt="WattSun Logo" />
+    <h1>System Status</h1>
   </header>
 
-  <!-- Main Content -->
-  <h1>WattSun System Status</h1>
-
-  <div class="status-row">
-    <div id="backend-indicator" class="indicator fail"></div>
-    <div class="label">Backend API</div>
+  <div id="statusContainer">
+    <div class="status-card"><span class="status-label">Backend API:</span> Checking...</div>
+    <div class="status-card"><span class="status-label">Cloudflare Tunnel:</span> Checking...</div>
   </div>
 
-  <div class="status-row">
-    <div id="tunnel-indicator" class="indicator fail"></div>
-    <div class="label">Cloudflare Tunnel</div>
-  </div>
+  <div class="timestamp" id="timestamp">Loading...</div>
 
-  <!-- Footer -->
-  <footer>
-    &copy; 2025 WattSun Solar. All rights reserved.
-  </footer>
-
-  <!-- Health Check Logic -->
   <script>
-    // Backend status
-    fetch('/api/health')
-      .then(res => {
-        if (res.ok) {
-          document.getElementById('backend-indicator').classList.remove('fail');
-          document.getElementById('backend-indicator').classList.add('ok');
-        }
-      })
-      .catch(() => {});
+    async function checkStatus() {
+      const container = document.getElementById('statusContainer');
+      const timestamp = document.getElementById('timestamp');
+      container.innerHTML = '';
 
-    // Cloudflare Tunnel status
-    fetch('/api/tunnel')
-      .then(res => {
-        if (res.ok) {
-          document.getElementById('tunnel-indicator').classList.remove('fail');
-          document.getElementById('tunnel-indicator').classList.add('ok');
-        }
-      })
-      .catch(() => {});
+      // Backend check
+      let backendStatus = await fetch('/api/health')
+        .then(res => res.ok ? '🟢 OK' : '🔴 DOWN')
+        .catch(() => '🔴 DOWN');
+
+      // Tunnel check
+      let tunnelStatus = await fetch('https://api.wattsun.co.ke/api/health')
+        .then(res => res.ok ? '🟢 OK' : '🔴 DOWN')
+        .catch(() => '🔴 DOWN');
+
+      // Render
+      container.innerHTML += `
+        <div class="status-card ${backendStatus.includes('🔴') ? 'red' : ''}">
+          <span class="status-label">Backend API:</span> ${backendStatus}
+        </div>
+      `;
+      container.innerHTML += `
+        <div class="status-card ${tunnelStatus.includes('🔴') ? 'red' : ''}">
+          <span class="status-label">Cloudflare Tunnel:</span> ${tunnelStatus}
+        </div>
+      `;
+
+      timestamp.innerText = \`Last checked: \${new Date().toLocaleTimeString()} — auto-refreshes every 30s\`;
+    }
+
+    checkStatus();
+    setInterval(checkStatus, 30000);
   </script>
-
 </body>
 </html>
