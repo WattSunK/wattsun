@@ -87,13 +87,18 @@ function populateSummary() {
   updateCartCountBadge(totalCount);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", function () {
   populateSummary();
 
-  document.getElementById("checkout-form").addEventListener("submit", async (e) => {
+  const form = document.getElementById("checkout-form");
+  form.addEventListener("submit", async function(e) {
     e.preventDefault();
+
     const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    if (cart.length === 0) return alert("Your cart is empty.");
+    if (cart.length === 0) {
+      alert("Your cart is empty.");
+      return;
+    }
 
     const data = {
       name: document.getElementById("name").value.trim(),
@@ -106,16 +111,19 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify(data)
       });
 
-      if (!res.ok) throw new Error("Failed to place order.");
+      if (!res.ok) throw new Error("Checkout failed");
+
       localStorage.removeItem("cart");
       window.location.href = "thankyou.html";
     } catch (err) {
-      alert("Order submission failed. Try again.");
       console.error(err);
+      alert("Failed to submit order. Try again.");
     }
   });
 });
