@@ -56,65 +56,46 @@
       font-size: 0.9rem;
       color: #333;
     }
-    @media (max-width: 768px) {
-      nav {
-        display: none;
-      }
-      header .nav-toggle {
-        display: block;
-      }
-      #mainNav.nav-open {
-        display: flex;
-        flex-direction: column;
-      }
-      footer.desktop-footer {
-        font-size: 0.8rem;
-      }
-    }
   </style>
 </head>
 <body>
-  <header>
-    <div class="top-bar">
-      <a href="index.html" class="logo">
-        <img src="assets/logo/Wattsun Solar log2.png" alt="WattSun Logo" />
-        WattSun Solar
+
+<header>
+  <div class="header-bar">
+    <div class="logo">
+      <a href="index.html">
+        <img src="images/logo.png" alt="WattSun Logo" height="40">
+        <span>WattSun Solar</span>
       </a>
-      <nav>
-        <ul class="menu">
-          <li><a href="index.html">Home</a></li>
-          <li><a href="solutions.html">Solutions</a></li>
-          <li><a href="shop.html">Shop</a></li>
-          <li><a href="calculator.html">Calculator</a></li>
-          <li><a href="financing.html">Financing</a></li>
-          <li><a href="projects.html">Projects</a></li>
-          <li><a href="contact.html">Contact</a></li>
-          <li class="cart">
-            <a href="cart.html">
-              <span class="cart-icon">🛒</span>
-              <span id="cart-count" class="badge">0</span>
-            </a>
-          </li>
-        </ul>
-        <div class="nav-toggle" onclick="toggleNav()">☰</div>
-      </nav>
     </div>
-  </header>
+    <button class="nav-toggle" onclick="toggleNav()">☰</button>
+  </div>
+  <nav id="mainNav">
+    <a href="index.html">Home</a>
+    <a href="solutions.html">Solutions</a>
+    <a href="shop.html">Shop</a>
+    <a href="calculator.html">Calculator</a>
+    <a href="financing.html">Financing</a>
+    <a href="projects.html">Projects</a>
+    <a href="contact.html">Contact</a>
+    <a href="cart.html" class="cart-icon-link">🛒 <span id="cart-count-badge">0</span></a>
+  </nav>
+</header>
 
-  <main>
-    <div class="box">
-      <h1 id="thankYouName">Thank You!</h1>
-      <p>Your order has been received.<br/>
-        We’ll contact you soon to confirm details and arrange delivery.<br/>
-        For urgent questions, email <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>.
-      </p>
-      <a class="button" href="index.html">Return to Home</a>
-    </div>
-  </main>
+<main>
+  <div class="box">
+    <h1 id="thankYouName">Thank You!</h1>
+    <p>Your order has been received.<br/>
+      We’ll contact you soon to confirm details and arrange delivery.<br/>
+      For urgent questions, email <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>.
+    </p>
+    <a class="button" href="index.html">Return to Home</a>
+  </div>
+</main>
 
-  <footer class="desktop-footer">
-    &copy; 2025 WattSun Solar. All rights reserved.
-  </footer>
+<footer class="desktop-footer">
+  &copy; 2025 WattSun Solar. All rights reserved.
+</footer>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
@@ -140,7 +121,7 @@ function updateCartCountBadge() {
     const cart = JSON.parse(localStorage.getItem("cart")) || [];
     count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
   } catch (e) {}
-  const badge = document.getElementById('cart-count');
+  const badge = document.getElementById('cart-count-badge');
   if (badge) {
     badge.textContent = count;
     badge.style.display = count > 0 ? 'inline-block' : 'none';
@@ -148,9 +129,10 @@ function updateCartCountBadge() {
 }
 
 function toggleNav() {
-  const nav = document.querySelector("nav");
+  const nav = document.getElementById("mainNav");
   nav.classList.toggle("nav-open");
 }
 </script>
+
 </body>
 </html>
