@@ -239,6 +239,12 @@
 
     @media (max-width: 768px) {
     }
+
+@media (min-width: 701px) {
+  .nav-toggle {
+    display: none !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -254,7 +260,7 @@
 </div>
 
 
-<button aria-label="Open menu" class="nav-toggle" onclick="toggleNav()">☰</button>
+<button aria-label="Open menu" class="nav-toggle" >☰</button>
 </div>
 <nav>
 <a href="index.html">Home</a>
@@ -406,19 +412,14 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  
-function updateCartCount() {
-  let count = 0;
-  try {
+  function updateCartCount() {
     const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  } catch (e) {}
-  const badgeDesktop = document.getElementById("cartCount");
-  const badgeMobile = document.getElementById("cart-count");
-  if (badgeDesktop) badgeDesktop.textContent = count;
-  if (badgeMobile) badgeMobile.textContent = count;
-}
-
+    const count = cart.length;
+    const badgeDesktop = document.getElementById("cartCount");
+    const badgeMobile = document.getElementById("cart-count");
+    if (badgeDesktop) badgeDesktop.textContent = count;
+    if (badgeMobile) badgeMobile.textContent = count;
+  }
 
   const wrapper = document.getElementById("cartLinkWrapper");
   if (wrapper) {
