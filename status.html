@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -74,11 +75,10 @@
         .catch(() => '🔴 DOWN');
 
       // Tunnel check
-      let tunnelStatus = await fetch('https://api.wattsun.co.ke/api/health')
-        .then(res => res.ok ? '🟢 OK' : '🔴 DOWN')
-        .catch(() => '🔴 DOWN');
+      let tunnelStatus = await fetch('/api/tunnel')
+        .then(res => res.ok ? '🟢 Connected' : '🔴 Disconnected')
+        .catch(() => '🔴 Disconnected');
 
-      // Render
       container.innerHTML += `
         <div class="status-card ${backendStatus.includes('🔴') ? 'red' : ''}">
           <span class="status-label">Backend API:</span> ${backendStatus}
