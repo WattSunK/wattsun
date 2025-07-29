@@ -399,10 +399,7 @@ document.addEventListener("DOMContentLoaded", function () {
           price: kit.price,
           deposit: kit.deposit,
           term: kit.term,
-          monthly: kit.monthly,
-          quantity: 1,
           monthly: kit.monthly
-        quantity: 1
         });
         localStorage.setItem('cart', JSON.stringify(cart));
         updateCartCount();
@@ -417,7 +414,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function updateCartCount() {
     const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    const count = cart.reduce((sum, item) => sum + (item.quantity ?? item.qty ?? 1), 0);
+    const count = cart.length;
     const badgeDesktop = document.getElementById("cartCount");
     const badgeMobile = document.getElementById("cart-count");
     if (badgeDesktop) badgeDesktop.textContent = count;
