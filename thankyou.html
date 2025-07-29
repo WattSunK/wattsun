@@ -207,15 +207,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 </script>
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    if (sessionStorage.getItem("clearCartOnThankYou")) {
-      localStorage.removeItem("cart");
-      updateCartCountBadge();
-      sessionStorage.removeItem("clearCartOnThankYou");
-    }
-  });
-</script>
+
 
 </div>
 <footer class="mobile-nav">
@@ -297,6 +289,9 @@ function updateCartCountBadge() {
   }
 }
 </script>
+
+
+
 
 
 <script>
