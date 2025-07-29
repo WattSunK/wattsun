@@ -189,11 +189,7 @@ body {
   });
 </script>
 <script src="main.js"></script>
-
-document.addEventListener('DOMContentLoaded', function() {
-  document.body.addEventListener('click', function(e) {
-    const header = document.querySelector('header');
-    if (!header) return;
+if (!header) return;
     const nav = header.querySelector('nav');
     const navToggle = header.querySelector('.nav-toggle');
     if (
@@ -238,7 +234,6 @@ function updateCartCountBadge() {
     mobileCount.textContent = count;
   }
 }
-document.addEventListener('DOMContentLoaded', updateCartCountBadge);
 window.addEventListener('storage', updateCartCountBadge);
 </script>
 
@@ -252,10 +247,7 @@ window.addEventListener('resize', function() {
         document.getElementById("mainNav").classList.remove("active");
     }
 });
-document.addEventListener("DOMContentLoaded", function () {
-  if (sessionStorage.getItem("clearCartOnThankYou")) {
-    localStorage.removeItem("cart");
-    sessionStorage.removeItem("clearCartOnThankYou");
+sessionStorage.removeItem("clearCartOnThankYou");
   }
 
   const name = sessionStorage.getItem("orderName");
@@ -295,10 +287,7 @@ function updateCartCountBadge() {
 
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  if (sessionStorage.getItem("clearCartOnThankYou")) {
-    localStorage.removeItem("cart");
-    sessionStorage.removeItem("clearCartOnThankYou");
+sessionStorage.removeItem("clearCartOnThankYou");
   }
 
   const name = sessionStorage.getItem("orderName");
