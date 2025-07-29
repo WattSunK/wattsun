@@ -11,28 +11,38 @@
     h2 { text-align: center; margin-bottom: 18px; font-size: 2em; font-weight: bold; }
     p { text-align:center; color:#666; margin-bottom:30px; font-size:1.13em; }
     label { font-weight: bold; font-size: 1.08em; }
-    input[type="number"] { width: 100%; padding: 10px; font-size: 1em; border-radius: 8px; border: 1.2px solid #ccc; background: #faf9f7; margin: 0 0 10px 0; }
+    input[type="number"] { width: 94%; max-width: 80px; padding: 10px; font-size: 1em; border-radius: 8px; border: 1.2px solid #ccc; background: #faf9f7; margin: 0 0 10px 0; text-align: center;}
     input[type="number"]:focus { border-color: #f7b733; outline: none; }
     .calc-section-header { font-size: 1.13em; font-weight: bold; color: #184211; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 9px 0; user-select: none; }
     .calc-chevron { font-size: 1.2em; transition: transform 0.2s; color: #b39708; }
     .calc-section.collapsed .calc-chevron { transform: rotate(-90deg);}
     .calc-grid { display: grid; grid-template-columns: 1fr 90px; gap: 0 8px; align-items: center; }
     .calc-section.collapsed .calc-section-body { display: none; }
-    .loan-btn, .btn-main { width: 100%; background: #ffc043; color: #fff; border: none; padding: 15px; border-radius: 6px; font-size: 1.12em; font-weight: 600; cursor: pointer; transition: background 0.2s, color 0.2s; margin: 12px 0 4px 0; box-shadow: 0 3px 18px rgba(247,183,51,0.11); }
-    .loan-btn:hover, .btn-main:hover { background: #ffb347; color: #965700; }
+    .loan-btn, .btn-main, .cart-btn { width: 100%; max-width: 350px; background: linear-gradient(90deg, #f7b733 0%, #fcf6ba 100%); color: #184211; border: none; padding: 14px 0; border-radius: 24px; font-size: 1.13em; font-weight: 600; cursor: pointer; margin: 18px auto 4px auto; display: block; box-shadow: 0 3px 18px rgba(247,183,51,0.11); transition: background 0.15s, color 0.12s, transform 0.1s;}
+    .loan-btn:hover, .btn-main:hover, .cart-btn:hover { background: linear-gradient(90deg, #fcf6ba 0%, #f7b733 100%); color: #b37900 !important; transform: translateY(-1px) scale(1.02); }
     .result { margin-top: 18px; text-align: center; font-weight: bold; font-size: 1.16em; background: #fff5c2; border-radius: 8px; padding: 18px 8px 10px 8px; transition: background 0.3s; min-height: 38px; }
     .result-flash { background: #fff5c2 !important; }
     .disclaimer { font-size: 0.98em; text-align: center; color: #888; margin-top: 14px; }
-    .cart-btn { background: #ffc043; color: white; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 3px 12px rgba(0,0,0,0.06); margin: 14px auto 0 auto; padding: 12px 28px; display: block; }
-    .cart-btn:hover { background: #ffb347; color: #965700; }
+    /* Fix header/nav green bar */
+    header, nav { border: none !important; box-shadow: none !important; background-image: none !important; }
+    nav { background: transparent !important; }
+    /* Remove green bar if added by .active styles in main.css */
+    nav a.active { box-shadow: none !important; border-bottom: none !important; background: none !important; }
+
+    /* Cart badge fix */
+    .cart-icon-link { position: relative; }
+    .cart-count-badge { position: absolute; top: -0.7em; right: -1.2em; background: #19c37d; color: #fff; font-size: 0.84em; min-width: 1.2em; height: 1.2em; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 0 0.13em #0001; z-index: 1; }
+
     @media (max-width: 700px) {
       .container { max-width: 98vw; width: 100vw !important; border-radius: 0 !important; padding-left: 2vw !important; padding-right: 2vw !important; }
-      .calc-grid { grid-template-columns: 1fr !important; gap: 2px 0 !important; }
+      .calc-section-body.calc-grid { grid-template-columns: 1fr 80px !important; gap: 0 5vw !important;}
       h2 { font-size: 1.3em !important; }
     }
-    /* Mobile nav/footer styles */
-    .mobile-nav { display: none; }
+    /* Mobile: force label above input */
     @media (max-width: 768px) {
+      .calc-grid { grid-template-columns: 1fr 1fr !important; }
+      .calc-section-body label { grid-column: 1; text-align: left; }
+      .calc-section-body input[type="number"] { grid-column: 2; }
       .mobile-nav {
         display: flex;
         position: fixed;
@@ -73,6 +83,12 @@
         justify-content: center;
       }
     }
+    /* Desktop footer always pinned to bottom */
+    @media (min-width: 769px) {
+      body { min-height: 100vh; display: flex; flex-direction: column; }
+      .container { flex: 1; }
+      footer:not(.mobile-nav) { margin-top: auto; background: #fff; border-top: 1px solid #f1eab6; text-align: center; padding: 14px 0 10px 0; }
+    }
   </style>
 </head>
 <body>
@@ -97,7 +113,7 @@
     <a href="../projects.html">Projects</a>
     <a href="../contact.html">Contact</a>
     <a aria-label="View shopping cart" class="cart-icon-link" href="/cart.html" title="View cart">
-      <span class="cart-icon">🛒<span class="cart-count-badge" style="background:#19c37d; color:white; font-weight:bold;">0</span></span>
+      <span class="cart-icon">🛒<span class="cart-count-badge">0</span></span>
     </a>
   </nav>
 </header>
@@ -191,6 +207,7 @@
   <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
 </footer>
 <script>
+// --- UI Functions ---
 function toggleSection(id) {
   const section = document.getElementById(id);
   section.classList.toggle('collapsed');
@@ -199,76 +216,7 @@ function sanitizeInput(input) {
   input.value = Math.max(0, parseInt(input.value) || 0);
 }
 
-// CALCULATOR LOGIC WITH FORMATTED RESULT
-function calculateKit() {
-  const form = document.getElementById('solarForm');
-  const inputs = form.querySelectorAll('input[type="number"]');
-  let data = {};
-  inputs.forEach(input => {
-    let val = parseInt(input.value) || 0;
-    if (val > 0) data[input.name] = val;
-  });
-
-  const resultDiv = document.getElementById('result');
-  if (Object.keys(data).length === 0) {
-    resultDiv.innerHTML = '<span style="color:red">Please select at least one appliance.</span>';
-    resultDiv.style.display = 'block';
-    return;
-  }
-
-  resultDiv.innerHTML = 'Calculating...';
-  resultDiv.style.display = 'block';
-
-  fetch('/api/Kitcalculate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  })
-  .then(res => res.json())
-  .then(res => {
-    // Formatting result and highlight
-    resultDiv.innerHTML =
-      `<span style="font-size:1.13em; color:#214000;">Recommended Kit:</span> <span style="font-size:1.1em; font-weight:bold;">${res.recommended}</span><br>
-      <span style="font-size:1.08em;">Estimated Price: <b style="color:#b39708;">KES ${res.price.toLocaleString()}</b></span><br>
-      <span style="font-size:1.08em;">Total Power: <b>${res.power} W</b></span>`;
-    resultDiv.style.display = 'block';
-    resultDiv.classList.add('result-flash');
-    setTimeout(() => { resultDiv.classList.remove('result-flash'); }, 1800);
-
-    // Add "Add to Cart" button after result
-    let existingBtn = document.getElementById('addToCartBtn');
-    if (!existingBtn) {
-      const btn = document.createElement('button');
-      btn.textContent = "Add to Cart";
-      btn.id = "addToCartBtn";
-      btn.className = "cart-btn";
-      btn.onclick = function(e) {
-        e.preventDefault();
-        // Add this kit to the cart in localStorage
-        const cart = JSON.parse(localStorage.getItem('cart')) || [];
-        cart.push({
-          name: res.recommended,
-          price: res.price,
-          quantity: 1,
-          type: "kit",
-          description: `Custom kit calculated (${res.power}W)`,
-        });
-        localStorage.setItem('cart', JSON.stringify(cart));
-        updateCartCountBadge();
-        btn.remove();
-        resultDiv.innerHTML = `<span style="color:green;">Added to cart!</span>`;
-        setTimeout(() => { resultDiv.innerHTML = ""; resultDiv.style.display = 'none'; }, 1300);
-        form.reset();
-      };
-      resultDiv.after(btn);
-    }
-  })
-  .catch(() => {
-    resultDiv.innerHTML = '<span style="color:red">Error calculating kit. Please try again.</span>';
-  });
-}
-
-// Cart count badge logic
+// --- Cart Count Logic (shared with shop.html) ---
 function updateCartCountBadge() {
   let count = 0;
   try {
@@ -288,7 +236,7 @@ function updateCartCountBadge() {
 document.addEventListener('DOMContentLoaded', updateCartCountBadge);
 window.addEventListener('storage', updateCartCountBadge);
 
-// Hamburger menu logic
+// --- Hamburger menu ---
 function toggleNav() {
   var header = document.querySelector("header");
   header.classList.toggle("nav-open");
@@ -305,6 +253,80 @@ document.body.addEventListener("click", function (e) {
     header.classList.remove("nav-open");
   }
 }, true);
+
+// --- CALCULATOR LOGIC WITH FORMATTED RESULT ---
+function calculateKit() {
+  const form = document.getElementById('solarForm');
+  const inputs = form.querySelectorAll('input[type="number"]');
+  let data = {};
+  inputs.forEach(input => {
+    let val = parseInt(input.value) || 0;
+    if (val > 0) data[input.name] = val;
+  });
+
+  const resultDiv = document.getElementById('result');
+  // Remove any previous button
+  let existingBtn = document.getElementById('addToCartBtn');
+  if (existingBtn) existingBtn.remove();
+
+  if (Object.keys(data).length === 0) {
+    resultDiv.innerHTML = '<span style="color:red">Please select at least one appliance.</span>';
+    resultDiv.style.display = 'block';
+    return;
+  }
+
+  resultDiv.innerHTML = 'Calculating...';
+  resultDiv.style.display = 'block';
+
+  fetch('/api/Kitcalculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(res => res.json())
+  .then(res => {
+    resultDiv.innerHTML =
+      `<div style="font-size:1.17em; font-weight:600; margin-bottom:3px; color:#214000;">Recommended Kit: <span style="font-weight:bold">${res.recommended}</span></div>
+      <div style="font-size:1.08em; margin-bottom:2px;">Estimated Price: <span style="color:#b39708; font-weight:700;">KES ${res.price.toLocaleString()}</span></div>
+      <div style="font-size:1.08em; margin-bottom:4px;">Total Power: <span style="font-weight:bold">${res.power} W</span></div>`;
+    resultDiv.style.display = 'block';
+    resultDiv.classList.add('result-flash');
+    setTimeout(() => { resultDiv.classList.remove('result-flash'); }, 1600);
+
+    // "Add to Cart" button
+    const btn = document.createElement('button');
+    btn.textContent = "Add to Cart";
+    btn.id = "addToCartBtn";
+    btn.className = "cart-btn";
+    btn.onclick = function(e) {
+      e.preventDefault();
+      // Merge with existing kit in cart or add new
+      let cart = JSON.parse(localStorage.getItem('cart')) || [];
+      const index = cart.findIndex(item => item.name === res.recommended && item.type === "kit");
+      if (index > -1) {
+        cart[index].quantity = (cart[index].quantity || 1) + 1;
+      } else {
+        cart.push({
+          name: res.recommended,
+          price: res.price,
+          quantity: 1,
+          type: "kit",
+          description: `Custom kit calculated (${res.power}W)`,
+        });
+      }
+      localStorage.setItem('cart', JSON.stringify(cart));
+      updateCartCountBadge();
+      btn.remove();
+      resultDiv.innerHTML = `<span style="color:green;">Added to cart!</span>`;
+      setTimeout(() => { resultDiv.innerHTML = ""; resultDiv.style.display = 'none'; }, 1200);
+      form.reset();
+    };
+    resultDiv.after(btn);
+  })
+  .catch(() => {
+    resultDiv.innerHTML = '<span style="color:red">Error calculating kit. Please try again.</span>';
+  });
+}
 </script>
 </body>
 </html>
