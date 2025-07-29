@@ -1,7 +1,4 @@
 <!DOCTYPE html>
-
-<!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
@@ -178,9 +175,6 @@ footer {
 <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
 <span class="brand-name">WattSun Solar</span>
 </div>
-
-
-
 <button aria-label="Open menu" class="nav-toggle">☰</button>
 </div>
 <nav>
@@ -194,7 +188,7 @@ footer {
 <a aria-label="View shopping cart" class="cart-icon-link" href="/cart.html" title="View cart">
   <span class="cart-icon">
     🛒
-    <span class="cart-count-badge" style="background:#19c37d; color:white; font-weight:bold;">0</span>
+    <span id="cart-count-badge" class="cart-count-badge" style="background:#19c37d; color:white; font-weight:bold;">0</span>
   </span>
 </a>
 <!-- Cart Icon END --></nav>
@@ -204,7 +198,6 @@ footer {
 <p style="text-align:center; font-style:italic; color:#666;">
       Note: A minimum deposit of 50% is required for installation to commence.
     </p>
-
 <div class="grid" id="shop-products">
   <!-- Products will be dynamically loaded here -->
 </div>
@@ -222,14 +215,14 @@ footer {
       const priority = ["SYS-1KW","SYS-3KW","SYS-6KW","SYS-9KW","INV-5KW","KIT-CLEAN","BATT-24V100AH","PANEL-450W"];
       const sorted = [...items.filter(p=>priority.includes(p.sku)), ...items.filter(p=>!priority.includes(p.sku))];
       sorted.forEach((prod, idx) => {
-        const img = prod.image ? "/images/products/" + prod.image : "images/placeholder.jpg";
+        const img = prod.image ? "/images/products/" + prod.image : "/images/placeholder.jpg";
         const price = parsePrice(prod.price);
         const id = "dep_" + idx;
         const card = document.createElement("div");
         card.className = "product-card";
         const safeDesc = (prod.description || "").replace(/'/g, "");
         card.innerHTML = `
-          <img src="${img}" alt="${prod.name}" onerror="this.src='images/placeholder.jpg'" />
+          <img src="${img}" alt="${prod.name}" onerror="this.src='/images/placeholder.jpg'" />
           <div class="product-info">
             <h3>${prod.name}</h3>
             <p>${prod.description}</p>
@@ -248,7 +241,6 @@ footer {
 
   document.addEventListener('DOMContentLoaded', loadProducts);
 </script>
-
 
 <footer class="mobile-nav">
 <a aria-label="Home" href="index.html">🏠</a>
