@@ -406,14 +406,19 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  function updateCartCount() {
+  
+function updateCartCount() {
+  let count = 0;
+  try {
     const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    const count = cart.length;
-    const badgeDesktop = document.getElementById("cartCount");
-    const badgeMobile = document.getElementById("cart-count");
-    if (badgeDesktop) badgeDesktop.textContent = count;
-    if (badgeMobile) badgeMobile.textContent = count;
-  }
+    count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  } catch (e) {}
+  const badgeDesktop = document.getElementById("cartCount");
+  const badgeMobile = document.getElementById("cart-count");
+  if (badgeDesktop) badgeDesktop.textContent = count;
+  if (badgeMobile) badgeMobile.textContent = count;
+}
+
 
   const wrapper = document.getElementById("cartLinkWrapper");
   if (wrapper) {
