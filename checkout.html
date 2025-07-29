@@ -8,40 +8,56 @@
   <link rel="stylesheet" href="main.css" />
 </head>
 <body>
-<header>
-  <nav>
-    <a href="cart.html">🛒 <span id="cart-count">0</span></a>
-    <span id="cart-count-badge" class="cart-count-badge">0</span>
-  </nav>
-</header>
+  <header class="site-header">
+    <div class="container">
+      <div class="logo">
+        <a href="index.html">⚡ WattSun Solar</a>
+      </div>
+      <nav class="desktop-menu">
+        <a href="index.html">Home</a>
+        <a href="shop.html">Shop</a>
+        <a href="calculator.html">Calculator</a>
+        <a href="financing.html">Financing</a>
+        <a href="projects.html">Projects</a>
+        <a href="contact.html">Contact</a>
+        <a href="cart.html" class="cart-icon">
+          🛒 <span id="cart-count">0</span>
+        </a>
+      </nav>
+    </div>
+  </header>
 
-<main class="container">
-  <h1>Checkout</h1>
-  <form id="checkout-form">
-    <label>Full Name: <input type="text" id="name" required /></label><br />
-    <label>Email: <input type="email" id="email" required /></label><br />
-    <label>Phone Number: <input type="tel" id="phone" required /></label><br />
-    <label>Address: <textarea id="address" required></textarea></label><br />
-    <input type="submit" value="Place Order" />
-  </form>
+  <main class="container">
+    <h1>Checkout</h1>
+    <form id="checkout-form" class="form-box">
+      <label>Full Name:<br /><input type="text" id="name" required /></label><br />
+      <label>Email:<br /><input type="email" id="email" required /></label><br />
+      <label>Phone Number:<br /><input type="tel" id="phone" required /></label><br />
+      <label>Address:<br /><textarea id="address" required></textarea></label><br />
+      <input type="submit" class="button" value="Place Order" />
+    </form>
 
-  <h2>Order Summary</h2>
-  <table id="cart-summary">
-    <thead>
-      <tr><th>Item</th><th>Qty</th><th>Price</th><th>Deposit</th></tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+    <h2>Order Summary</h2>
+    <table id="cart-summary">
+      <thead>
+        <tr><th>Item</th><th>Qty</th><th>Price (KES)</th><th>Deposit (KES)</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
 
-  <div id="total-deposit">Total Deposit: KES 0</div>
-</main>
+    <div id="total-deposit" class="summary-total">Total Deposit: KES 0</div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; 2025 WattSun Solar. All rights reserved.</p>
+    </div>
+  </footer>
 
 <script>
 function updateCartCountBadge(count) {
-  const badge = document.getElementById("cart-count-badge");
-  const mobile = document.getElementById("cart-count");
+  const badge = document.getElementById("cart-count");
   if (badge) badge.textContent = count;
-  if (mobile) mobile.textContent = count;
 }
 
 function populateSummary() {
@@ -95,7 +111,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (!res.ok) throw new Error("Failed to place order.");
-
       localStorage.removeItem("cart");
       window.location.href = "thankyou.html";
     } catch (err) {
