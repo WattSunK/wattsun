@@ -1,0 +1,90 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WattSun System Status</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      max-width: 600px;
+      margin: auto;
+    }
+    h1 {
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    .status-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    .indicator {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+    .ok { background-color: green; }
+    .fail { background-color: red; }
+    .label { font-size: 1.2rem; }
+    footer { text-align: center; margin-top: 4rem; font-size: 0.9rem; color: #666; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <nav>
+      <a href="/index.html">Home</a> |
+      <a href="/shop.html">Shop</a> |
+      <a href="/status.html" style="font-weight:bold;">System Status</a>
+    </nav>
+    <hr>
+  </header>
+
+  <!-- Main Content -->
+  <h1>WattSun System Status</h1>
+
+  <div class="status-row">
+    <div id="backend-indicator" class="indicator fail"></div>
+    <div class="label">Backend API</div>
+  </div>
+
+  <div class="status-row">
+    <div id="tunnel-indicator" class="indicator fail"></div>
+    <div class="label">Cloudflare Tunnel</div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    &copy; 2025 WattSun Solar. All rights reserved.
+  </footer>
+
+  <!-- Health Check Logic -->
+  <script>
+    // Backend status
+    fetch('/api/health')
+      .then(res => {
+        if (res.ok) {
+          document.getElementById('backend-indicator').classList.remove('fail');
+          document.getElementById('backend-indicator').classList.add('ok');
+        }
+      })
+      .catch(() => {});
+
+    // Cloudflare Tunnel status
+    fetch('/api/tunnel')
+      .then(res => {
+        if (res.ok) {
+          document.getElementById('tunnel-indicator').classList.remove('fail');
+          document.getElementById('tunnel-indicator').classList.add('ok');
+        }
+      })
+      .catch(() => {});
+  </script>
+
+</body>
+</html>
