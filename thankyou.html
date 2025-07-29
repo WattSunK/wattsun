@@ -75,25 +75,30 @@
 </head>
 <body>
   <header>
-    <div class="header-bar">
-      <div class="logo-container">
-        <img src="assets/logo/Wattsun Solar log2.png" alt="WattSun Solar Logo" style="height: 40px; margin-right: 10px;"/>
-        <span class="brand-name">WattSun Solar</span>
-      </div>
-      <button class="nav-toggle" onclick="toggleNav()">☰</button>
-    </div>
-    <nav id="mainNav">
-      <a href="index.html">Home</a>
-      <a href="solutions.html">Solutions</a>
-      <a href="shop.html">Shop</a>
-      <a href="calculator.html">Calculator</a>
-      <a href="financing.html">Financing</a>
-      <a href="projects.html">Projects</a>
-      <a href="contact.html">Contact</a>
-      <a href="cart.html" aria-label="View cart" class="cart-icon-link">
-        🛒 <span id="cart-count-badge" class="cart-count-badge">0</span>
+    <div class="top-bar">
+      <a href="index.html" class="logo">
+        <img src="assets/logo/Wattsun Solar log2.png" alt="WattSun Logo" />
+        WattSun Solar
       </a>
-    </nav>
+      <nav>
+        <ul class="menu">
+          <li><a href="index.html">Home</a></li>
+          <li><a href="solutions.html">Solutions</a></li>
+          <li><a href="shop.html">Shop</a></li>
+          <li><a href="calculator.html">Calculator</a></li>
+          <li><a href="financing.html">Financing</a></li>
+          <li><a href="projects.html">Projects</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li class="cart">
+            <a href="cart.html">
+              <span class="cart-icon">🛒</span>
+              <span id="cart-count" class="badge">0</span>
+            </a>
+          </li>
+        </ul>
+        <div class="nav-toggle" onclick="toggleNav()">☰</div>
+      </nav>
+    </div>
   </header>
 
   <main>
@@ -135,7 +140,7 @@ function updateCartCountBadge() {
     const cart = JSON.parse(localStorage.getItem("cart")) || [];
     count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
   } catch (e) {}
-  const badge = document.getElementById('cart-count-badge');
+  const badge = document.getElementById('cart-count');
   if (badge) {
     badge.textContent = count;
     badge.style.display = count > 0 ? 'inline-block' : 'none';
@@ -143,7 +148,7 @@ function updateCartCountBadge() {
 }
 
 function toggleNav() {
-  const nav = document.getElementById("mainNav");
+  const nav = document.querySelector("nav");
   nav.classList.toggle("nav-open");
 }
 </script>
