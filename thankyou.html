@@ -2,16 +2,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Thank You – WattSun Solar</title>
-  <link rel="stylesheet" href="main.css"/>
+  <link rel="stylesheet" href="main.css" />
   <style>
     body {
       display: flex;
       flex-direction: column;
       min-height: 100vh;
       margin: 0;
+      background: #fffef8;
     }
     main {
       flex: 1;
@@ -20,7 +21,7 @@
       justify-content: center;
       padding: 2rem;
     }
-    .box {
+    .thankyou-box {
       background: #fff6e8;
       padding: 2rem;
       border-radius: 12px;
@@ -28,11 +29,11 @@
       text-align: center;
       box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
-    .box h1 {
+    .thankyou-box h1 {
       color: #a67400;
       font-size: 1.8rem;
     }
-    .box p, .box a {
+    .thankyou-box p, .thankyou-box a {
       color: #333;
       font-size: 1rem;
       line-height: 1.5;
@@ -49,7 +50,7 @@
       margin-top: 1rem;
       display: inline-block;
     }
-    footer.desktop-footer {
+    footer {
       background: linear-gradient(to right, #fbc02d, #fff9c4);
       padding: 1rem;
       text-align: center;
@@ -59,18 +60,18 @@
   </style>
 </head>
 <body>
-
-<header>
-  <div class="header-bar">
+  
+<header class="site-header">
+  <div class="top-bar">
     <div class="logo">
       <a href="index.html">
-        <img src="images/logo.png" alt="WattSun Logo" height="40">
+        <img src="images/logo.png" alt="WattSun Logo" />
         <span>WattSun Solar</span>
       </a>
     </div>
-    <button class="nav-toggle" onclick="toggleNav()">☰</button>
+    <div class="nav-toggle" onclick="toggleNav()">☰</div>
   </div>
-  <nav id="mainNav">
+  <nav class="main-nav" id="mainNav">
     <a href="index.html">Home</a>
     <a href="solutions.html">Solutions</a>
     <a href="shop.html">Shop</a>
@@ -78,61 +79,60 @@
     <a href="financing.html">Financing</a>
     <a href="projects.html">Projects</a>
     <a href="contact.html">Contact</a>
-    <a href="cart.html" class="cart-icon-link">🛒 <span id="cart-count-badge">0</span></a>
+    <a href="cart.html" class="cart-icon">🛒 <span id="cart-count">0</span></a>
   </nav>
 </header>
 
-<main>
-  <div class="box">
-    <h1 id="thankYouName">Thank You!</h1>
-    <p>Your order has been received.<br/>
-      We’ll contact you soon to confirm details and arrange delivery.<br/>
-      For urgent questions, email <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>.
-    </p>
-    <a class="button" href="index.html">Return to Home</a>
-  </div>
-</main>
 
-<footer class="desktop-footer">
-  &copy; 2025 WattSun Solar. All rights reserved.
-</footer>
+  <main>
+    <div class="thankyou-box">
+      <h1 id="thankYouName">Thank You!</h1>
+      <p>Your order has been received.<br/>
+        We’ll contact you soon to confirm details and arrange delivery.<br/>
+        For urgent questions, email <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>.
+      </p>
+      <a class="button" href="index.html">Return to Home</a>
+    </div>
+  </main>
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  if (sessionStorage.getItem("clearCartOnThankYou")) {
-    localStorage.removeItem("cart");
-    sessionStorage.removeItem("clearCartOnThankYou");
-  }
+  <footer>
+    &copy; 2025 WattSun Solar. All rights reserved.
+  </footer>
 
-  const name = sessionStorage.getItem("orderName");
-  if (name) {
-    const nameElem = document.getElementById("thankYouName");
-    if (nameElem) {
-      nameElem.textContent = "Thank you, " + name + "!";
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      if (sessionStorage.getItem("clearCartOnThankYou")) {
+        localStorage.removeItem("cart");
+        sessionStorage.removeItem("clearCartOnThankYou");
+      }
+
+      const name = sessionStorage.getItem("orderName");
+      if (name) {
+        const nameElem = document.getElementById("thankYouName");
+        if (nameElem) {
+          nameElem.textContent = "Thank you, " + name + "!";
+        }
+      }
+
+      updateCartCountBadge();
+    });
+
+    function updateCartCountBadge() {
+      let count = 0;
+      try {
+        const cart = JSON.parse(localStorage.getItem("cart")) || [];
+        count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+      } catch (e) {}
+      const badge = document.getElementById('cart-count');
+      if (badge) {
+        badge.textContent = count;
+        badge.style.display = count > 0 ? 'inline-block' : 'none';
+      }
     }
-  }
 
-  updateCartCountBadge();
-});
-
-function updateCartCountBadge() {
-  let count = 0;
-  try {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  } catch (e) {}
-  const badge = document.getElementById('cart-count-badge');
-  if (badge) {
-    badge.textContent = count;
-    badge.style.display = count > 0 ? 'inline-block' : 'none';
-  }
-}
-
-function toggleNav() {
-  const nav = document.getElementById("mainNav");
-  nav.classList.toggle("nav-open");
-}
-</script>
-
+    function toggleNav() {
+      document.getElementById("mainNav").classList.toggle("nav-open");
+    }
+  </script>
 </body>
 </html>
