@@ -501,10 +501,8 @@
         cart.forEach(item => {
           const qty = item.quantity || 1;
           totalCount += qty;
-          const deposit = parseInt((item.deposit || "0").toString().replace(/[^\d]/g, ""));
-          const price = parseInt((item.price || "0").toString().replace(/[^\d]/g, ""));
-          const totalPrice = price * qty;
-          const totalItemDeposit = deposit * qty;
+          const deposit = item.deposit;
+          const totalPrice = item.price * qty;
           const totalItemDeposit = deposit * qty;
           totalDeposit += totalItemDeposit;
 
@@ -513,9 +511,9 @@
             <td class="product-col">${item.name}</td>
             <td class="product-col">${item.description || ''}</td>
             <td class="compact-col">${qty}</td>
-            <td class="compact-col">${!isNaN(price) ? price.toLocaleString() : "N/A"}</td>
-            <td class="compact-col">${!isNaN(deposit) ? deposit.toLocaleString() : "N/A"}</td>
-            <td class="compact-col">${!isNaN(totalPrice) ? totalPrice.toLocaleString() : "N/A"}</td>
+            <td class="compact-col">${item.price.toLocaleString()}</td>
+            <td class="compact-col">${deposit.toLocaleString()}</td>
+            <td class="compact-col">${totalPrice.toLocaleString()}</td>
           `;
           cartTable.appendChild(row);
         });
