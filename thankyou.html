@@ -1,295 +1,65 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
-<meta content="width=device-width, initial-scale=1" name="viewport"/><meta charset="utf-8"/>
-<title>Thank You – WattSun Solar</title>
-<link href="main.css" rel="stylesheet"/>
-<style>
-html, body { height: 100%; margin: 0; display: flex; flex-direction: column; }
-body > .container { flex: 1 0 auto; }
-footer { flex-shrink: 0; }
-body {
-      background: #f7f6ec;
-      text-align: center;
-      padding-top: 80px;
-    }
-    .box {
-      max-width: 450px;
-      margin: 44px auto;
-      background: #fff9ec;
-      padding: 34px 20px 44px 20px;
-      border-radius: 13px;
-      box-shadow: 0 4px 18px #e5c75e30;
-    }
-    h1 { color: #b47d08; }
-    p { color: #433600; font-size: 1.14em; }
-    a.button {
-      display: inline-block;
-      background: linear-gradient(90deg, #f7b733 0%, #fcf6ba 100%);
-      color: #965700;
-      font-weight: bold;
-      text-decoration: none;
-      padding: 12px 34px;
-      border-radius: 8px;
-      margin-top: 26px;
-      margin-bottom: 7px;
-      box-shadow: 0 2px 10px #f7b73333;
-      font-size: 1.07em;
-      transition: background 0.18s, color 0.16s;
-    }
-    a.button:hover {
-      background: linear-gradient(90deg, #fcf6ba 0%, #f7b733 100%);
-      color: #b37900 !important;
-    }
-  
-/* === Mobile Sticky Footer === */
-.mobile-nav {
-  display: none;
-}
-@media (max-width: 768px) {
-  .mobile-nav {
-    display: flex;
-    position: fixed;
-    bottom: 0;
-    height: 56px;
-    width: 100%;
-    background-color: #f4a940;
-    justify-content: space-around;
-    align-items: center;
-    z-index: 1000;
-    box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
-    padding: 0;
-  }
-  .mobile-nav a {
-    font-size: 20px;
-    height: 56px;
-    line-height: 56px;
-    padding: 0;
-    margin: 0;
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-    color: black;
-    position: relative;
-  }
-  #cart-count {
-    position: absolute;
-    top: 6px;
-    right: 10px;
-    background: red;
-    color: white;
-    font-size: 11px;
-    min-width: 16px;
-    height: 16px;
-    border-radius: 8px;
-    padding: 0 5px;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-}
-.logo-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  white-space: nowrap;
-  padding: 6px 12px;
-  margin-left: 10px;
-}
-.brand-name {
-  font-size: 1.8em;
-  font-weight: bold;
-  color: white;
-  white-space: nowrap;
-}
-.site-logo {
-  height: 48px;
-  max-width: 48px;
-  object-fit: contain;
-  vertical-align: middle;
-}
-@media (max-width: 768px) {
-  .logo-container {
-    padding: 4px 12px;
-    height: 56px;
-  }
-  .site-logo {
-    height: auto;
-    max-height: 36px;
-    object-fit: contain;
-  }
-  .brand-name {
-    font-size: 1.3em;
-  }
-}
-    /* === Desktop & Mobile Logo Styles from index.html === */
-    .logo-container { display: none; }
-    .desktop-logo { display: block; }
-    .brand-name { font-size: 1.8em; font-weight: bold; color: white; white-space: nowrap; }
-    .site-logo { height: 48px; max-width: 48px; object-fit: contain; vertical-align: middle; }
-    @media (max-width: 768px) {
-      .desktop-logo { display: none; }
-      .logo-container { display: flex; align-items: center; gap: 12px; white-space: nowrap; padding: 4px 12px; height: 56px; margin-left: 10px; }
-      .site-logo { height: auto; max-height: 36px; object-fit: contain; }
-      .brand-name { font-size: 1.3em; }
-    }
-    @media (max-width: 768px) {
-      h1 img.site-logo { width: auto !important; max-height: 32px !important; margin-right: 8px; }
-    }
-</style>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <title>Thank You – WattSun Solar</title>
+  <link href="main.css" rel="stylesheet"/>
 </head>
 <body>
-
-<header>
-  <div class="header-bar">
-    <h1 class="desktop-logo">
-      <img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
-      WattSun Solar
-    </h1>
-    <div class="logo-container">
-      <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
-      <span class="brand-name">WattSun Solar</span>
+  <header>
+    <div class="header-bar">
+      <h1 class="desktop-logo">
+        <img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
+        WattSun Solar
+      </h1>
+      <div class="logo-container">
+        <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
+        <span class="brand-name">WattSun Solar</span>
+      </div>
+      <button aria-label="Open menu" class="nav-toggle" onclick="toggleNav()">☰</button>
     </div>
-    <button aria-label="Open menu" class="nav-toggle" onclick="toggleNav()">☰</button>
+    <nav id="mainNav">
+      <a href="index.html">Home</a>
+      <a href="solutions.html">Solutions</a>
+      <a href="shop.html">Shop</a>
+      <a href="financing.html">Financing</a>
+      <a href="projects.html">Projects</a>
+      <a href="contact.html">Contact</a>
+      <a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
+        <span class="cart-icon">🛒<span class="cart-count-badge" id="cart-count-badge">0</span></span>
+      </a>
+    </nav>
+  </header>
+
+  <div class="container">
+    <div class="box">
+      <h1 id="thankYouName">Thank You!</h1>
+      <p>Your order has been received.<br/>
+        We’ll contact you soon to confirm details and arrange delivery.<br/>
+        For urgent questions, email <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>.
+      </p>
+      <a class="button" href="index.html">Return to Home</a>
+    </div>
   </div>
-  <nav id="mainNav">
-    <a href="index.html">Home</a>
-    <a href="solutions.html">Solutions</a>
-    <a href="shop.html">Shop</a>
-    <a href="financing.html">Financing</a>
-    <a href="projects.html">Projects</a>
-    <a href="contact.html">Contact</a>
-    <a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
-      <span class="cart-icon">🛒<span class="cart-count-badge" id="cart-count-badge">0</span></span>
-    </a>
-  </nav>
-</header><div class="container">
 
+  <footer class="mobile-nav">
+    <a aria-label="Home" href="index.html">🏠</a>
+    <a aria-label="Account" href="account.html">👤</a>
+    <a aria-label="Cart" href="cart.html">🛒<span id="cart-count">0</span></a>
+    <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
+  </footer>
 
-<div class="box">
-<h1 id="thankYouName">Thank You!</h1>
-<p>Your order has been received.<br/>
-      We’ll contact you soon to confirm details and arrange delivery.<br/>
-      For urgent questions, email <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>.
-    </p>
-<a class="button" href="index.html">Return to Home</a>
-</div>
+  
 <script>
-  const navToggle = document.querySelector('.nav-toggle');
-  const header = document.querySelector('header');
-  navToggle.addEventListener('click', function() {
-    header.classList.toggle('nav-open');
-  });
-  document.querySelectorAll('header nav a').forEach(link => {
-    link.addEventListener('click', () => header.classList.remove('nav-open'));
-  });
-</script>
-<script src="main.js"></script>
-if (!header) return;
-    const nav = header.querySelector('nav');
-    const navToggle = header.querySelector('.nav-toggle');
-    if (
-      header.classList.contains('nav-open') &&
-      !nav.contains(e.target) &&
-      !navToggle.contains(e.target)
-    ) {
-      header.classList.remove('nav-open');
-    }
-  }, true);
-});
-
-</script>
-
-
-</div>
-<footer class="mobile-nav">
-<a aria-label="Home" href="index.html">🏠</a>
-<a aria-label="Account" href="account.html">👤</a>
-<a aria-label="Cart" href="cart.html">🛒<span id="cart-count">0</span></a>
-<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
-</footer>
-<script>
-function updateCartCountBadge() {
-  let count = 0;
-  try {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  } catch (e) {}
-
-  const badge = document.getElementById('cart-count-badge');
-  const mobileCount = document.getElementById('cart-count');
-  if (badge) {
-    if (count > 0) {
-      badge.textContent = count;
-      badge.style.display = 'flex';
-    } else {
-      badge.style.display = 'none';
-    }
-  }
-  if (mobileCount) {
-    mobileCount.textContent = count;
-  }
-}
-window.addEventListener('storage', updateCartCountBadge);
-</script>
-
-<script>
-function toggleNav() {
-  var nav = document.getElementById("mainNav");
-  nav.classList.toggle("active");
-}
-window.addEventListener('resize', function() {
-    if(window.innerWidth > 800) {
-        document.getElementById("mainNav").classList.remove("active");
-    }
-});
-sessionStorage.removeItem("clearCartOnThankYou");
+document.addEventListener("DOMContentLoaded", function () {
+  // Clear cart if flag is set
+  if (sessionStorage.getItem("clearCartOnThankYou")) {
+    localStorage.removeItem("cart");
+    sessionStorage.removeItem("clearCartOnThankYou");
   }
 
-  const name = sessionStorage.getItem("orderName");
-  if (name) {
-    const nameElem = document.getElementById("thankYouName");
-    if (nameElem) {
-      nameElem.textContent = "Thank you, " + name + "!";
-    }
-  }
-
-  updateCartCountBadge();
-});
-function updateCartCountBadge() {
-  let count = 0;
-  try {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  } catch(e){}
-  const badge = document.getElementById('cart-count-badge');
-  const mobileCount = document.getElementById('cart-count');
-  if (badge) {
-    if (count > 0) {
-      badge.textContent = count;
-      badge.style.display = 'flex';
-    } else {
-      badge.style.display = 'none';
-    }
-  }
-  if (mobileCount) {
-    mobileCount.textContent = count;
-  }
-}
-</script>
-
-
-
-
-
-<script>
-sessionStorage.removeItem("clearCartOnThankYou");
-  }
-
+  // Update thank you name if available
   const name = sessionStorage.getItem("orderName");
   if (name) {
     const nameElem = document.getElementById("thankYouName");
@@ -307,7 +77,6 @@ function updateCartCountBadge() {
     const cart = JSON.parse(localStorage.getItem("cart")) || [];
     count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
   } catch (e) {}
-
   const badge = document.getElementById('cart-count-badge');
   const mobileCount = document.getElementById('cart-count');
   if (badge) {
