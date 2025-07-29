@@ -394,6 +394,7 @@ h2 {
 <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
 <span class="brand-name">WattSun Solar</span>
 </div>
+
 <button aria-label="Open menu" class="nav-toggle" onclick="toggleNav()">☰</button>
 </div>
 <nav id="mainNav">
@@ -404,8 +405,14 @@ h2 {
 <a href="projects.html">Projects</a>
 <a href="contact.html">Contact</a>
 <!-- Cart Icon START -->
+<a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
+<span class="cart-icon">
+    🛒
+    <span class="cart-count-badge" id="cart-count-badge">0</span>
+</span>
+</a>
 <!-- Cart Icon END -->
-<a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart"><span class="cart-icon">🛒<span class="cart-count-badge" id="cart-count-badge">0</span></span></a></nav>
+</nav>
 </header>
 <div class="container">
 <h2>Checkout</h2>
@@ -447,18 +454,19 @@ h2 {
 </footer>
 <script>
 function toggleNav() {
-  const nav = document.getElementById("mainNav");
+  var nav = document.getElementById("mainNav");
   nav.classList.toggle("active");
 }
-window.addEventListener('resize', () => {
-  if (window.innerWidth > 800) {
-    document.getElementById("mainNav").classList.remove("active");
-  }
+window.addEventListener('resize', function() {
+    if(window.innerWidth > 800) {
+        document.getElementById("mainNav").classList.remove("active");
+    }
 });
 
 document.addEventListener("DOMContentLoaded", function () {
+  // If we've just come from calculator.html, stash the selected kit
   const selectedKit = JSON.parse(localStorage.getItem("wattSunSelectedKit"));
-  if (selectedKit && selectedKit.kit && selectedKit.price) {
+  if (selectedKit) {
     let cart = JSON.parse(localStorage.getItem("cart")) || [];
     if (!cart.some(item => item.name === selectedKit.kit)) {
       cart.push({
@@ -477,8 +485,9 @@ document.addEventListener("DOMContentLoaded", function () {
     return Number(num).toLocaleString('en-US');
   }
 
+  // Helper to truncate description for table column
   function truncateDesc(desc) {
-    return desc?.length > 60 ? desc.substring(0, 57) + '...' : desc;
+    return desc && desc.length > 60 ? desc.substring(0, 57) + '...' : desc;
   }
 
   function renderCart() {
@@ -509,6 +518,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <td class="compact-col">${formatNumber(deposit)}</td>
         <td class="compact-col">${qty}</td>
         <td class="compact-col">${formatNumber(totalPrice)}</td>
+        
       `;
       tbody.appendChild(row);
     });
@@ -520,84 +530,57 @@ document.addEventListener("DOMContentLoaded", function () {
 
   renderCart();
 
-  document.getElementById("checkoutForm").addEventListener("submit", async function(e) {
-    e.preventDefault();
-    let valid = true;
-
-    this.querySelectorAll('input[required], textarea[required]').forEach(input => {
-      if (!input.value.trim() || input.value.trim() === "0") {
-        input.style.borderColor = "red";
-        valid = false;
-      } else {
-        input.style.borderColor = "";
-      }
-    });
-
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    if (cart.length === 0) {
-      alert("Your cart is empty.");
-      valid = false;
-    }
-
-    if (!valid) return false;
-
-    const orderData = {
-      fullName: this.fullName.value.trim(),
-      email: this.email.value.trim(),
-      phone: this.phone.value.trim(),
-      address: this.address.value.trim(),
-      cart: cart,
-      cartSummary: document.getElementById("cart_summary").value
-    };
-
-    try {
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderData)
+  document.getElementById("checkoutForm").addEventListener("submit", function(e) {
+      let valid = true;
+      this.querySelectorAll('input[required], textarea[required]').forEach(input => {
+          if (!input.value.trim() || input.value.trim() === "0") {
+              input.style.borderColor = "red";
+              valid = false;
+          } else {
+              input.style.borderColor = "";
+          }
       });
-
-      if (!response.ok) throw new Error("Checkout failed");
-
+      const cart = JSON.parse(localStorage.getItem("cart")) || [];
+      if (cart.length === 0) {
+          alert("Your cart is empty.");
+          valid = false;
+      }
+      if (!valid) {
+          e.preventDefault();
+          return false;
+      }
       sessionStorage.setItem("clearCartOnThankYou", "true");
-      window.location.href = "thankyou.html";
-    } catch (err) {
-      alert("Order failed. Please try again later.");
-      console.error(err);
-    }
   });
 });
 
+// --- CART BADGE LOGIC ---
 function updateCartCountBadge() {
   let count = 0;
   try {
     const cart = JSON.parse(localStorage.getItem("cart")) || [];
     count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
   } catch(e){}
-  
-document.querySelectorAll('.cart-count-badge').forEach(badge => {
+  const badge = document.getElementById('cart-count-badge');
+  if (!badge) return;
   if (count > 0) {
     badge.textContent = count;
     badge.style.display = 'flex';
   } else {
     badge.style.display = 'none';
   }
-});
-
-  }
 }
 document.addEventListener('DOMContentLoaded', updateCartCountBadge);
 window.addEventListener('storage', updateCartCountBadge);
 
 if (window.location.pathname.endsWith("thankyou.html") && sessionStorage.getItem("clearCartOnThankYou")) {
-  localStorage.removeItem("cart");
-  sessionStorage.removeItem("clearCartOnThankYou");
+    localStorage.removeItem("cart");
+    sessionStorage.removeItem("clearCartOnThankYou");
 }
 </script>
 <footer class="mobile-nav">
 <a aria-label="Home" href="index.html">🏠</a>
 <a aria-label="Account" href="account.html">👤</a>
-<a aria-label="Cart" href="cart.html"><span class="cart-icon">🛒<span class="cart-count-badge">0</span></span></a>
+<a aria-label="Cart" href="cart.html">🛒<span id="cart-count">2</span></a>
 <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
 </footer>
 </body>

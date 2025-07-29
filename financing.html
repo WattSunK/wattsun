@@ -252,7 +252,9 @@
 <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
 <span class="brand-name">WattSun Solar</span>
 </div>
-<button aria-label="Open menu" class="nav-toggle" onclick="document.querySelector('header').classList.toggle('nav-open')">☰</button>
+
+
+<button aria-label="Open menu" class="nav-toggle" onclick="toggleNav()">☰</button>
 </div>
 <nav>
 <a href="index.html">Home</a>
@@ -262,7 +264,7 @@
 <a href="projects.html">Projects</a>
 <a href="contact.html">Contact</a>
 <span id="cartLinkWrapper" style="display:none;">
-<a aria-label="Cart" href="cart.html"><span class="cart-icon">🛒<span class="cart-count-badge">0</span></span></a>
+<a href="cart.html">🛒<span id="cartCount" style="font-weight:bold; background:#3E9F50; color:white; padding:2px 6px; border-radius:50%; font-size:0.8em; vertical-align:top;"></span></a>
 </span>
 </nav>
 </header>
@@ -296,20 +298,10 @@
 <footer class="mobile-nav">
 <a aria-label="Home" href="index.html">🏠</a>
 <a aria-label="Account" href="account.html">👤</a>
-<a aria-label="Cart" href="cart.html"><span class="cart-icon">🛒<span class="cart-count-badge">0</span></span></a>
+<a aria-label="Cart" href="cart.html">🛒<span id="cart-count" style="position: absolute; top: 6px; right: 10px; background: red; color: white; font-size: 11px; min-width: 16px; height: 16px; border-radius: 8px; padding: 0 5px; text-align: center; display: flex; align-items: center; justify-content: center;">0</span></a>
 <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
 </footer>
 <script>
-
-function syncCartToBackend() {
-  const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-  fetch("/api/cart", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(cart),
-  }).catch(console.error);
-}
-
 document.addEventListener("DOMContentLoaded", function () {
   const loanForm = document.getElementById("loanForm");
   const resultDiv = document.getElementById("result");
@@ -337,78 +329,39 @@ document.addEventListener("DOMContentLoaded", function () {
   }, true);
 
   // Scroll and highlight result
-  
-  loanForm.addEventListener("submit", async function(e) {
+  loanForm.addEventListener("submit", function(e) {
     e.preventDefault();
 
     const price = parseFloat(document.getElementById('system').value);
     const deposit = parseFloat(document.getElementById('deposit').value);
     const term = parseInt(document.getElementById('term').value);
-    const resultDiv = document.getElementById("result");
 
     if (!price || isNaN(deposit) || isNaN(term)) {
       resultDiv.textContent = "Please fill in all fields.";
       return;
     }
 
-    try {
-      const res = await fetch("/api/finance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ price, deposit, term })
-      });
-
-      if (!res.ok) throw new Error("Finance API error");
-
-      const data = await res.json();
-      const display = "Loan Amount: KES " + Number(data.loanAmount).toLocaleString("en-KE") +
-                      " | Monthly Repayment: KES " + Number(data.monthly).toLocaleString("en-KE");
-
-      resultDiv.textContent = display;
-      resultDiv.scrollIntoView({ behavior: "smooth", block: "center" });
-      resultDiv.style.transition = "background 0.3s ease-in-out";
-      resultDiv.style.background = "#fff5c2";
-      setTimeout(() => {
-        resultDiv.style.background = "transparent";
-      }, 2200);
-
-      localStorage.setItem('loanKit', JSON.stringify(data));
-
-      if (!document.getElementById('addToCartBtn')) {
-        const btn = document.createElement('button');
-        btn.textContent = "Add to Cart";
-        btn.id = "addToCartBtn";
-        btn.className = "cart-btn";
-        btn.style.margin = '14px auto 0';
-        btn.style.display = 'block';
-        btn.style.padding = '12px 28px';
-        btn.onclick = function() {
-          const kit = JSON.parse(localStorage.getItem('loanKit'));
-          const cart = JSON.parse(localStorage.getItem('cart')) || [];
-          cart.push({
-            name: "Loan Kit – " + kit.system,
-            price: kit.price,
-            deposit: kit.deposit,
-            term: kit.term,
-            monthly: kit.monthly
-          });
-          localStorage.setItem('cart', JSON.stringify(cart));
-          syncCartToBackend();
-          updateCartCount();
-          btn.remove();
-          document.getElementById('loanForm').reset();
-          resultDiv.textContent = "Loan added to cart!";
-          resultDiv.scrollIntoView({ behavior: "smooth", block: "center" });
-        };
-        document.querySelector('.disclaimer').after(btn);
-      }
-
-    } catch (err) {
-      resultDiv.textContent = "Something went wrong. Please try again.";
-      console.error(err);
+    const minDeposit = 0.5 * price;
+    if (deposit < minDeposit) {
+      resultDiv.textContent = "Minimum deposit is KES " + minDeposit.toLocaleString("en-KE");
+      return;
     }
-  });
 
+    if (deposit > price) {
+      resultDiv.textContent = "Deposit cannot be greater than system cost (KES " + price.toLocaleString("en-KE") + ")";
+      return;
+    }
+
+    const loanAmount = price - deposit;
+    const annualInterestRate = 0.15;
+    const monthlyInterestRate = annualInterestRate / 12;
+    const monthlyRepayment = (loanAmount * monthlyInterestRate) / (1 - Math.pow(1 + monthlyInterestRate, -term));
+
+    resultDiv.textContent =
+      "Loan Amount: KES " + loanAmount.toLocaleString("en-KE") +
+      " | Monthly Repayment: KES " + monthlyRepayment.toFixed(0).toLocaleString("en-KE");
+
+    resultDiv.scrollIntoView({ behavior: "smooth", block: "center" });
     resultDiv.style.transition = "background 0.3s ease-in-out";
     resultDiv.style.background = "#fff5c2";
     setTimeout(() => {
@@ -443,7 +396,6 @@ document.addEventListener("DOMContentLoaded", function () {
           monthly: kit.monthly
         });
         localStorage.setItem('cart', JSON.stringify(cart));
-          syncCartToBackend();
         updateCartCount();
         btn.remove();
         document.getElementById('loanForm').reset();
@@ -469,30 +421,5 @@ document.addEventListener("DOMContentLoaded", function () {
     updateCartCount();
   }
 });
-
-
-</script>
-<script>
-function updateCartCountBadge() {
-  let count = 0;
-  try {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  } catch(e){}
-  document.querySelectorAll('.cart-count-badge').forEach(badge => {
-    badge.textContent = count;
-    badge.style.display = count > 0 ? 'flex' : 'none';
-  });
-  const mobileCount = document.getElementById('cart-count');
-  if (mobileCount) {
-    mobileCount.textContent = count;
-    mobileCount.style.display = count > 0 ? 'flex' : 'none';
-  }
-}
-document.addEventListener('DOMContentLoaded', updateCartCountBadge);
-window.addEventListener('storage', updateCartCountBadge);
-
-
-</script>
-</body>
+</script></body>
 </html>
