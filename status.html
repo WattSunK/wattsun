@@ -90,8 +90,7 @@
         </div>
       `;
 
-      timestamp.innerText = `Last checked: ${new Date().toLocaleTimeString()} - auto-refreshes every 30s`;
- // Backend check Fix: Replace em-dash with ASCII dash in status.html for JS compatibility
+      timestamp.innerText = \`Last checked: \${new Date().toLocaleTimeString()} — auto-refreshes every 30s\`;
     }
 
     checkStatus();
