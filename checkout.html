@@ -148,6 +148,7 @@ document.addEventListener("DOMContentLoaded", function () {
       cart_summary: cartSummaryArr.join("\\n")
     };
     try {
+      // FIXED: Use /api/checkout for backend POST
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
