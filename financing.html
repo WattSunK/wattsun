@@ -245,6 +245,26 @@
     display: none !important;
   }
 }
+
+/* --- Desktop cart badge style --- */
+.cart-count-badge {
+  position: absolute;
+  top: -8px;
+  right: -16px;
+  background: #19c37d;
+  color: #fff;
+  font-size: 0.9em;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  box-shadow: 0 0 2px #0002;
+  z-index: 2;
+  display: none;
+}
 </style>
 </head>
 <body>
@@ -259,7 +279,6 @@
 <span class="brand-name">WattSun Solar</span>
 </div>
 
-
 <button aria-label="Open menu" class="nav-toggle" >☰</button>
 </div>
 <nav>
@@ -269,8 +288,13 @@
 <a aria-current="page" class="active" href="financing.html">Financing</a>
 <a href="projects.html">Projects</a>
 <a href="contact.html">Contact</a>
-<span id="cartLinkWrapper" style="display:none;">
-<a href="cart.html">🛒<span id="cartCount" style="font-weight:bold; background:#3E9F50; color:white; padding:2px 6px; border-radius:50%; font-size:0.8em; vertical-align:top;"></span></a>
+<span id="cartLinkWrapper" style="display:none; position: relative;">
+  <a href="cart.html" style="position:relative; display:inline-block;">
+    🛒
+    <span id="cartCount" style="font-weight:bold; background:#3E9F50; color:white; padding:2px 6px; border-radius:50%; font-size:0.8em; vertical-align:top;"></span>
+    <!-- Desktop badge for cart count -->
+    <span class="cart-count-badge" id="cart-count-badge">0</span>
+  </a>
 </span>
 </nav>
 </header>
@@ -413,13 +437,22 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   function updateCartCount() {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    const count = cart.length;
-    const badgeDesktop = document.getElementById("cartCount");
+    let count = 0;
+    try {
+      const cart = JSON.parse(localStorage.getItem("cart")) || [];
+      count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    } catch (e) {}
+    const badgeDesktop = document.getElementById("cart-count-badge");
+    if (badgeDesktop) {
+      badgeDesktop.textContent = count;
+      badgeDesktop.style.display = count > 0 ? 'flex' : 'none';
+    }
     const badgeMobile = document.getElementById("cart-count");
-    if (badgeDesktop) badgeDesktop.textContent = count;
     if (badgeMobile) badgeMobile.textContent = count;
   }
+
+  // Listen for changes across tabs/windows
+  window.addEventListener('storage', updateCartCount);
 
   const wrapper = document.getElementById("cartLinkWrapper");
   if (wrapper) {
