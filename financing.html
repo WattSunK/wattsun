@@ -418,13 +418,26 @@ document.addEventListener("DOMContentLoaded", function () {
       btn.onclick = function() {
         const kit = JSON.parse(localStorage.getItem('loanKit'));
         const cart = JSON.parse(localStorage.getItem('cart')) || [];
-        cart.push({
-          name: "Loan Kit – " + kit.system,
-          price: kit.price,
-          deposit: kit.deposit,
-          term: kit.term,
-          monthly: kit.monthly
-        });
+        const name = "Loan Kit – " + kit.system;
+        // Find duplicate loan kit in cart (same name, deposit, term, monthly)
+        const found = cart.find(item =>
+          item.name === name &&
+          item.deposit === kit.deposit &&
+          item.term === kit.term &&
+          item.monthly === kit.monthly
+        );
+        if (found) {
+          found.quantity = (found.quantity || 1) + 1;
+        } else {
+          cart.push({
+            name: name,
+            price: kit.price,
+            deposit: kit.deposit,
+            term: kit.term,
+            monthly: kit.monthly,
+            quantity: 1
+          });
+        }
         localStorage.setItem('cart', JSON.stringify(cart));
         updateCartCount();
         btn.remove();
