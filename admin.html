@@ -451,10 +451,181 @@
           <div style="padding:18px 0;">[Customers list will appear here]</div>
         </div>
         <!-- Dispatch Section -->
-        <div id="dispatch-section" class="section-panel" style="display:none;">
-          <h2>Dispatch</h2>
-          <div style="padding:18px 0;">[Dispatch log will appear here]</div>
-        </div>
+        
+<!-- Dispatch Section -->
+<div id="dispatch-section" class="section-panel" style="display:none;">
+  <h2 class="dispatch-title">Dispatch</h2>
+  <div class="dispatch-toolbar">
+    <select class="dispatch-input" id="dispatch-driver-filter">
+      <option value="">All Drivers</option>
+      <option>John Driver</option>
+      <option>Mary Courier</option>
+      <option>Peter Van</option>
+    </select>
+    <select class="dispatch-input" id="dispatch-status-filter">
+      <option value="">All Status</option>
+      <option value="Pending">Pending</option>
+      <option value="Out for Delivery">Out for Delivery</option>
+      <option value="Delivered">Delivered</option>
+      <option value="Failed">Failed</option>
+    </select>
+    <input class="dispatch-input" type="date" id="dispatch-date-filter">
+    <button class="dispatch-btn" onclick="alert('Demo search')">Search</button>
+    <button class="dispatch-btn dispatch-btn-clear" onclick="alert('Demo clear')">Clear</button>
+    <input class="dispatch-input search-box" type="text" placeholder="Search...">
+  </div>
+  <div class="dispatch-table-wrapper">
+    <table class="dispatch-table">
+      <thead>
+        <tr>
+          <th>Order-Id</th>
+          <th>Customer Name</th>
+          <th>Order Category</th>
+          <th>Mobile</th>
+          <th>Email</th>
+          <th>Driver</th>
+          <th>Order At</th>
+          <th>Delivered At</th>
+          <th>Delivery Fee</th>
+          <th>Order Total</th>
+          <th>Status</th>
+          <th>Delivery Address</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="#" class="dispatch-link" onclick="openModal('dispatch-detail-modal')">WSN1001</a></td>
+          <td>Jack Ouma</td>
+          <td>Solar Kit</td>
+          <td>0700123456</td>
+          <td>jack@email.com</td>
+          <td>
+            <span class="dispatch-driver">John Driver</span>
+            <button class="dispatch-action-btn" onclick="openModal('assign-driver-modal')">Assign</button>
+          </td>
+          <td>30-Jul-2025 10:00</td>
+          <td>30-Jul-2025 14:30</td>
+          <td>KSh 500</td>
+          <td>KSh 45,000</td>
+          <td><span class="dispatch-status-badge pending">Pending</span></td>
+          <td><span class="dispatch-address" onclick="alert('Full address:
+23, Shanthi Nagar, Sampangirama Nagar, Bengaluru, Karnataka')">23, Shanthi...<span class="more">[+]</span></span></td>
+          <td>
+            <button class="dispatch-action-btn" onclick="openModal('dispatch-detail-modal')">View</button>
+            <button class="dispatch-action-btn" onclick="openModal('assign-driver-modal')">Change Driver</button>
+            <button class="dispatch-action-btn" onclick="openModal('mark-delivered-modal')">Mark as Delivered</button>
+          </td>
+        </tr>
+        <tr>
+          <td><a href="#" class="dispatch-link">WSN1002</a></td>
+          <td>Mary Wambui</td>
+          <td>Battery</td>
+          <td>0722123456</td>
+          <td>mary@email.com</td>
+          <td>
+            <span class="dispatch-driver">Mary Courier</span>
+            <button class="dispatch-action-btn" onclick="openModal('assign-driver-modal')">Assign</button>
+          </td>
+          <td>29-Jul-2025 11:30</td>
+          <td>—</td>
+          <td>KSh 400</td>
+          <td>KSh 9,900</td>
+          <td><span class="dispatch-status-badge out">Out for Delivery</span></td>
+          <td><span class="dispatch-address" onclick="alert('Full address:
+52, Muthaiga, Nairobi')">52, Muth...<span class="more">[+]</span></span></td>
+          <td>
+            <button class="dispatch-action-btn" onclick="openModal('dispatch-detail-modal')">View</button>
+            <button class="dispatch-action-btn" onclick="openModal('assign-driver-modal')">Change Driver</button>
+            <button class="dispatch-action-btn" onclick="openModal('mark-delivered-modal')">Mark as Delivered</button>
+          </td>
+        </tr>
+        <tr>
+          <td><a href="#" class="dispatch-link">WSN1003</a></td>
+          <td>Peter Maina</td>
+          <td>Inverter</td>
+          <td>0799123456</td>
+          <td>peter@email.com</td>
+          <td>
+            <span class="dispatch-driver">Peter Van</span>
+            <button class="dispatch-action-btn" onclick="openModal('assign-driver-modal')">Assign</button>
+          </td>
+          <td>28-Jul-2025 09:45</td>
+          <td>28-Jul-2025 15:15</td>
+          <td>KSh 650</td>
+          <td>KSh 18,000</td>
+          <td><span class="dispatch-status-badge delivered">Delivered</span></td>
+          <td><span class="dispatch-address" onclick="alert('Full address:
+8, Karen Estate, Nairobi')">8, Karen...<span class="more">[+]</span></span></td>
+          <td>
+            <button class="dispatch-action-btn" onclick="openModal('dispatch-detail-modal')">View</button>
+            <button class="dispatch-action-btn" onclick="openModal('assign-driver-modal')">Change Driver</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="dispatch-pagination">
+      <span>Showing 1 to 3 of 3 entries</span>
+      <div>
+        <button class="dispatch-page-btn" disabled>First</button>
+        <button class="dispatch-page-btn" disabled>Previous</button>
+        <button class="dispatch-page-btn active">1</button>
+        <button class="dispatch-page-btn" disabled>Next</button>
+        <button class="dispatch-page-btn" disabled>Last</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALS -->
+  <div class="modal-bg" id="dispatch-detail-modal" style="display:none;">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('dispatch-detail-modal')">&times;</button>
+      <h3>Dispatch Details</h3>
+      <p><b>Order ID:</b> WSN1001<br>
+      <b>Customer:</b> Jack Ouma<br>
+      <b>Driver:</b> John Driver<br>
+      <b>Status:</b> Pending<br>
+      <b>Order At:</b> 30-Jul-2025 10:00<br>
+      <b>Delivered At:</b> 30-Jul-2025 14:30<br>
+      <b>Delivery Address:</b> 23, Shanthi Nagar, Sampangirama Nagar, Bengaluru, Karnataka<br>
+      <b>Items:</b> Solar Kit x1<br>
+      <b>Total:</b> KSh 45,000
+      </p>
+      <div class="modal-actions">
+        <button class="dispatch-btn" onclick="closeModal('dispatch-detail-modal')">Close</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-bg" id="assign-driver-modal" style="display:none;">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('assign-driver-modal')">&times;</button>
+      <h3>Assign / Change Driver</h3>
+      <label>Driver
+        <select>
+          <option>John Driver</option>
+          <option>Mary Courier</option>
+          <option>Peter Van</option>
+        </select>
+      </label>
+      <div class="modal-actions">
+        <button class="dispatch-btn" onclick="closeModal('assign-driver-modal')">Assign</button>
+        <button class="dispatch-btn dispatch-btn-clear" onclick="closeModal('assign-driver-modal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-bg" id="mark-delivered-modal" style="display:none;">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('mark-delivered-modal')">&times;</button>
+      <h3>Mark as Delivered</h3>
+      <p>Confirm marking this order as delivered?</p>
+      <div class="modal-actions">
+        <button class="dispatch-btn" onclick="closeModal('mark-delivered-modal');alert('Order marked as delivered (demo)!');">Yes</button>
+        <button class="dispatch-btn dispatch-btn-clear" onclick="closeModal('mark-delivered-modal')">No</button>
+      </div>
+    </div>
+  </div>
+</div>
+
         <!-- Settings Section -->
         <div id="settings-section" class="section-panel" style="display:none;">
           <h2>Settings</h2>
