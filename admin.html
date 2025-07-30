@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WattSun Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="admin-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-logo">
+          <svg width="26" height="26" fill="none" viewBox="0 0 24 24" style="vertical-align:middle; margin-right:8px;">
+            <circle cx="12" cy="12" r="10" fill="#FFD23F"/>
+            <text x="12" y="17" font-size="13" text-anchor="middle" fill="#222" font-weight="bold">W</text>
+          </svg>
+          <span>Admin</span>
+        </div>
+        <nav>
+          <a href="#" class="active" data-section="dashboard"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4" fill="#FFD23F" opacity="0.7"/><rect x="7" y="7" width="10" height="10" rx="2" fill="#fff"/></svg><span>Dashboard</span></a>
+          <a href="#" data-section="orders"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="3" fill="#FFD23F" opacity="0.7"/><rect x="6" y="10" width="12" height="4" rx="2" fill="#fff"/></svg><span>Orders</span></a>
+          <a href="#" data-section="items"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="16" rx="2.5" fill="#FFD23F" opacity="0.7"/><rect x="8" y="8" width="8" height="8" rx="1.5" fill="#fff"/></svg><span>Items</span></a>
+          <a href="#" data-section="customers"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="#FFD23F" opacity="0.7"/><ellipse cx="12" cy="17" rx="7" ry="4" fill="#fff"/></svg><span>Customers</span></a>
+          <a href="#" data-section="dispatch"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="6" y="7" width="12" height="10" rx="2" fill="#FFD23F" opacity="0.7"/><rect x="9" y="10" width="6" height="4" rx="1" fill="#fff"/></svg><span>Dispatch</span></a>
+          <a href="#" data-section="settings"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="#FFD23F" opacity="0.7"/><path d="M12 8v4l2 2" stroke="#222" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Settings</span></a>
+        </nav>
+      </div>
+      <div class="sidebar-bottom">
+        <a href="#" class="logout"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M16 17l5-5-5-5M21 12H9M13 21H6a2 2 0 01-2-2V5a2 2 0 012-2h7" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Log Out</span></a>
+      </div>
+    </aside>
+    <!-- Main Content + Header -->
+    <main class="main-content">
+      <header class="main-header">
+        <span class="header-title" id="section-title">Dashboard</span>
+        <span class="header-spacer"></span>
+        <div class="header-actions">
+          <input type="text" class="header-search" placeholder="Search…" />
+          <div class="header-user">
+            <svg width="26" height="26" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="#FFD23F"/><ellipse cx="12" cy="18" rx="7" ry="4" fill="#FFD23F" opacity="0.7"/></svg>
+            <span>Admin</span>
+          </div>
+        </div>
+      </header>
+      <div class="main-section">
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="section-panel">
+          <div class="dashboard-row">
+            <!-- Orders Card -->
+            <div class="dashboard-card">
+              <div class="orders-tabs">
+                <span class="orders-section-title">Active orders</span>
+                <button class="btn-tab active">Active orders</button>
+                <button class="btn-tab">Past Orders</button>
+              </div>
+              <div class="order-placed">Placed &nbsp; Mon, 19 Jan, 11:32 AM</div>
+              <div class="order-title" style="margin-bottom: 2px;">
+                Chez Panisse. &nbsp; <span style="font-weight:700">KSh 252.95</span>
+              </div>
+              <div class="order-id">Order ID: 1585922175843</div>
+              <div class="order-buttons">
+                <button class="order-btn">TRACK ORDER</button>
+                <button class="order-btn">CANCEL ORDER</button>
+                <button class="order-btn">HELP</button>
+              </div>
+              <div class="order-links">
+                <span style="color:#ff9800; cursor:pointer;">View 1 item ordered &gt;</span>
+                <span style="color:#555; cursor:pointer; font-size:0.97em;">View Address And Billing Details &#9660;</span>
+              </div>
+            </div>
+            <!-- Items Card -->
+            <div class="dashboard-card">
+              <div class="card-section-title">
+                Items
+                <button class="card-btn">EDIT</button>
+              </div>
+              <p>Active Item<br>SKU: J23456450.50<br>STOCK: 9</p>
+              <p>John Doe<br>Phone: +254 123456789<br>Email: john@email.com</p>
+            </div>
+            <!-- Dispatch Card -->
+            <div class="dashboard-card">
+              <div class="card-section-title">
+                Dispatch
+                <button class="card-btn">TRACK</button>
+              </div>
+              <p>Delivery dispatch<br>Order #123456<br>Delivery #80<br>Order #123456 - Out for delivery</p>
+              <p>Status<br>Out for delivery</p>
+            </div>
+          </div>
+        </div>
+        <!-- Orders Section -->
+        <div id="orders-section" class="section-panel" style="display:none;">
+          <h2>Orders</h2>
+          <div style="padding:18px 0;">[Orders table will appear here]</div>
+        </div>
+        <!-- Items Section -->
+        <div id="items-section" class="section-panel" style="display:none;">
+          <h2>Items</h2>
+          <div style="padding:18px 0;">[Items table will appear here]</div>
+        </div>
+        <!-- Customers Section -->
+        <div id="customers-section" class="section-panel" style="display:none;">
+          <h2>Customers</h2>
+          <div style="padding:18px 0;">[Customers list will appear here]</div>
+        </div>
+        <!-- Dispatch Section -->
+        <div id="dispatch-section" class="section-panel" style="display:none;">
+          <h2>Dispatch</h2>
+          <div style="padding:18px 0;">[Dispatch log will appear here]</div>
+        </div>
+        <!-- Settings Section -->
+        <div id="settings-section" class="section-panel" style="display:none;">
+          <h2>Settings</h2>
+          <div style="padding:18px 0;">[Settings form will appear here]</div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <footer class="footer">
+    &copy; 2025 WattSun Solar. All rights reserved. | Admin Panel
+  </footer>
+  <script>
+    // Sidebar navigation switching
+    const navLinks = document.querySelectorAll('.sidebar nav a');
+    const sections = [
+      "dashboard", "orders", "items", "customers", "dispatch", "settings"
+    ];
+    const sectionTitle = document.getElementById('section-title');
+    navLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        navLinks.forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+        sections.forEach(sec => {
+          document.getElementById(sec + '-section').style.display = "none";
+        });
+        const target = link.getAttribute('data-section');
+        if(target) {
+          document.getElementById(target + '-section').style.display = "block";
+          sectionTitle.textContent = link.textContent.trim();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
