@@ -432,7 +432,7 @@ h2 {
 </table>
 </div>
 <div class="total" id="totalAmount">Total Deposit: KES 0</div>
-<form  autocomplete="on" class="checkout-form" data-netlify="true" id="checkoutForm"  name="order">
+<form action="/thankyou.html" autocomplete="on" class="checkout-form" data-netlify="true" id="checkoutForm" method="POST" name="order">
 <input name="form-name" type="hidden" value="order"/>
 <input id="cart_summary" name="cart_summary" type="hidden"/>
 <label for="fullName">Full Name</label>
@@ -461,6 +461,23 @@ window.addEventListener('resize', function() {
     if(window.innerWidth > 800) {
         document.getElementById("mainNav").classList.remove("active");
     }
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+  // If we've just come from calculator.html, stash the selected kit
+  const selectedKit = JSON.parse(localStorage.getItem("wattSunSelectedKit"));
+  if (selectedKit) {
+    let cart = JSON.parse(localStorage.getItem("cart")) || [];
+    if (!cart.some(item => item.name === selectedKit.kit)) {
+      cart.push({
+        name: selectedKit.kit,
+        price: selectedKit.price,
+        deposit: Math.round(selectedKit.price * 0.5),
+        quantity: 1,
+        description: selectedKit.description || ""
+      });
+      localStorage.setItem("cart", JSON.stringify(cart));
+    }
     localStorage.removeItem("wattSunSelectedKit");
   }
 
@@ -473,43 +490,24 @@ window.addEventListener('resize', function() {
     return desc && desc.length > 60 ? desc.substring(0, 57) + '...' : desc;
   }
 
+  function renderCart() {
+    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    const tbody = document.querySelector("#cartTable tbody");
+    const summary = document.getElementById("cart_summary");
+    tbody.innerHTML = "";
+    let totalDeposit = 0;
+    let cartSummaryArr = [];
 
-function renderCart() {
-  const cart = JSON.parse(localStorage.getItem("cart")) || [];
-  const tbody = document.querySelector("#cartTable tbody");
-  const summary = document.getElementById("cart_summary");
-  tbody.innerHTML = "";
-  let totalDeposit = 0;
-  let cartSummaryArr = [];
+    cart.forEach(item => {
+      const qty = item.quantity || 1;
+      const desc = item.description || "";
+      const deposit = item.deposit;
+      const totalPrice = item.price * qty;
+      const totalItemDeposit = deposit * qty;
+      totalDeposit += totalItemDeposit;
 
-  cart.forEach(item => {
-    const qty = item.quantity || 1;
-    const desc = item.description || "";
-    const deposit = item.deposit;
-    const totalPrice = item.price * qty;
-    const totalItemDeposit = deposit * qty;
-    totalDeposit += totalItemDeposit;
-
-    cartSummaryArr.push(
-      `${item.name} (x${qty}): Price ${item.price}, Deposit ${deposit}`
-    );
-
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td class="product-col">${item.name}</td>
-      <td class="desc-col">${truncateDesc(desc)}</td>
-      <td class="compact-col">${formatNumber(item.price)}</td>
-      <td class="compact-col">${formatNumber(deposit)}</td>
-      <td class="compact-col">${qty}</td>
-      <td class="compact-col">${formatNumber(totalPrice)}</td>
-    `;
-    tbody.appendChild(row);
-  });
-
-  document.getElementById("totalAmount").textContent =
-    "Total Deposit: KES " + totalDeposit.toLocaleString();
-  summary.value = cartSummaryArr.join("\n");
-}
+      cartSummaryArr.push(
+        `${item.name} (x${qty}): Price ${item.price}, Deposit ${deposit}`
       );
 
       const row = document.createElement('tr');
@@ -523,11 +521,16 @@ function renderCart() {
         
       `;
       tbody.appendChild(row);
+    });
+
+    document.getElementById("totalAmount").textContent =
+      "Total Deposit: KES " + totalDeposit.toLocaleString();
+    summary.value = cartSummaryArr.join("\n");
+  }
 
   renderCart();
 
-  document.getElementById("checkoutForm").addEventListener("submit", async function(e) {
-      e.preventDefault();
+  document.getElementById("checkoutForm").addEventListener("submit", function(e) {
       let valid = true;
       this.querySelectorAll('input[required], textarea[required]').forEach(input => {
           if (!input.value.trim() || input.value.trim() === "0") {
@@ -543,45 +546,28 @@ function renderCart() {
           valid = false;
       }
       if (!valid) {
+          e.preventDefault();
           return false;
       }
-      // Create a summary string for backend
-      let cartSummaryArr = cart.map(item => {
-        const qty = item.quantity || 1;
-        return `${item.name} (x${qty}): Price ${item.price}, Deposit ${item.deposit}`;
-      });
-      const cart_summary = cartSummaryArr.join("\n");
-      const order = {
-        fullName: document.getElementById("fullName").value,
-        email: document.getElementById("email").value,
-        phone: document.getElementById("phone").value,
-        address: document.getElementById("address").value,
-        cart_summary: cart_summary
-      };
-      try {
-        const res = await fetch("/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(order)
-        });
-        if (!res.ok) {
-          alert("Order failed. Please try again or contact us.");
-          return;
-        }
-        sessionStorage.setItem("orderName", order.fullName);
-        sessionStorage.setItem("clearCartOnThankYou", "true");
-        window.location.href = "thankyou.html";
-      } catch (err) {
-        alert("Could not place order. Please check your connection.");
-      }
+      sessionStorage.setItem("clearCartOnThankYou", "true");
   });
+});
 
-      // Create a summary string for backend
-      let cartSummaryArr = cart.map(item => {
-        const qty = item.quantity || 1;
-        return `${item.name} (x${qty}): Price ${item.price}, Deposit ${item.deposit}`;
-        alert("Could not place order. Please check your connection.");
-      }
+// --- CART BADGE LOGIC ---
+function updateCartCountBadge() {
+  let count = 0;
+  try {
+    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  } catch(e){}
+  const badge = document.getElementById('cart-count-badge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
 }
 document.addEventListener('DOMContentLoaded', updateCartCountBadge);
 window.addEventListener('storage', updateCartCountBadge);
