@@ -22,12 +22,13 @@
           <a href="#" class="active" data-section="dashboard"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4" fill="#FFD23F" opacity="0.7"/><rect x="7" y="7" width="10" height="10" rx="2" fill="#fff"/></svg><span>Dashboard</span></a>
           <a href="#" data-section="orders"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="3" fill="#FFD23F" opacity="0.7"/><rect x="6" y="10" width="12" height="4" rx="2" fill="#fff"/></svg><span>Orders</span></a>
           <a href="#" data-section="items"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="16" rx="2.5" fill="#FFD23F" opacity="0.7"/><rect x="8" y="8" width="8" height="8" rx="1.5" fill="#fff"/></svg><span>Items</span></a>
-          <a href="#" data-section="customers"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="#FFD23F" opacity="0.7"/><ellipse cx="12" cy="17" rx="7" ry="4" fill="#fff"/></svg><span>Customers</span></a>
+          <a href="#" data-section="users"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="8" cy="10" r="3" fill="#FFD23F" opacity="0.7"/><circle cx="16" cy="10" r="3" fill="#FFD23F" opacity="0.7"/><ellipse cx="12" cy="17" rx="7" ry="3.5" fill="#fff"/></svg><span>Users</span></a>
           <a href="#" data-section="dispatch"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="6" y="7" width="12" height="10" rx="2" fill="#FFD23F" opacity="0.7"/><rect x="9" y="10" width="6" height="4" rx="1" fill="#fff"/></svg><span>Dispatch</span></a>
           <a href="#" data-section="settings"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="#FFD23F" opacity="0.7"/><path d="M12 8v4l2 2" stroke="#222" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Settings</span></a>
         </nav>
       </div>
       <div class="sidebar-bottom">
+        <a href="#" data-section="myaccount"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="#FFD23F"/><ellipse cx="12" cy="18" rx="7" ry="4" fill="#FFD23F" opacity="0.7"/></svg><span>My Account</span></a>
         <a href="#" class="logout"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M16 17l5-5-5-5M21 12H9M13 21H6a2 2 0 01-2-2V5a2 2 0 012-2h7" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Log Out</span></a>
       </div>
     </aside>
@@ -130,7 +131,7 @@
                   <td>ASAP Delivery</td>
                   <td>07-Apr-2020 02:24:42 pm</td>
                   <td>07-Apr-2020 05:24:42 pm</td>
-                  <td>23, Loresho Ridge, Nairobi, Nairobi County, KE.</td>
+                  <td>23, Shanthi Nagar, Sampangirama Nagar, Bengaluru, Karnataka</td>
                   <td>Card</td>
                   <td>KSh 158.40</td>
                   <td>
@@ -153,12 +154,298 @@
             </div>
           </div>
         </div>
-        <!-- Items Section -->
+        <!-- Items Section (full feature) -->
         <div id="items-section" class="section-panel" style="display:none;">
-          <h2>Items</h2>
-          <div style="padding:18px 0;">[Items table will appear here]</div>
+          <h2 class="items-title">Items</h2>
+          <div class="items-toolbar">
+            <button class="items-btn" id="add-item-btn">+ Add Item</button>
+            <select class="items-select">
+              <option>All Categories</option>
+              <option>Panels</option>
+              <option>Batteries</option>
+              <option>Inverters</option>
+            </select>
+            <input class="items-input" type="text" placeholder="Search by name/SKU/category">
+            <button class="items-btn">Search</button>
+            <button class="items-btn items-btn-clear">Clear</button>
+          </div>
+          <div class="items-table-wrapper">
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th>SL NO.</th>
+                  <th>ITEM NAME</th>
+                  <th>SKU</th>
+                  <th>CATEGORY</th>
+                  <th>STOCK</th>
+                  <th>UNIT PRICE</th>
+                  <th>STATUS</th>
+                  <th>ACTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1</td>
+                  <td class="items-link">100W Panel</td>
+                  <td>PNL-100W</td>
+                  <td>Panels</td>
+                  <td>25</td>
+                  <td>KSh 6,500</td>
+                  <td><span class="items-status active">Active</span></td>
+                  <td>
+                    <button class="items-action-btn edit-btn" title="Edit"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg></button>
+                    <button class="items-action-btn delete-btn" title="Delete"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td class="items-link">12V Battery</td>
+                  <td>BAT-12V200</td>
+                  <td>Batteries</td>
+                  <td class="items-stock-low">3</td>
+                  <td>KSh 9,900</td>
+                  <td><span class="items-status low">Low Stock</span></td>
+                  <td>
+                    <button class="items-action-btn edit-btn" title="Edit"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg></button>
+                    <button class="items-action-btn delete-btn" title="Delete"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>3</td>
+                  <td class="items-link">Inverter 1kW</td>
+                  <td>INV-1KW</td>
+                  <td>Inverters</td>
+                  <td>12</td>
+                  <td>KSh 18,000</td>
+                  <td><span class="items-status inactive">Inactive</span></td>
+                  <td>
+                    <button class="items-action-btn edit-btn" title="Edit"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg></button>
+                    <button class="items-action-btn delete-btn" title="Delete"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="items-pagination">
+              <span>Showing 1 to 3 of 3 entries</span>
+              <div>
+                <button class="items-page-btn" disabled>First</button>
+                <button class="items-page-btn" disabled>Previous</button>
+                <button class="items-page-btn active">1</button>
+                <button class="items-page-btn" disabled>Next</button>
+                <button class="items-page-btn" disabled>Last</button>
+              </div>
+            </div>
+          </div>
+          <!-- ADD ITEM MODAL -->
+          <div class="modal-bg" id="add-item-modal" style="display:none;">
+            <div class="modal">
+              <button class="modal-close" onclick="closeModal('add-item-modal')">&times;</button>
+              <h3>Add New Item</h3>
+              <label>Item Name <input type="text" /></label>
+              <label>SKU <input type="text" /></label>
+              <label>Category 
+                <select>
+                  <option>Panels</option>
+                  <option>Batteries</option>
+                  <option>Inverters</option>
+                </select>
+              </label>
+              <label>Stock <input type="number" min="0" /></label>
+              <label>Unit Price <input type="text" /></label>
+              <label>Status 
+                <select>
+                  <option>Active</option>
+                  <option>Inactive</option>
+                </select>
+              </label>
+              <div class="modal-actions">
+                <button class="items-btn" onclick="closeModal('add-item-modal')">Add Item</button>
+                <button class="items-btn items-btn-clear" onclick="closeModal('add-item-modal')">Cancel</button>
+              </div>
+            </div>
+          </div>
+          <!-- EDIT ITEM MODAL -->
+          <div class="modal-bg" id="edit-item-modal" style="display:none;">
+            <div class="modal">
+              <button class="modal-close" onclick="closeModal('edit-item-modal')">&times;</button>
+              <h3>Edit Item</h3>
+              <label>Item Name <input type="text" value="100W Panel" /></label>
+              <label>SKU <input type="text" value="PNL-100W" /></label>
+              <label>Category 
+                <select>
+                  <option>Panels</option>
+                  <option>Batteries</option>
+                  <option>Inverters</option>
+                </select>
+              </label>
+              <label>Stock <input type="number" min="0" value="25" /></label>
+              <label>Unit Price <input type="text" value="KSh 6,500" /></label>
+              <label>Status 
+                <select>
+                  <option>Active</option>
+                  <option>Inactive</option>
+                </select>
+              </label>
+              <div class="modal-actions">
+                <button class="items-btn" onclick="closeModal('edit-item-modal')">Save Changes</button>
+                <button class="items-btn items-btn-clear" onclick="closeModal('edit-item-modal')">Cancel</button>
+              </div>
+            </div>
+          </div>
         </div>
-        <!-- Customers Section -->
+        <!-- Users/Accounts Section (with type column) -->
+        <div id="users-section" class="section-panel" style="display:none;">
+          <h2 class="items-title">Users</h2>
+          <div class="items-toolbar">
+            <button class="items-btn" id="add-user-btn">+ Add User</button>
+            <select class="items-select" id="user-type-filter">
+              <option value="All">All Types</option>
+              <option value="Customer">Customer</option>
+              <option value="Installer">Installer</option>
+              <option value="Admin">Admin</option>
+              <option value="Manufacturer">Manufacturer</option>
+            </select>
+            <select class="items-select" id="user-status-filter">
+              <option value="All">All Status</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+            <input class="items-input" type="text" placeholder="Search by name/email/phone">
+            <button class="items-btn">Search</button>
+            <button class="items-btn items-btn-clear">Clear</button>
+          </div>
+          <div class="items-table-wrapper">
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th>SL NO.</th>
+                  <th>NAME</th>
+                  <th>EMAIL</th>
+                  <th>PHONE</th>
+                  <th>TYPE</th>
+                  <th>ORDERS</th>
+                  <th>STATUS</th>
+                  <th>LAST ACTIVE</th>
+                  <th>ACTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1</td>
+                  <td class="items-link">John Doe</td>
+                  <td>john@email.com</td>
+                  <td>0700123456</td>
+                  <td>Customer</td>
+                  <td>5</td>
+                  <td><span class="items-status active">Active</span></td>
+                  <td>05-Jul-2024</td>
+                  <td>
+                    <button class="items-action-btn view-user-btn" title="View"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M2.05 12a9.94 9.94 0 0 1 19.9 0 9.94 9.94 0 0 1-19.9 0z"/></svg></button>
+                    <button class="items-action-btn edit-user-btn" title="Edit"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg></button>
+                    <button class="items-action-btn delete-user-btn" title="Delete"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td class="items-link">Jane Smith</td>
+                  <td>jane@email.com</td>
+                  <td>0723123456</td>
+                  <td>Installer</td>
+                  <td>0</td>
+                  <td><span class="items-status inactive">Inactive</span></td>
+                  <td>--</td>
+                  <td>
+                    <button class="items-action-btn view-user-btn" title="View"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M2.05 12a9.94 9.94 0 0 1 19.9 0 9.94 9.94 0 0 1-19.9 0z"/></svg></button>
+                    <button class="items-action-btn edit-user-btn" title="Edit"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg></button>
+                    <button class="items-action-btn delete-user-btn" title="Delete"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>3</td>
+                  <td class="items-link">Peter Maina</td>
+                  <td>admin@wattsun.co.ke</td>
+                  <td>0799123456</td>
+                  <td>Admin</td>
+                  <td>—</td>
+                  <td><span class="items-status active">Active</span></td>
+                  <td>05-Jul-2024</td>
+                  <td>
+                    <button class="items-action-btn view-user-btn" title="View"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M2.05 12a9.94 9.94 0 0 1 19.9 0 9.94 9.94 0 0 1-19.9 0z"/></svg></button>
+                    <button class="items-action-btn edit-user-btn" title="Edit"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg></button>
+                    <button class="items-action-btn delete-user-btn" title="Delete"><svg width="18" height="18" fill="none" stroke="#FFD23F" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="items-pagination">
+              <span>Showing 1 to 3 of 3 entries</span>
+              <div>
+                <button class="items-page-btn" disabled>First</button>
+                <button class="items-page-btn" disabled>Previous</button>
+                <button class="items-page-btn active">1</button>
+                <button class="items-page-btn" disabled>Next</button>
+                <button class="items-page-btn" disabled>Last</button>
+              </div>
+            </div>
+          </div>
+          <!-- ADD USER MODAL -->
+          <div class="modal-bg" id="add-user-modal" style="display:none;">
+            <div class="modal">
+              <button class="modal-close" onclick="closeModal('add-user-modal')">&times;</button>
+              <h3>Add New User</h3>
+              <label>Name <input type="text" /></label>
+              <label>Email <input type="email" /></label>
+              <label>Phone <input type="text" /></label>
+              <label>Type 
+                <select>
+                  <option>Customer</option>
+                  <option>Installer</option>
+                  <option>Admin</option>
+                  <option>Manufacturer</option>
+                </select>
+              </label>
+              <label>Status 
+                <select>
+                  <option>Active</option>
+                  <option>Inactive</option>
+                </select>
+              </label>
+              <div class="modal-actions">
+                <button class="items-btn" onclick="closeModal('add-user-modal')">Add User</button>
+                <button class="items-btn items-btn-clear" onclick="closeModal('add-user-modal')">Cancel</button>
+              </div>
+            </div>
+          </div>
+          <!-- EDIT USER MODAL -->
+          <div class="modal-bg" id="edit-user-modal" style="display:none;">
+            <div class="modal">
+              <button class="modal-close" onclick="closeModal('edit-user-modal')">&times;</button>
+              <h3>Edit User</h3>
+              <label>Name <input type="text" value="John Doe" /></label>
+              <label>Email <input type="email" value="john@email.com" /></label>
+              <label>Phone <input type="text" value="0700123456" /></label>
+              <label>Type 
+                <select>
+                  <option>Customer</option>
+                  <option>Installer</option>
+                  <option>Admin</option>
+                  <option>Manufacturer</option>
+                </select>
+              </label>
+              <label>Status 
+                <select>
+                  <option>Active</option>
+                  <option>Inactive</option>
+                </select>
+              </label>
+              <div class="modal-actions">
+                <button class="items-btn" onclick="closeModal('edit-user-modal')">Save Changes</button>
+                <button class="items-btn items-btn-clear" onclick="closeModal('edit-user-modal')">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Customers Section (can be removed/merged with Users) -->
         <div id="customers-section" class="section-panel" style="display:none;">
           <h2>Customers</h2>
           <div style="padding:18px 0;">[Customers list will appear here]</div>
@@ -173,6 +460,13 @@
           <h2>Settings</h2>
           <div style="padding:18px 0;">[Settings form will appear here]</div>
         </div>
+        <!-- My Account Section (placeholder for now) -->
+        <div id="myaccount-section" class="section-panel" style="display:none;">
+          <h2>My Account</h2>
+          <div style="padding:18px 0;">
+            <p>This is your user profile and personal settings page. <br>(Feature coming soon.)</p>
+          </div>
+        </div>
       </div>
     </main>
   </div>
@@ -181,9 +475,9 @@
   </footer>
   <script>
     // Sidebar navigation switching
-    const navLinks = document.querySelectorAll('.sidebar nav a');
+    const navLinks = document.querySelectorAll('.sidebar nav a, .sidebar-bottom a[data-section]');
     const sections = [
-      "dashboard", "orders", "items", "customers", "dispatch", "settings"
+      "dashboard", "orders", "items", "users", "customers", "dispatch", "settings", "myaccount"
     ];
     const sectionTitle = document.getElementById('section-title');
     navLinks.forEach(link => {
@@ -192,7 +486,8 @@
         navLinks.forEach(l => l.classList.remove('active'));
         link.classList.add('active');
         sections.forEach(sec => {
-          document.getElementById(sec + '-section').style.display = "none";
+          const panel = document.getElementById(sec + '-section');
+          if (panel) panel.style.display = "none";
         });
         const target = link.getAttribute('data-section');
         if(target) {
@@ -201,6 +496,42 @@
         }
       });
     });
+
+    // Items modals
+    function closeModal(id) {
+      document.getElementById(id).style.display = "none";
+    }
+    function openModal(id) {
+      document.getElementById(id).style.display = "flex";
+    }
+    // Add Item button
+    document.getElementById('add-item-btn').onclick = function() {
+      openModal('add-item-modal');
+    }
+    // Edit Item buttons
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.onclick = function() { openModal('edit-item-modal'); }
+    });
+    // Delete Item buttons
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.onclick = function() { 
+        if (confirm('Delete this item?')) alert('Deleted! (demo)');
+      }
+    });
+
+    // Users modals
+    document.getElementById('add-user-btn').onclick = function() {
+      openModal('add-user-modal');
+    }
+    document.querySelectorAll('.edit-user-btn').forEach(btn => {
+      btn.onclick = function() { openModal('edit-user-modal'); }
+    });
+    document.querySelectorAll('.delete-user-btn').forEach(btn => {
+      btn.onclick = function() { 
+        if (confirm('Delete this user?')) alert('Deleted! (demo)');
+      }
+    });
+    // (View user button/modal demo coming soon)
   </script>
 </body>
 </html>
