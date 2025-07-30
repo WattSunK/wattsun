@@ -432,7 +432,7 @@ h2 {
 </table>
 </div>
 <div class="total" id="totalAmount">Total Deposit: KES 0</div>
-<form action="/thankyou.html" autocomplete="on" class="checkout-form" data-netlify="true" id="checkoutForm" method="POST" name="order">
+<form  autocomplete="on" class="checkout-form" data-netlify="true" id="checkoutForm"  name="order">
 <input name="form-name" type="hidden" value="order"/>
 <input id="cart_summary" name="cart_summary" type="hidden"/>
 <label for="fullName">Full Name</label>
@@ -530,7 +530,53 @@ document.addEventListener("DOMContentLoaded", function () {
 
   renderCart();
 
-  document.getElementById("checkoutForm").addEventListener("submit", function(e) {
+  document.getElementById("checkoutForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+      let valid = true;
+      this.querySelectorAll('input[required], textarea[required]').forEach(input => {
+          if (!input.value.trim() || input.value.trim() === "0") {
+              input.style.borderColor = "red";
+              valid = false;
+          } else {
+              input.style.borderColor = "";
+          }
+      });
+      const cart = JSON.parse(localStorage.getItem("cart")) || [];
+      if (cart.length === 0) {
+          alert("Your cart is empty.");
+          valid = false;
+      }
+      if (!valid) {
+          return false;
+      }
+
+      // Collect order details
+      const order = {
+        fullName: document.getElementById("fullName").value,
+        email: document.getElementById("email").value,
+        phone: document.getElementById("phone").value,
+        address: document.getElementById("address").value,
+        cart: cart
+      };
+
+      try {
+        // Adjust '/api/order' to your actual backend order endpoint if different
+        const res = await fetch("/api/order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(order)
+        });
+        if (!res.ok) {
+          alert("Order failed. Please try again or contact us.");
+          return;
+        }
+        sessionStorage.setItem("orderName", order.fullName);
+        sessionStorage.setItem("clearCartOnThankYou", "true");
+        window.location.href = "thankyou.html";
+      } catch (err) {
+        alert("Could not place order. Please check your connection.");
+      }
+  });
       let valid = true;
       this.querySelectorAll('input[required], textarea[required]').forEach(input => {
           if (!input.value.trim() || input.value.trim() === "0") {
