@@ -69,7 +69,7 @@
       const timestamp = document.getElementById('timestamp');
       container.innerHTML = '';
 
-      // Backend check
+      Fix: Replace em-dash with ASCII dash in status.html for JS compatibility
       let backendStatus = await fetch('/api/health')
         .then(res => res.ok ? '🟢 OK' : '🔴 DOWN')
         .catch(() => '🔴 DOWN');
@@ -92,7 +92,7 @@
 
       timestamp.innerText = \`Last checked: \${new Date().toLocaleTimeString()} — auto-refreshes every 30s\`;
     }
-
+    // Initial check and set interval for auto-refresh
     checkStatus();
     setInterval(checkStatus, 30000);
   </script>
