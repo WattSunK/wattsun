@@ -305,3 +305,143 @@ body {
     left: 58px;
   }
 }
+.orders-title {
+  color: #111;
+  font-size: 1.38em;
+  font-weight: 500;
+  margin-bottom: 18px;
+  letter-spacing: 0.02em;
+}
+
+.orders-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.orders-input {
+  border: 1.1px solid #FFD23F;
+  border-radius: 4px;
+  padding: 6px 11px;
+  background: #fffbe7;
+  font-size: 0.98em;
+  outline: none;
+  min-width: 110px;
+}
+
+.orders-btn {
+  background: #FFD23F;
+  border: 1px solid #FFD23F;
+  color: #222;
+  border-radius: 4px;
+  padding: 6px 19px;
+  font-size: 0.98em;
+  font-weight: 500;
+  cursor: pointer;
+  margin-right: 5px;
+  transition: background 0.18s;
+}
+.orders-btn-clear {
+  background: #fffbe7;
+  color: #222;
+  border: 1px solid #FFD23F;
+}
+.orders-btn:hover {
+  background: #fffbe7;
+}
+
+.search-box {
+  margin-left: auto;
+  min-width: 190px;
+}
+
+.orders-table-wrapper {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px #e9e9e920;
+  padding: 10px 8px 10px 8px;
+  border: 1.5px solid #eee;
+  margin-bottom: 18px;
+  overflow-x: auto;
+}
+
+.orders-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 980px;
+}
+
+.orders-table th,
+.orders-table td {
+  padding: 12px 10px;
+  text-align: left;
+  font-size: 0.99em;
+  border-bottom: 1px solid #f3f3f3;
+}
+
+.orders-table th {
+  background: #fffbe7;
+  font-weight: 500;
+  color: #333;
+  border-top: 1.5px solid #FFD23F;
+}
+
+.orders-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.orders-action-btn {
+  background: #fff;
+  border: 1.2px solid #FFD23F;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: background 0.16s;
+  vertical-align: middle;
+}
+
+.orders-action-btn:hover {
+  background: #fffbe7;
+}
+
+.order-link {
+  color: #1a73e8;
+  text-decoration: underline;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+.order-link:hover {
+  color: #d39811;
+}
+
+.orders-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.96em;
+  color: #888;
+  padding: 6px 4px 4px 2px;
+}
+
+.orders-page-btn {
+  background: #fffbe7;
+  border: 1px solid #FFD23F;
+  border-radius: 4px;
+  margin-left: 3px;
+  padding: 2px 9px;
+  font-size: 0.96em;
+  color: #222;
+  cursor: pointer;
+}
+.orders-page-btn.active,
+.orders-page-btn:focus {
+  background: #FFD23F;
+  font-weight: 600;
+}
+.orders-page-btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
