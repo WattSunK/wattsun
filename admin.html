@@ -627,11 +627,84 @@
 </div>
 
         <!-- Settings Section -->
-        <div id="settings-section" class="section-panel" style="display:none;">
-          <h2>Settings</h2>
-          <div style="padding:18px 0;">[Settings form will appear here]</div>
-        </div>
-        <!-- My Account Section (placeholder for now) -->
+        
+<div id="settings-section" class="section-panel" style="display:none;">
+  <h2 class="settings-title">Settings</h2>
+  <div class="settings-card">
+    <h3>Company Information</h3>
+    <label>Company Name <input type="text" value="WattSun Solar"></label>
+    <label>Support Email <input type="email" value="support@wattsun.co.ke"></label>
+    <label>Support Phone <input type="text" value="+254700123456"></label>
+    <label>Physical Address <input type="text" value="Nairobi, Kenya"></label>
+  </div>
+  <div class="settings-card">
+    <h3>User Management</h3>
+    <label><input type="checkbox" checked> Enforce strong passwords</label>
+    <label>Session Timeout
+      <select>
+        <option>30 minutes</option>
+        <option selected>1 hour</option>
+        <option>2 hours</option>
+      </select>
+    </label>
+    <label><input type="checkbox" checked> Allow Password Reset</label>
+  </div>
+  <div class="settings-card">
+    <h3>Notifications</h3>
+    <label><input type="checkbox" checked> Order Placed Email</label>
+    <label><input type="checkbox" checked> Order Delivered Email</label>
+    <label>
+      <input type="checkbox" checked> Low Stock Alerts
+      <input type="number" value="10" min="1" style="width:60px;"> threshold
+    </label>
+    <label>Send notifications to <input type="text" value="alerts@wattsun.co.ke"></label>
+  </div>
+  <div class="settings-card">
+    <h3>Integrations</h3>
+    <div class="integration-block">
+      <label>Paybill Number <input type="text" value="123456"></label>
+      <label>API Key <input type="password" value="sk_live_123456789"></label>
+    </div>
+    <div class="integration-block">
+      <label>SMS Gateway
+        <select>
+          <option>Africa's Talking</option>
+          <option>Twilio</option>
+        </select>
+      </label>
+      <label>Sender ID <input type="text" value="WattSun"></label>
+      <label>SMS API Key <input type="password" value="sms_abcdef"></label>
+    </div>
+  </div>
+  <div class="settings-card">
+    <h3>Appearance</h3>
+    <label>Logo Upload <input type="file"></label>
+    <label>Theme
+      <select>
+        <option selected>Light</option>
+        <option>Dark</option>
+        <option>Auto</option>
+      </select>
+    </label>
+  </div>
+  <div class="settings-card">
+    <h3>System Controls</h3>
+    <button class="settings-btn" onclick="alert('Backup created (demo)!')">Backup Data</button>
+    <label>Restore from Backup <input type="file"></label>
+    <button class="settings-btn" onclick="alert('Data exported (demo)!')">Export Data</button>
+  </div>
+  <div class="settings-card danger">
+    <h3>Danger Zone</h3>
+    <button class="danger-btn" onclick="confirm('Delete all test data? This cannot be undone.') && alert('Deleted (demo)!')">Delete All Test Data</button>
+    <button class="danger-btn" onclick="confirm('Factory reset? This cannot be undone.') && alert('Factory reset (demo)!')">Factory Reset</button>
+  </div>
+  <div class="settings-actions">
+    <button class="settings-btn" onclick="alert('Settings saved (demo)!')">Save</button>
+    <button class="settings-btn settings-btn-cancel" onclick="alert('Changes canceled (demo)!')">Cancel</button>
+  </div>
+</div>
+
+<!-- My Account Section (placeholder for now) -->
         <div id="myaccount-section" class="section-panel" style="display:none;">
           <h2>My Account</h2>
           <div style="padding:18px 0;">
