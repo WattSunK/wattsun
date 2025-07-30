@@ -705,14 +705,51 @@
 </div>
 
 <!-- My Account Section (placeholder for now) -->
-        <div id="myaccount-section" class="section-panel" style="display:none;">
-          <h2>My Account</h2>
-          <div style="padding:18px 0;">
-            <p>This is your user profile and personal settings page. <br>(Feature coming soon.)</p>
-          </div>
-        </div>
+        
+<div id="myaccount-section" class="section-panel" style="display:none;">
+  <div class="account-profile-card">
+    <div class="account-avatar">
+      <span class="avatar-initials">PM</span>
+    </div>
+    <div class="account-details">
+      <div class="account-name">Peter Maina <span class="account-role">Admin</span></div>
+      <div class="account-email">admin@wattsun.co.ke</div>
+      <div class="account-meta">Last login: 30-Jul-2025 15:10</div>
+    </div>
+  </div>
+  <form class="account-form">
+    <div class="account-form-fields">
+      <label>Name <input type="text" value="Peter Maina"></label>
+      <label>Email <input type="email" value="admin@wattsun.co.ke"></label>
+      <label>Phone <input type="text" value="0799123456"></label>
+    </div>
+    <div class="account-password-row">
+      <span>Password</span>
+      <button type="button" class="account-pw-btn" onclick="document.getElementById('change-pw-modal').style.display='flex'">Change Password &gt;</button>
+    </div>
+    <div class="account-actions">
+      <button type="submit" class="account-btn">Save Changes</button>
+      <button type="button" class="account-btn account-btn-cancel" onclick="alert('Canceled (demo)!')">Cancel</button>
+    </div>
+    <button type="button" class="account-btn account-btn-danger" onclick="if(confirm('Deactivate your account?'))alert('Account deactivated (demo)!')">Deactivate Account</button>
+  </form>
+  <!-- Change Password Modal -->
+  <div class="modal-bg" id="change-pw-modal" style="display:none;">
+    <div class="modal">
+      <button class="modal-close" onclick="document.getElementById('change-pw-modal').style.display='none'">&times;</button>
+      <h3>Change Password</h3>
+      <label>Current Password <input type="password"></label>
+      <label>New Password <input type="password"></label>
+      <label>Confirm New Password <input type="password"></label>
+      <div class="modal-actions">
+        <button class="account-btn" onclick="document.getElementById('change-pw-modal').style.display='none';alert('Password changed (demo)!')">Change</button>
+        <button class="account-btn account-btn-cancel" onclick="document.getElementById('change-pw-modal').style.display='none'">Cancel</button>
       </div>
-    </main>
+    </div>
+  </div>
+</div>
+
+</div></main>
   </div>
   <footer class="footer">
     &copy; 2025 WattSun Solar. All rights reserved. | Admin Panel
