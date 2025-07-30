@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -146,7 +145,7 @@ document.addEventListener("DOMContentLoaded", function () {
       phone: this.phone.value,
       address: this.address.value,
       cart: cart,
-      cart_summary: cartSummaryArr.join("\n")
+      cart_summary: cartSummaryArr.join("\\n")
     };
     try {
       const response = await fetch("/api/checkout", {
@@ -160,7 +159,7 @@ document.addEventListener("DOMContentLoaded", function () {
         sessionStorage.setItem("orderNumber", data.orderNumber);
         sessionStorage.setItem("customerName", data.fullName);
         localStorage.removeItem("cart");
-        window.location.href = "thankyou.html";
+        window.location.href = "thankyou.html"; // REDIRECT on success!
       } else {
         alert(data.message || "Order submission failed. Please try again.");
       }
