@@ -5,6 +5,132 @@
   <title>Checkout - WattSun Solar</title>
   <meta content="width=device-width, initial-scale=1" name="viewport"/>
   <link href="main.css" rel="stylesheet"/>
+  <style>
+    body {
+      background: #f9f8ec;
+      margin: 0;
+      font-family: 'Segoe UI', 'Arial', sans-serif;
+    }
+    .container {
+      max-width: 860px;
+      margin: 32px auto 0 auto;
+      background: #fffdfa;
+      border-radius: 18px;
+      box-shadow: 0 6px 24px #e5c75e33;
+      padding: 28px 24px 34px 24px;
+    }
+    h2 {
+      text-align: center;
+      color: #ad890b;
+      margin-top: 6px;
+      margin-bottom: 20px;
+      letter-spacing: 0.01em;
+    }
+    .table-wrapper {
+      overflow-x: auto;
+      margin-bottom: 14px;
+    }
+    table.checkout-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fffdfa;
+      font-size: 1em;
+    }
+    .checkout-table th, .checkout-table td {
+      border-bottom: 1px solid #efeddb;
+      padding: 10px 8px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .checkout-table th {
+      background: #fcf6ba;
+      color: #9b8202;
+      font-weight: bold;
+      font-size: 1em;
+      border-radius: 4px 4px 0 0;
+    }
+    .checkout-table tr:last-child td {
+      border-bottom: none;
+    }
+    .checkout-form {
+      max-width: 640px;
+      margin: 28px auto 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px 32px;
+      align-items: flex-start;
+    }
+    .checkout-form label {
+      font-size: 1em;
+      color: #a58512;
+      margin-bottom: 3px;
+      width: 100%;
+      display: block;
+      font-weight: 500;
+    }
+    .checkout-form input, .checkout-form textarea {
+      font-size: 1em;
+      padding: 8px 10px;
+      border-radius: 7px;
+      border: 1px solid #eed67c;
+      background: #fffbe9;
+      width: 100%;
+      margin-bottom: 2px;
+    }
+    .checkout-form textarea {
+      min-height: 36px;
+      resize: vertical;
+    }
+    .checkout-actions {
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .btn, .loan-btn {
+      background: linear-gradient(90deg, #f7b733 0%, #fcf6ba 100%);
+      color: #6b5100;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 26px;
+      font-size: 1.09em;
+      cursor: pointer;
+      box-shadow: 0 1px 7px #ecd35a35;
+      transition: background 0.17s, color 0.17s;
+    }
+    .loan-btn.secondary {
+      background: #fffbe8;
+      color: #9b8202;
+      border: 1.7px solid #edd36b;
+    }
+    .btn:active, .loan-btn:active {
+      background: #f5c13b;
+    }
+    .total {
+      text-align: right;
+      font-size: 1.11em;
+      color: #8c6c01;
+      font-weight: bold;
+      margin: 18px 0 3px 0;
+    }
+    @media (max-width: 700px) {
+      .container { max-width: 99vw; padding: 9px 2vw 18vw 2vw; }
+      .checkout-form { gap: 12px 0; }
+      table.checkout-table { font-size: 0.98em; }
+      .checkout-actions { flex-direction: column; gap: 8px;}
+    }
+    @media (max-width: 540px) {
+      .container { padding: 2vw 0vw 18vw 0vw;}
+      .checkout-table th, .checkout-table td { padding: 6px 4px; font-size: 0.93em;}
+      .checkout-form label, .checkout-form input, .checkout-form textarea { font-size: 0.98em; }
+      .btn, .loan-btn { padding: 10px 11vw; font-size: 1.03em;}
+      .total { font-size: 0.97em; }
+    }
+  </style>
 </head>
 <body>
 <header>
@@ -148,14 +274,12 @@ document.addEventListener("DOMContentLoaded", function () {
       cart_summary: cartSummaryArr.join("\\n")
     };
     try {
-      // FIXED: Use /api/checkout for backend POST
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderData)
       });
       const data = await response.json();
-      console.log("API raw response:", data); // Debug log!
       if (response.ok && data.status === "success") {
         sessionStorage.setItem("orderNumber", data.orderNumber);
         sessionStorage.setItem("customerName", data.fullName);
