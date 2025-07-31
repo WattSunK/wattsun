@@ -280,6 +280,8 @@ footer {
       const toast = document.getElementById("toast");
       toast.style.display = "block";
       setTimeout(() => toast.style.display = "none", 3000);
+      // Clear deposit input field after adding to cart
+      document.getElementById(inputId).value = '';
     }
 
     function updateCartCountBadge() {
