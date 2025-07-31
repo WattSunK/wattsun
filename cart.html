@@ -291,11 +291,7 @@
         font-size: 1.3em;
       }
     }
-    /* Hide mobile sticky footer */
-    .mobile-nav {
-      display: none !important;
-    }
-    /* --- Sticky Footer --- */
+    /* --- Sticky Footer and Mobile Nav --- */
     footer {
       margin-top: 48px;
       width: 100vw;
@@ -307,10 +303,42 @@
       letter-spacing: 0.01em;
       font-family: inherit;
       flex-shrink: 0;
+      display: block;
     }
     .footer-contacts { display: inline; }
     .footer-contacts a { color: #6b5100; text-decoration: underline; }
     .footer-contacts a:hover { color: #a58512; }
+
+    /* Floating mobile nav/footer */
+    footer.mobile-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 1002;
+      background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
+      color: #6b5100;
+      box-shadow: 0 -3px 14px #e6d0773d;
+      display: none;
+      justify-content: space-around;
+      align-items: center;
+      padding: 8px 0 4px 0;
+      font-size: 1.55em;
+    }
+    footer.mobile-nav a {
+      color: #6b5100;
+      text-decoration: none;
+      font-size: 1.1em;
+      padding: 2px 13px 0 13px;
+      display: inline-block;
+      background: none;
+      border: none;
+      outline: none;
+    }
+    footer.mobile-nav a:hover { color: #ad890b; }
+    /* Only show mobile nav on small screens */
+    @media (max-width: 700px) {
+      footer:not(.mobile-nav) { display: none !important; }
+      footer.mobile-nav { display: flex !important; }
+    }
 </style>
 </head>
 <body>
@@ -371,6 +399,12 @@
 </div>
 <footer>
     © 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
+</footer>
+<footer class="mobile-nav">
+  <a aria-label="Home" href="index.html">🏠</a>
+  <a aria-label="Account" href="account.html">👤</a>
+  <a aria-label="Cart" href="cart.html">🛒<span id="cart-count">0</span></a>
+  <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
 </footer>
 <script>
     // Hamburger menu logic
