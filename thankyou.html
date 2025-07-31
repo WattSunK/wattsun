@@ -6,11 +6,20 @@
   <title>Thank You – WattSun Solar</title>
   <link href="main.css" rel="stylesheet"/>
   <style>
-    body {
-      background: #f9f8ec;
+    html, body {
+      height: 100%;
       margin: 0;
-      font-family: 'Segoe UI', 'Arial', sans-serif;
+      padding: 0;
     }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      font-family: 'Segoe UI', 'Arial', sans-serif;
+      background: #f9f8ec;
+    }
+    .page-content { flex: 1 0 auto; }
+    footer { flex-shrink: 0; }
     .container {
       max-width: 410px;
       margin: 64px auto 34px auto;
@@ -100,17 +109,19 @@
 <!-- Cart Icon END -->
 </nav>
 </header>
-<div class="container">
-  <h1>Thank You!</h1>
-  <div id="order-info" class="info-block" style="display: none;">
-    <div><span class="label">Order Number:</span> <span id="orderNum"></span></div>
-    <div><span class="label">Customer Name:</span> <span id="custName"></span></div>
+<div class="page-content">
+  <div class="container">
+    <h1>Thank You!</h1>
+    <div id="order-info" class="info-block" style="display: none;">
+      <div><span class="label">Order Number:</span> <span id="orderNum"></span></div>
+      <div><span class="label">Customer Name:</span> <span id="custName"></span></div>
+    </div>
+    <p>Your order has been received.<br/>
+      We’ll contact you soon to confirm details and arrange delivery.<br/>
+      For urgent questions, email <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>.
+    </p>
+    <a class="button" href="index.html">Return to Home</a>
   </div>
-  <p>Your order has been received.<br/>
-    We’ll contact you soon to confirm details and arrange delivery.<br/>
-    For urgent questions, email <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>.
-  </p>
-  <a class="button" href="index.html">Return to Home</a>
 </div>
 <script>
 function toggleNav() {
