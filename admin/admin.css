@@ -1021,3 +1021,123 @@ body {
     width: 100%;
   }
 }
+/* --- MyAccount Tabs and Rows (add to end of admin.css) --- */
+.myaccount-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.myaccount-tab-btn {
+  background: #fffbe7;
+  border: 1.2px solid #FFD23F;
+  color: #222;
+  font-weight: 500;
+  border-radius: 6px 6px 0 0;
+  padding: 8px 26px;
+  font-size: 1em;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.18s, color 0.18s;
+  margin-bottom: -2px;
+}
+.myaccount-tab-btn.active, .myaccount-tab-btn:focus {
+  background: #FFD23F;
+  color: #111;
+}
+.order-row {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 12px;
+  border: 1.3px solid #FFD23F;
+  padding: 16px 20px;
+  margin-bottom: 14px;
+  gap: 8px;
+}
+.order-meta {
+  display: flex;
+  gap: 18px;
+  font-size: 0.99em;
+  color: #888;
+  margin-bottom: 3px;
+}
+.order-main {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 1em;
+}
+.order-status.expired { color: #e59a00; }
+.order-links {
+  display: flex;
+  gap: 18px;
+  font-size: 0.97em;
+  color: #ff9800;
+  margin-top: 7px;
+}
+.addresses-row {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.address-box {
+  background: #fff;
+  border-radius: 10px;
+  border: 1.3px solid #FFD23F;
+  padding: 17px 22px;
+  min-width: 200px;
+  max-width: 330px;
+  flex: 1 1 230px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 11px;
+  margin-bottom: 12px;
+}
+.address-box.add-new {
+  background: #fffbe7;
+  border-style: dashed;
+  color: #888;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.address-pin {
+  font-size: 1.55em;
+  margin-bottom: 5px;
+}
+.address-actions {
+  display: flex;
+  gap: 18px;
+  margin-top: 7px;
+}
+.payments-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+.payment-box {
+  background: #fff;
+  border-radius: 10px;
+  border: 1.3px solid #FFD23F;
+  padding: 16px 22px;
+  min-width: 200px;
+  max-width: 350px;
+  flex: 1 1 250px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 1em;
+}
+.payment-actions {
+  display: flex;
+  gap: 13px;
+}
+@media (max-width: 800px) {
+  .addresses-row, .payments-row {
+    flex-direction: column;
+    gap: 14px;
+  }
+}
