@@ -136,7 +136,7 @@
     @media (max-width: 768px) {
       h1 img.site-logo { width: auto !important; max-height: 32px !important; margin-right: 8px; }
     }
-
+  
 html, body {
   height: 100%;
   margin: 0;
@@ -146,35 +146,12 @@ html, body {
 .container {
   flex: 1;
 }
-/* --- Footer patch for full-width, centered content --- */
 footer {
-  width: 100vw;
-  left: 0; right: 0;
-  background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
-  color: #6b5100;
-  font-size: 1.08em;
-  padding: 18px 0 5px 0;
-  letter-spacing: 0.01em;
-  font-family: inherit;
+  order: 99;
   flex-shrink: 0;
-  margin: 0;
-  border: none;
-  box-sizing: border-box;
-  position: relative;
-  text-align: center;
-}
-.footer-inner {
-  margin: 0 auto;
-  text-align: center;
-  max-width: 1200px;
+  margin-top: auto;
   width: 100%;
-  font-weight: normal;
-  display: inline-block;
 }
-.footer-contacts { display: inline; }
-.footer-contacts a { color: #6b5100; text-decoration: underline; }
-.footer-contacts a:hover { color: #a58512; }
-/* --- end footer patch --- */
 
 </style>
 </head>
@@ -183,12 +160,10 @@ footer {
     Added to cart!
   </div>
 <footer>
-  <div class="footer-inner">
-    © 2025 WattSun Solar Kenya | 
-    <span class="footer-contacts">
-      <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>
-    </span>
-  </div>
+<div class="footer-contacts">
+<a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>
+</div>
+<p>© 2025 WattSun Solar. All rights reserved.</p>
 </footer>
 <header>
 <div class="header-bar">
