@@ -12,7 +12,7 @@
       font-family: 'Segoe UI', 'Arial', sans-serif;
     }
     .container {
-      max-width: 860px;
+      max-width: 880px;
       margin: 32px auto 0 auto;
       background: #fffdfa;
       border-radius: 18px;
@@ -27,7 +27,6 @@
       letter-spacing: 0.01em;
     }
     .table-wrapper {
-      overflow-x: auto;
       margin-bottom: 14px;
     }
     table.checkout-table {
@@ -35,12 +34,15 @@
       border-collapse: collapse;
       background: #fffdfa;
       font-size: 1em;
+      table-layout: fixed;
     }
     .checkout-table th, .checkout-table td {
       border-bottom: 1px solid #efeddb;
       padding: 10px 8px;
       text-align: left;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .checkout-table th {
       background: #fcf6ba;
@@ -51,6 +53,17 @@
     }
     .checkout-table tr:last-child td {
       border-bottom: none;
+    }
+    .desc-col {
+      max-width: 220px;
+      width: 22vw;
+    }
+    .desc-col .desc-text {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
     }
     .checkout-form {
       max-width: 640px;
@@ -117,19 +130,32 @@
       font-weight: bold;
       margin: 18px 0 3px 0;
     }
-    @media (max-width: 700px) {
-      .container { max-width: 99vw; padding: 9px 2vw 18vw 2vw; }
-      .checkout-form { gap: 12px 0; }
-      table.checkout-table { font-size: 0.98em; }
-      .checkout-actions { flex-direction: column; gap: 8px;}
+    @media (max-width: 820px) {
+      .container { max-width: 98vw; padding: 2vw 2vw 10vw 2vw;}
+      .checkout-table .desc-col { max-width: 120px; width: 30vw;}
     }
     @media (max-width: 540px) {
       .container { padding: 2vw 0vw 18vw 0vw;}
-      .checkout-table th, .checkout-table td { padding: 6px 4px; font-size: 0.93em;}
+      .checkout-table th, .checkout-table td { padding: 6px 2px; font-size: 0.93em;}
       .checkout-form label, .checkout-form input, .checkout-form textarea { font-size: 0.98em; }
       .btn, .loan-btn { padding: 10px 11vw; font-size: 1.03em;}
       .total { font-size: 0.97em; }
     }
+    footer {
+      margin-top: 48px;
+      width: 100vw;
+      background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
+      color: #6b5100;
+      text-align: center;
+      font-size: 1.08em;
+      padding: 18px 0 5px 0;
+      letter-spacing: 0.01em;
+      font-family: inherit;
+    }
+    .footer-contacts { display: inline; }
+    .footer-contacts a { color: #6b5100; text-decoration: underline; }
+    .footer-contacts a:hover { color: #a58512; }
+    .mobile-nav { display: none !important; }
   </style>
 </head>
 <body>
@@ -214,7 +240,10 @@ document.addEventListener("DOMContentLoaded", function () {
     return Number(num).toLocaleString('en-US');
   }
   function truncateDesc(desc) {
-    return desc && desc.length > 60 ? desc.substring(0, 57) + '...' : desc;
+    // Remove newlines, concatenate to one line, then truncate if needed
+    if(!desc) return "";
+    let singleLine = desc.replace(/(\r\n|\n|\r)/gm, " ");
+    return singleLine.length > 64 ? singleLine.slice(0, 61) + "..." : singleLine;
   }
   function renderCart() {
     const cart = JSON.parse(localStorage.getItem("cart")) || [];
@@ -231,7 +260,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const row = document.createElement('tr');
       row.innerHTML = `
         <td class="product-col">${item.name}</td>
-        <td class="desc-col">${truncateDesc(desc)}</td>
+        <td class="desc-col"><span class="desc-text" title="${desc.replace(/(\r\n|\n|\r)/gm, " ").replace(/"/g, '&quot;')}">${truncateDesc(desc)}</span></td>
         <td class="compact-col">${formatNumber(item.price)}</td>
         <td class="compact-col">${formatNumber(deposit)}</td>
         <td class="compact-col">${qty}</td>
@@ -314,11 +343,5 @@ function updateCartCountBadge() {
 document.addEventListener('DOMContentLoaded', updateCartCountBadge);
 window.addEventListener('storage', updateCartCountBadge);
 </script>
-<footer class="mobile-nav">
-<a aria-label="Home" href="index.html">🏠</a>
-<a aria-label="Account" href="account.html">👤</a>
-<a aria-label="Cart" href="cart.html">🛒<span id="cart-count">0</span></a>
-<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
-</footer>
 </body>
 </html>
