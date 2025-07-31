@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
@@ -8,11 +7,18 @@
 <link href="main.css" rel="stylesheet"/>
 <style>
     html, body {
-      width: 100vw;
-      max-width: 100vw;
-      overflow-x: hidden;
+      height: 100%;
+      margin: 0;
+      padding: 0;
     }
-    body { background: #fafafa; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #fafafa;
+    }
+    .page-content { flex: 1 0 auto; }
+    footer { flex-shrink: 0; }
     .container {
       max-width: 950px;
       width: 95vw;
@@ -136,7 +142,6 @@
       transform: translateY(-2px) scale(1.03);
       box-shadow: 0 6px 20px rgba(247,183,51, 0.20);
     }
-
     /* Hamburger & mobile nav styles */
     .nav-toggle {
       display: none;
@@ -210,51 +215,6 @@
         box-sizing: border-box !important;
         table-layout: fixed !important;
       }
-      .col-unit, .col-total-deposit {
-        display: none;
-      }
-      th, td {
-        font-size: 0.96em;
-        padding: 8px 3px;
-        min-width: 36px;
-        max-width: 90px;
-      }
-      td.product-col {
-        width: 35% !important;
-        min-width: 100px !important;
-        max-width: 180px !important;
-        white-space: nowrap !important;
-      }
-      .actions {
-        flex-direction: column !important;
-        align-items: center !important;
-        gap: 12px !important;
-      }
-      .actions .btn,
-      .actions .btn-clear {
-        width: 80vw !important;
-        max-width: 96vw !important;
-        min-width: 0 !important;
-        font-size: 1em;
-      }
-    }
-    @media (max-width: 900px) {
-      .container { padding: 18px 5vw; }
-      table th, table td { font-size: 0.98em; }
-      .btn, .btn-clear { width: 100%; margin: 10px 0; }
-    }
-    @media (max-width: 700px) {
-      .container {
-        width: 100vw !important;
-        max-width: 100vw !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        box-sizing: border-box !important;
-      }
-      .table-wrapper {
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch;
-      }
       th.col-desc, td.col-desc, th.col-unit, td.col-unit, th.col-total-deposit, td.col-total-deposit {
         display: none !important;
       }
@@ -282,43 +242,11 @@
         min-width: 0 !important;
       }
     }
-
-    /* Cart Icon in NavBar */
-    .cart-icon-link {
-      position: relative;
-      display: inline-block;
-      text-decoration: none;
-      color: inherit;
-      vertical-align: middle;
-      margin-left: 10px;
+    @media (max-width: 900px) {
+      .container { padding: 18px 5vw; }
+      table th, table td { font-size: 0.98em; }
+      .btn, .btn-clear { width: 100%; margin: 10px 0; }
     }
-    .cart-icon {
-      font-size: 1.24em;
-      display: flex;
-      align-items: center;
-      position: relative;
-    }
-    .cart-count-badge {
-      position: absolute;
-      top: -0.7em;
-      right: -0.7em;
-      background: #19c37d;
-      color: #fff;
-      font-size: 0.8em;
-      min-width: 1.15em;
-      height: 1.15em;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      box-shadow: 0 0 0.13em #0001;
-      transition: background 0.2s;
-      pointer-events: none;
-      z-index: 1;
-      display: none;
-    }
-
     /* === Logo Styles from index.html === */
     .logo-container {
       display: none;
@@ -363,57 +291,27 @@
         font-size: 1.3em;
       }
     }
-
-    /* === Mobile Sticky Footer === */
+    /* Hide mobile sticky footer */
     .mobile-nav {
-      display: none;
+      display: none !important;
     }
-    @media (max-width: 768px) {
-      .mobile-nav {
-        display: flex;
-        position: fixed;
-        bottom: 0;
-        height: 56px;
-        width: 100%;
-        background-color: #f4a940;
-        justify-content: space-around;
-        align-items: center;
-        z-index: 1000;
-        box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
-        padding: 0;
-      }
-      .mobile-nav a {
-        font-size: 20px;
-        height: 56px;
-        line-height: 56px;
-        padding: 0;
-        margin: 0;
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-decoration: none;
-        color: black;
-        position: relative;
-      }
-      #cart-count {
-        position: absolute;
-        top: 6px;
-        right: 10px;
-        background: red;
-        color: white;
-        font-size: 11px;
-        min-width: 16px;
-        height: 16px;
-        border-radius: 8px;
-        padding: 0 5px;
-        text-align: center;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
+    /* --- Sticky Footer --- */
+    footer {
+      margin-top: 48px;
+      width: 100vw;
+      background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
+      color: #6b5100;
+      text-align: center;
+      font-size: 1.08em;
+      padding: 18px 0 5px 0;
+      letter-spacing: 0.01em;
+      font-family: inherit;
+      flex-shrink: 0;
     }
-  </style>
+    .footer-contacts { display: inline; }
+    .footer-contacts a { color: #6b5100; text-decoration: underline; }
+    .footer-contacts a:hover { color: #a58512; }
+</style>
 </head>
 <body>
 <header>
@@ -426,9 +324,6 @@
 <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
 <span class="brand-name">WattSun Solar</span>
 </div>
-
-
-
 <button aria-label="Menu" class="nav-toggle" onclick="toggleNav()">☰</button>
 </div>
 <nav id="mainNav">
@@ -449,6 +344,7 @@
 <!-- Cart Icon END -->
 </nav>
 </header>
+<div class="page-content">
 <div class="container">
 <h2>Your Cart</h2>
 <div class="table-wrapper">
@@ -470,6 +366,7 @@
 <div class="actions">
 <a class="btn" href="checkout.html">Proceed to Checkout</a>
 <button class="btn btn-clear" id="clearCartBtn" style="display:none;" type="button">Clear Cart</button>
+</div>
 </div>
 </div>
 <footer>
@@ -557,11 +454,5 @@
     document.addEventListener('DOMContentLoaded', updateCartCountBadge);
     window.addEventListener('storage', updateCartCountBadge);
   </script>
-<footer class="mobile-nav">
-<a aria-label="Home" href="index.html">🏠</a>
-<a aria-label="Account" href="account.html">👤</a>
-<a aria-label="Cart" href="cart.html">🛒<span id="cart-count">0</span></a>
-<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
-</footer>
 </body>
 </html>
