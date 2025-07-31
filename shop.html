@@ -8,8 +8,7 @@
 <style>
     html, body { height: 100%; min-height: 100%; box-sizing: border-box; }
     body { display: flex; flex-direction: column; min-height: 100vh; background: #fffdf7; }
-    header {
-  order: 0; flex-shrink: 0; }
+    header { order: 0; flex-shrink: 0; }
     .container { max-width: 1200px; margin: 28px auto 0 auto; padding: 18px 5px 0 5px; flex: 1; display: flex; flex-direction: column; }
     h2 { text-align: center; margin-bottom: 12px; }
     .product-card { background: #fff; border-radius: 16px; box-shadow: 0 6px 28px -7px rgba(0,0,0,0.10); padding: 20px 18px 22px 18px; text-align: center; display: flex; flex-direction: column; align-items: center; min-width: 0; min-height: 0; border: none; transition: box-shadow 0.16s; }
@@ -30,7 +29,6 @@
     .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 36px 20px; }
     @media (max-width: 1000px) { .grid { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 600px) { .grid { grid-template-columns: 1fr; gap: 16px 0; } }
-
     /* Cart Icon in NavBar */
     .cart-icon-link {
       position: relative;
@@ -63,7 +61,6 @@
       pointer-events: none;
       z-index: 1;
     }
-
     /* === Mobile Sticky Footer === */
     .mobile-nav {
       display: none;
@@ -113,7 +110,6 @@
         justify-content: center;
       }
     }
-
     /* === Desktop & Mobile Logo Styles from index.html === */
     .logo-container { display: none; }
     .desktop-logo { display: block; }
@@ -136,35 +132,63 @@
     @media (max-width: 768px) {
       h1 img.site-logo { width: auto !important; max-height: 32px !important; margin-right: 8px; }
     }
-  
-html, body {
-  height: 100%;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-}
-.container {
-  flex: 1;
-}
-footer {
-  order: 99;
-  flex-shrink: 0;
-  margin-top: auto;
-  width: 100%;
-}
+    html, body { height: 100%; margin: 0; display: flex; flex-direction: column; }
+    .container { flex: 1; }
+    footer { order: 99; flex-shrink: 0; margin-top: auto; width: 100%; }
 
+    /* === Dual Footer Patch Start === */
+    footer {
+      margin-top: 48px;
+      width: 100vw;
+      background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
+      color: #6b5100;
+      text-align: center;
+      font-size: 1.08em;
+      padding: 18px 0 5px 0;
+      letter-spacing: 0.01em;
+      font-family: inherit;
+      flex-shrink: 0;
+      display: block;
+    }
+    .footer-contacts { display: inline; }
+    .footer-contacts a { color: #6b5100; text-decoration: underline; }
+    .footer-contacts a:hover { color: #a58512; }
+    footer.mobile-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 1002;
+      background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
+      color: #6b5100;
+      box-shadow: 0 -3px 14px #e6d0773d;
+      display: none;
+      justify-content: space-around;
+      align-items: center;
+      padding: 8px 0 4px 0;
+      font-size: 1.55em;
+    }
+    footer.mobile-nav a {
+      color: #6b5100;
+      text-decoration: none;
+      font-size: 1.1em;
+      padding: 2px 13px 0 13px;
+      display: inline-block;
+      background: none;
+      border: none;
+      outline: none;
+    }
+    footer.mobile-nav a:hover { color: #ad890b; }
+    @media (max-width: 700px) {
+      footer:not(.mobile-nav) { display: none !important; }
+      footer.mobile-nav { display: flex !important; }
+    }
+    /* === Dual Footer Patch End === */
 </style>
 </head>
 <body>
 <div id="toast" style="display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#3E9F50; color:white; padding:12px 20px; border-radius:8px; font-size:0.95em; box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:9999; transition:opacity 0.3s ease;">
     Added to cart!
   </div>
-<footer>
-<div class="footer-contacts">
-<a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>
-</div>
-<p>© 2025 WattSun Solar. All rights reserved.</p>
-</footer>
+
 <header>
 <div class="header-bar">
 <h1 class="desktop-logo">
@@ -242,12 +266,21 @@ footer {
   document.addEventListener('DOMContentLoaded', loadProducts);
 </script>
 
-<footer class="mobile-nav">
-<a aria-label="Home" href="index.html">🏠</a>
-<a aria-label="Account" href="account.html">👤</a>
-<a aria-label="Cart" href="cart.html">🛒<span id="cart-count" style="background:#19c37d; color:white;">0</span></a>
-<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
+<!-- Dual Footer Patch: Desktop + Mobile -->
+<footer>
+   © 2025 WattSun Solar Kenya |
+   <div class="footer-contacts">
+     <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>
+   </div>
 </footer>
+<footer class="mobile-nav">
+  <a aria-label="Home" href="index.html">🏠</a>
+  <a aria-label="Account" href="account.html">👤</a>
+  <a aria-label="Cart" href="cart.html">🛒<span id="cart-count">0</span></a>
+  <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
+</footer>
+<!-- End Dual Footer Patch -->
+
 <script>
     function syncCartToBackend() {
       const cart = JSON.parse(localStorage.getItem("cart") || "[]");
@@ -284,18 +317,28 @@ footer {
       document.getElementById(inputId).value = '';
     }
 
+    // Cart Count Badge Script (from patch)
     function updateCartCountBadge() {
       let count = 0;
       try {
         const cart = JSON.parse(localStorage.getItem("cart")) || [];
         count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
       } catch (e) {}
-      const badge = document.getElementById('cart-count-badge');
-      if (badge) badge.textContent = count, badge.style.display = count > 0 ? 'flex' : 'none';
-      const mobileCount = document.getElementById('cart-count');
-      if (mobileCount) mobileCount.textContent = count;
-    }
 
+      const badge = document.getElementById('cart-count-badge');
+      const mobileCount = document.getElementById('cart-count');
+      if (badge) {
+        if (count > 0) {
+          badge.textContent = count;
+          badge.style.display = 'flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+      if (mobileCount) {
+        mobileCount.textContent = count;
+      }
+    }
     document.addEventListener('DOMContentLoaded', updateCartCountBadge);
     window.addEventListener('storage', updateCartCountBadge);
 
@@ -305,6 +348,6 @@ footer {
     document.querySelectorAll('header nav a').forEach(link => {
       link.addEventListener('click', () => document.querySelector('header').classList.remove('nav-open'));
     });
-  </script>
+</script>
 </body>
 </html>
