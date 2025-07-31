@@ -47,3 +47,34 @@ document.addEventListener('DOMContentLoaded', function() {
     if (sec) loadSection(sec);
   });
 });
+
+// --- THEME SWITCHER LOGIC ---
+function setTheme(theme) {
+  if (theme === 'auto') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.body.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  } else {
+    document.body.setAttribute('data-theme', theme);
+  }
+  localStorage.setItem('theme', theme);
+}
+
+// On page load, set theme from storage or default to light
+const savedTheme = localStorage.getItem('theme') || 'light';
+setTheme(savedTheme);
+
+// Wait for main content to load, then wire up the theme selector
+document.addEventListener('DOMContentLoaded', function() {
+  function bindThemeSelector() {
+    const themeSelect = document.querySelector('select[name="theme"]');
+    if (themeSelect) {
+      themeSelect.value = localStorage.getItem('theme') || 'light';
+      themeSelect.addEventListener('change', e => setTheme(e.target.value));
+    }
+  }
+  // Re-bind on main-content change (because partials are loaded dynamically)
+  const mainContent = document.getElementById('main-content');
+  const observer = new MutationObserver(bindThemeSelector);
+  observer.observe(mainContent, { childList: true, subtree: true });
+  bindThemeSelector();
+});

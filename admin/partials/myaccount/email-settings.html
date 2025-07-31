@@ -1,0 +1,77 @@
+<div class="myaccount-tabs">
+  <button class="myaccount-tab-btn" data-myaccount="profile">Profile</button>
+  <button class="myaccount-tab-btn" data-myaccount="orders">Orders</button>
+  <button class="myaccount-tab-btn" data-myaccount="addresses">Delivery Addresses</button>
+  <button class="myaccount-tab-btn" data-myaccount="payments">Payment Methods</button>
+  <button class="myaccount-tab-btn active" data-myaccount="email-settings">Email Settings</button>
+</div>
+
+<div class="email-settings-container" style="max-width:430px;margin:30px 0 0 0;padding:28px 26px 18px 26px;background:#fff;border-radius:12px;box-shadow:0 2px 8px #e9e9e920;border:1.5px solid #eee;">
+  <h2 style="font-size:1.2em;font-weight:500;margin-bottom:20px;">Admin Email Settings</h2>
+  <form id="emailSettingsForm">
+    <label for="adminEmailInput" style="font-weight:500;">Admin Email:</label><br />
+    <input
+      type="email"
+      id="adminEmailInput"
+      name="adminEmail"
+      placeholder="Enter admin email"
+      style="width: 100%;max-width:320px;margin-top:6px;padding:7px 10px;font-size:1em;border:1.1px solid #FFD23F;border-radius:4px;background:#fffbe7;"
+      required
+    /><br /><br />
+    <button type="submit" class="account-btn" style="margin-bottom:0;">Save Admin Email</button>
+  </form>
+  <div id="emailSettingsMessage" style="margin-top:14px;color:#b22222;font-size:1em;"></div>
+</div>
+
+<script>
+  async function fetchAdminEmail() {
+    try {
+      const res = await fetch('/api/admin/email');
+      if (!res.ok) throw new Error('Failed to fetch admin email');
+      const data = await res.json();
+      document.getElementById('adminEmailInput').value = data.email || '';
+    } catch (err) {
+      console.error(err);
+      document.getElementById('emailSettingsMessage').textContent = 'Could not load admin email.';
+    }
+  }
+
+  async function updateAdminEmail(email) {
+    try {
+      const res = await fetch('/api/admin/email', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error('Failed to update email');
+      return true;
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
+  }
+
+  document.getElementById('emailSettingsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const emailInput = document.getElementById('adminEmailInput');
+    const messageDiv = document.getElementById('emailSettingsMessage');
+    const email = emailInput.value.trim();
+
+    if (!email || !email.includes('@')) {
+      messageDiv.textContent = 'Please enter a valid email address.';
+      return;
+    }
+
+    const success = await updateAdminEmail(email);
+    if (success) {
+      messageDiv.style.color = "#2ca123";
+      messageDiv.textContent = 'Admin email updated successfully.';
+    } else {
+      messageDiv.style.color = "#b22222";
+      messageDiv.textContent = 'Failed to update admin email.';
+    }
+  });
+
+  // Load admin email on partial load
+  fetchAdminEmail();
+</script>
