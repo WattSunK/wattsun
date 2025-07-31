@@ -1184,3 +1184,61 @@ body {
   z-index: 10;
   letter-spacing: 0.01em;
 }
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+  margin-bottom: 24px;
+  align-items: start;
+}
+@media (max-width: 1150px) {
+  .settings-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 750px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+  margin-bottom: 24px;
+  align-items: stretch;  /* <--- important: stretch cards */
+}
+
+.settings-card {
+  min-width: 0;
+  min-height: 340px;  /* adjust as needed for your content */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  height: 100%;      /* full height in grid cell */
+}
+
+/* Danger card can be the same height, or a bit taller if needed */
+.settings-card.danger {
+  min-height: 340px;
+}
+
+@media (max-width: 1150px) {
+  .settings-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 750px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 44px 36px; /* row-gap column-gap: bigger space! */
+  margin-bottom: 28px;
+  align-items: stretch;
+  /* Optional: add padding if you want space from the container edge */
+  padding: 12px 6px;
+}
