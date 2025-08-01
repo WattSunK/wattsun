@@ -34,6 +34,17 @@ function loadSection(section) {
       if (section === 'myaccount/email-settings') {
         initEmailSettings();
       }
+      // --- PATCH START: ensure users table loads properly ---
+      if (section === 'users') {
+        // Attempt to call loadUsers() from users.html after the partial loads
+        if (typeof loadUsers === 'function') loadUsers();
+        else if (window.loadUsers) window.loadUsers();
+        setTimeout(() => {
+          if (typeof loadUsers === 'function') loadUsers();
+          else if (window.loadUsers) window.loadUsers();
+        }, 100);
+      }
+      // --- PATCH END ---
     });
 
   window.location.hash = section;
