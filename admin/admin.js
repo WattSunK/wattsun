@@ -31,21 +31,19 @@ function loadSection(section) {
     .then(html => {
       document.getElementById('main-content').innerHTML = html;
 
+      // Centralized partial JS logic loader
+      if (window.AdminPartials) {
+        if (section === 'users' && typeof window.AdminPartials.loadUsers === 'function') {
+          window.AdminPartials.loadUsers();
+        }
+        if (section === 'myaccount/profile' && typeof window.AdminPartials.loadProfile === 'function') {
+          window.AdminPartials.loadProfile();
+        }
+        // Add more as you add more tabs (orders, addresses, etc)
+      }
+
       if (section === 'myaccount/email-settings') {
         initEmailSettings();
-      }
-      // --- NEW LOGIC for Users Table JS ---
-      if (section === 'users') {
-        if (!window.loadUsers) {
-          // Dynamically load users-table.js if not already loaded
-          const script = document.createElement('script');
-          script.src = 'js/users-table.js'; // Make sure this path matches your file location
-          script.onload = function() { loadUsers(); };
-          document.body.appendChild(script);
-        } else {
-          // Already loaded, just call it
-          loadUsers();
-        }
       }
     });
 
