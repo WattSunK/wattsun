@@ -60,6 +60,19 @@ function loadSection(section) {
       if (section === 'myaccount/email-settings') {
         initEmailSettings();
       }
+
+      // --- DYNAMICALLY LOAD users.js ---
+      if (section === 'users') {
+        // Remove previous users.js if present (avoid double load)
+        var oldScript = document.getElementById('users-js-script');
+        if (oldScript) oldScript.remove();
+
+        // Dynamically load users.js
+        var script = document.createElement('script');
+        script.src = 'users.js';
+        script.id = 'users-js-script';
+        document.body.appendChild(script);
+      }
     });
 
   window.location.hash = section;
