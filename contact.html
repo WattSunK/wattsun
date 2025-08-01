@@ -154,19 +154,19 @@
 <section>
   <div class="contact-container">
     <div class="contact-form">
-      <!-- Netlify-enabled contact form -->
-      <form data-netlify="true" method="POST" name="contact">
-        <input name="form-name" type="hidden" value="contact"/>
-        <label for="name">Full Name</label>
-        <input id="name" name="name" placeholder="Your name" required="" type="text"/>
-        <label for="email">Email Address</label>
-        <input id="email" name="email" placeholder="you@example.com" required="" type="email"/>
-        <label for="phone">Phone Number</label>
-        <input id="phone" name="phone" placeholder="+254 7XX XXX XXX" type="tel"/>
-        <label for="message">Your Message</label>
-        <textarea id="message" name="message" placeholder="Tell us about your project..." required="" rows="6"></textarea>
-        <button type="submit">Send Inquiry</button>
-      </form>
+      <!-- API-enabled contact form -->
+      <form id="contactForm" novalidate>
+  <label for="name">Full Name</label>
+  <input id="name" name="name" placeholder="Your name" required type="text" autocomplete="name"/>
+  <label for="email">Email Address</label>
+  <input id="email" name="email" placeholder="you@example.com" required type="email" autocomplete="email"/>
+  <label for="phone">Phone Number</label>
+  <input id="phone" name="phone" placeholder="+254 7XX XXX XXX" type="tel" autocomplete="tel"/>
+  <label for="message">Your Message</label>
+  <textarea id="message" name="message" placeholder="Tell us about your project..." required rows="6"></textarea>
+  <button type="submit">Send Inquiry</button>
+  <div id="contactFormMsg" style="margin-top:12px;font-size:1.1em;"></div>
+</form>
     </div>
     <div class="contact-info">
       <h3>Our Office</h3>
@@ -239,6 +239,48 @@
   }
   document.addEventListener('DOMContentLoaded', updateCartCountBadge);
   window.addEventListener('storage', updateCartCountBadge);
+</script>
+<script>
+  document.getElementById('contactForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const msgDiv = document.getElementById('contactFormMsg');
+    msgDiv.textContent = '';
+    msgDiv.style.color = '';
+
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const message = document.getElementById('message').value.trim();
+
+    if (!name || !email || !message) {
+      msgDiv.textContent = 'Please fill in all required fields.';
+      msgDiv.style.color = '#b22222';
+      return;
+    }
+
+    msgDiv.textContent = 'Sending...';
+    msgDiv.style.color = '#444';
+
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, email, phone, message })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        msgDiv.textContent = 'Thank you! Your message has been sent successfully.';
+        msgDiv.style.color = '#2ca123';
+        document.getElementById('contactForm').reset();
+      } else {
+        msgDiv.textContent = data.error || 'Failed to send message.';
+        msgDiv.style.color = '#b22222';
+      }
+    } catch (err) {
+      msgDiv.textContent = 'A server error occurred. Please try again later.';
+      msgDiv.style.color = '#b22222';
+    }
+  });
 </script>
 </body>
 </html>
