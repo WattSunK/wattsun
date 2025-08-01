@@ -1,5 +1,25 @@
 let currentSection = 'dashboard';
 
+function loadLayoutPartials() {
+  fetch('partials/sidebar.html')
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('sidebar-container').innerHTML = html;
+    });
+
+  fetch('partials/header.html')
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('header-container').innerHTML = html;
+    });
+
+  fetch('partials/footer.html')
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('footer-container').innerHTML = html;
+    });
+}
+
 function loadSection(section) {
   currentSection = section;
   let file = section.startsWith('myaccount/')
@@ -11,7 +31,6 @@ function loadSection(section) {
     .then(html => {
       document.getElementById('main-content').innerHTML = html;
 
-      // Initialize section-specific JS
       if (section === 'myaccount/email-settings') {
         initEmailSettings();
       }
@@ -83,13 +102,12 @@ function initEmailSettings() {
   fetchAdminEmail();
 }
 
-// On DOMContentLoaded, load default section
 document.addEventListener('DOMContentLoaded', () => {
-  // If there is a hash in URL, load that section, else default
+  loadLayoutPartials();
+
   let initialSection = window.location.hash ? window.location.hash.substring(1) : 'dashboard';
   loadSection(initialSection);
 
-  // Event delegation for sidebar and myaccount tab clicks
   document.body.addEventListener('click', (e) => {
     if (e.target.matches('[data-section]')) {
       e.preventDefault();
@@ -106,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Listen for hash changes
   window.addEventListener('hashchange', () => {
     let sec = window.location.hash.replace('#', '');
     if (sec) loadSection(sec);
