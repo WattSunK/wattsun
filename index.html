@@ -193,6 +193,26 @@
   </style>
 </head>
 <body>
+
+<!-- Login Modal -->
+<div id="loginModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2000;background:rgba(0,0,0,0.36);justify-content:center;align-items:center;">
+  <div style="background:white;padding:32px 28px 22px 28px;max-width:410px;width:90vw;border-radius:10px;box-shadow:0 6px 40px rgba(0,0,0,0.16);">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h2 style="margin:0 0 12px 0;font-weight:600;">Login</h2>
+      <button onclick="closeLogin()" style="background:none;border:none;font-size:2em;line-height:1;color:#999;">×</button>
+    </div>
+    <form id="loginForm" style="display:flex;flex-direction:column;gap:14px;">
+      <input type="email" id="loginEmail" placeholder="Email" required style="padding:10px 12px;font-size:1em;border:1px solid #ddd;border-radius:6px;">
+      <input type="password" id="loginPassword" placeholder="Password" required style="padding:10px 12px;font-size:1em;border:1px solid #ddd;border-radius:6px;">
+      <button type="submit" style="margin-top:6px;background:#f4a940;color:white;font-weight:bold;border:none;padding:10px 0;border-radius:6px;font-size:1.1em;">LOGIN</button>
+    </form>
+    <div style="margin-top:10px;font-size:0.98em;text-align:center;">
+      Don't have an account? <a href="#" onclick="openSignup();closeLogin();return false;" style="color:#f4a940;">Sign up</a>
+    </div>
+    <div id="loginError" style="color:red;text-align:center;margin-top:7px;font-size:0.97em;display:none;"></div>
+  </div>
+</div>
+
 <header>
 <div class="header-bar">
 <h1 class="desktop-logo">
@@ -203,6 +223,11 @@
 <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
 <span class="brand-name">WattSun Solar</span>
 </div>
+
+<button onclick="openLogin()" id="loginBtn" style="margin-left:15px;background:#f4a940;color:white;border:none;padding:7px 18px;border-radius:5px;font-weight:600;font-size:1em;cursor:pointer;">Login</button>
+<span id="loggedInUser" style="display:none;margin-left:15px;font-size:1em;color:#222;"></span>
+<button id="logoutBtn" style="display:none;margin-left:8px;background:#f0701a;color:white;border:none;padding:7px 14px;border-radius:5px;font-size:1em;cursor:pointer;">Logout</button>
+
 
 
 
@@ -374,5 +399,65 @@
     document.addEventListener('DOMContentLoaded', updateCartCountBadge);
     window.addEventListener('storage', updateCartCountBadge);
   </script>
+
+<script>
+// Modal logic
+function openLogin() { document.getElementById('loginModal').style.display = 'flex'; }
+function closeLogin() { document.getElementById('loginModal').style.display = 'none'; }
+
+// Login handler
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+  const errorDiv = document.getElementById('loginError');
+  errorDiv.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorDiv.textContent = data.error || "Login failed";
+      errorDiv.style.display = 'block';
+      return;
+    }
+    // Save user info in localStorage
+    localStorage.setItem('wattsun_user', JSON.stringify(data));
+    updateLoginUI();
+    closeLogin();
+  } catch (err) {
+    errorDiv.textContent = "Login error";
+    errorDiv.style.display = 'block';
+  }
+});
+
+// Show/hide logged-in UI
+function updateLoginUI() {
+  const user = JSON.parse(localStorage.getItem('wattsun_user') || 'null');
+  const userSpan = document.getElementById('loggedInUser');
+  const loginBtn = document.getElementById('loginBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (user) {
+    userSpan.textContent = `👤 ${user.name} (${user.type})`;
+    userSpan.style.display = 'inline-block';
+    loginBtn.style.display = 'none';
+    logoutBtn.style.display = 'inline-block';
+  } else {
+    userSpan.style.display = 'none';
+    loginBtn.style.display = 'inline-block';
+    logoutBtn.style.display = 'none';
+  }
+}
+document.getElementById('logoutBtn').onclick = function() {
+  localStorage.removeItem('wattsun_user');
+  updateLoginUI();
+};
+window.addEventListener('DOMContentLoaded', updateLoginUI);
+</script>
+
 </body>
 </html>
