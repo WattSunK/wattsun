@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
@@ -58,14 +59,69 @@
       </div>
     </div>
   </div>
+
+  <!-- User Modal -->
+
+  <div id="user-modal-bg" class="modal-bg" style="display:none;">
+    <div class="modal" id="user-modal">
+      <button class="modal-close" id="user-modal-close" title="Close">&times;</button>
+      <h3 id="user-modal-title">User Details</h3>
+      <form id="user-modal-form" style="display:none;">
+        <label for="user-modal-name">Name</label>
+        <input id="user-modal-name" type="text" required />
+
+```
+    <label for="user-modal-email">Email</label>
+    <input id="user-modal-email" type="email" required />
+
+    <label for="user-modal-phone">Phone</label>
+    <input id="user-modal-phone" type="text" />
+
+    <label for="user-modal-type">Type</label>
+    <select id="user-modal-type">
+      <option value="Customer">Customer</option>
+      <option value="Installer">Installer</option>
+      <option value="Admin">Admin</option>
+      <option value="Manufacturer">Manufacturer</option>
+    </select>
+
+    <label for="user-modal-status">Status</label>
+    <select id="user-modal-status">
+      <option value="Active">Active</option>
+      <option value="Inactive">Inactive</option>
+    </select>
+
+    <div class="modal-actions">
+      <button type="submit" id="user-modal-save" class="settings-btn">Save</button>
+      <button type="button" id="user-modal-cancel" class="settings-btn settings-btn-cancel">Cancel</button>
+    </div>
+    <div id="user-modal-message" style="margin-top:8px;font-size:0.97em;"></div>
+  </form>
+  <div id="user-modal-view" style="display:none;">
+    <div style="margin-bottom:12px;"><b>Name:</b> <span id="user-view-name"></span></div>
+    <div style="margin-bottom:12px;"><b>Email:</b> <span id="user-view-email"></span></div>
+    <div style="margin-bottom:12px;"><b>Phone:</b> <span id="user-view-phone"></span></div>
+    <div style="margin-bottom:12px;"><b>Type:</b> <span id="user-view-type"></span></div>
+    <div style="margin-bottom:12px;"><b>Status:</b> <span id="user-view-status"></span></div>
+    <div style="margin-bottom:12px;"><b>Last Active:</b> <span id="user-view-active"></span></div>
+    <div class="modal-actions">
+      <button type="button" id="user-modal-close-view" class="settings-btn">Close</button>
+    </div>
+  </div>
+</div>
+```
+
+  </div>
+
   <style>
-    .visually-hidden { 
-      position: absolute !important; 
-      height: 1px; width: 1px; 
-      overflow: hidden; 
-      clip: rect(1px 1px 1px 1px); 
-      white-space: nowrap; 
+    .visually-hidden {
+      position: absolute !important;
+      height: 1px; width: 1px;
+      overflow: hidden;
+      clip: rect(1px 1px 1px 1px);
+      white-space: nowrap;
     }
   </style>
+
 </body>
 </html>
