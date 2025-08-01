@@ -8,7 +8,6 @@ window.AdminPartials = {
     if (!detailsDiv) return;
     detailsDiv.innerHTML = 'Checking...';
 
-    // Fetch backend API and Cloudflare tunnel status (remove second if not needed)
     Promise.all([
       fetch('/api/health')
         .then(r => r.ok ? '🟢 Backend API: OK' : '🔴 Backend API: DOWN')
@@ -143,27 +142,19 @@ window.AdminPartials = {
 
   // ORDERS TAB PLACEHOLDER
   loadOrders: function() {
-    const main = document.getElementById('main-content');
-    if (main) main.innerHTML = "<div style='text-align:center; margin:3em 0;'><h3>Orders – Coming Soon</h3></div>";
+    // If you want real logic later, add it here.
   },
 
   // DELIVERY ADDRESSES TAB PLACEHOLDER
   loadAddresses: function() {
-    const main = document.getElementById('main-content');
-    if (main) main.innerHTML = "<div style='text-align:center; margin:3em 0;'><h3>Delivery Addresses – Coming Soon</h3></div>";
+    // If you want real logic later, add it here.
   },
 
   // PAYMENTS TAB PLACEHOLDER
   loadPayments: function() {
-    const main = document.getElementById('main-content');
-    if (main) main.innerHTML = "<div style='text-align:center; margin:3em 0;'><h3>Payment Methods – Coming Soon</h3></div>";
+    // If you want real logic later, add it here.
   },
 
-  // EMAIL SETTINGS TAB PLACEHOLDER
-  loadEmailSettings: function() {
-    const main = document.getElementById('main-content');
-    if (main) main.innerHTML = "<div style='text-align:center; margin:3em 0;'><h3>Email Settings – Coming Soon</h3></div>";
-  },
-
-  // Add more sections as needed, using the same pattern!
+  // Email settings loader REMOVED—now your partial and initEmailSettings() will show up!
+  // Add more loaders if needed.
 };
