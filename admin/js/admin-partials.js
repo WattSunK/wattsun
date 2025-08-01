@@ -1,5 +1,3 @@
-let currentSection = 'dashboard';
-
 function loadLayoutPartials() {
   fetch('partials/sidebar.html')
     .then(res => res.text())
