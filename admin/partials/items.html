@@ -1,6 +1,7 @@
 <h2 class="items-title">Items</h2>
 <div class="items-toolbar">
   <button class="items-btn" id="add-item-btn">+ Add Item</button>
+  <button class="items-btn" id="manage-categories-btn">Manage Categories</button>
   <select class="items-select">
     <option>All Categories</option>
     <option>Panels</option>
@@ -16,6 +17,7 @@
     <thead>
       <tr>
         <th>SL NO.</th>
+        <th>IMAGE</th>
         <th>ITEM NAME</th>
         <th>SKU</th>
         <th>CATEGORY</th>
@@ -26,19 +28,7 @@
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <td>1</td>
-        <td class="items-link">100W Panel</td>
-        <td>PNL-100W</td>
-        <td>Panels</td>
-        <td>25</td>
-        <td>KSh 6,500</td>
-        <td><span class="items-status active">Active</span></td>
-        <td>
-          <button class="items-action-btn edit-btn" title="Edit">Edit</button>
-          <button class="items-action-btn delete-btn" title="Delete">Delete</button>
-        </td>
-      </tr>
+      <!-- Rows will be rendered dynamically by admin-items.js -->
     </tbody>
   </table>
   <div class="items-pagination">
@@ -52,3 +42,18 @@
     </div>
   </div>
 </div>
+
+<!-- CSS for image thumbnail (add to your CSS file if not present) -->
+<style>
+.item-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  background: #fafafa;
+}
+</style>
+
+<!-- Reference your new JS at the end -->
+<script src="js/admin-items.js"></script>
