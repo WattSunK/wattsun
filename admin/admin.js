@@ -5,6 +5,19 @@ function loadLayoutPartials() {
     .then(res => res.text())
     .then(html => {
       document.getElementById('sidebar-container').innerHTML = html;
+
+      // --- PATCH 1: Update user info in sidebar ---
+      updateSidebarUserInfo();
+
+      // --- PATCH 2: Attach logout event handler ---
+      const logoutBtn = document.querySelector('.sidebar .logout');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          localStorage.removeItem('user');
+          window.location.href = "index.html";
+        });
+      }
     });
 
   fetch('partials/header.html')
@@ -18,6 +31,22 @@ function loadLayoutPartials() {
     .then(html => {
       document.getElementById('footer-container').innerHTML = html;
     });
+}
+
+// --- Helper: Update user info in sidebar ---
+function updateSidebarUserInfo() {
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem('user'));
+  } catch (e) {}
+  const userDiv = document.getElementById('sidebar-user-info');
+  if (userDiv) {
+    if (user && user.name) {
+      userDiv.innerHTML = `<strong>${user.name}</strong><br>${user.email || ''}`;
+    } else {
+      userDiv.innerHTML = `<span style="color:#b22222">No user info</span>`;
+    }
+  }
 }
 
 function loadSection(section) {
@@ -69,7 +98,7 @@ function loadSection(section) {
 
         // Dynamically load users.js
         var script = document.createElement('script');
-        script.src = 'users.js';
+        script.src = 'js/users.js';
         script.id = 'users-js-script';
         document.body.appendChild(script);
       }
