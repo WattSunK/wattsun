@@ -8,7 +8,7 @@
 
 <div class="email-settings-container" style="max-width:430px;margin:30px 0 0 0;padding:28px 26px 18px 26px;background:#fff;border-radius:12px;box-shadow:0 2px 8px #e9e9e920;border:1.5px solid #eee;">
   <h2 style="font-size:1.2em;font-weight:500;margin-bottom:20px;">Admin Email Settings</h2>
-  <form id="emailSettingsForm">
+  <form id="emailSettingsForm" novalidate>
     <label for="adminEmailInput" style="font-weight:500;">Admin Email:</label><br />
     <input
       type="email"
@@ -20,7 +20,7 @@
     /><br /><br />
     <button type="submit" class="account-btn" style="margin-bottom:0;">Save Admin Email</button>
   </form>
-  <div id="emailSettingsMessage" style="margin-top:14px;color:#b22222;font-size:1em;"></div>
+  <div id="emailSettingsMessage" style="margin-top:14px;font-size:1em;"></div>
 </div>
 
 <script>
@@ -32,7 +32,9 @@
       document.getElementById('adminEmailInput').value = data.email || '';
     } catch (err) {
       console.error(err);
-      document.getElementById('emailSettingsMessage').textContent = 'Could not load admin email.';
+      const msg = document.getElementById('emailSettingsMessage');
+      msg.style.color = '#b22222';
+      msg.textContent = 'Could not load admin email.';
     }
   }
 
@@ -58,16 +60,20 @@
     const email = emailInput.value.trim();
 
     if (!email || !email.includes('@')) {
+      messageDiv.style.color = '#b22222';
       messageDiv.textContent = 'Please enter a valid email address.';
       return;
     }
 
     const success = await updateAdminEmail(email);
     if (success) {
-      messageDiv.style.color = "#2ca123";
+      messageDiv.style.color = '#2ca123';
       messageDiv.textContent = 'Admin email updated successfully.';
+      setTimeout(() => {
+        messageDiv.textContent = '';
+      }, 3000);
     } else {
-      messageDiv.style.color = "#b22222";
+      messageDiv.style.color = '#b22222';
       messageDiv.textContent = 'Failed to update admin email.';
     }
   });
