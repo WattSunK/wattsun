@@ -1,3 +1,5 @@
+let currentSection = 'dashboard';
+
 function loadSection(section) {
   currentSection = section;
   let file = section.startsWith('myaccount/')
@@ -80,3 +82,33 @@ function initEmailSettings() {
 
   fetchAdminEmail();
 }
+
+// On DOMContentLoaded, load default section
+document.addEventListener('DOMContentLoaded', () => {
+  // If there is a hash in URL, load that section, else default
+  let initialSection = window.location.hash ? window.location.hash.substring(1) : 'dashboard';
+  loadSection(initialSection);
+
+  // Event delegation for sidebar and myaccount tab clicks
+  document.body.addEventListener('click', (e) => {
+    if (e.target.matches('[data-section]')) {
+      e.preventDefault();
+      document.querySelectorAll('.sidebar nav a').forEach(link => link.classList.remove('active'));
+      e.target.classList.add('active');
+      loadSection(e.target.getAttribute('data-section'));
+    }
+
+    if (e.target.matches('[data-myaccount]')) {
+      e.preventDefault();
+      document.querySelectorAll('.myaccount-tab-btn').forEach(btn => btn.classList.remove('active'));
+      e.target.classList.add('active');
+      loadSection('myaccount/' + e.target.getAttribute('data-myaccount'));
+    }
+  });
+
+  // Listen for hash changes
+  window.addEventListener('hashchange', () => {
+    let sec = window.location.hash.replace('#', '');
+    if (sec) loadSection(sec);
+  });
+});
