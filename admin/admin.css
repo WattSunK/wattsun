@@ -809,3 +809,94 @@ body[data-theme="dark"] {
   --yellow: #FFD23F;
   --yellow-light: #443b1c;
 }
+@media (max-width: 600px) {
+  .myaccount-tabs {
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .myaccount-tab-btn {
+    width: 100%;
+    border-radius: 7px !important;
+    padding: 10px 0 !important;
+    font-size: 1em !important;
+    margin-bottom: 0 !important;
+  }
+  .account-profile-card,
+  .account-form,
+  .email-settings-container {
+    max-width: 98vw !important;
+    width: 100% !important;
+    padding: 14px 4vw 10px 4vw !important;
+    font-size: 0.97em !important;
+    border-radius: 9px !important;
+    box-shadow: 0 1px 6px #eee8 !important;
+  }
+  .account-avatar {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 1.2em !important;
+  }
+  .account-actions {
+    flex-direction: column !important;
+    gap: 8px !important;
+    margin-top: 13px !important;
+  }
+  .order-row,
+  .payment-box,
+  .address-box {
+    max-width: 98vw !important;
+    width: 100% !important;
+    font-size: 0.97em !important;
+    padding: 13px 4vw !important;
+    border-radius: 7px !important;
+  }
+  .address-box.add-new {
+    padding: 13px 4vw !important;
+    border-radius: 7px !important;
+    font-size: 1em !important;
+  }
+  .addresses-row,
+  .payments-row {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+}
+@media (max-width: 600px) {
+  .dashboard-row {
+    flex-direction: column;
+    gap: 10px;
+    margin: 8px 2vw 0 2vw;
+  }
+  .dashboard-card {
+    min-width: 0;
+    max-width: 100vw;
+    width: 100%;
+    padding: 12px 5vw 10px 5vw;
+    box-sizing: border-box;
+    font-size: 0.97em;
+    border-radius: 10px;
+    margin-bottom: 14px;
+  }
+  .dashboard-status-card {
+    max-width: 97vw !important;
+    padding: 10px 4vw !important;
+    font-size: 1em !important;
+    margin-bottom: 18px !important;
+  }
+  .orders-tabs,
+  .card-section-title,
+  .order-buttons,
+  .order-links {
+    flex-direction: column !important;
+    gap: 6px !important;
+    align-items: flex-start !important;
+  }
+  .orders-tabs button,
+  .order-btn,
+  .card-btn {
+    width: 100%;
+    margin-bottom: 4px;
+    font-size: 1em;
+  }
+}
