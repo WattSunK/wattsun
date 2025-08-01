@@ -34,17 +34,19 @@ function loadSection(section) {
       if (section === 'myaccount/email-settings') {
         initEmailSettings();
       }
-      // --- PATCH START: ensure users table loads properly ---
+      // --- NEW LOGIC for Users Table JS ---
       if (section === 'users') {
-        // Attempt to call loadUsers() from users.html after the partial loads
-        if (typeof loadUsers === 'function') loadUsers();
-        else if (window.loadUsers) window.loadUsers();
-        setTimeout(() => {
-          if (typeof loadUsers === 'function') loadUsers();
-          else if (window.loadUsers) window.loadUsers();
-        }, 100);
+        if (!window.loadUsers) {
+          // Dynamically load users-table.js if not already loaded
+          const script = document.createElement('script');
+          script.src = 'js/users-table.js'; // Make sure this path matches your file location
+          script.onload = function() { loadUsers(); };
+          document.body.appendChild(script);
+        } else {
+          // Already loaded, just call it
+          loadUsers();
+        }
       }
-      // --- PATCH END ---
     });
 
   window.location.hash = section;
