@@ -2,42 +2,26 @@
 
 window.AdminPartials = {
 
-  // DASHBOARD TAB LOGIC (Status Card)
+  // DASHBOARD TAB LOGIC (Status Card, inline)
   loadDashboard: function() {
-    const statusMsg = document.getElementById('system-status-message');
-    if (statusMsg) {
-      statusMsg.textContent = 'Checking...';
+    const detailsDiv = document.getElementById('system-status-details');
+    if (!detailsDiv) return;
+    detailsDiv.innerHTML = 'Checking...';
+
+    // Fetch backend API and Cloudflare tunnel status (remove second if not needed)
+    Promise.all([
       fetch('/api/health')
-        .then(res => {
-          if (res.ok) {
-            statusMsg.innerHTML = '<span style="color:green;">🟢 Backend API OK</span>';
-          } else {
-            statusMsg.innerHTML = '<span style="color:red;">🔴 Backend API DOWN</span>';
-          }
-        })
-        .catch(() => {
-          statusMsg.innerHTML = '<span style="color:red;">🔴 Backend API DOWN</span>';
-        });
-    }
-
-    // Example: update dashboard cards (optional)
-    fetch('/api/users')
-      .then(res => res.json())
-      .then(users => {
-        document.getElementById('dashboard-users-count').textContent = Array.isArray(users) ? users.length : '–';
-      })
-      .catch(() => {
-        document.getElementById('dashboard-users-count').textContent = '–';
-      });
-
-    // You can add similar fetches for orders, deliveries, etc.
-    // document.getElementById('dashboard-orders-count').textContent = ...;
-    // document.getElementById('dashboard-deliveries-count').textContent = ...;
+        .then(r => r.ok ? '🟢 Backend API: OK' : '🔴 Backend API: DOWN')
+        .catch(() => '🔴 Backend API: DOWN'),
+      fetch('/api/tunnel')
+        .then(r => r.ok ? '🟢 Cloudflare Tunnel: Connected' : '🔴 Cloudflare Tunnel: Disconnected')
+        .catch(() => '🔴 Cloudflare Tunnel: Disconnected')
+    ]).then(results => {
+      detailsDiv.innerHTML = results.map(line =>
+        `<div style="margin-bottom:4px;"><span style="font-weight:600;">${line.split(':')[0]}:</span> ${line.includes('OK') || line.includes('Connected') ? '<span style="color:green;">🟢</span>' : '<span style="color:red;">🔴</span>'} <span>${line.split(':')[1].trim()}</span></div>`
+      ).join('');
+    });
   },
-
-  // ...your existing loadUsers, loadProfile, etc...
-};
-
 
   // USERS TABLE LOGIC
   loadUsers: async function() {
@@ -109,7 +93,6 @@ window.AdminPartials = {
       document.body.innerHTML = '<h3>Please login first.</h3>';
       return;
     }
-    // Optionally fetch the latest user info from backend
     try {
       const res = await fetch(`/api/users/${user.id}`);
       if (res.ok) {
@@ -144,7 +127,6 @@ window.AdminPartials = {
         if (res.ok) {
           success.textContent = "Profile updated!";
           success.style.display = 'block';
-          // Update localStorage so the UI is consistent on next page
           localStorage.setItem('wattsun_user', JSON.stringify({...user, name, email, phone }));
           window.AdminPartials.loadProfile();
         } else {
@@ -157,7 +139,31 @@ window.AdminPartials = {
         error.style.display = 'block';
       }
     };
-  }
+  },
 
-  // Add more functions: loadOrders, loadAddresses, etc.
+  // ORDERS TAB PLACEHOLDER
+  loadOrders: function() {
+    const main = document.getElementById('main-content');
+    if (main) main.innerHTML = "<div style='text-align:center; margin:3em 0;'><h3>Orders – Coming Soon</h3></div>";
+  },
+
+  // DELIVERY ADDRESSES TAB PLACEHOLDER
+  loadAddresses: function() {
+    const main = document.getElementById('main-content');
+    if (main) main.innerHTML = "<div style='text-align:center; margin:3em 0;'><h3>Delivery Addresses – Coming Soon</h3></div>";
+  },
+
+  // PAYMENTS TAB PLACEHOLDER
+  loadPayments: function() {
+    const main = document.getElementById('main-content');
+    if (main) main.innerHTML = "<div style='text-align:center; margin:3em 0;'><h3>Payment Methods – Coming Soon</h3></div>";
+  },
+
+  // EMAIL SETTINGS TAB PLACEHOLDER
+  loadEmailSettings: function() {
+    const main = document.getElementById('main-content');
+    if (main) main.innerHTML = "<div style='text-align:center; margin:3em 0;'><h3>Email Settings – Coming Soon</h3></div>";
+  },
+
+  // Add more sections as needed, using the same pattern!
 };
