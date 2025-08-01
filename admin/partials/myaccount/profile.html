@@ -1,32 +1,141 @@
-<div class="myaccount-tabs">
-  <button class="myaccount-tab-btn active" data-myaccount="profile">Profile</button>
-  <button class="myaccount-tab-btn" data-myaccount="orders">Orders</button>
-  <button class="myaccount-tab-btn" data-myaccount="addresses">Delivery Addresses</button>
-  <button class="myaccount-tab-btn" data-myaccount="payments">Payment Methods</button>
-  <button class="myaccount-tab-btn" data-myaccount="email-settings">Email Settings</button>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Profile | WattSun Admin</title>
+  <link href="main.css" rel="stylesheet"/>
+  <style>
+    .avatar-initials { font-weight: bold; font-size: 1.7em; }
+    .account-role { font-size: 1em; padding: 2px 10px; border-radius: 10px; background: #e8ffe1; color: #3b8400; margin-left: 7px; }
+    .account-btn-danger { background: #e44; color: #fff; margin-top: 16px; }
+    .account-meta { color: #888; font-size: 0.96em; margin-top: 3px; }
+    .account-profile-card { display: flex; align-items: center; gap: 18px; margin: 24px 0 18px 0;}
+    .account-avatar { background: #ffe274; border-radius: 50%; width: 65px; height: 65px; display: flex; align-items: center; justify-content: center; font-size: 2.1em; }
+    .account-form-fields { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px;}
+    .account-form-fields label { font-weight: 500; }
+    .account-form-fields input { margin-top: 4px; padding: 7px 10px; font-size: 1em; border: 1px solid #ddd; border-radius: 5px; }
+    .account-btn { background: #ffc300; color: #3d3000; border: none; padding: 9px 22px; border-radius: 6px; font-size: 1.1em; margin-right: 12px; cursor: pointer; }
+    .account-btn-cancel { background: #e9e9e9; color: #555; }
+  </style>
+</head>
+<body>
+<div class="dashboard-header">
+  <h2>Dashboard</h2>
+  <div class="myaccount-tabs">
+    <button class="myaccount-tab-btn active" data-myaccount="profile">Profile</button>
+    <button class="myaccount-tab-btn" data-myaccount="orders">Orders</button>
+    <button class="myaccount-tab-btn" data-myaccount="addresses">Delivery Addresses</button>
+    <button class="myaccount-tab-btn" data-myaccount="payments">Payment Methods</button>
+    <button class="myaccount-tab-btn" data-myaccount="email-settings">Email Settings</button>
+  </div>
 </div>
 
 <div class="account-profile-card">
-  <div class="account-avatar"><span class="avatar-initials">PM</span></div>
+  <div class="account-avatar"><span class="avatar-initials" id="profile-avatar">??</span></div>
   <div class="account-details">
-    <div class="account-name">Peter Maina <span class="account-role">Admin</span></div>
-    <div class="account-email">admin@wattsun.co.ke</div>
-    <div class="account-meta">Last login: 30-Jul-2025 15:10</div>
+    <div class="account-name" id="profile-name">...</div>
+    <div class="account-email" id="profile-email">...</div>
+    <div class="account-meta" id="profile-lastlogin"></div>
   </div>
 </div>
-<form class="account-form">
+<form class="account-form" id="profile-form">
   <div class="account-form-fields">
-    <label>Name <input type="text" value="Peter Maina"></label>
-    <label>Email <input type="email" value="admin@wattsun.co.ke"></label>
-    <label>Phone <input type="text" value="0799123456"></label>
+    <label>Name <input type="text" id="input-name"></label>
+    <label>Email <input type="email" id="input-email"></label>
+    <label>Phone <input type="text" id="input-phone"></label>
   </div>
   <div class="account-password-row">
     <span>Password</span>
-    <button type="button" class="account-pw-btn" onclick="alert('Change Password')">Change Password &gt;</button>
+    <button type="button" class="account-pw-btn" onclick="alert('Change Password functionality coming soon!')">Change Password &gt;</button>
   </div>
   <div class="account-actions">
     <button type="submit" class="account-btn">Save Changes</button>
-    <button type="button" class="account-btn account-btn-cancel" onclick="alert('Canceled (demo)!')">Cancel</button>
+    <button type="button" class="account-btn account-btn-cancel" onclick="window.location.reload()">Cancel</button>
   </div>
-  <button type="button" class="account-btn account-btn-danger" onclick="if(confirm('Deactivate your account?'))alert('Account deactivated (demo)!')">Deactivate Account</button>
+  <button type="button" class="account-btn account-btn-danger" onclick="if(confirm('Deactivate your account?'))alert('Account deactivated!')">Deactivate Account</button>
 </form>
+<div id="profile-success" style="color:green;margin-top:10px;display:none;"></div>
+<div id="profile-error" style="color:red;margin-top:10px;display:none;"></div>
+
+<script>
+function initials(name) {
+  return name.split(' ').map(x => x[0]).join('').toUpperCase().slice(0,2);
+}
+
+function showProfile(user) {
+  document.getElementById('profile-avatar').textContent = initials(user.name || 'User');
+  document.getElementById('profile-name').innerHTML = `${user.name} <span class="account-role">${user.type}</span>`;
+  document.getElementById('profile-email').textContent = user.email;
+  document.getElementById('input-name').value = user.name || '';
+  document.getElementById('input-email').value = user.email || '';
+  document.getElementById('input-phone').value = user.phone || '';
+  let last = user.last_active ? new Date(user.last_active).toLocaleString() : 'Unknown';
+  document.getElementById('profile-lastlogin').textContent = 'Last login: ' + last;
+}
+
+function getLoggedInUser() {
+  try {
+    return JSON.parse(localStorage.getItem('wattsun_user') || 'null');
+  } catch (e) { return null; }
+}
+
+async function loadProfile() {
+  const user = getLoggedInUser();
+  if (!user || !user.id) {
+    document.body.innerHTML = '<h3>Please login first.</h3>';
+    return;
+  }
+  // Optionally fetch the latest user info from backend
+  try {
+    const res = await fetch(`/api/users/${user.id}`);
+    if (res.ok) {
+      const fresh = await res.json();
+      showProfile(fresh);
+      window._profileUser = fresh;
+    } else {
+      showProfile(user);
+      window._profileUser = user;
+    }
+  } catch (e) {
+    showProfile(user);
+    window._profileUser = user;
+  }
+}
+
+document.getElementById('profile-form').onsubmit = async function(e) {
+  e.preventDefault();
+  const name = document.getElementById('input-name').value;
+  const email = document.getElementById('input-email').value;
+  const phone = document.getElementById('input-phone').value;
+  const user = window._profileUser;
+  const success = document.getElementById('profile-success');
+  const error = document.getElementById('profile-error');
+  success.style.display = error.style.display = 'none';
+
+  try {
+    const res = await fetch(`/api/users/${user.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, phone, type: user.type, status: user.status })
+    });
+    if (res.ok) {
+      success.textContent = "Profile updated!";
+      success.style.display = 'block';
+      // Update localStorage so the UI is consistent on next page
+      localStorage.setItem('wattsun_user', JSON.stringify({...user, name, email, phone }));
+      loadProfile();
+    } else {
+      const d = await res.json();
+      error.textContent = d.error || "Failed to update profile.";
+      error.style.display = 'block';
+    }
+  } catch (e) {
+    error.textContent = "Failed to update profile.";
+    error.style.display = 'block';
+  }
+};
+
+window.addEventListener('DOMContentLoaded', loadProfile);
+</script>
+</body>
+</html>
