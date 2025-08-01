@@ -1,42 +1,67 @@
-<div class="dashboard-row">
-  <!-- Orders Card -->
-  <div class="dashboard-card">
-    <div class="orders-tabs">
-      <span class="orders-section-title">Active orders</span>
-      <button class="btn-tab active">Active orders</button>
-      <button class="btn-tab">Past Orders</button>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Dashboard | WattSun Admin</title>
+  <link href="admin.css" rel="stylesheet"/>
+  <style>
+    .dashboard-status-card {
+      background: #fff9e5;
+      border: 1.5px solid #ffc53b;
+      border-radius: 10px;
+      padding: 16px 22px;
+      font-size: 1.15em;
+      box-shadow: 0 2px 10px #ffe7aa50;
+      margin-bottom: 28px;
+      max-width: 420px;
+    }
+    .dashboard-card-row {
+      display: flex; gap: 20px; flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+    .dashboard-card {
+      background: #fffdfa;
+      border: 1px solid #f5e5b6;
+      border-radius: 11px;
+      box-shadow: 0 2px 16px #e8d47240;
+      padding: 22px 26px;
+      min-width: 230px; min-height: 90px;
+      display: flex; flex-direction: column; justify-content: center;
+      font-size: 1.06em;
+      flex: 1 1 230px;
+      margin-bottom: 8px;
+    }
+    .dashboard-card-title { font-weight: bold; color: #b99200; font-size: 1.19em; margin-bottom: 7px;}
+    .dashboard-card-value { font-size: 1.6em; color: #333; margin-bottom: 3px; }
+    .dashboard-card-link { color: #2985d1; font-size: 0.98em; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div id="system-status-card" class="dashboard-status-card">
+    <strong>System Status:</strong>
+    <span id="system-status-message">Loading...</span>
+    <span style="float:right;">
+      <a href="partials/status.html" target="_blank" style="font-size:0.92em; color:#2985d1; text-decoration:underline;">View full status</a>
+    </span>
+  </div>
+
+  <div class="dashboard-card-row">
+    <div class="dashboard-card">
+      <div class="dashboard-card-title">Total Users</div>
+      <div class="dashboard-card-value" id="dashboard-users-count">–</div>
+      <a href="#users" class="dashboard-card-link">View users &gt;</a>
     </div>
-    <div class="order-placed">Placed &nbsp; Mon, 19 Jan, 11:32 AM</div>
-    <div class="order-title" style="margin-bottom: 2px;">
-      Chez Panisse. &nbsp; <span style="font-weight:700">KSh 252.95</span>
+    <div class="dashboard-card">
+      <div class="dashboard-card-title">Orders</div>
+      <div class="dashboard-card-value" id="dashboard-orders-count">–</div>
+      <a href="#myaccount/orders" class="dashboard-card-link">View orders &gt;</a>
     </div>
-    <div class="order-id">Order ID: 1585922175843</div>
-    <div class="order-buttons">
-      <button class="order-btn">TRACK ORDER</button>
-      <button class="order-btn">CANCEL ORDER</button>
-      <button class="order-btn">HELP</button>
-    </div>
-    <div class="order-links">
-      <span style="color:#ff9800; cursor:pointer;">View 1 item ordered &gt;</span>
-      <span style="color:#555; cursor:pointer; font-size:0.97em;">View Address And Billing Details &#9660;</span>
+    <div class="dashboard-card">
+      <div class="dashboard-card-title">Pending Deliveries</div>
+      <div class="dashboard-card-value" id="dashboard-deliveries-count">–</div>
+      <a href="#myaccount/addresses" class="dashboard-card-link">Manage deliveries &gt;</a>
     </div>
   </div>
-  <!-- Items Card -->
-  <div class="dashboard-card">
-    <div class="card-section-title">
-      Items
-      <button class="card-btn">EDIT</button>
-    </div>
-    <p>Active Item<br>SKU: J23456450.50<br>STOCK: 9</p>
-    <p>John Doe<br>Phone: +254 123456789<br>Email: john@email.com</p>
-  </div>
-  <!-- Dispatch Card -->
-  <div class="dashboard-card">
-    <div class="card-section-title">
-      Dispatch
-      <button class="card-btn">TRACK</button>
-    </div>
-    <p>Delivery dispatch<br>Order #123456<br>Delivery #80<br>Order #123456 - Out for delivery</p>
-    <p>Status<br>Out for delivery</p>
-  </div>
-</div>
+  <!-- Add more dashboard content/cards as desired -->
+</body>
+</html>

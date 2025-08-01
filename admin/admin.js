@@ -31,15 +31,30 @@ function loadSection(section) {
     .then(html => {
       document.getElementById('main-content').innerHTML = html;
 
-      // Centralized partial JS logic loader
+      // Call dashboard loader for system status card and cards
       if (window.AdminPartials) {
+        if (section === 'dashboard' && typeof window.AdminPartials.loadDashboard === 'function') {
+          window.AdminPartials.loadDashboard();
+        }
         if (section === 'users' && typeof window.AdminPartials.loadUsers === 'function') {
           window.AdminPartials.loadUsers();
         }
         if (section === 'myaccount/profile' && typeof window.AdminPartials.loadProfile === 'function') {
           window.AdminPartials.loadProfile();
         }
-        // Add more as you add more tabs (orders, addresses, etc)
+        if (section === 'myaccount/orders' && typeof window.AdminPartials.loadOrders === 'function') {
+          window.AdminPartials.loadOrders();
+        }
+        if (section === 'myaccount/addresses' && typeof window.AdminPartials.loadAddresses === 'function') {
+          window.AdminPartials.loadAddresses();
+        }
+        if (section === 'myaccount/payments' && typeof window.AdminPartials.loadPayments === 'function') {
+          window.AdminPartials.loadPayments();
+        }
+        if (section === 'myaccount/email-settings' && typeof window.AdminPartials.loadEmailSettings === 'function') {
+          window.AdminPartials.loadEmailSettings();
+        }
+        // Add more as you add more tabs (e.g., status, analytics, etc)
       }
 
       if (section === 'myaccount/email-settings') {

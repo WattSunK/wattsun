@@ -2,6 +2,43 @@
 
 window.AdminPartials = {
 
+  // DASHBOARD TAB LOGIC (Status Card)
+  loadDashboard: function() {
+    const statusMsg = document.getElementById('system-status-message');
+    if (statusMsg) {
+      statusMsg.textContent = 'Checking...';
+      fetch('/api/health')
+        .then(res => {
+          if (res.ok) {
+            statusMsg.innerHTML = '<span style="color:green;">🟢 Backend API OK</span>';
+          } else {
+            statusMsg.innerHTML = '<span style="color:red;">🔴 Backend API DOWN</span>';
+          }
+        })
+        .catch(() => {
+          statusMsg.innerHTML = '<span style="color:red;">🔴 Backend API DOWN</span>';
+        });
+    }
+
+    // Example: update dashboard cards (optional)
+    fetch('/api/users')
+      .then(res => res.json())
+      .then(users => {
+        document.getElementById('dashboard-users-count').textContent = Array.isArray(users) ? users.length : '–';
+      })
+      .catch(() => {
+        document.getElementById('dashboard-users-count').textContent = '–';
+      });
+
+    // You can add similar fetches for orders, deliveries, etc.
+    // document.getElementById('dashboard-orders-count').textContent = ...;
+    // document.getElementById('dashboard-deliveries-count').textContent = ...;
+  },
+
+  // ...your existing loadUsers, loadProfile, etc...
+};
+
+
   // USERS TABLE LOGIC
   loadUsers: async function() {
     const tbody = document.getElementById('users-table-body');
