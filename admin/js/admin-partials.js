@@ -1,160 +1,170 @@
-// admin-partials.js
+let currentSection = 'dashboard';
 
-window.AdminPartials = {
+function loadLayoutPartials() {
+  fetch('partials/sidebar.html')
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('sidebar-container').innerHTML = html;
 
-  // DASHBOARD TAB LOGIC (Status Card, inline)
-  loadDashboard: function() {
-    const detailsDiv = document.getElementById('system-status-details');
-    if (!detailsDiv) return;
-    detailsDiv.innerHTML = 'Checking...';
-
-    Promise.all([
-      fetch('/api/health')
-        .then(r => r.ok ? '🟢 Backend API: OK' : '🔴 Backend API: DOWN')
-        .catch(() => '🔴 Backend API: DOWN'),
-      fetch('/api/tunnel')
-        .then(r => r.ok ? '🟢 Cloudflare Tunnel: Connected' : '🔴 Cloudflare Tunnel: Disconnected')
-        .catch(() => '🔴 Cloudflare Tunnel: Disconnected')
-    ]).then(results => {
-      detailsDiv.innerHTML = results.map(line =>
-        `<div style="margin-bottom:4px;"><span style="font-weight:600;">${line.split(':')[0]}:</span> ${line.includes('OK') || line.includes('Connected') ? '<span style="color:green;">🟢</span>' : '<span style="color:red;">🔴</span>'} <span>${line.split(':')[1].trim()}</span></div>`
-      ).join('');
-    });
-  },
-
-  // USERS TABLE LOGIC
-  loadUsers: async function() {
-    const tbody = document.getElementById('users-table-body');
-    if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="9">Loading...</td></tr>';
-    try {
-      const res = await fetch('/api/users');
-      const users = await res.json();
-      const info = document.getElementById('pagination-info');
-      if (!Array.isArray(users) || users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9">No users found</td></tr>';
-        if (info) info.textContent = 'Showing 0 of 0 entries';
-        return;
-      }
-      tbody.innerHTML = '';
-      users.forEach((user, i) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${i+1}</td>
-          <td class="items-link">${user.name}</td>
-          <td>${user.email}</td>
-          <td>${user.phone || ''}</td>
-          <td>${user.type}</td>
-          <td>${user.orders || 0}</td>
-          <td><span class="items-status ${user.status && user.status.toLowerCase() === 'active' ? 'active' : ''}">${user.status}</span></td>
-          <td>${user.last_active ? (new Date(user.last_active)).toLocaleDateString() : ''}</td>
-          <td>
-            <button class="items-action-btn view-user-btn" title="View">View</button>
-            <button class="items-action-btn edit-user-btn" title="Edit">Edit</button>
-            <button class="items-action-btn delete-user-btn" title="Delete">Delete</button>
-          </td>
-        `;
-        tbody.appendChild(row);
-      });
-      if (info) info.textContent = `Showing ${users.length} of ${users.length} entries`;
-    } catch (e) {
-      tbody.innerHTML = '<tr><td colspan="9">Failed to load users</td></tr>';
-      const info = document.getElementById('pagination-info');
-      if (info) info.textContent = 'Error loading entries';
-    }
-  },
-
-  // PROFILE TAB LOGIC
-  loadProfile: async function() {
-    function initials(name) {
-      return name.split(' ').map(x => x[0]).join('').toUpperCase().slice(0,2);
-    }
-
-    function showProfile(user) {
-      document.getElementById('profile-avatar').textContent = initials(user.name || 'User');
-      document.getElementById('profile-name').innerHTML = `${user.name} <span class="account-role">${user.type}</span>`;
-      document.getElementById('profile-email').textContent = user.email;
-      document.getElementById('input-name').value = user.name || '';
-      document.getElementById('input-email').value = user.email || '';
-      document.getElementById('input-phone').value = user.phone || '';
-      let last = user.last_active ? new Date(user.last_active).toLocaleString() : 'Unknown';
-      document.getElementById('profile-lastlogin').textContent = 'Last login: ' + last;
-    }
-
-    function getLoggedInUser() {
+      // Update user info in sidebar
       try {
-        return JSON.parse(localStorage.getItem('wattsun_user') || 'null');
-      } catch (e) { return null; }
-    }
+        const user = JSON.parse(localStorage.getItem('wattsun_user') || 'null');
+        if (user && user.name && user.email) {
+          document.getElementById('sidebar-user-info').innerHTML =
+            `<div>
+               <strong>${user.name}</strong><br>
+               <span style="font-size:0.98em; color:#666;">${user.email}</span>
+             </div>`;
+        } else {
+          document.getElementById('sidebar-user-info').textContent = 'Not logged in';
+        }
+      } catch {
+        document.getElementById('sidebar-user-info').textContent = 'Not logged in';
+      }
+    });
 
-    const user = getLoggedInUser();
-    if (!user || !user.id) {
-      document.body.innerHTML = '<h3>Please login first.</h3>';
+  fetch('partials/header.html')
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('header-container').innerHTML = html;
+    });
+
+  fetch('partials/footer.html')
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('footer-container').innerHTML = html;
+    });
+}
+
+function loadSection(section) {
+  currentSection = section;
+  let file = section.startsWith('myaccount/')
+    ? `partials/myaccount/${section.split('/')[1]}.html`
+    : `partials/${section}.html`;
+
+  fetch(file)
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('main-content').innerHTML = html;
+
+      // Call dashboard loader for system status card and cards
+      if (window.AdminPartials) {
+        if (section === 'dashboard' && typeof window.AdminPartials.loadDashboard === 'function') {
+          window.AdminPartials.loadDashboard();
+        }
+        if (section === 'users' && typeof window.AdminPartials.loadUsers === 'function') {
+          window.AdminPartials.loadUsers();
+        }
+        if (section === 'myaccount/profile' && typeof window.AdminPartials.loadProfile === 'function') {
+          window.AdminPartials.loadProfile();
+        }
+        if (section === 'myaccount/orders' && typeof window.AdminPartials.loadOrders === 'function') {
+          window.AdminPartials.loadOrders();
+        }
+        if (section === 'myaccount/addresses' && typeof window.AdminPartials.loadAddresses === 'function') {
+          window.AdminPartials.loadAddresses();
+        }
+        if (section === 'myaccount/payments' && typeof window.AdminPartials.loadPayments === 'function') {
+          window.AdminPartials.loadPayments();
+        }
+        // No Email Settings loader, so your real email settings UI will show
+      }
+
+      if (section === 'myaccount/email-settings') {
+        initEmailSettings();
+      }
+    });
+
+  window.location.hash = section;
+}
+
+function initEmailSettings() {
+  async function fetchAdminEmail() {
+    try {
+      const res = await fetch('/api/admin/email');
+      if (!res.ok) throw new Error('Failed to fetch admin email');
+      const data = await res.json();
+      document.getElementById('adminEmailInput').value = data.email || '';
+    } catch (err) {
+      console.error(err);
+      const msg = document.getElementById('emailSettingsMessage');
+      if (msg) {
+        msg.style.color = '#b22222';
+        msg.textContent = 'Could not load admin email.';
+      }
+    }
+  }
+
+  async function updateAdminEmail(email) {
+    try {
+      const res = await fetch('/api/admin/email', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error('Failed to update email');
+      return true;
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
+  }
+
+  const form = document.getElementById('emailSettingsForm');
+  if (!form) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const emailInput = document.getElementById('adminEmailInput');
+    const messageDiv = document.getElementById('emailSettingsMessage');
+    const email = emailInput.value.trim();
+
+    if (!email || !email.includes('@')) {
+      messageDiv.style.color = '#b22222';
+      messageDiv.textContent = 'Please enter a valid email address.';
       return;
     }
-    try {
-      const res = await fetch(`/api/users/${user.id}`);
-      if (res.ok) {
-        const fresh = await res.json();
-        showProfile(fresh);
-        window._profileUser = fresh;
-      } else {
-        showProfile(user);
-        window._profileUser = user;
-      }
-    } catch (e) {
-      showProfile(user);
-      window._profileUser = user;
+
+    const success = await updateAdminEmail(email);
+    if (success) {
+      messageDiv.style.color = '#2ca123';
+      messageDiv.textContent = 'Admin email updated successfully.';
+      setTimeout(() => {
+        messageDiv.textContent = '';
+      }, 3000);
+    } else {
+      messageDiv.style.color = '#b22222';
+      messageDiv.textContent = 'Failed to update admin email.';
+    }
+  });
+
+  fetchAdminEmail();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadLayoutPartials();
+
+  let initialSection = window.location.hash ? window.location.hash.substring(1) : 'dashboard';
+  loadSection(initialSection);
+
+  document.body.addEventListener('click', (e) => {
+    if (e.target.matches('[data-section]')) {
+      e.preventDefault();
+      document.querySelectorAll('.sidebar nav a').forEach(link => link.classList.remove('active'));
+      e.target.classList.add('active');
+      loadSection(e.target.getAttribute('data-section'));
     }
 
-    document.getElementById('profile-form').onsubmit = async function(e) {
+    if (e.target.matches('[data-myaccount]')) {
       e.preventDefault();
-      const name = document.getElementById('input-name').value;
-      const email = document.getElementById('input-email').value;
-      const phone = document.getElementById('input-phone').value;
-      const user = window._profileUser;
-      const success = document.getElementById('profile-success');
-      const error = document.getElementById('profile-error');
-      success.style.display = error.style.display = 'none';
+      document.querySelectorAll('.myaccount-tab-btn').forEach(btn => btn.classList.remove('active'));
+      e.target.classList.add('active');
+      loadSection('myaccount/' + e.target.getAttribute('data-myaccount'));
+    }
+  });
 
-      try {
-        const res = await fetch(`/api/users/${user.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, phone, type: user.type, status: user.status })
-        });
-        if (res.ok) {
-          success.textContent = "Profile updated!";
-          success.style.display = 'block';
-          localStorage.setItem('wattsun_user', JSON.stringify({...user, name, email, phone }));
-          window.AdminPartials.loadProfile();
-        } else {
-          const d = await res.json();
-          error.textContent = d.error || "Failed to update profile.";
-          error.style.display = 'block';
-        }
-      } catch (e) {
-        error.textContent = "Failed to update profile.";
-        error.style.display = 'block';
-      }
-    };
-  },
-
-  // ORDERS TAB PLACEHOLDER
-  loadOrders: function() {
-    // If you want real logic later, add it here.
-  },
-
-  // DELIVERY ADDRESSES TAB PLACEHOLDER
-  loadAddresses: function() {
-    // If you want real logic later, add it here.
-  },
-
-  // PAYMENTS TAB PLACEHOLDER
-  loadPayments: function() {
-    // If you want real logic later, add it here.
-  },
-
-  // Email settings loader REMOVED—now your partial and initEmailSettings() will show up!
-  // Add more loaders if needed.
-};
+  window.addEventListener('hashchange', () => {
+    let sec = window.location.hash.replace('#', '');
+    if (sec) loadSection(sec);
+  });
+});
