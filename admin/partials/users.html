@@ -50,7 +50,22 @@
         </tr>
       </thead>
       <tbody id="users-table-body">
-        <!-- Dynamic user rows will appear here -->
+        <!-- Example row below: Remove or let your JS generate these! -->
+        <tr>
+          <td>1</td>
+          <td>Jane Smith</td>
+          <td>jane@acme.com</td>
+          <td>+254700111222</td>
+          <td>Customer</td>
+          <td>7</td>
+          <td>Active</td>
+          <td>2024-08-02</td>
+          <td>
+            <button class="action-btn view-btn">View</button>
+            <button class="action-btn edit-btn">Edit</button>
+            <button class="action-btn delete-btn">Delete</button>
+          </td>
+        </tr>
       </tbody>
     </table>
     <div class="items-pagination">
@@ -95,8 +110,8 @@
         </select>
 
         <div class="modal-actions">
-          <button type="submit" id="user-modal-save" class="settings-btn">Save</button>
-          <button type="button" id="user-modal-cancel" class="settings-btn settings-btn-cancel">Cancel</button>
+          <button type="submit" id="user-modal-save" class="action-btn edit-btn">Save</button>
+          <button type="button" id="user-modal-cancel" class="action-btn delete-btn">Cancel</button>
         </div>
         <div id="user-modal-message" style="margin-top:8px;font-size:0.97em;"></div>
       </form>
@@ -108,7 +123,7 @@
         <div style="margin-bottom:12px;"><b>Status:</b> <span id="user-view-status"></span></div>
         <div style="margin-bottom:12px;"><b>Last Active:</b> <span id="user-view-active"></span></div>
         <div class="modal-actions">
-          <button type="button" id="user-modal-close-view" class="settings-btn">Close</button>
+          <button type="button" id="user-modal-close-view" class="action-btn">Close</button>
         </div>
       </div>
     </div>

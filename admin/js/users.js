@@ -1,145 +1,265 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <title>Users | WattSun Admin</title>
-  <link href="admin.css" rel="stylesheet"/>
-</head>
-<body>
-  <h2 class="items-title">Users</h2>
-  <div class="items-toolbar">
-    <button class="items-btn" id="add-user-btn" title="Add User">
-      <span style="margin-right:7px;vertical-align:middle;">&#43;</span> Add User
-    </button>
-    <label for="user-type-filter" class="visually-hidden">User Type</label>
-    <select class="items-select" id="user-type-filter" aria-label="Filter by User Type">
-      <option value="All">All Types</option>
-      <option value="Customer">Customer</option>
-      <option value="Installer">Installer</option>
-      <option value="Admin">Admin</option>
-      <option value="Manufacturer">Manufacturer</option>
-    </select>
-    <label for="user-status-filter" class="visually-hidden">User Status</label>
-    <select class="items-select" id="user-status-filter" aria-label="Filter by Status">
-      <option value="All">All Status</option>
-      <option value="Active">Active</option>
-      <option value="Inactive">Inactive</option>
-    </select>
-    <label for="user-search-input" class="visually-hidden">Search</label>
-    <input class="items-input" id="user-search-input" type="text" placeholder="Search by name/email/phone" autocomplete="off">
-    <button class="items-btn" id="user-search-btn" title="Search">
-      <span style="margin-right:6px;vertical-align:middle;">🔍</span>Search
-    </button>
-    <button class="items-btn items-btn-clear" id="user-clear-btn" title="Clear Search">
-      <span style="margin-right:6px;vertical-align:middle;">&#10006;</span>Clear
-    </button>
-  </div>
-  <div class="items-table-wrapper">
-    <table class="items-table">
-      <thead>
-        <tr>
-          <th>SL NO.</th>
-          <th>NAME</th>
-          <th>EMAIL</th>
-          <th>PHONE</th>
-          <th>TYPE</th>
-          <th>ORDERS</th>
-          <th>STATUS</th>
-          <th>LAST ACTIVE</th>
-          <th>ACTION</th>
-        </tr>
-      </thead>
-      <tbody id="users-table-body">
-        <!-- Dynamic user rows will appear here -->
-        <!-- Example row for reference: -->
-        <!--
-        <tr>
-          <td>1</td>
-          <td>Jane Smith</td>
-          <td>jane@acme.com</td>
-          <td>+254700111222</td>
-          <td>Customer</td>
-          <td>7</td>
-          <td>Active</td>
-          <td>2024-08-02</td>
-          <td>
-            <button class="action-btn view-btn">View</button>
-            <button class="action-btn edit-btn">Edit</button>
-            <button class="action-btn delete-btn">Delete</button>
-          </td>
-        </tr>
-        -->
-      </tbody>
-    </table>
-    <div class="items-pagination">
-      <span id="pagination-info">Showing 0 of 0 entries</span>
-      <div>
-        <button class="items-page-btn" disabled>First</button>
-        <button class="items-page-btn" disabled>Previous</button>
-        <button class="items-page-btn active">1</button>
-        <button class="items-page-btn" disabled>Next</button>
-        <button class="items-page-btn" disabled>Last</button>
+// admin/js/users.js
+
+document.addEventListener('DOMContentLoaded', function () {
+  fetchAndRenderUsers();
+
+  document.getElementById('add-user-btn')?.addEventListener('click', openAddUserModal);
+  document.getElementById('user-search-btn')?.addEventListener('click', searchUsers);
+  document.getElementById('user-clear-btn')?.addEventListener('click', clearUserSearch);
+  document.getElementById('user-type-filter')?.addEventListener('change', fetchAndRenderUsers);
+  document.getElementById('user-status-filter')?.addEventListener('change', fetchAndRenderUsers);
+});
+
+async function fetchAndRenderUsers() {
+  const tbody = document.getElementById('users-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">Loading...</td></tr>`;
+
+  let search = document.getElementById('user-search-input')?.value?.toLowerCase() || '';
+  let type = document.getElementById('user-type-filter')?.value || 'All';
+  let status = document.getElementById('user-status-filter')?.value || 'All';
+
+  try {
+    const response = await fetch('/api/users');
+    if (!response.ok) throw new Error('Network response was not ok');
+    let users = await response.json();
+
+    // Filter users
+    users = users.filter(u =>
+      (!search || [u.name, u.email, u.phone].some(val => (val || '').toLowerCase().includes(search))) &&
+      (type === 'All' || u.type === type) &&
+      (status === 'All' || u.status === status)
+    );
+
+    renderUsersTable(users);
+  } catch (error) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:red;">Error loading users</td></tr>`;
+    console.error('Error fetching users:', error);
+  }
+}
+
+function renderUsersTable(users) {
+  const tbody = document.getElementById('users-table-body');
+  if (!tbody) return;
+  if (!users || !Array.isArray(users) || users.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">No users found</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = '';
+  users.forEach((user, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${idx + 1}</td>
+      <td>${user.name || '-'}</td>
+      <td>${user.email || '-'}</td>
+      <td>${user.phone || '-'}</td>
+      <td>${user.type || '-'}</td>
+      <td>${user.orders || 0}</td>
+      <td>${user.status || '-'}</td>
+      <td>${user.last_active || '-'}</td>
+      <td>
+        <button class="action-btn view-btn view-user-btn" data-id="${user.id}">View</button>
+        <button class="action-btn edit-btn edit-user-btn" data-id="${user.id}">Edit</button>
+        <button class="action-btn delete-btn delete-user-btn" data-id="${user.id}">Delete</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Add action listeners
+  tbody.querySelectorAll('.view-user-btn').forEach(btn =>
+    btn.addEventListener('click', () => openViewUserModal(btn.getAttribute('data-id')))
+  );
+  tbody.querySelectorAll('.edit-user-btn').forEach(btn =>
+    btn.addEventListener('click', () => openEditUserModal(btn.getAttribute('data-id')))
+  );
+  tbody.querySelectorAll('.delete-user-btn').forEach(btn =>
+    btn.addEventListener('click', () => confirmDeleteUser(btn.getAttribute('data-id')))
+  );
+}
+
+// ----- SEARCH & CLEAR -----
+function searchUsers() {
+  fetchAndRenderUsers();
+}
+function clearUserSearch() {
+  document.getElementById('user-search-input').value = '';
+  fetchAndRenderUsers();
+}
+
+// ----- MODAL LOGIC -----
+function showModal(title, bodyHtml) {
+  let modalBg = document.getElementById('user-modal-bg');
+  if (!modalBg) return;
+  let modal = document.getElementById('user-modal');
+  modal.querySelector('#user-modal-title').innerText = title;
+  modal.querySelector('#user-modal-message').innerText = '';
+  modal.querySelector('#user-modal-form').style.display = 'none';
+  modal.querySelector('#user-modal-view').style.display = 'none';
+  modalBg.style.display = 'block';
+  modal.style.display = 'block';
+  // Remove any previous dynamic content
+  const viewBox = modal.querySelector('#user-modal-view');
+  viewBox && (viewBox.innerHTML = '');
+  const formBox = modal.querySelector('#user-modal-form');
+  formBox && (formBox.reset && formBox.reset());
+}
+
+function closeUserModal() {
+  let modalBg = document.getElementById('user-modal-bg');
+  let modal = document.getElementById('user-modal');
+  if (modalBg) modalBg.style.display = 'none';
+  if (modal) modal.style.display = 'none';
+}
+
+// ----- VIEW USER -----
+async function openViewUserModal(userId) {
+  try {
+    const resp = await fetch(`/api/users/${encodeURIComponent(userId)}`);
+    if (!resp.ok) throw new Error('User not found');
+    const user = await resp.json();
+
+    let modalBg = document.getElementById('user-modal-bg');
+    let modal = document.getElementById('user-modal');
+    if (!modalBg || !modal) return;
+    modal.querySelector('#user-modal-title').innerText = 'View User';
+    modal.querySelector('#user-modal-form').style.display = 'none';
+
+    let view = modal.querySelector('#user-modal-view');
+    view.style.display = 'block';
+    view.innerHTML = `
+      <div style="margin-bottom:12px;"><b>Name:</b> ${user.name || '-'}</div>
+      <div style="margin-bottom:12px;"><b>Email:</b> ${user.email || '-'}</div>
+      <div style="margin-bottom:12px;"><b>Phone:</b> ${user.phone || '-'}</div>
+      <div style="margin-bottom:12px;"><b>Type:</b> ${user.type || '-'}</div>
+      <div style="margin-bottom:12px;"><b>Status:</b> ${user.status || '-'}</div>
+      <div style="margin-bottom:12px;"><b>Last Active:</b> ${user.last_active || '-'}</div>
+      <div class="modal-actions">
+        <button type="button" id="user-modal-close-view" class="action-btn">Close</button>
       </div>
-    </div>
-  </div>
+    `;
+    modalBg.style.display = 'block';
+    modal.style.display = 'block';
+    view.querySelector('#user-modal-close-view').onclick = closeUserModal;
+  } catch (e) {
+    alert('Could not load user');
+  }
+}
 
-  <!-- User Modal -->
-  <div id="user-modal-bg" class="modal-bg" style="display:none;">
-    <div class="modal" id="user-modal">
-      <button class="modal-close" id="user-modal-close" title="Close">&times;</button>
-      <h3 id="user-modal-title">User Details</h3>
-      <form id="user-modal-form" style="display:none;">
-        <label for="user-modal-name">Name</label>
-        <input id="user-modal-name" type="text" required />
+// ----- EDIT USER -----
+async function openEditUserModal(userId) {
+  try {
+    const resp = await fetch(`/api/users/${encodeURIComponent(userId)}`);
+    if (!resp.ok) throw new Error('User not found');
+    const user = await resp.json();
 
-        <label for="user-modal-email">Email</label>
-        <input id="user-modal-email" type="email" required />
+    let modalBg = document.getElementById('user-modal-bg');
+    let modal = document.getElementById('user-modal');
+    if (!modalBg || !modal) return;
 
-        <label for="user-modal-phone">Phone</label>
-        <input id="user-modal-phone" type="text" />
+    modal.querySelector('#user-modal-title').innerText = 'Edit User';
+    let form = modal.querySelector('#user-modal-form');
+    form.style.display = 'block';
+    modal.querySelector('#user-modal-view').style.display = 'none';
 
-        <label for="user-modal-type">Type</label>
-        <select id="user-modal-type">
-          <option value="Customer">Customer</option>
-          <option value="Installer">Installer</option>
-          <option value="Admin">Admin</option>
-          <option value="Manufacturer">Manufacturer</option>
-        </select>
+    form['user-modal-name'].value = user.name || '';
+    form['user-modal-email'].value = user.email || '';
+    form['user-modal-phone'].value = user.phone || '';
+    form['user-modal-type'].value = user.type || 'Customer';
+    form['user-modal-status'].value = user.status || 'Active';
 
-        <label for="user-modal-status">Status</label>
-        <select id="user-modal-status">
-          <option value="Active">Active</option>
-          <option value="Inactive">Inactive</option>
-        </select>
+    document.getElementById('user-modal-save').onclick = async function (e) {
+      e.preventDefault();
+      // collect form data
+      const updatedUser = {
+        name: form['user-modal-name'].value,
+        email: form['user-modal-email'].value,
+        phone: form['user-modal-phone'].value,
+        type: form['user-modal-type'].value,
+        status: form['user-modal-status'].value
+      };
+      try {
+        const updateResp = await fetch(`/api/users/${encodeURIComponent(userId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedUser)
+        });
+        if (!updateResp.ok) throw new Error('Failed to update');
+        closeUserModal();
+        fetchAndRenderUsers();
+      } catch (err) {
+        modal.querySelector('#user-modal-message').innerText = "Error: Could not update user.";
+      }
+    };
+    document.getElementById('user-modal-cancel').onclick = closeUserModal;
+    document.getElementById('user-modal-close').onclick = closeUserModal;
 
-        <div class="modal-actions">
-          <button type="submit" id="user-modal-save" class="action-btn edit-btn">Save</button>
-          <button type="button" id="user-modal-cancel" class="action-btn delete-btn">Cancel</button>
-        </div>
-        <div id="user-modal-message" style="margin-top:8px;font-size:0.97em;"></div>
-      </form>
-      <div id="user-modal-view" style="display:none;">
-        <div style="margin-bottom:12px;"><b>Name:</b> <span id="user-view-name"></span></div>
-        <div style="margin-bottom:12px;"><b>Email:</b> <span id="user-view-email"></span></div>
-        <div style="margin-bottom:12px;"><b>Phone:</b> <span id="user-view-phone"></span></div>
-        <div style="margin-bottom:12px;"><b>Type:</b> <span id="user-view-type"></span></div>
-        <div style="margin-bottom:12px;"><b>Status:</b> <span id="user-view-status"></span></div>
-        <div style="margin-bottom:12px;"><b>Last Active:</b> <span id="user-view-active"></span></div>
-        <div class="modal-actions">
-          <button type="button" id="user-modal-close-view" class="action-btn">Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
+    modalBg.style.display = 'block';
+    modal.style.display = 'block';
+  } catch (e) {
+    alert('Could not load user');
+  }
+}
 
-  <style>
-    .visually-hidden {
-      position: absolute !important;
-      height: 1px; width: 1px;
-      overflow: hidden;
-      clip: rect(1px 1px 1px 1px);
-      white-space: nowrap;
+// ----- ADD USER -----
+function openAddUserModal() {
+  let modalBg = document.getElementById('user-modal-bg');
+  let modal = document.getElementById('user-modal');
+  if (!modalBg || !modal) return;
+  modal.querySelector('#user-modal-title').innerText = 'Add User';
+  let form = modal.querySelector('#user-modal-form');
+  form.style.display = 'block';
+  modal.querySelector('#user-modal-view').style.display = 'none';
+
+  form.reset();
+
+  document.getElementById('user-modal-save').onclick = async function (e) {
+    e.preventDefault();
+    const newUser = {
+      name: form['user-modal-name'].value,
+      email: form['user-modal-email'].value,
+      phone: form['user-modal-phone'].value,
+      type: form['user-modal-type'].value,
+      status: form['user-modal-status'].value
+    };
+    try {
+      const resp = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser)
+      });
+      if (!resp.ok) throw new Error('Failed to add');
+      closeUserModal();
+      fetchAndRenderUsers();
+    } catch (err) {
+      modal.querySelector('#user-modal-message').innerText = "Error: Could not add user.";
     }
-  </style>
-</body>
-</html>
+  };
+  document.getElementById('user-modal-cancel').onclick = closeUserModal;
+  document.getElementById('user-modal-close').onclick = closeUserModal;
+
+  modalBg.style.display = 'block';
+  modal.style.display = 'block';
+}
+
+// ----- DELETE USER -----
+function confirmDeleteUser(userId) {
+  if (!confirm('Are you sure you want to delete this user?')) return;
+  deleteUser(userId);
+}
+async function deleteUser(userId) {
+  try {
+    const resp = await fetch(`/api/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+    if (!resp.ok) throw new Error('Failed to delete');
+    fetchAndRenderUsers();
+  } catch (err) {
+    alert('Could not delete user.');
+  }
+}
+
+// ----- Modal close on outside click -----
+document.getElementById('user-modal-bg')?.addEventListener('click', function (e) {
+  if (e.target === this) closeUserModal();
+});
+document.getElementById('user-modal-close')?.addEventListener('click', closeUserModal);
+
