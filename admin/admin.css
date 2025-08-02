@@ -986,3 +986,79 @@ body[data-theme="dark"] {
 #global-modal .modal-body label {
   margin-top: 16px;
 }
+/* --- Improved Modal Overlay --- */
+#global-modal {
+  display: none;
+  position: fixed;
+  z-index: 1050;
+  left: 0; top: 0; width: 100vw; height: 100vh;
+  align-items: center; justify-content: center;
+}
+#global-modal .modal-bg {
+  background: rgba(220, 220, 220, 0.28);
+  position: fixed; left: 0; top: 0; width: 100vw; height: 100vh;
+  z-index: 0;
+}
+#global-modal .modal-content {
+  position: relative;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 36px rgba(0,0,0,0.19);
+  padding: 38px 30px 30px 30px;
+  min-width: 340px;
+  max-width: 460px;
+  z-index: 1;
+  margin: 0 auto;
+}
+#global-modal .modal-title {
+  font-size: 1.13em;
+  font-weight: 600;
+  margin-bottom: 18px;
+}
+#global-modal input,
+#global-modal select,
+#global-modal textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1.5px solid #e7e7e7;
+  padding: 8px 10px;
+  font-size: 1em;
+  margin-top: 3px;
+  background: #f8fafd;
+  margin-bottom: 17px;
+  outline: none;
+  transition: border-color 0.18s, background 0.16s;
+}
+#global-modal input:focus,
+#global-modal select:focus,
+#global-modal textarea:focus {
+  border-color: #FFD23F;
+  background: #fffceb;
+}
+
+#global-modal button {
+  min-width: 74px;
+  margin-right: 9px;
+}
+
+/* --- Improved Pill Buttons for All Tables --- */
+.action-btn {
+  border: 1.5px solid #FFD23F;
+  border-radius: 1.5em;
+  background: #fff;
+  font-size: 0.99em;
+  font-weight: 500;
+  color: #333;
+  padding: 5px 18px;
+  margin-right: 6px;
+  box-shadow: 0 1px 8px rgba(255, 210, 63, 0.07);
+  transition: background 0.15s, color 0.15s, border 0.15s;
+  cursor: pointer;
+}
+.action-btn.view-btn { border-color: #90caf9; color: #1377c3; }
+.action-btn.edit-btn { border-color: #34d399; color: #047857; }
+.action-btn.delete-btn { border-color: #f87171; color: #e11d48; }
+
+.action-btn.view-btn:hover { background: #eaf4ff; }
+.action-btn.edit-btn:hover { background: #e8fff3; }
+.action-btn.delete-btn:hover { background: #fff0f1; color: #b91c1c; }

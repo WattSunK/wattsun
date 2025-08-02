@@ -3,7 +3,6 @@
 window.initAdminItems = function() {
   fetchAndRenderItems();
 
-  // Toolbar event listeners
   document.getElementById('add-item-btn')?.addEventListener('click', openAddItemModal);
   document.getElementById('manage-categories-btn')?.addEventListener('click', openCategoryManager);
 };
@@ -52,8 +51,10 @@ function renderItemsTable(items) {
       <td class="items-link">${itemName || '-'}</td>
       <td>${item.sku || '-'}</td>
       <td>${item.category || '-'}</td>
-      <td>${item.stock != null ? item.stock : '-'}</td>
-      <td>${item.price || '-'}</td>
+      <td>${item.stock != null ? item.stock : '-'} <span style="font-size:0.9em;color:#aaa;">pcs</span></td>
+      <td>
+        ${item.price || '-'} <span style="font-size:0.9em;color:#aaa;">KSH</span>
+      </td>
       <td>
         <label class="switch">
           <input type="checkbox" class="active-toggle" data-id="${item.sku}" ${item.active ? 'checked' : ''}>
@@ -64,14 +65,8 @@ function renderItemsTable(items) {
         </span>
       </td>
       <td>
-        <button class="items-action-btn edit-btn" data-id="${item.sku}">
-          <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5zm12.85-7.35c.2-.2.2-.51 0-.71l-2.29-2.29a.51.51 0 0 0-.71 0l-1.82 1.82 2.5 2.5 1.82-1.82z" fill="currentColor"/></svg>
-          Edit
-        </button>
-        <button class="items-action-btn delete-btn" data-id="${item.sku}">
-          <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M6 7v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V7m-9 0h10M9 4h2m-3 3v9m4-9v9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Delete
-        </button>
+        <button class="action-btn edit-btn" data-id="${item.sku}">Edit</button>
+        <button class="action-btn delete-btn" data-id="${item.sku}">Delete</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -80,7 +75,6 @@ function renderItemsTable(items) {
   attachActionHandlers();
 }
 
-// Handle Edit, Delete, Activate
 function attachActionHandlers() {
   document.querySelectorAll('.edit-btn').forEach(btn => {
     btn.addEventListener('click', function () {
@@ -106,9 +100,8 @@ function attachActionHandlers() {
   });
 }
 
-// --- Add Item Modal with dynamic category dropdown ---
+// --- Add Item Modal with units shown ---
 async function openAddItemModal() {
-  // Fetch categories for dropdown
   let categories = [];
   try {
     const resp = await fetch('/api/categories');
@@ -118,13 +111,15 @@ async function openAddItemModal() {
     return;
   }
 
-  // Build form
   const formHtml = `
     <form id="add-item-form">
       <label>SKU:<br><input type="text" name="sku" required></label><br>
       <label>Name:<br><input type="text" name="name" required></label><br>
       <label>Description:<br><textarea name="description" required></textarea></label><br>
-      <label>Price:<br><input type="number" name="price" step="0.01" required></label><br>
+      <label>Price (KSH):<br>
+        <input type="number" name="price" step="0.01" required>
+        <span style="margin-left:4px;color:#aaa;font-size:0.98em;">KSH</span>
+      </label><br>
       <label>Category:<br>
         <select name="category" required>
           <option value="">Select...</option>
@@ -133,14 +128,22 @@ async function openAddItemModal() {
           ).join('')}
         </select>
       </label><br>
-      <label>Stock:<br><input type="number" name="stock" min="0" value="0"></label><br>
-      <label>Warranty:<br><input type="text" name="warranty"></label><br>
-      <label>Image filename (optional):<br><input type="text" name="image" placeholder="e.g. Lithium-battery.png"></label><br>
+      <label>Stock:<br>
+        <input type="number" name="stock" min="0" value="0">
+        <span style="margin-left:4px;color:#aaa;font-size:0.98em;">pcs</span>
+      </label><br>
+      <label>Warranty:<br>
+        <input type="text" name="warranty">
+        <span style="margin-left:4px;color:#aaa;font-size:0.98em;">years</span>
+      </label><br>
+      <label>Image filename (optional):<br>
+        <input type="text" name="image" placeholder="e.g. Lithium-battery.png">
+      </label><br>
       <label>
         <input type="checkbox" name="active" checked> Active
       </label><br><br>
-      <button type="submit" id="add-save-btn">Add Item</button>
-      <button type="button" id="add-cancel-btn">Cancel</button>
+      <button type="submit" id="add-save-btn" class="action-btn edit-btn">Add Item</button>
+      <button type="button" id="add-cancel-btn" class="action-btn delete-btn">Cancel</button>
     </form>
   `;
 
@@ -163,13 +166,11 @@ async function openAddItemModal() {
       active: form.active.checked
     };
 
-    // Client-side validation (required fields)
     if (!data.sku || !data.name || !data.description || !data.price || !data.category) {
       alert("SKU, Name, Description, Price, and Category are required.");
       return;
     }
 
-    // POST to backend
     const resp = await fetch('/api/items', {
       method: "POST",
       headers: {"Content-Type": "application/json"},
@@ -186,9 +187,8 @@ async function openAddItemModal() {
   };
 }
 
-// --- Edit Item Modal with category dropdown ---
+// --- Edit Item Modal with units shown ---
 async function openEditItemModal(itemId) {
-  // Fetch item details
   let item;
   try {
     const resp = await fetch(`/api/items/${encodeURIComponent(itemId)}`);
@@ -199,7 +199,6 @@ async function openEditItemModal(itemId) {
     return;
   }
 
-  // Fetch categories for dropdown
   let categories = [];
   try {
     const resp = await fetch('/api/categories');
@@ -209,13 +208,15 @@ async function openEditItemModal(itemId) {
     return;
   }
 
-  // Build form
   const formHtml = `
     <form id="edit-item-form">
       <label>SKU:<br><input type="text" name="sku" value="${item.sku || ''}" readonly></label><br>
       <label>Name:<br><input type="text" name="name" value="${item.name || ''}" required></label><br>
       <label>Description:<br><textarea name="description" required>${item.description || ''}</textarea></label><br>
-      <label>Price:<br><input type="number" name="price" value="${item.price || ''}" step="0.01" required></label><br>
+      <label>Price (KSH):<br>
+        <input type="number" name="price" value="${item.price || ''}" step="0.01" required>
+        <span style="margin-left:4px;color:#aaa;font-size:0.98em;">KSH</span>
+      </label><br>
       <label>Category:<br>
         <select name="category" required>
           <option value="">Select...</option>
@@ -224,14 +225,22 @@ async function openEditItemModal(itemId) {
           ).join('')}
         </select>
       </label><br>
-      <label>Stock:<br><input type="number" name="stock" min="0" value="${item.stock != null ? item.stock : 0}"></label><br>
-      <label>Warranty:<br><input type="text" name="warranty" value="${item.warranty || ''}"></label><br>
-      <label>Image filename (optional):<br><input type="text" name="image" value="${item.image || ''}" placeholder="e.g. Lithium-battery.png"></label><br>
+      <label>Stock:<br>
+        <input type="number" name="stock" min="0" value="${item.stock != null ? item.stock : 0}">
+        <span style="margin-left:4px;color:#aaa;font-size:0.98em;">pcs</span>
+      </label><br>
+      <label>Warranty:<br>
+        <input type="text" name="warranty" value="${item.warranty || ''}">
+        <span style="margin-left:4px;color:#aaa;font-size:0.98em;">years</span>
+      </label><br>
+      <label>Image filename (optional):<br>
+        <input type="text" name="image" value="${item.image || ''}" placeholder="e.g. Lithium-battery.png">
+      </label><br>
       <label>
         <input type="checkbox" name="active" ${item.active ? 'checked' : ''}> Active
       </label><br><br>
-      <button type="submit" id="edit-save-btn">Save</button>
-      <button type="button" id="edit-cancel-btn">Cancel</button>
+      <button type="submit" id="edit-save-btn" class="action-btn edit-btn">Save</button>
+      <button type="button" id="edit-cancel-btn" class="action-btn delete-btn">Cancel</button>
     </form>
   `;
 
@@ -254,13 +263,11 @@ async function openEditItemModal(itemId) {
       active: form.active.checked
     };
 
-    // Client-side validation
     if (!data.name || !data.description || !data.price || !data.category) {
       alert("Name, Description, Price, and Category are required.");
       return;
     }
 
-    // PATCH request to backend
     const resp = await fetch(`/api/items/${encodeURIComponent(itemId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -281,8 +288,8 @@ async function openEditItemModal(itemId) {
 function confirmDeleteItem(itemId) {
   showModal("Delete Item", `
     <div style="margin-bottom:1em;">Are you sure you want to delete this item?</div>
-    <button id="delete-confirm-btn">Delete</button>
-    <button id="delete-cancel-btn">Cancel</button>
+    <button id="delete-confirm-btn" class="action-btn delete-btn">Delete</button>
+    <button id="delete-cancel-btn" class="action-btn">Cancel</button>
   `);
 
   document.getElementById('delete-confirm-btn').onclick = async () => {
@@ -306,7 +313,6 @@ async function deleteItem(itemId) {
   }
 }
 
-// --- Activate/Deactivate status ---
 async function updateItemStatus(itemId, isActive) {
   try {
     const resp = await fetch(`/api/items/${encodeURIComponent(itemId)}/status`, {
@@ -321,7 +327,7 @@ async function updateItemStatus(itemId, isActive) {
   }
 }
 
-// --- Simple modal helper ---
+// --- Modal Helper ---
 function showModal(title, html) {
   let modal = document.getElementById('global-modal');
   if (!modal) {
@@ -347,10 +353,8 @@ function closeModal() {
   if (modal) modal.style.display = 'none';
 }
 
-// Placeholder: Open manage categories modal/page
 function openCategoryManager() {
   alert('Manage Categories feature coming soon.');
 }
 
-// Initialize after DOM load
 document.addEventListener('DOMContentLoaded', window.initAdminItems);
