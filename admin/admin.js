@@ -1,356 +1,280 @@
-// admin/js/admin-items.js
+// admin.js for Wattsun Solar Admin Panel
+// Robust role checking and debug logging
 
-window.initAdminItems = function() {
-  fetchAndRenderItems();
+let currentSection = 'dashboard';
 
-  // Toolbar event listeners
-  document.getElementById('add-item-btn')?.addEventListener('click', openAddItemModal);
-  document.getElementById('manage-categories-btn')?.addEventListener('click', openCategoryManager);
-};
-
-async function fetchAndRenderItems() {
-  const tbody = document.querySelector('.items-table tbody');
-  if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">Loading...</td></tr>`;
-
+// --- Get logged-in user from localStorage ---
+function getLoggedInUser() {
   try {
-    const response = await fetch('/api/items');
-    if (!response.ok) throw new Error('Network response was not ok');
-    const items = await response.json();
-    renderItemsTable(items);
-  } catch (error) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:red;">Error loading items</td></tr>`;
-    console.error('Error fetching items:', error);
+    return JSON.parse(localStorage.getItem('wattsun_user') || 'null');
+  } catch (e) {
+    return null;
   }
 }
 
-function renderItemsTable(items) {
-  const tbody = document.querySelector('.items-table tbody');
-  if (!tbody) return;
-
-  if (!items || !Array.isArray(items) || items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">No items found</td></tr>`;
-    return;
+// --- Update sidebar user info ---
+function updateSidebarUserInfo() {
+  const user = getLoggedInUser();
+  const userDiv = document.getElementById('sidebar-user-info');
+  if (userDiv) {
+    if (user && user.name) {
+      userDiv.innerHTML = `<strong>${user.name}</strong><br>${user.email || ''}<br><span style="color:#555;font-size:0.96em;">${user.type || ''}</span>`;
+    } else {
+      userDiv.innerHTML = `<span style="color:#b22222">No user info</span>`;
+    }
   }
-
-  tbody.innerHTML = '';
-  items.forEach((item, idx) => {
-    // Use item.image if present, else show placeholder
-    const imageUrl = item.image
-      ? `/images/products/${item.image}`
-      : '/images/products/placeholder.jpg';
-
-    const itemName = item.name && item.name !== item.sku ? item.name : item.sku;
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${idx + 1}</td>
-      <td>
-        <img src="${imageUrl}" alt="${itemName}" class="item-thumb"
-          onerror="this.onerror=null;this.src='/images/products/placeholder.jpg';" />
-      </td>
-      <td class="items-link">${itemName || '-'}</td>
-      <td>${item.sku || '-'}</td>
-      <td>${item.category || '-'}</td>
-      <td>${item.stock != null ? item.stock : '-'}</td>
-      <td>${item.price || '-'}</td>
-      <td>
-        <label class="switch">
-          <input type="checkbox" class="active-toggle" data-id="${item.sku}" ${item.active ? 'checked' : ''}>
-          <span class="slider"></span>
-        </label>
-        <span class="items-status ${item.active ? 'active' : 'inactive'}">
-          ${item.active ? 'Active' : 'Inactive'}
-        </span>
-      </td>
-      <td>
-        <button class="items-action-btn edit-btn" data-id="${item.sku}">
-          <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5zm12.85-7.35c.2-.2.2-.51 0-.71l-2.29-2.29a.51.51 0 0 0-.71 0l-1.82 1.82 2.5 2.5 1.82-1.82z" fill="currentColor"/></svg>
-          Edit
-        </button>
-        <button class="items-action-btn delete-btn" data-id="${item.sku}">
-          <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M6 7v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V7m-9 0h10M9 4h2m-3 3v9m4-9v9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Delete
-        </button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  attachActionHandlers();
 }
 
-// Handle Edit, Delete, Activate
-function attachActionHandlers() {
-  document.querySelectorAll('.edit-btn').forEach(btn => {
-    btn.addEventListener('click', function () {
-      const itemId = btn.getAttribute('data-id');
-      openEditItemModal(itemId);
-    });
-  });
+// --- Load sidebar, header, footer, and attach handlers ---
+function loadLayoutPartials() {
+  fetch('partials/sidebar.html')
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('sidebar-container').innerHTML = html;
 
-  document.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.addEventListener('click', function () {
-      const itemId = btn.getAttribute('data-id');
-      confirmDeleteItem(itemId);
-    });
-  });
+      // Update user info now that sidebar is loaded!
+      updateSidebarUserInfo();
 
-  document.querySelectorAll('.active-toggle').forEach(toggle => {
-    toggle.addEventListener('change', async function () {
-      const itemId = this.getAttribute('data-id');
-      const newStatus = this.checked;
-      await updateItemStatus(itemId, newStatus);
-      fetchAndRenderItems();
+      // Hardened admin role logic!
+      const user = getLoggedInUser();
+      const role = user && typeof user.type === 'string'
+        ? user.type.trim().toLowerCase()
+        : '';
+      console.log('User type (normalized):', role);
+      if (role !== 'admin') {
+        document.querySelectorAll('.sidebar .admin-only').forEach(el => el.style.display = 'none');
+      } else {
+        // For debugging: log visible admin-only links
+        console.log('Admin-only links:', document.querySelectorAll('.sidebar .admin-only'));
+      }
+
+      // Attach logout handler
+      const logoutBtn = document.querySelector('.sidebar .logout');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          localStorage.removeItem('wattsun_user');
+          window.location.href = "/index.html";
+        });
+      }
     });
-  });
+
+  // Header and footer
+  fetch('partials/header.html')
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('header-container').innerHTML = html;
+    });
+
+  fetch('partials/footer.html')
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('footer-container').innerHTML = html;
+    });
 }
 
-// --- Add Item Modal with dynamic category dropdown ---
-async function openAddItemModal() {
-  // Fetch categories for dropdown
-  let categories = [];
-  try {
-    const resp = await fetch('/api/categories');
-    categories = await resp.json();
-  } catch (err) {
-    alert("Could not load categories. Try again.");
-    return;
+// --- Section loader with robust role-based access ---
+function loadSection(section) {
+  const user = getLoggedInUser();
+  const role = user && typeof user.type === 'string'
+    ? user.type.trim().toLowerCase()
+    : '';
+  currentSection = section;
+
+  // Admin-only tabs
+  if (
+    ['users', 'items', 'dispatch', 'settings'].includes(section) &&
+    role !== 'admin'
+  ) {
+    alert('Access denied: Admins only');
+    window.location.hash = 'dashboard';
+    section = 'dashboard';
   }
 
-  // Build form
-  const formHtml = `
-    <form id="add-item-form">
-      <label>SKU:<br><input type="text" name="sku" required></label><br>
-      <label>Name:<br><input type="text" name="name" required></label><br>
-      <label>Description:<br><textarea name="description" required></textarea></label><br>
-      <label>Price:<br><input type="number" name="price" step="0.01" required></label><br>
-      <label>Category:<br>
-        <select name="category" required>
-          <option value="">Select...</option>
-          ${categories.map(cat =>
-            `<option value="${cat.name}">${cat.name}</option>`
-          ).join('')}
-        </select>
-      </label><br>
-      <label>Stock:<br><input type="number" name="stock" min="0" value="0"></label><br>
-      <label>Warranty:<br><input type="text" name="warranty"></label><br>
-      <label>Image filename (optional):<br><input type="text" name="image" placeholder="e.g. Lithium-battery.png"></label><br>
-      <label>
-        <input type="checkbox" name="active" checked> Active
-      </label><br><br>
-      <button type="submit" id="add-save-btn">Add Item</button>
-      <button type="button" id="add-cancel-btn">Cancel</button>
-    </form>
-  `;
+  let file = section.startsWith('myaccount/')
+    ? `partials/myaccount/${section.split('/')[1]}.html`
+    : `partials/${section}.html`;
 
-  showModal("Add New Item", formHtml);
+  fetch(file)
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('main-content').innerHTML = html;
 
-  document.getElementById('add-cancel-btn').onclick = closeModal;
+      // --- Begin dynamic per-section JS logic ---
 
-  document.getElementById('add-item-form').onsubmit = async function(e) {
+      if (window.AdminPartials) {
+        if (section === 'dashboard' && typeof window.AdminPartials.loadDashboard === 'function') {
+          window.AdminPartials.loadDashboard();
+        }
+        if (section === 'users' && typeof window.AdminPartials.loadUsers === 'function') {
+          window.AdminPartials.loadUsers();
+        }
+        if (section === 'myaccount/profile' && typeof window.AdminPartials.loadProfile === 'function') {
+          window.AdminPartials.loadProfile();
+        }
+        if (section === 'myaccount/orders' && typeof window.AdminPartials.loadOrders === 'function') {
+          window.AdminPartials.loadOrders();
+        }
+        if (section === 'myaccount/addresses' && typeof window.AdminPartials.loadAddresses === 'function') {
+          window.AdminPartials.loadAddresses();
+        }
+        if (section === 'myaccount/payments' && typeof window.AdminPartials.loadPayments === 'function') {
+          window.AdminPartials.loadPayments();
+        }
+        if (section === 'myaccount/email-settings' && typeof window.AdminPartials.loadEmailSettings === 'function') {
+          window.AdminPartials.loadEmailSettings();
+        }
+      }
+
+      if (section === 'myaccount/email-settings') {
+        initEmailSettings();
+      }
+
+      // --- FIX: Explicitly run admin-items.js logic for items tab ---
+      if (section === 'items' && typeof window.initAdminItems === 'function') {
+        window.initAdminItems();
+      }
+
+      // Load users.js only for users tab and only if admin
+      if (section === 'users' && role === 'admin') {
+        var oldScript = document.getElementById('users-js-script');
+        if (oldScript) oldScript.remove();
+        var script = document.createElement('script');
+        script.src = 'js/users.js';
+        script.id = 'users-js-script';
+        document.body.appendChild(script);
+      }
+    });
+
+  window.location.hash = section;
+}
+
+// --- Email settings helper (unchanged) ---
+function initEmailSettings() {
+  async function fetchAdminEmail() {
+    try {
+      const res = await fetch('/api/admin/email');
+      if (!res.ok) throw new Error('Failed to fetch admin email');
+      const data = await res.json();
+      document.getElementById('adminEmailInput').value = data.email || '';
+    } catch (err) {
+      console.error(err);
+      const msg = document.getElementById('emailSettingsMessage');
+      if (msg) {
+        msg.style.color = '#b22222';
+        msg.textContent = 'Could not load admin email.';
+      }
+    }
+  }
+
+  async function updateAdminEmail(email) {
+    try {
+      const res = await fetch('/api/admin/email', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error('Failed to update email');
+      return true;
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
+  }
+
+  const form = document.getElementById('emailSettingsForm');
+  if (!form) return;
+
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const form = e.target;
-    const data = {
-      sku: form.sku.value.trim(),
-      name: form.name.value.trim(),
-      description: form.description.value.trim(),
-      price: Number(form.price.value),
-      category: form.category.value,
-      stock: form.stock.value ? Number(form.stock.value) : 0,
-      warranty: form.warranty.value,
-      image: form.image.value.trim(),
-      active: form.active.checked
-    };
+    const emailInput = document.getElementById('adminEmailInput');
+    const messageDiv = document.getElementById('emailSettingsMessage');
+    const email = emailInput.value.trim();
 
-    // Client-side validation (required fields)
-    if (!data.sku || !data.name || !data.description || !data.price || !data.category) {
-      alert("SKU, Name, Description, Price, and Category are required.");
+    if (!email || !email.includes('@')) {
+      messageDiv.style.color = '#b22222';
+      messageDiv.textContent = 'Please enter a valid email address.';
       return;
     }
 
-    // POST to backend
-    const resp = await fetch('/api/items', {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(data)
-    });
-
-    if (resp.ok) {
-      closeModal();
-      fetchAndRenderItems();
+    const success = await updateAdminEmail(email);
+    if (success) {
+      messageDiv.style.color = '#2ca123';
+      messageDiv.textContent = 'Admin email updated successfully.';
+      setTimeout(() => {
+        messageDiv.textContent = '';
+      }, 3000);
     } else {
-      const err = await resp.json();
-      alert("Error: " + (err.error || "Failed to add item"));
+      messageDiv.style.color = '#b22222';
+      messageDiv.textContent = 'Failed to update admin email.';
     }
-  };
+  });
+
+  fetchAdminEmail();
 }
 
-// --- Edit Item Modal with category dropdown ---
-async function openEditItemModal(itemId) {
-  // Fetch item details
-  let item;
-  try {
-    const resp = await fetch(`/api/items/${encodeURIComponent(itemId)}`);
-    item = await resp.json();
-    if (!item) throw new Error('Item not found');
-  } catch (err) {
-    alert("Could not load item details.");
+// --- Initial entrypoint: Check login and load page ---
+document.addEventListener('DOMContentLoaded', () => {
+  const user = getLoggedInUser();
+  const role = user && typeof user.type === 'string'
+    ? user.type.trim().toLowerCase()
+    : '';
+
+  if (!user) {
+    window.location.href = '/index.html'; // Not logged in: go to main site
     return;
   }
 
-  // Fetch categories for dropdown
-  let categories = [];
-  try {
-    const resp = await fetch('/api/categories');
-    categories = await resp.json();
-  } catch (err) {
-    alert("Could not load categories. Try again.");
-    return;
+  loadLayoutPartials();
+
+  // Don't default to admin-only tab for non-admin users
+  let initialSection = window.location.hash ? window.location.hash.substring(1) : 'dashboard';
+  if (
+    ['users', 'items', 'dispatch', 'settings'].includes(initialSection) &&
+    role !== 'admin'
+  ) {
+    initialSection = 'dashboard';
+    window.location.hash = 'dashboard';
   }
+  loadSection(initialSection);
 
-  // Build form
-  const formHtml = `
-    <form id="edit-item-form">
-      <label>SKU:<br><input type="text" name="sku" value="${item.sku || ''}" readonly></label><br>
-      <label>Name:<br><input type="text" name="name" value="${item.name || ''}" required></label><br>
-      <label>Description:<br><textarea name="description" required>${item.description || ''}</textarea></label><br>
-      <label>Price:<br><input type="number" name="price" value="${item.price || ''}" step="0.01" required></label><br>
-      <label>Category:<br>
-        <select name="category" required>
-          <option value="">Select...</option>
-          ${categories.map(cat =>
-            `<option value="${cat.name}" ${cat.name === item.category ? "selected" : ""}>${cat.name}</option>`
-          ).join('')}
-        </select>
-      </label><br>
-      <label>Stock:<br><input type="number" name="stock" min="0" value="${item.stock != null ? item.stock : 0}"></label><br>
-      <label>Warranty:<br><input type="text" name="warranty" value="${item.warranty || ''}"></label><br>
-      <label>Image filename (optional):<br><input type="text" name="image" value="${item.image || ''}" placeholder="e.g. Lithium-battery.png"></label><br>
-      <label>
-        <input type="checkbox" name="active" ${item.active ? 'checked' : ''}> Active
-      </label><br><br>
-      <button type="submit" id="edit-save-btn">Save</button>
-      <button type="button" id="edit-cancel-btn">Cancel</button>
-    </form>
-  `;
-
-  showModal(`Edit Item (${itemId})`, formHtml);
-
-  document.getElementById('edit-cancel-btn').onclick = closeModal;
-
-  document.getElementById('edit-item-form').onsubmit = async function(e) {
-    e.preventDefault();
-    const form = e.target;
-    const data = {
-      sku: form.sku.value.trim(),
-      name: form.name.value.trim(),
-      description: form.description.value.trim(),
-      price: Number(form.price.value),
-      category: form.category.value,
-      stock: form.stock.value ? Number(form.stock.value) : 0,
-      warranty: form.warranty.value,
-      image: form.image.value.trim(),
-      active: form.active.checked
-    };
-
-    // Client-side validation
-    if (!data.name || !data.description || !data.price || !data.category) {
-      alert("Name, Description, Price, and Category are required.");
-      return;
+  // Handle sidebar and tab navigation
+  document.body.addEventListener('click', (e) => {
+    if (e.target.matches('[data-section]')) {
+      e.preventDefault();
+      const section = e.target.getAttribute('data-section');
+      // Admin-only guard
+      if (
+        ['users', 'items', 'dispatch', 'settings'].includes(section) &&
+        role !== 'admin'
+      ) {
+        alert('Access denied: Admins only');
+        return;
+      }
+      document.querySelectorAll('.sidebar nav a').forEach(link => link.classList.remove('active'));
+      e.target.classList.add('active');
+      loadSection(section);
     }
 
-    // PATCH request to backend
-    const resp = await fetch(`/api/items/${encodeURIComponent(itemId)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-
-    if (resp.ok) {
-      closeModal();
-      fetchAndRenderItems();
-    } else {
-      const err = await resp.json();
-      alert("Error: " + (err.error || "Failed to update item"));
+    if (e.target.matches('[data-myaccount]')) {
+      e.preventDefault();
+      document.querySelectorAll('.myaccount-tab-btn').forEach(btn => btn.classList.remove('active'));
+      e.target.classList.add('active');
+      loadSection('myaccount/' + e.target.getAttribute('data-myaccount'));
     }
-  };
-}
+  });
 
-// --- Delete Modal ---
-function confirmDeleteItem(itemId) {
-  showModal("Delete Item", `
-    <div style="margin-bottom:1em;">Are you sure you want to delete this item?</div>
-    <button id="delete-confirm-btn">Delete</button>
-    <button id="delete-cancel-btn">Cancel</button>
-  `);
-
-  document.getElementById('delete-confirm-btn').onclick = async () => {
-    closeModal();
-    await deleteItem(itemId);
-  };
-  document.getElementById('delete-cancel-btn').onclick = closeModal;
-}
-
-async function deleteItem(itemId) {
-  try {
-    const response = await fetch(`/api/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
-    if (response.ok) {
-      fetchAndRenderItems();
-    } else {
-      alert('Failed to delete item.');
+  // Handle direct links/hash changes
+  window.addEventListener('hashchange', () => {
+    let sec = window.location.hash.replace('#', '');
+    if (
+      ['users', 'items', 'dispatch', 'settings'].includes(sec) &&
+      role !== 'admin'
+    ) {
+      alert('Access denied: Admins only');
+      window.location.hash = 'dashboard';
+      sec = 'dashboard';
     }
-  } catch (error) {
-    alert('Error deleting item.');
-    console.error(error);
-  }
-}
-
-// --- Activate/Deactivate status ---
-async function updateItemStatus(itemId, isActive) {
-  try {
-    const resp = await fetch(`/api/items/${encodeURIComponent(itemId)}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ active: isActive })
-    });
-    if (!resp.ok) throw new Error('Failed to update status');
-  } catch (err) {
-    alert('Could not update status');
-    console.error(err);
-  }
-}
-
-// --- Simple modal helper ---
-function showModal(title, html) {
-  let modal = document.getElementById('global-modal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'global-modal';
-    modal.innerHTML = `
-      <div class="modal-bg"></div>
-      <div class="modal-content">
-        <h3 class="modal-title"></h3>
-        <div class="modal-body"></div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-    modal.querySelector('.modal-bg').onclick = closeModal;
-  }
-  modal.querySelector('.modal-title').innerText = title;
-  modal.querySelector('.modal-body').innerHTML = html;
-  modal.style.display = 'flex';
-}
-
-function closeModal() {
-  const modal = document.getElementById('global-modal');
-  if (modal) modal.style.display = 'none';
-}
-
-// Placeholder: Open manage categories modal/page
-function openCategoryManager() {
-  alert('Manage Categories feature coming soon.');
-}
-
-// Initialize after DOM load
-document.addEventListener('DOMContentLoaded', window.initAdminItems);
+    loadSection(sec);
+  });
+});

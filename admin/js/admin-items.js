@@ -64,8 +64,14 @@ function renderItemsTable(items) {
         </span>
       </td>
       <td>
-        <button class="items-action-btn edit-btn" data-id="${item.sku}">Edit</button>
-        <button class="items-action-btn delete-btn" data-id="${item.sku}">Delete</button>
+        <button class="items-action-btn edit-btn" data-id="${item.sku}">
+          <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5zm12.85-7.35c.2-.2.2-.51 0-.71l-2.29-2.29a.51.51 0 0 0-.71 0l-1.82 1.82 2.5 2.5 1.82-1.82z" fill="currentColor"/></svg>
+          Edit
+        </button>
+        <button class="items-action-btn delete-btn" data-id="${item.sku}">
+          <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M6 7v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V7m-9 0h10M9 4h2m-3 3v9m4-9v9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Delete
+        </button>
       </td>
     `;
     tbody.appendChild(tr);
