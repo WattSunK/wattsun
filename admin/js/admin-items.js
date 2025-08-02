@@ -35,15 +35,18 @@ function renderItemsTable(items) {
 
   tbody.innerHTML = '';
   items.forEach((item, idx) => {
-    // Use item.name if available, fallback to SKU
+    // Use item.image if present, else show placeholder
+    const imageUrl = item.image
+      ? `/images/products/${item.image}`
+      : '/images/products/placeholder.jpg';
+
     const itemName = item.name && item.name !== item.sku ? item.name : item.sku;
-    const imageUrl = `/images/products/${item.sku}.jpg`;
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td>
-        <img src="${imageUrl}" alt="${itemName}" class="item-thumb" 
+        <img src="${imageUrl}" alt="${itemName}" class="item-thumb"
           onerror="this.onerror=null;this.src='/images/products/placeholder.jpg';" />
       </td>
       <td class="items-link">${itemName || '-'}</td>
@@ -126,7 +129,7 @@ async function openAddItemModal() {
       </label><br>
       <label>Stock:<br><input type="number" name="stock" min="0" value="0"></label><br>
       <label>Warranty:<br><input type="text" name="warranty"></label><br>
-      <label>Image URL:<br><input type="text" name="image"></label><br>
+      <label>Image filename (optional):<br><input type="text" name="image" placeholder="e.g. Lithium-battery.png"></label><br>
       <label>
         <input type="checkbox" name="active" checked> Active
       </label><br><br>
@@ -150,7 +153,7 @@ async function openAddItemModal() {
       category: form.category.value,
       stock: form.stock.value ? Number(form.stock.value) : 0,
       warranty: form.warranty.value,
-      image: form.image.value,
+      image: form.image.value.trim(),
       active: form.active.checked
     };
 
@@ -217,7 +220,7 @@ async function openEditItemModal(itemId) {
       </label><br>
       <label>Stock:<br><input type="number" name="stock" min="0" value="${item.stock != null ? item.stock : 0}"></label><br>
       <label>Warranty:<br><input type="text" name="warranty" value="${item.warranty || ''}"></label><br>
-      <label>Image URL:<br><input type="text" name="image" value="${item.image || ''}"></label><br>
+      <label>Image filename (optional):<br><input type="text" name="image" value="${item.image || ''}" placeholder="e.g. Lithium-battery.png"></label><br>
       <label>
         <input type="checkbox" name="active" ${item.active ? 'checked' : ''}> Active
       </label><br><br>
@@ -241,7 +244,7 @@ async function openEditItemModal(itemId) {
       category: form.category.value,
       stock: form.stock.value ? Number(form.stock.value) : 0,
       warranty: form.warranty.value,
-      image: form.image.value,
+      image: form.image.value.trim(),
       active: form.active.checked
     };
 
