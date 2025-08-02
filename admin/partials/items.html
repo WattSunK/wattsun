@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Admin - Items</title>
-  <link rel="stylesheet" href="../css/main.css">
-  <!-- Add any other CSS includes as needed -->
+  <link rel="stylesheet" href="admin.css">
   <style>
     .item-thumb {
       width: 48px;
@@ -14,44 +13,6 @@
       border: 1px solid #ddd;
       background: #fafafa;
     }
-    /* Categories Modal Styles */
-    .modal {
-      display: none;
-      position: fixed;
-      z-index: 9999;
-      left: 0; top: 0; width: 100vw; height: 100vh;
-      overflow: auto; background: rgba(0,0,0,0.22);
-    }
-    .modal-content {
-      background: #fff;
-      margin: 8vh auto;
-      border-radius: 1rem;
-      padding: 2rem;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-      max-width: 440px;
-      position: relative;
-    }
-    .close {
-      color: #888;
-      float: right;
-      font-size: 1.8rem;
-      font-weight: bold;
-      cursor: pointer;
-      position: absolute;
-      top: 1rem;
-      right: 1.2rem;
-    }
-    .close:hover { color: #111; }
-    #categoriesList li {
-      padding: 0.5rem 0;
-      display: flex; justify-content: space-between; align-items: center;
-      border-bottom: 1px solid #eee;
-    }
-    .category-edit, .category-delete {
-      cursor: pointer; background: none; border: none; font-size: 1rem;
-    }
-    .category-edit { color: #1976d2; margin-right: 10px; }
-    .category-delete { color: #d32f2f; }
   </style>
 </head>
 <body>
@@ -99,7 +60,6 @@
       </div>
     </div>
   </div>
-
   <!-- Categories Management Modal -->
   <div id="categoriesModal" class="modal">
     <div class="modal-content" style="width:400px; padding:2rem; border-radius:1rem; background:#fff; position:relative;">
@@ -114,7 +74,6 @@
       </div>
     </div>
   </div>
-
-  <script src="../js/admin-items.js"></script>
+  <script src="js/admin-items.js"></script>
 </body>
 </html>

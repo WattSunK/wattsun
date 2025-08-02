@@ -1,13 +1,10 @@
 // admin-partials.js
 
 window.AdminPartials = {
-
-  // DASHBOARD TAB LOGIC (Status Card, inline)
   loadDashboard: function() {
     const detailsDiv = document.getElementById('system-status-details');
     if (!detailsDiv) return;
     detailsDiv.innerHTML = 'Checking...';
-
     Promise.all([
       fetch('/api/health')
         .then(r => r.ok ? '🟢 Backend API: OK' : '🔴 Backend API: DOWN')
@@ -22,7 +19,6 @@ window.AdminPartials = {
     });
   },
 
-  // USERS TABLE LOGIC
   loadUsers: async function() {
     const tbody = document.getElementById('users-table-body');
     if (!tbody) return;
@@ -65,12 +61,10 @@ window.AdminPartials = {
     }
   },
 
-  // PROFILE TAB LOGIC
   loadProfile: async function() {
     function initials(name) {
       return name.split(' ').map(x => x[0]).join('').toUpperCase().slice(0,2);
     }
-
     function showProfile(user) {
       document.getElementById('profile-avatar').textContent = initials(user.name || 'User');
       document.getElementById('profile-name').innerHTML = `${user.name} <span class="account-role">${user.type}</span>`;
@@ -81,13 +75,11 @@ window.AdminPartials = {
       let last = user.last_active ? new Date(user.last_active).toLocaleString() : 'Unknown';
       document.getElementById('profile-lastlogin').textContent = 'Last login: ' + last;
     }
-
     function getLoggedInUser() {
       try {
         return JSON.parse(localStorage.getItem('wattsun_user') || 'null');
       } catch (e) { return null; }
     }
-
     const user = getLoggedInUser();
     if (!user || !user.id) {
       document.body.innerHTML = '<h3>Please login first.</h3>';
@@ -107,7 +99,6 @@ window.AdminPartials = {
       showProfile(user);
       window._profileUser = user;
     }
-
     document.getElementById('profile-form').onsubmit = async function(e) {
       e.preventDefault();
       const name = document.getElementById('input-name').value;
@@ -117,7 +108,6 @@ window.AdminPartials = {
       const success = document.getElementById('profile-success');
       const error = document.getElementById('profile-error');
       success.style.display = error.style.display = 'none';
-
       try {
         const res = await fetch(`/api/users/${user.id}`, {
           method: 'PUT',
@@ -139,23 +129,5 @@ window.AdminPartials = {
         error.style.display = 'block';
       }
     };
-  },
-
-  // ORDERS TAB PLACEHOLDER
-  loadOrders: function() {
-    // If you want real logic later, add it here.
-  },
-
-  // DELIVERY ADDRESSES TAB PLACEHOLDER
-  loadAddresses: function() {
-    // If you want real logic later, add it here.
-  },
-
-  // PAYMENTS TAB PLACEHOLDER
-  loadPayments: function() {
-    // If you want real logic later, add it here.
-  },
-
-  // Email settings loader REMOVED—now your partial and initEmailSettings() will show up!
-  // Add more loaders if needed.
+  }
 };
