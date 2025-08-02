@@ -1,6 +1,9 @@
 // admin/js/admin-items.js
 
+console.log("✅ admin-items.js loaded!"); // Confirm script loads
+
 document.addEventListener('DOMContentLoaded', function () {
+  console.log("✅ DOMContentLoaded, about to fetch items");
   // Initial fetch and render
   fetchAndRenderItems();
 
@@ -21,9 +24,12 @@ async function fetchAndRenderItems() {
   tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">Loading...</td></tr>`;
 
   try {
+    console.log("➡️ Fetching /api/items ...");
     const response = await fetch('/api/items');
+    console.log("⬅️ Fetched /api/items, status:", response.status);
     if (!response.ok) throw new Error('Network response was not ok');
     const items = await response.json();
+    console.log("⬅️ Items data:", items);
     renderItemsTable(items);
   } catch (error) {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:red;">Error loading items</td></tr>`;
@@ -37,31 +43,37 @@ function renderItemsTable(items) {
   if (!tbody) return;
 
   if (!items || !Array.isArray(items) || items.length === 0) {
+    console.log("❌ No items found to render");
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">No items found</td></tr>`;
     return;
   }
 
   tbody.innerHTML = '';
   items.forEach((item, idx) => {
+    // You can use a helper to choose image based on item.image or SKU
+    const imageUrl = item.image
+      ? item.image
+      : '/images/products/default.jpg';
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td>
-        <img src="${item.image || '/images/products/default.jpg'}" alt="${item.name || ''}" class="item-thumb" />
+        <img src="${imageUrl}" alt="${item.name || ''}" class="item-thumb" />
       </td>
       <td class="items-link">${item.name || '-'}</td>
       <td>${item.sku || '-'}</td>
       <td>${item.category || '-'}</td>
       <td>${item.stock != null ? item.stock : '-'}</td>
-      <td>KSh ${item.price ? Number(item.price).toLocaleString() : '-'}</td>
+      <td>${item.price || '-'}</td>
       <td>
         <span class="items-status ${item.active ? 'active' : 'inactive'}">
           ${item.active ? 'Active' : 'Inactive'}
         </span>
       </td>
       <td>
-        <button class="items-action-btn edit-btn" data-id="${item.id}">Edit</button>
-        <button class="items-action-btn delete-btn" data-id="${item.id}">Delete</button>
+        <button class="items-action-btn edit-btn" data-id="${item.sku}">Edit</button>
+        <button class="items-action-btn delete-btn" data-id="${item.sku}">Delete</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -89,14 +101,12 @@ function attachActionHandlers() {
 
 // Placeholder: Open add item modal
 function openAddItemModal() {
-  // TODO: Implement modal or form for adding an item
   alert('Add Item feature coming soon.');
 }
 
 // Placeholder: Open edit item modal
 function openEditItemModal(itemId) {
-  // TODO: Fetch item details, open modal, populate form, etc.
-  alert('Edit Item feature coming soon for item ID: ' + itemId);
+  alert('Edit Item feature coming soon for item SKU: ' + itemId);
 }
 
 // Confirm before deleting an item
@@ -109,7 +119,7 @@ function confirmDeleteItem(itemId) {
 // Call backend to delete item, then refresh
 async function deleteItem(itemId) {
   try {
-    const response = await fetch(`/api/items/${itemId}`, { method: 'DELETE' });
+    const response = await fetch(`/api/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
     if (response.ok) {
       fetchAndRenderItems(); // Refresh list
     } else {
@@ -123,6 +133,5 @@ async function deleteItem(itemId) {
 
 // Placeholder: Open manage categories modal/page
 function openCategoryManager() {
-  // TODO: Show categories manager (modal, tab, or page)
   alert('Manage Categories feature coming soon.');
 }
