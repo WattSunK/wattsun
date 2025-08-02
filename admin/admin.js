@@ -1,9 +1,9 @@
 // admin.js for Wattsun Solar Admin Panel
-// Unified authentication, role-based access, best practice version
+// Ensures user info and logout always work
 
 let currentSection = 'dashboard';
 
-// --- Universal Auth Check on Admin Panel Load ---
+// --- Get logged-in user from localStorage ---
 function getLoggedInUser() {
   try {
     return JSON.parse(localStorage.getItem('wattsun_user') || 'null');
@@ -12,79 +12,36 @@ function getLoggedInUser() {
   }
 }
 
-// --- Main Entry: Check Auth First! ---
-document.addEventListener('DOMContentLoaded', () => {
+// --- Update sidebar user info ---
+function updateSidebarUserInfo() {
   const user = getLoggedInUser();
-
-  if (!user) {
-    // Not logged in – redirect to main site for login
-    window.location.href = '/index.html';
-    return;
+  const userDiv = document.getElementById('sidebar-user-info');
+  if (userDiv) {
+    if (user && user.name) {
+      userDiv.innerHTML = `<strong>${user.name}</strong><br>${user.email || ''}<br><span style="color:#555;font-size:0.96em;">${user.type || ''}</span>`;
+    } else {
+      userDiv.innerHTML = `<span style="color:#b22222">No user info</span>`;
+    }
   }
+}
 
-  // Load UI and restrict features by user type
-  loadLayoutPartials();
-
-  // Choose initial section: non-admins never see users tab first!
-  let initialSection = window.location.hash ? window.location.hash.substring(1) : 'dashboard';
-  if (initialSection === 'users' && user.type !== 'admin') {
-    initialSection = 'dashboard';
-    window.location.hash = 'dashboard';
-  }
-  loadSection(initialSection);
-
-  // Handle sidebar/tab navigation
-  document.body.addEventListener('click', (e) => {
-    if (e.target.matches('[data-section]')) {
-      e.preventDefault();
-      // Admin-only guard
-      const section = e.target.getAttribute('data-section');
-      if (section === 'users' && user.type !== 'admin') {
-        alert('Access denied: Admins only');
-        return;
-      }
-      document.querySelectorAll('.sidebar nav a').forEach(link => link.classList.remove('active'));
-      e.target.classList.add('active');
-      loadSection(section);
-    }
-
-    if (e.target.matches('[data-myaccount]')) {
-      e.preventDefault();
-      document.querySelectorAll('.myaccount-tab-btn').forEach(btn => btn.classList.remove('active'));
-      e.target.classList.add('active');
-      loadSection('myaccount/' + e.target.getAttribute('data-myaccount'));
-    }
-  });
-
-  // Handle hash changes for direct links
-  window.addEventListener('hashchange', () => {
-    let sec = window.location.hash.replace('#', '');
-    // Block admin-only tab if not admin
-    if (sec === 'users' && user.type !== 'admin') {
-      alert('Access denied: Admins only');
-      window.location.hash = 'dashboard';
-      sec = 'dashboard';
-    }
-    loadSection(sec);
-  });
-});
-
-// --- Sidebar/Header/Footer and Logout ---
+// --- Load sidebar, header, footer, and attach handlers ---
 function loadLayoutPartials() {
   fetch('partials/sidebar.html')
     .then(res => res.text())
     .then(html => {
       document.getElementById('sidebar-container').innerHTML = html;
 
+      // Update user info now that sidebar is loaded!
       updateSidebarUserInfo();
 
-      // Hide admin-only links for non-admin users
+      // Hide admin-only links if not admin
       const user = getLoggedInUser();
-      if (user && user.type !== 'admin') {
+      if (user && user.type.toLowerCase() !== 'admin') {
         document.querySelectorAll('.sidebar .admin-only').forEach(el => el.style.display = 'none');
       }
 
-      // Attach logout
+      // Attach logout handler
       const logoutBtn = document.querySelector('.sidebar .logout');
       if (logoutBtn) {
         logoutBtn.addEventListener('click', function (e) {
@@ -95,6 +52,7 @@ function loadLayoutPartials() {
       }
     });
 
+  // Header and footer
   fetch('partials/header.html')
     .then(res => res.text())
     .then(html => {
@@ -108,25 +66,16 @@ function loadLayoutPartials() {
     });
 }
 
-function updateSidebarUserInfo() {
-  const user = getLoggedInUser();
-  const userDiv = document.getElementById('sidebar-user-info');
-  if (userDiv) {
-    if (user && user.name) {
-      userDiv.innerHTML = `<strong>${user.name}</strong><br>${user.email || ''}<br><span style="color:#555;font-size:0.96em;">${user.type || ''}</span>`;
-    } else {
-      userDiv.innerHTML = `<span style="color:#b22222">No user info</span>`;
-    }
-  }
-}
-
-// --- Section Loader (with role check for admin-only tabs) ---
+// --- Section loader with role-based access ---
 function loadSection(section) {
   const user = getLoggedInUser();
   currentSection = section;
 
   // Admin-only tabs
-  if (section === 'users' && user.type !== 'admin') {
+  if (
+    ['users', 'items', 'dispatch', 'settings'].includes(section) &&
+    user.type.toLowerCase() !== 'admin'
+  ) {
     alert('Access denied: Admins only');
     window.location.hash = 'dashboard';
     section = 'dashboard';
@@ -141,7 +90,7 @@ function loadSection(section) {
     .then(html => {
       document.getElementById('main-content').innerHTML = html;
 
-      // Call the correct loader
+      // Load dynamic content per tab
       if (window.AdminPartials) {
         if (section === 'dashboard' && typeof window.AdminPartials.loadDashboard === 'function') {
           window.AdminPartials.loadDashboard();
@@ -164,15 +113,14 @@ function loadSection(section) {
         if (section === 'myaccount/email-settings' && typeof window.AdminPartials.loadEmailSettings === 'function') {
           window.AdminPartials.loadEmailSettings();
         }
-        // Add more as needed
       }
 
       if (section === 'myaccount/email-settings') {
         initEmailSettings();
       }
 
-      // Dynamically load users.js for users tab (admin only)
-      if (section === 'users' && user.type === 'admin') {
+      // Load users.js only for users tab and only if admin
+      if (section === 'users' && user.type.toLowerCase() === 'admin') {
         var oldScript = document.getElementById('users-js-script');
         if (oldScript) oldScript.remove();
         var script = document.createElement('script');
@@ -248,3 +196,66 @@ function initEmailSettings() {
 
   fetchAdminEmail();
 }
+
+// --- Initial entrypoint: Check login and load page ---
+document.addEventListener('DOMContentLoaded', () => {
+  const user = getLoggedInUser();
+
+  if (!user) {
+    window.location.href = '/index.html'; // Not logged in: go to main site
+    return;
+  }
+
+  loadLayoutPartials();
+
+  // Don't default to admin-only tab for non-admin users
+  let initialSection = window.location.hash ? window.location.hash.substring(1) : 'dashboard';
+  if (
+    ['users', 'items', 'dispatch', 'settings'].includes(initialSection) &&
+    user.type.toLowerCase() !== 'admin'
+  ) {
+    initialSection = 'dashboard';
+    window.location.hash = 'dashboard';
+  }
+  loadSection(initialSection);
+
+  // Handle sidebar and tab navigation
+  document.body.addEventListener('click', (e) => {
+    if (e.target.matches('[data-section]')) {
+      e.preventDefault();
+      const section = e.target.getAttribute('data-section');
+      // Admin-only guard
+      if (
+        ['users', 'items', 'dispatch', 'settings'].includes(section) &&
+        user.type.toLowerCase() !== 'admin'
+      ) {
+        alert('Access denied: Admins only');
+        return;
+      }
+      document.querySelectorAll('.sidebar nav a').forEach(link => link.classList.remove('active'));
+      e.target.classList.add('active');
+      loadSection(section);
+    }
+
+    if (e.target.matches('[data-myaccount]')) {
+      e.preventDefault();
+      document.querySelectorAll('.myaccount-tab-btn').forEach(btn => btn.classList.remove('active'));
+      e.target.classList.add('active');
+      loadSection('myaccount/' + e.target.getAttribute('data-myaccount'));
+    }
+  });
+
+  // Handle direct links/hash changes
+  window.addEventListener('hashchange', () => {
+    let sec = window.location.hash.replace('#', '');
+    if (
+      ['users', 'items', 'dispatch', 'settings'].includes(sec) &&
+      user.type.toLowerCase() !== 'admin'
+    ) {
+      alert('Access denied: Admins only');
+      window.location.hash = 'dashboard';
+      sec = 'dashboard';
+    }
+    loadSection(sec);
+  });
+});
