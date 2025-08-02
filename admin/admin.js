@@ -100,7 +100,8 @@ function loadSection(section) {
     .then(html => {
       document.getElementById('main-content').innerHTML = html;
 
-      // Load dynamic content per tab
+      // --- Begin dynamic per-section JS logic ---
+
       if (window.AdminPartials) {
         if (section === 'dashboard' && typeof window.AdminPartials.loadDashboard === 'function') {
           window.AdminPartials.loadDashboard();
@@ -127,6 +128,11 @@ function loadSection(section) {
 
       if (section === 'myaccount/email-settings') {
         initEmailSettings();
+      }
+
+      // --- FIX: Explicitly run admin-items.js logic for items tab ---
+      if (section === 'items' && typeof window.initAdminItems === 'function') {
+        window.initAdminItems();
       }
 
       // Load users.js only for users tab and only if admin

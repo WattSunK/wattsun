@@ -1,23 +1,18 @@
 // admin/js/admin-items.js
 
-console.log("✅ admin-items.js loaded!"); // Confirm script loads
+window.initAdminItems = function() {
+  console.log("✅ initAdminItems CALLED!");
 
-document.addEventListener('DOMContentLoaded', function () {
-  console.log("✅ DOMContentLoaded, about to fetch items");
-  // Initial fetch and render
   fetchAndRenderItems();
 
-  // Toolbar events
+  // Toolbar event listeners
   const addItemBtn = document.getElementById('add-item-btn');
   if (addItemBtn) addItemBtn.addEventListener('click', openAddItemModal);
 
   const manageCategoriesBtn = document.getElementById('manage-categories-btn');
   if (manageCategoriesBtn) manageCategoriesBtn.addEventListener('click', openCategoryManager);
+};
 
-  // You can add search/filter/pagination listeners here as needed
-});
-
-// Fetch items from API and render table
 async function fetchAndRenderItems() {
   const tbody = document.querySelector('.items-table tbody');
   if (!tbody) return;
@@ -37,7 +32,6 @@ async function fetchAndRenderItems() {
   }
 }
 
-// Render the items into the table
 function renderItemsTable(items) {
   const tbody = document.querySelector('.items-table tbody');
   if (!tbody) return;
@@ -50,11 +44,7 @@ function renderItemsTable(items) {
 
   tbody.innerHTML = '';
   items.forEach((item, idx) => {
-    // You can use a helper to choose image based on item.image or SKU
-    const imageUrl = item.image
-      ? item.image
-      : '/images/products/default.jpg';
-
+    const imageUrl = item.image ? item.image : '/images/products/default.jpg';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${idx + 1}</td>
@@ -82,7 +72,6 @@ function renderItemsTable(items) {
   attachActionHandlers();
 }
 
-// Attach Edit and Delete button handlers
 function attachActionHandlers() {
   document.querySelectorAll('.edit-btn').forEach(btn => {
     btn.addEventListener('click', function () {
@@ -121,7 +110,7 @@ async function deleteItem(itemId) {
   try {
     const response = await fetch(`/api/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
     if (response.ok) {
-      fetchAndRenderItems(); // Refresh list
+      fetchAndRenderItems();
     } else {
       alert('Failed to delete item.');
     }
