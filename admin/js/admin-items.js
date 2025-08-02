@@ -5,7 +5,39 @@ window.initAdminItems = function() {
 
   document.getElementById('add-item-btn')?.addEventListener('click', openAddItemModal);
   document.getElementById('manage-categories-btn')?.addEventListener('click', openCategoryManager);
+
+  // Modal open/close handlers for categories
+  document.getElementById('closeCategoriesModal')?.addEventListener('click', closeCategoryModal);
+  window.addEventListener('click', function(event) {
+    const modal = document.getElementById('categoriesModal');
+    if (event.target == modal) {
+      modal.style.display = "none";
+    }
+  });
+
+  // Add button (UI only, no API)
+  document.getElementById('addCategoryBtn')?.addEventListener('click', function() {
+    const input = document.getElementById('newCategoryInput');
+    if (input.value.trim()) {
+      // UI-only placeholder
+      alert('Would add category: ' + input.value.trim() + '\n(API call goes here in next step)');
+      input.value = '';
+    }
+  });
 };
+
+function openCategoryManager() {
+  document.getElementById('categoriesModal').style.display = 'block';
+  // UI only for now: show placeholder
+  const list = document.getElementById('categoriesList');
+  list.innerHTML = `<li style="color:#999;font-size:1rem;">(Category list will appear here)</li>`;
+}
+
+function closeCategoryModal() {
+  document.getElementById('categoriesModal').style.display = 'none';
+}
+
+// --- Existing code for item management is unchanged below ---
 
 async function fetchAndRenderItems() {
   const tbody = document.querySelector('.items-table tbody');
@@ -34,7 +66,6 @@ function renderItemsTable(items) {
 
   tbody.innerHTML = '';
   items.forEach((item, idx) => {
-    // Use item.image if present, else show placeholder
     const imageUrl = item.image
       ? `/images/products/${item.image}`
       : '/images/products/placeholder.jpg';
@@ -351,10 +382,6 @@ function showModal(title, html) {
 function closeModal() {
   const modal = document.getElementById('global-modal');
   if (modal) modal.style.display = 'none';
-}
-
-function openCategoryManager() {
-  alert('Manage Categories feature coming soon.');
 }
 
 document.addEventListener('DOMContentLoaded', window.initAdminItems);

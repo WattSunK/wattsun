@@ -1,60 +1,120 @@
-<h2 class="items-title">Items</h2>
-<div class="items-toolbar">
-  <button class="items-btn" id="add-item-btn">+ Add Item</button>
-  <button class="items-btn" id="manage-categories-btn">Manage Categories</button>
-  <select class="items-select">
-    <option>All Categories</option>
-    <option>Panels</option>
-    <option>Batteries</option>
-    <option>Inverters</option>
-  </select>
-  <input class="items-input" type="text" placeholder="Search by name/SKU/category">
-  <button class="items-btn">Search</button>
-  <button class="items-btn items-btn-clear">Clear</button>
-</div>
-<div class="items-table-wrapper">
-  <table class="items-table">
-    <thead>
-      <tr>
-        <th>SL NO.</th>
-        <th>IMAGE</th>
-        <th>ITEM NAME</th>
-        <th>SKU</th>
-        <th>CATEGORY</th>
-        <th>STOCK</th>
-        <th>UNIT PRICE</th>
-        <th>STATUS</th>
-        <th>ACTION</th>
-      </tr>
-    </thead>
-    <tbody>
-      <!-- Rows will be rendered dynamically by admin-items.js -->
-    </tbody>
-  </table>
-  <div class="items-pagination">
-    <span>Showing 1 to 1 of 1 entries</span>
-    <div>
-      <button class="items-page-btn" disabled>First</button>
-      <button class="items-page-btn" disabled>Previous</button>
-      <button class="items-page-btn active">1</button>
-      <button class="items-page-btn" disabled>Next</button>
-      <button class="items-page-btn" disabled>Last</button>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin - Items</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <!-- Add any other CSS includes as needed -->
+  <style>
+    .item-thumb {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      background: #fafafa;
+    }
+    /* Categories Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 9999;
+      left: 0; top: 0; width: 100vw; height: 100vh;
+      overflow: auto; background: rgba(0,0,0,0.22);
+    }
+    .modal-content {
+      background: #fff;
+      margin: 8vh auto;
+      border-radius: 1rem;
+      padding: 2rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      max-width: 440px;
+      position: relative;
+    }
+    .close {
+      color: #888;
+      float: right;
+      font-size: 1.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      position: absolute;
+      top: 1rem;
+      right: 1.2rem;
+    }
+    .close:hover { color: #111; }
+    #categoriesList li {
+      padding: 0.5rem 0;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #eee;
+    }
+    .category-edit, .category-delete {
+      cursor: pointer; background: none; border: none; font-size: 1rem;
+    }
+    .category-edit { color: #1976d2; margin-right: 10px; }
+    .category-delete { color: #d32f2f; }
+  </style>
+</head>
+<body>
+  <h2 class="items-title">Items</h2>
+  <div class="items-toolbar">
+    <button class="items-btn" id="add-item-btn">+ Add Item</button>
+    <button class="items-btn" id="manage-categories-btn">Manage Categories</button>
+    <select class="items-select">
+      <option>All Categories</option>
+      <option>Panels</option>
+      <option>Batteries</option>
+      <option>Inverters</option>
+    </select>
+    <input class="items-input" type="text" placeholder="Search by name/SKU/category">
+    <button class="items-btn">Search</button>
+    <button class="items-btn items-btn-clear">Clear</button>
+  </div>
+  <div class="items-table-wrapper">
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>SL NO.</th>
+          <th>IMAGE</th>
+          <th>ITEM NAME</th>
+          <th>SKU</th>
+          <th>CATEGORY</th>
+          <th>STOCK</th>
+          <th>UNIT PRICE</th>
+          <th>STATUS</th>
+          <th>ACTION</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Rows will be rendered dynamically by admin-items.js -->
+      </tbody>
+    </table>
+    <div class="items-pagination">
+      <span>Showing 1 to 1 of 1 entries</span>
+      <div>
+        <button class="items-page-btn" disabled>First</button>
+        <button class="items-page-btn" disabled>Previous</button>
+        <button class="items-page-btn active">1</button>
+        <button class="items-page-btn" disabled>Next</button>
+        <button class="items-page-btn" disabled>Last</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- CSS for image thumbnail (add to your CSS file if not present) -->
-<style>
-.item-thumb {
-  width: 48px;
-  height: 48px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  background: #fafafa;
-}
-</style>
+  <!-- Categories Management Modal -->
+  <div id="categoriesModal" class="modal">
+    <div class="modal-content" style="width:400px; padding:2rem; border-radius:1rem; background:#fff; position:relative;">
+      <span id="closeCategoriesModal" class="close">&times;</span>
+      <h2 style="margin-top:0;">Manage Categories</h2>
+      <ul id="categoriesList" style="list-style:none; padding:0; margin-bottom:1rem; min-height:48px;">
+        <li style="color:#999;font-size:1rem;">(Category list will appear here)</li>
+      </ul>
+      <div style="display:flex; gap: 0.5rem;">
+        <input type="text" id="newCategoryInput" placeholder="New Category Name" style="flex:1; padding:0.5rem;">
+        <button id="addCategoryBtn" class="btn btn-success">Add</button>
+      </div>
+    </div>
+  </div>
 
-<!-- Reference your new JS at the end -->
-<script src="../js/admin-items.js"></script>
-
+  <script src="../js/admin-items.js"></script>
+</body>
+</html>
