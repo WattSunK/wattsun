@@ -44,7 +44,7 @@ function renderItemsTable(items) {
       <td>${idx + 1}</td>
       <td>
         <img src="${imageUrl}" alt="${itemName}" class="item-thumb" 
-          onerror="this.onerror=null;this.src='/images/products/fallback.jpg';" />
+          onerror="this.onerror=null;this.src='/images/products/placeholder.jpg';" />
       </td>
       <td class="items-link">${itemName || '-'}</td>
       <td>${item.sku || '-'}</td>
@@ -97,50 +97,175 @@ function attachActionHandlers() {
   });
 }
 
-// --- Edit Modal (basic sample, can be replaced by a full modal library) ---
-function openEditItemModal(itemId) {
-  // Fetch item details from API (optional: pass full item data if you have it already)
-  fetch(`/api/items/${encodeURIComponent(itemId)}`)
-    .then(res => res.json())
-    .then(item => {
-      const fields = [
-        { label: "Name", key: "name" },
-        { label: "SKU", key: "sku", readonly: true },
-        { label: "Category", key: "category" },
-        { label: "Stock", key: "stock" },
-        { label: "Unit Price", key: "price" }
-      ];
-      let formHtml = fields.map(f => 
-        `<label>${f.label}:
-          <input type="text" name="${f.key}" value="${item[f.key] || ''}" ${f.readonly ? 'readonly' : ''} />
-        </label>`
-      ).join('<br>');
-      formHtml += `<br><button id="edit-save-btn">Save</button> <button id="edit-cancel-btn">Cancel</button>`;
+// --- Add Item Modal with dynamic category dropdown ---
+async function openAddItemModal() {
+  // Fetch categories for dropdown
+  let categories = [];
+  try {
+    const resp = await fetch('/api/categories');
+    categories = await resp.json();
+  } catch (err) {
+    alert("Could not load categories. Try again.");
+    return;
+  }
 
-      showModal(`Edit Item (${itemId})`, formHtml);
+  // Build form
+  const formHtml = `
+    <form id="add-item-form">
+      <label>SKU:<br><input type="text" name="sku" required></label><br>
+      <label>Name:<br><input type="text" name="name" required></label><br>
+      <label>Description:<br><textarea name="description" required></textarea></label><br>
+      <label>Price:<br><input type="number" name="price" step="0.01" required></label><br>
+      <label>Category:<br>
+        <select name="category" required>
+          <option value="">Select...</option>
+          ${categories.map(cat =>
+            `<option value="${cat.name}">${cat.name}</option>`
+          ).join('')}
+        </select>
+      </label><br>
+      <label>Stock:<br><input type="number" name="stock" min="0" value="0"></label><br>
+      <label>Warranty:<br><input type="text" name="warranty"></label><br>
+      <label>Image URL:<br><input type="text" name="image"></label><br>
+      <label>
+        <input type="checkbox" name="active" checked> Active
+      </label><br><br>
+      <button type="submit" id="add-save-btn">Add Item</button>
+      <button type="button" id="add-cancel-btn">Cancel</button>
+    </form>
+  `;
 
-      document.getElementById('edit-save-btn').onclick = async () => {
-        const modal = document.getElementById('global-modal');
-        const formData = {};
-        fields.forEach(f => {
-          formData[f.key] = modal.querySelector(`[name=${f.key}]`).value;
-        });
-        // PATCH request to backend
-        const resp = await fetch(`/api/items/${encodeURIComponent(itemId)}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
-        });
-        if (resp.ok) {
-          closeModal();
-          fetchAndRenderItems();
-        } else {
-          alert('Error updating item.');
-        }
-      };
+  showModal("Add New Item", formHtml);
 
-      document.getElementById('edit-cancel-btn').onclick = closeModal;
+  document.getElementById('add-cancel-btn').onclick = closeModal;
+
+  document.getElementById('add-item-form').onsubmit = async function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = {
+      sku: form.sku.value.trim(),
+      name: form.name.value.trim(),
+      description: form.description.value.trim(),
+      price: Number(form.price.value),
+      category: form.category.value,
+      stock: form.stock.value ? Number(form.stock.value) : 0,
+      warranty: form.warranty.value,
+      image: form.image.value,
+      active: form.active.checked
+    };
+
+    // Client-side validation (required fields)
+    if (!data.sku || !data.name || !data.description || !data.price || !data.category) {
+      alert("SKU, Name, Description, Price, and Category are required.");
+      return;
+    }
+
+    // POST to backend
+    const resp = await fetch('/api/items', {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(data)
     });
+
+    if (resp.ok) {
+      closeModal();
+      fetchAndRenderItems();
+    } else {
+      const err = await resp.json();
+      alert("Error: " + (err.error || "Failed to add item"));
+    }
+  };
+}
+
+// --- Edit Item Modal with category dropdown ---
+async function openEditItemModal(itemId) {
+  // Fetch item details
+  let item;
+  try {
+    const resp = await fetch(`/api/items/${encodeURIComponent(itemId)}`);
+    item = await resp.json();
+    if (!item) throw new Error('Item not found');
+  } catch (err) {
+    alert("Could not load item details.");
+    return;
+  }
+
+  // Fetch categories for dropdown
+  let categories = [];
+  try {
+    const resp = await fetch('/api/categories');
+    categories = await resp.json();
+  } catch (err) {
+    alert("Could not load categories. Try again.");
+    return;
+  }
+
+  // Build form
+  const formHtml = `
+    <form id="edit-item-form">
+      <label>SKU:<br><input type="text" name="sku" value="${item.sku || ''}" readonly></label><br>
+      <label>Name:<br><input type="text" name="name" value="${item.name || ''}" required></label><br>
+      <label>Description:<br><textarea name="description" required>${item.description || ''}</textarea></label><br>
+      <label>Price:<br><input type="number" name="price" value="${item.price || ''}" step="0.01" required></label><br>
+      <label>Category:<br>
+        <select name="category" required>
+          <option value="">Select...</option>
+          ${categories.map(cat =>
+            `<option value="${cat.name}" ${cat.name === item.category ? "selected" : ""}>${cat.name}</option>`
+          ).join('')}
+        </select>
+      </label><br>
+      <label>Stock:<br><input type="number" name="stock" min="0" value="${item.stock != null ? item.stock : 0}"></label><br>
+      <label>Warranty:<br><input type="text" name="warranty" value="${item.warranty || ''}"></label><br>
+      <label>Image URL:<br><input type="text" name="image" value="${item.image || ''}"></label><br>
+      <label>
+        <input type="checkbox" name="active" ${item.active ? 'checked' : ''}> Active
+      </label><br><br>
+      <button type="submit" id="edit-save-btn">Save</button>
+      <button type="button" id="edit-cancel-btn">Cancel</button>
+    </form>
+  `;
+
+  showModal(`Edit Item (${itemId})`, formHtml);
+
+  document.getElementById('edit-cancel-btn').onclick = closeModal;
+
+  document.getElementById('edit-item-form').onsubmit = async function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = {
+      sku: form.sku.value.trim(),
+      name: form.name.value.trim(),
+      description: form.description.value.trim(),
+      price: Number(form.price.value),
+      category: form.category.value,
+      stock: form.stock.value ? Number(form.stock.value) : 0,
+      warranty: form.warranty.value,
+      image: form.image.value,
+      active: form.active.checked
+    };
+
+    // Client-side validation
+    if (!data.name || !data.description || !data.price || !data.category) {
+      alert("Name, Description, Price, and Category are required.");
+      return;
+    }
+
+    // PATCH request to backend
+    const resp = await fetch(`/api/items/${encodeURIComponent(itemId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    if (resp.ok) {
+      closeModal();
+      fetchAndRenderItems();
+    } else {
+      const err = await resp.json();
+      alert("Error: " + (err.error || "Failed to update item"));
+    }
+  };
 }
 
 // --- Delete Modal ---
@@ -213,11 +338,6 @@ function closeModal() {
   if (modal) modal.style.display = 'none';
 }
 
-// Placeholder: Add item/modal
-function openAddItemModal() {
-  alert('Add Item feature coming soon.');
-}
-
 // Placeholder: Open manage categories modal/page
 function openCategoryManager() {
   alert('Manage Categories feature coming soon.');
@@ -225,5 +345,3 @@ function openCategoryManager() {
 
 // Initialize after DOM load
 document.addEventListener('DOMContentLoaded', window.initAdminItems);
-
-/* Optional: Add minimal CSS for modal and switch toggle if not present in your main CSS */
