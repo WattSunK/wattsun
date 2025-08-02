@@ -8,7 +8,23 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('user-clear-btn')?.addEventListener('click', clearUserSearch);
   document.getElementById('user-type-filter')?.addEventListener('change', fetchAndRenderUsers);
   document.getElementById('user-status-filter')?.addEventListener('change', fetchAndRenderUsers);
+
+  // ---- EVENT DELEGATION FOR TABLE ACTION BUTTONS ----
+  document.getElementById('users-table-body')?.addEventListener('click', function(e) {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const userId = btn.getAttribute('data-id');
+    if (btn.classList.contains('view-user-btn')) {
+      openViewUserModal(userId);
+    } else if (btn.classList.contains('edit-user-btn')) {
+      openEditUserModal(userId);
+    } else if (btn.classList.contains('delete-user-btn')) {
+      confirmDeleteUser(userId);
+    }
+  });
 });
+
+// ----------- REMAINDER OF LOGIC SAME AS BEFORE -----------
 
 async function fetchAndRenderUsers() {
   const tbody = document.getElementById('users-table-body');
@@ -65,23 +81,9 @@ function renderUsersTable(users) {
     `;
     tbody.appendChild(tr);
   });
-
-  // Add action listeners
-  tbody.querySelectorAll('.view-user-btn').forEach(btn =>
-    btn.addEventListener('click', () => openViewUserModal(btn.getAttribute('data-id')))
-  );
-  tbody.querySelectorAll('.edit-user-btn').forEach(btn =>
-    btn.addEventListener('click', () => openEditUserModal(btn.getAttribute('data-id')))
-  );
-  tbody.querySelectorAll('.delete-user-btn').forEach(btn =>
-    btn.addEventListener('click', () => confirmDeleteUser(btn.getAttribute('data-id')))
-  );
 }
 
-// ----- SEARCH & CLEAR -----
-function searchUsers() {
-  fetchAndRenderUsers();
-}
+function searchUsers() { fetchAndRenderUsers(); }
 function clearUserSearch() {
   document.getElementById('user-search-input').value = '';
   fetchAndRenderUsers();
@@ -262,4 +264,3 @@ document.getElementById('user-modal-bg')?.addEventListener('click', function (e)
   if (e.target === this) closeUserModal();
 });
 document.getElementById('user-modal-close')?.addEventListener('click', closeUserModal);
-
