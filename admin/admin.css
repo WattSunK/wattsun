@@ -926,3 +926,63 @@ body[data-theme="dark"] {
 #global-modal .modal-title { margin: 0 0 12px; }
 #global-modal .modal-body label { display: block; margin-bottom: 8px; }
 #global-modal button { margin-right: 10px; }
+/* ========== ADMIN ITEM ACTION BUTTONS ========== */
+.items-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8f9fb;
+  border: 1.5px solid #FFD23F;
+  border-radius: 1.2em;
+  color: #444;
+  font-weight: 500;
+  font-size: 0.98em;
+  padding: 5px 14px;
+  margin: 0 2px;
+  box-shadow: 0 2px 5px #FFD23F14;
+  cursor: pointer;
+  transition: background 0.18s, border 0.18s, color 0.18s, box-shadow 0.18s;
+  min-width: 34px;
+}
+.items-action-btn.edit-btn {
+  background: #e8f4ff;
+  border-color: #90caf9;
+  color: #1377c3;
+}
+.items-action-btn.edit-btn:hover {
+  background: #c2e7ff;
+  border-color: #42a5f5;
+  color: #0d47a1;
+}
+.items-action-btn.delete-btn {
+  background: #fff0f0;
+  border-color: #f87171;
+  color: #e11d48;
+}
+.items-action-btn.delete-btn:hover {
+  background: #ffe1e1;
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+.items-action-btn svg {
+  vertical-align: middle;
+  margin-right: 3px;
+  width: 16px;
+  height: 16px;
+}
+.items-action-btn:focus {
+  outline: 2px solid #FFD23F;
+}
+#global-modal .modal-content {
+  min-width: 400px !important;
+  max-width: 520px;
+  padding: 30px 28px 24px 28px;
+}
+#global-modal .modal-title {
+  font-size: 1.12em;
+  margin-bottom: 18px;
+  font-weight: 500;
+}
+#global-modal .modal-body label {
+  margin-top: 16px;
+}
