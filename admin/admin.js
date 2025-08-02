@@ -1,5 +1,5 @@
 // admin.js for Wattsun Solar Admin Panel
-// Ensures user info and logout always work
+// Robust role checking and debug logging
 
 let currentSection = 'dashboard';
 
@@ -35,10 +35,17 @@ function loadLayoutPartials() {
       // Update user info now that sidebar is loaded!
       updateSidebarUserInfo();
 
-      // Hide admin-only links if not admin
+      // Hardened admin role logic!
       const user = getLoggedInUser();
-      if (user && user.type.toLowerCase() !== 'admin') {
+      const role = user && typeof user.type === 'string'
+        ? user.type.trim().toLowerCase()
+        : '';
+      console.log('User type (normalized):', role);
+      if (role !== 'admin') {
         document.querySelectorAll('.sidebar .admin-only').forEach(el => el.style.display = 'none');
+      } else {
+        // For debugging: log visible admin-only links
+        console.log('Admin-only links:', document.querySelectorAll('.sidebar .admin-only'));
       }
 
       // Attach logout handler
@@ -66,15 +73,18 @@ function loadLayoutPartials() {
     });
 }
 
-// --- Section loader with role-based access ---
+// --- Section loader with robust role-based access ---
 function loadSection(section) {
   const user = getLoggedInUser();
+  const role = user && typeof user.type === 'string'
+    ? user.type.trim().toLowerCase()
+    : '';
   currentSection = section;
 
   // Admin-only tabs
   if (
     ['users', 'items', 'dispatch', 'settings'].includes(section) &&
-    user.type.toLowerCase() !== 'admin'
+    role !== 'admin'
   ) {
     alert('Access denied: Admins only');
     window.location.hash = 'dashboard';
@@ -120,7 +130,7 @@ function loadSection(section) {
       }
 
       // Load users.js only for users tab and only if admin
-      if (section === 'users' && user.type.toLowerCase() === 'admin') {
+      if (section === 'users' && role === 'admin') {
         var oldScript = document.getElementById('users-js-script');
         if (oldScript) oldScript.remove();
         var script = document.createElement('script');
@@ -200,6 +210,9 @@ function initEmailSettings() {
 // --- Initial entrypoint: Check login and load page ---
 document.addEventListener('DOMContentLoaded', () => {
   const user = getLoggedInUser();
+  const role = user && typeof user.type === 'string'
+    ? user.type.trim().toLowerCase()
+    : '';
 
   if (!user) {
     window.location.href = '/index.html'; // Not logged in: go to main site
@@ -212,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let initialSection = window.location.hash ? window.location.hash.substring(1) : 'dashboard';
   if (
     ['users', 'items', 'dispatch', 'settings'].includes(initialSection) &&
-    user.type.toLowerCase() !== 'admin'
+    role !== 'admin'
   ) {
     initialSection = 'dashboard';
     window.location.hash = 'dashboard';
@@ -227,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Admin-only guard
       if (
         ['users', 'items', 'dispatch', 'settings'].includes(section) &&
-        user.type.toLowerCase() !== 'admin'
+        role !== 'admin'
       ) {
         alert('Access denied: Admins only');
         return;
@@ -250,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let sec = window.location.hash.replace('#', '');
     if (
       ['users', 'items', 'dispatch', 'settings'].includes(sec) &&
-      user.type.toLowerCase() !== 'admin'
+      role !== 'admin'
     ) {
       alert('Access denied: Admins only');
       window.location.hash = 'dashboard';
