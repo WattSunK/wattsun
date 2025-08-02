@@ -1089,3 +1089,79 @@ body[data-theme="dark"] {
 }
 .category-edit { color: #1976d2; margin-right: 10px; }
 .category-delete { color: #d32f2f; }
+/* --- Unified Pill Action Buttons --- */
+.action-btn {
+  border: 1.5px solid #FFD23F;
+  border-radius: 1.5em;
+  background: #fff;
+  font-size: 1.01em;
+  font-weight: 500;
+  color: #333;
+  padding: 6px 22px;
+  margin-right: 6px;
+  margin-bottom: 2px;
+  box-shadow: 0 1px 8px rgba(255, 210, 63, 0.07);
+  transition: background 0.15s, color 0.15s, border 0.15s;
+  cursor: pointer;
+}
+.action-btn.edit-btn,
+.action-btn.view-btn {
+  border-color: #FFD23F;
+  color: #333;
+}
+.action-btn.delete-btn {
+  border-color: #FFD23F;
+  color: #e11d48;
+}
+.action-btn:hover,
+.action-btn:focus {
+  background: #fff9db;
+  color: #a57b00;
+  border-color: #FFBC00;
+}
+
+.items-table .action-btn {
+  min-width: 70px;
+}
+
+/* --- Modal improvements --- */
+#global-modal {
+  z-index: 1050;
+}
+#global-modal .modal-bg {
+  background: rgba(220, 220, 220, 0.28);
+}
+#global-modal .modal-content {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 36px rgba(0,0,0,0.19);
+  padding: 24px 30px 18px 30px;
+  min-width: 330px;
+  max-width: 440px;
+  margin: 0 auto;
+}
+#global-modal .modal-title {
+  font-size: 1.15em;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+#global-modal input,
+#global-modal select,
+#global-modal textarea {
+  width: 100%;
+  border-radius: 9px;
+  border: 1.5px solid #e7e7e7;
+  padding: 8px 10px;
+  font-size: 1em;
+  margin-top: 2px;
+  background: #f8fafd;
+  margin-bottom: 12px;
+  outline: none;
+  transition: border-color 0.16s, background 0.12s;
+}
+#global-modal input:focus,
+#global-modal select:focus,
+#global-modal textarea:focus {
+  border-color: #FFD23F;
+  background: #fffceb;
+}

@@ -5,39 +5,7 @@ window.initAdminItems = function() {
 
   document.getElementById('add-item-btn')?.addEventListener('click', openAddItemModal);
   document.getElementById('manage-categories-btn')?.addEventListener('click', openCategoryManager);
-
-  // Modal open/close handlers for categories
-  document.getElementById('closeCategoriesModal')?.addEventListener('click', closeCategoryModal);
-  window.addEventListener('click', function(event) {
-    const modal = document.getElementById('categoriesModal');
-    if (event.target == modal) {
-      modal.style.display = "none";
-    }
-  });
-
-  // Add button (UI only, no API)
-  document.getElementById('addCategoryBtn')?.addEventListener('click', function() {
-    const input = document.getElementById('newCategoryInput');
-    if (input.value.trim()) {
-      // UI-only placeholder
-      alert('Would add category: ' + input.value.trim() + '\n(API call goes here in next step)');
-      input.value = '';
-    }
-  });
 };
-
-function openCategoryManager() {
-  document.getElementById('categoriesModal').style.display = 'block';
-  // UI only for now: show placeholder
-  const list = document.getElementById('categoriesList');
-  list.innerHTML = `<li style="color:#999;font-size:1rem;">(Category list will appear here)</li>`;
-}
-
-function closeCategoryModal() {
-  document.getElementById('categoriesModal').style.display = 'none';
-}
-
-// --- Existing code for item management is unchanged below ---
 
 async function fetchAndRenderItems() {
   const tbody = document.querySelector('.items-table tbody');
@@ -66,6 +34,7 @@ function renderItemsTable(items) {
 
   tbody.innerHTML = '';
   items.forEach((item, idx) => {
+    // Use item.image if present, else show placeholder
     const imageUrl = item.image
       ? `/images/products/${item.image}`
       : '/images/products/placeholder.jpg';
@@ -144,13 +113,13 @@ async function openAddItemModal() {
 
   const formHtml = `
     <form id="add-item-form">
-      <label>SKU:<br><input type="text" name="sku" required></label><br>
-      <label>Name:<br><input type="text" name="name" required></label><br>
-      <label>Description:<br><textarea name="description" required></textarea></label><br>
+      <label>SKU:<br><input type="text" name="sku" required></label>
+      <label>Name:<br><input type="text" name="name" required></label>
+      <label>Description:<br><textarea name="description" required></textarea></label>
       <label>Price (KSH):<br>
         <input type="number" name="price" step="0.01" required>
         <span style="margin-left:4px;color:#aaa;font-size:0.98em;">KSH</span>
-      </label><br>
+      </label>
       <label>Category:<br>
         <select name="category" required>
           <option value="">Select...</option>
@@ -158,23 +127,25 @@ async function openAddItemModal() {
             `<option value="${cat.name}">${cat.name}</option>`
           ).join('')}
         </select>
-      </label><br>
+      </label>
       <label>Stock:<br>
         <input type="number" name="stock" min="0" value="0">
         <span style="margin-left:4px;color:#aaa;font-size:0.98em;">pcs</span>
-      </label><br>
+      </label>
       <label>Warranty:<br>
         <input type="text" name="warranty">
         <span style="margin-left:4px;color:#aaa;font-size:0.98em;">years</span>
-      </label><br>
+      </label>
       <label>Image filename (optional):<br>
         <input type="text" name="image" placeholder="e.g. Lithium-battery.png">
-      </label><br>
-      <label>
+      </label>
+      <label style="margin-top:10px;">
         <input type="checkbox" name="active" checked> Active
-      </label><br><br>
-      <button type="submit" id="add-save-btn" class="action-btn edit-btn">Add Item</button>
-      <button type="button" id="add-cancel-btn" class="action-btn delete-btn">Cancel</button>
+      </label>
+      <div style="text-align:right;margin-top:22px;">
+        <button type="submit" id="add-save-btn" class="action-btn edit-btn">Add Item</button>
+        <button type="button" id="add-cancel-btn" class="action-btn delete-btn">Cancel</button>
+      </div>
     </form>
   `;
 
@@ -241,13 +212,13 @@ async function openEditItemModal(itemId) {
 
   const formHtml = `
     <form id="edit-item-form">
-      <label>SKU:<br><input type="text" name="sku" value="${item.sku || ''}" readonly></label><br>
-      <label>Name:<br><input type="text" name="name" value="${item.name || ''}" required></label><br>
-      <label>Description:<br><textarea name="description" required>${item.description || ''}</textarea></label><br>
+      <label>SKU:<br><input type="text" name="sku" value="${item.sku || ''}" readonly></label>
+      <label>Name:<br><input type="text" name="name" value="${item.name || ''}" required></label>
+      <label>Description:<br><textarea name="description" required>${item.description || ''}</textarea></label>
       <label>Price (KSH):<br>
         <input type="number" name="price" value="${item.price || ''}" step="0.01" required>
         <span style="margin-left:4px;color:#aaa;font-size:0.98em;">KSH</span>
-      </label><br>
+      </label>
       <label>Category:<br>
         <select name="category" required>
           <option value="">Select...</option>
@@ -255,23 +226,25 @@ async function openEditItemModal(itemId) {
             `<option value="${cat.name}" ${cat.name === item.category ? "selected" : ""}>${cat.name}</option>`
           ).join('')}
         </select>
-      </label><br>
+      </label>
       <label>Stock:<br>
         <input type="number" name="stock" min="0" value="${item.stock != null ? item.stock : 0}">
         <span style="margin-left:4px;color:#aaa;font-size:0.98em;">pcs</span>
-      </label><br>
+      </label>
       <label>Warranty:<br>
         <input type="text" name="warranty" value="${item.warranty || ''}">
         <span style="margin-left:4px;color:#aaa;font-size:0.98em;">years</span>
-      </label><br>
+      </label>
       <label>Image filename (optional):<br>
         <input type="text" name="image" value="${item.image || ''}" placeholder="e.g. Lithium-battery.png">
-      </label><br>
-      <label>
+      </label>
+      <label style="margin-top:10px;">
         <input type="checkbox" name="active" ${item.active ? 'checked' : ''}> Active
-      </label><br><br>
-      <button type="submit" id="edit-save-btn" class="action-btn edit-btn">Save</button>
-      <button type="button" id="edit-cancel-btn" class="action-btn delete-btn">Cancel</button>
+      </label>
+      <div style="text-align:right;margin-top:22px;">
+        <button type="submit" id="edit-save-btn" class="action-btn edit-btn">Save</button>
+        <button type="button" id="edit-cancel-btn" class="action-btn delete-btn">Cancel</button>
+      </div>
     </form>
   `;
 
@@ -382,6 +355,10 @@ function showModal(title, html) {
 function closeModal() {
   const modal = document.getElementById('global-modal');
   if (modal) modal.style.display = 'none';
+}
+
+function openCategoryManager() {
+  alert('Manage Categories feature coming soon.');
 }
 
 document.addEventListener('DOMContentLoaded', window.initAdminItems);
