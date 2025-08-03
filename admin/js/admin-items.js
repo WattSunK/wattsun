@@ -34,7 +34,7 @@ function renderItemsTable(items) {
         <input type="checkbox" class="inline-status-toggle" data-sku="${item.sku}" ${item.active ? 'checked' : ''}>
         <span class="slider"></span>
       </label>
-      <span class="status-label">${item.active ? 'Active' : 'Inactive'}</span>`;
+      <span class="status-label" data-status-label>${item.active ? 'Active' : 'Inactive'}</span>`;
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td>
@@ -283,6 +283,8 @@ window.initAdminItems = function () {
     const sku = checkbox.getAttribute('data-sku');
     const active = checkbox.checked;
     toggleItemStatusDirect(sku, active);
+    const label = checkbox.closest('td')?.querySelector('[data-status-label]');
+    if (label) label.innerText = active ? 'Active' : 'Inactive';
   });
   fetchAndRenderItems();
 
