@@ -78,7 +78,6 @@ function setupSlideToggle(input) {
   wrapper.appendChild(slider);
   input.parentElement.replaceChild(wrapper, input);
 }
-}
 
 function styleModal() {
   const modal = document.getElementById('item-modal');
