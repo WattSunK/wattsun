@@ -452,7 +452,6 @@ body {
 }
 @media (max-width: 750px) {
   .settings-grid { grid-template-columns: 1fr; }
-}
 .settings-card {
   background: #fff;
   border-radius: 12px;
@@ -644,12 +643,10 @@ body {
   transition: background 0.16s;
 }
 .account-btn-danger:hover { background: var(--yellow); color: #ce4242; }
-@media (max-width: 700px) {
   .account-profile-card, .account-form {
     max-width: 98vw;
     width: 100%;
   }
-}
 
 /* ----- MyAccount Tabs and Rows ----- */
 .myaccount-tabs {
@@ -699,13 +696,6 @@ body {
   font-size: 1em;
 }
 .order-status.expired { color: #e59a00; }
-.order-links {
-  display: flex;
-  gap: 18px;
-  font-size: 0.97em;
-  color: #ff9800;
-  margin-top: 7px;
-}
 .addresses-row {
   display: flex;
   gap: 18px;
@@ -761,43 +751,13 @@ body {
 .payment-actions { display: flex; gap: 13px; }
 @media (max-width: 800px) {
   .addresses-row, .payments-row { flex-direction: column; gap: 14px; }
-}
 
 /* ========== RESPONSIVE SIDEBAR ========== */
 @media (max-width: 900px) {
   .sidebar { width: 58px; min-width: 58px; }
   .sidebar-logo, .sidebar nav a span, .sidebar-bottom .logout span { display: none; }
-  .main-header { padding-left: 9px; }
-  .footer { left: 58px; }
-}
 @media (max-width: 1200px) {
   .dashboard-row { flex-direction: column; gap: 22px; }
-}
-.settings-card {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px #e9e9e920;
-  border: 1.5px solid #eee;
-  padding: 22px 22px 14px 22px;
-  min-width: 0;
-  margin: 0;
-  max-width: 540px;
-  align-self: stretch;   /* this line is important */
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  height: auto;
-}
-:root {
-  --bg: #F8F9FB;
-  --card-bg: #fff;
-  --sidebar-bg: #F6F6F7;
-  --sidebar-active: #e8eaec;
-  --text: #222;
-  --border: #eee;
-  --yellow: #FFD23F;
-  --yellow-light: #fffbe7;
-}
 
 body[data-theme="dark"] {
   --bg: #23252b;
@@ -809,19 +769,6 @@ body[data-theme="dark"] {
   --yellow: #FFD23F;
   --yellow-light: #443b1c;
 }
-@media (max-width: 600px) {
-  .myaccount-tabs {
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 12px;
-  }
-  .myaccount-tab-btn {
-    width: 100%;
-    border-radius: 7px !important;
-    padding: 10px 0 !important;
-    font-size: 1em !important;
-    margin-bottom: 0 !important;
-  }
   .account-profile-card,
   .account-form,
   .email-settings-container {
@@ -832,52 +779,9 @@ body[data-theme="dark"] {
     border-radius: 9px !important;
     box-shadow: 0 1px 6px #eee8 !important;
   }
-  .account-avatar {
-    width: 44px !important;
-    height: 44px !important;
-    font-size: 1.2em !important;
-  }
-  .account-actions {
-    flex-direction: column !important;
-    gap: 8px !important;
-    margin-top: 13px !important;
-  }
   .order-row,
   .payment-box,
-  .address-box {
-    max-width: 98vw !important;
-    width: 100% !important;
-    font-size: 0.97em !important;
-    padding: 13px 4vw !important;
-    border-radius: 7px !important;
-  }
-  .address-box.add-new {
-    padding: 13px 4vw !important;
-    border-radius: 7px !important;
-    font-size: 1em !important;
-  }
   .addresses-row,
-  .payments-row {
-    flex-direction: column !important;
-    gap: 10px !important;
-  }
-}
-@media (max-width: 600px) {
-  .dashboard-row {
-    flex-direction: column;
-    gap: 10px;
-    margin: 8px 2vw 0 2vw;
-  }
-  .dashboard-card {
-    min-width: 0;
-    max-width: 100vw;
-    width: 100%;
-    padding: 12px 5vw 10px 5vw;
-    box-sizing: border-box;
-    font-size: 0.97em;
-    border-radius: 10px;
-    margin-bottom: 14px;
-  }
   .dashboard-status-card {
     max-width: 97vw !important;
     padding: 10px 4vw !important;
@@ -887,11 +791,6 @@ body[data-theme="dark"] {
   .orders-tabs,
   .card-section-title,
   .order-buttons,
-  .order-links {
-    flex-direction: column !important;
-    gap: 6px !important;
-    align-items: flex-start !important;
-  }
   .orders-tabs button,
   .order-btn,
   .card-btn {
@@ -899,7 +798,6 @@ body[data-theme="dark"] {
     margin-bottom: 4px;
     font-size: 1em;
   }
-}
 /* Switch Toggle for Activation */
 .switch {
   position: relative; display: inline-block; width: 38px; height: 20px; margin-right:8px; vertical-align:middle;
@@ -973,48 +871,7 @@ body[data-theme="dark"] {
 .items-action-btn:focus {
   outline: 2px solid #FFD23F;
 }
-#global-modal .modal-content {
-  min-width: 400px !important;
-  max-width: 520px;
-  padding: 30px 28px 24px 28px;
-}
-#global-modal .modal-title {
-  font-size: 1.12em;
-  margin-bottom: 18px;
-  font-weight: 500;
-}
-#global-modal .modal-body label {
-  margin-top: 16px;
-}
 /* --- Improved Modal Overlay --- */
-#global-modal {
-  display: none;
-  position: fixed;
-  z-index: 1050;
-  left: 0; top: 0; width: 100vw; height: 100vh;
-  align-items: center; justify-content: center;
-}
-#global-modal .modal-bg {
-  background: rgba(220, 220, 220, 0.28);
-  position: fixed; left: 0; top: 0; width: 100vw; height: 100vh;
-  z-index: 0;
-}
-#global-modal .modal-content {
-  position: relative;
-  background: #fff;
-  border-radius: 18px;
-  box-shadow: 0 8px 36px rgba(0,0,0,0.19);
-  padding: 38px 30px 30px 30px;
-  min-width: 340px;
-  max-width: 460px;
-  z-index: 1;
-  margin: 0 auto;
-}
-#global-modal .modal-title {
-  font-size: 1.13em;
-  font-weight: 600;
-  margin-bottom: 18px;
-}
 #global-modal input,
 #global-modal select,
 #global-modal textarea {
@@ -1036,10 +893,6 @@ body[data-theme="dark"] {
   background: #fffceb;
 }
 
-#global-modal button {
-  min-width: 74px;
-  margin-right: 9px;
-}
 
 /* --- Improved Pill Buttons for All Tables --- */
 .action-btn {
@@ -1062,13 +915,6 @@ body[data-theme="dark"] {
 .action-btn.view-btn:hover { background: #eaf4ff; }
 .action-btn.edit-btn:hover { background: #e8fff3; }
 .action-btn.delete-btn:hover { background: #fff0f1; color: #b91c1c; }
-.modal {
-  display: none; 
-  position: fixed;
-  z-index: 9999;
-  left: 0; top: 0; width: 100vw; height: 100vh;
-  overflow: auto; background: rgba(0,0,0,0.22);
-}
 .modal-content {
   background: #fff;
   margin: 8vh auto; /* 8% from top, centered */
@@ -1090,29 +936,7 @@ body[data-theme="dark"] {
 .category-edit { color: #1976d2; margin-right: 10px; }
 .category-delete { color: #d32f2f; }
 /* --- Unified Pill Action Buttons --- */
-.action-btn {
-  border: 1.5px solid #FFD23F;
-  border-radius: 1.5em;
-  background: #fff;
-  font-size: 1.01em;
-  font-weight: 500;
-  color: #333;
-  padding: 6px 22px;
-  margin-right: 6px;
-  margin-bottom: 2px;
-  box-shadow: 0 1px 8px rgba(255, 210, 63, 0.07);
-  transition: background 0.15s, color 0.15s, border 0.15s;
-  cursor: pointer;
-}
 .action-btn.edit-btn,
-.action-btn.view-btn {
-  border-color: #FFD23F;
-  color: #333;
-}
-.action-btn.delete-btn {
-  border-color: #FFD23F;
-  color: #e11d48;
-}
 .action-btn:hover,
 .action-btn:focus {
   background: #fff9db;
@@ -1125,60 +949,15 @@ body[data-theme="dark"] {
 }
 
 /* --- Modal improvements --- */
-#global-modal {
-  z-index: 1050;
-}
-#global-modal .modal-bg {
-  background: rgba(220, 220, 220, 0.28);
-}
-#global-modal .modal-content {
-  background: #fff;
-  border-radius: 18px;
-  box-shadow: 0 8px 36px rgba(0,0,0,0.19);
-  padding: 24px 30px 18px 30px;
-  min-width: 330px;
-  max-width: 440px;
-  margin: 0 auto;
-}
-#global-modal .modal-title {
-  font-size: 1.15em;
-  font-weight: 600;
-  margin-bottom: 14px;
-}
 #global-modal input,
 #global-modal select,
-#global-modal textarea {
-  width: 100%;
-  border-radius: 9px;
-  border: 1.5px solid #e7e7e7;
-  padding: 8px 10px;
-  font-size: 1em;
-  margin-top: 2px;
-  background: #f8fafd;
-  margin-bottom: 12px;
-  outline: none;
-  transition: border-color 0.16s, background 0.12s;
-}
 #global-modal input:focus,
 #global-modal select:focus,
-#global-modal textarea:focus {
-  border-color: #FFD23F;
-  background: #fffceb;
-}
 .dashboard-header {
   margin-bottom: 18px;
 }
 .link-edit { color: #007bff; }
 .link-delete { color: #dc3545; }
-.email-settings-container {
-  max-width: 430px;
-  margin: 30px 0 0 0;
-  padding: 28px 26px 18px 26px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px #e9e9e920;
-  border: 1.5px solid #eee;
-}
 .email-settings-container label {
   font-weight: 500;
 }
@@ -1196,51 +975,11 @@ body[data-theme="dark"] {
   margin-top: 14px;
   font-size: 1em;
 }
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 46px;
-  height: 24px;
-}
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: .4s;
-  border-radius: 24px;
-}
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .4s;
-  border-radius: 50%;
-}
 input:checked + .slider {
   background-color: #4CAF50;
 }
 input:checked + .slider:before {
   transform: translateX(22px);
-}
-.modal-bg {
-  backdrop-filter: blur(4px);
-  background-color: rgba(0,0,0,0.3);
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
 .status-badge {
@@ -1261,51 +1000,11 @@ input:checked + .slider:before {
   color: #ab2e2e;
   border: 1px solid #f4b8b8;
 }
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 46px;
-  height: 24px;
-  margin: 0 auto;
-}
 
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
 
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: 0.4s;
-  border-radius: 24px;
-}
 
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: 0.4s;
-  border-radius: 50%;
-}
 
-input:checked + .slider {
-  background-color: #4CAF50;
-}
 
-input:checked + .slider:before {
-  transform: translateX(22px);
-}
 .status-label {
   margin-left: 8px;
   font-size: 0.85em;
@@ -1313,18 +1012,6 @@ input:checked + .slider:before {
   vertical-align: middle;
 }
 /* === Modal Fixes and Form Layout Enhancements === */
-.modal-bg {
-  backdrop-filter: blur(4px);
-  background-color: rgba(0,0,0,0.3);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 9999;
-}
 
 .admin-modal {
   background: white;
@@ -1355,105 +1042,4 @@ input:checked + .slider:before {
   border-radius: 5px;
   font-size: 1em;
   background-color: #fff7dd;
-}
-
-.account-actions {
-  display: flex;
-  justify-content: flex-start;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.account-btn {
-  background-color: #ffc107;
-  color: #000;
-  border: none;
-  padding: 8px 16px;
-  font-size: 0.95em;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.account-btn-cancel {
-  background-color: #fff;
-  border: 1px solid #ccc;
-  color: #333;
-}
-/* admin.css core styles */
-
-body {
-  font-family: 'Segoe UI', sans-serif;
-  font-size: 15px;
-  margin: 0;
-  padding: 0;
-  background-color: #f7f7f7;
-  color: #333;
-}
-
-.modal-bg {
-  backdrop-filter: blur(4px);
-  background-color: rgba(0,0,0,0.3);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 9999;
-}
-
-.admin-modal {
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
-  max-width: 480px;
-  width: 100%;
-  margin: auto;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.account-form-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.account-form label {
-  display: flex;
-  flex-direction: column;
-}
-
-.input-field {
-  border: 1px solid #ccc;
-  padding: 8px 10px;
-  border-radius: 5px;
-  font-size: 1em;
-  background-color: #fff7dd;
-}
-
-.account-actions {
-  display: flex;
-  justify-content: flex-start;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.account-btn {
-  background-color: #ffc107;
-  color: #000;
-  border: none;
-  padding: 8px 16px;
-  font-size: 0.95em;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.account-btn-cancel {
-  background-color: #fff;
-  border: 1px solid #ccc;
-  color: #333;
 }
