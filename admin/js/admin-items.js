@@ -29,6 +29,9 @@ function renderItemsTable(items) {
   tbody.innerHTML = '';
   items.forEach((item, idx) => {
     const tr = document.createElement('tr');
+    const activeStatus = item.active
+      ? '<span class="status-badge active">Active</span>'
+      : '<span class="status-badge inactive">Inactive</span>';
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td>
@@ -42,17 +45,14 @@ function renderItemsTable(items) {
       <td>${item.category || '-'}</td>
       <td>${item.stock || 0}</td>
       <td>${item.price || '-'}</td>
-      <td>
-        <button class="action-btn toggle-active-btn" data-sku="${item.sku}">
-          ${item.active ? 'Deactivate' : 'Activate'}
-        </button>
-      </td>
+      <td>${activeStatus}</td>
       <td>
         <button class="action-btn edit-btn edit-item-btn" data-sku="${item.sku}">Edit</button>
         <button class="action-btn delete-btn delete-item-btn" data-sku="${item.sku}">Delete</button>
       </td>
     `;
     tbody.appendChild(tr);
+  });
   });
 }
 
@@ -80,6 +80,8 @@ function setupSlideToggle(input) {
 }
 
 function styleModal() {
+  const bg = document.getElementById('item-modal-bg');
+  if (bg) bg.classList.add('modal-bg');
   const modal = document.getElementById('item-modal');
   modal.classList.add('admin-modal');
   const inputs = modal.querySelectorAll('input, textarea');

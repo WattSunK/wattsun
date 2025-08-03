@@ -1235,3 +1235,29 @@ input:checked + .slider {
 input:checked + .slider:before {
   transform: translateX(22px);
 }
+.modal-bg {
+  backdrop-filter: blur(4px);
+  background-color: rgba(0,0,0,0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.3em 0.7em;
+  font-size: 0.85em;
+  border-radius: 999px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+.status-badge.active {
+  background: #d4f5d2;
+  color: #2b8127;
+  border: 1px solid #88da85;
+}
+.status-badge.inactive {
+  background: #fce4e4;
+  color: #ab2e2e;
+  border: 1px solid #f4b8b8;
+}
