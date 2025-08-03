@@ -65,10 +65,16 @@ function closeItemModal() {
 }
 
 function setupSlideToggle(input) {
-  const toggle = document.createElement('label');
-  toggle.className = 'switch';
-  toggle.innerHTML = `
-    <input type="checkbox" ${input.checked ? 'checked' : ''} id="${input.id}">
+  const wrapper = document.createElement('div');
+  wrapper.className = 'switch';
+  const id = input.id || `toggle-${Date.now()}`;
+  const checked = input.checked ? 'checked' : '';
+  wrapper.innerHTML = `
+    <input type="checkbox" id="${id}" ${checked}>
+    <span class="slider round"></span>
+  `;
+  input.parentElement.replaceChild(wrapper, input);
+} id="${input.id}">
     <span class="slider round"></span>
   `;
   input.replaceWith(toggle.querySelector('input'));
@@ -212,6 +218,7 @@ async function openEditItemModal(sku) {
     modalBg.style.display = 'block';
     modal.style.display = 'block';
   } catch (e) {
+    console.error('Failed to load item:', e);
     alert('Could not load item');
   }
 }
@@ -252,7 +259,7 @@ function openCategoriesModal() {
   if (!modal) return;
   modal.style.display = 'block';
   const closeBtn = document.getElementById('closeCategoriesModal');
-  closeBtn.onclick = () => (modal.style.display = 'none');
+  if (closeBtn) closeBtn.onclick = () => (modal.style.display = 'none');
 }
 
 // --- INIT ENTRYPOINT ---
