@@ -114,7 +114,7 @@ function loadSection(section) {
   if (oldScript) oldScript.remove();
 
   const script = document.createElement('script');
-  script.src = 'admin/js/admin-users.js';
+script.src = '/admin/js/admin-users.js';
   script.id = 'admin-users-js-script';
   script.onload = () => {
     if (typeof initAdminUsers === 'function') initAdminUsers();
