@@ -147,7 +147,6 @@ function openAddItemModal() {
       modal.querySelector('#item-modal-message').innerText = 'Error: Could not add item.';
     }
   };
-  };
   newCancel.onclick = closeItemModal;
   newClose.onclick = closeItemModal;
 }
