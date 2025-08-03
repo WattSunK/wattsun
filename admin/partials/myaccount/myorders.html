@@ -1,0 +1,41 @@
+<div class="myaccount-tabs">
+  <button class="myaccount-tab-btn active" data-myaccount="orders">Orders</button>
+  <button class="myaccount-tab-btn" data-myaccount="addresses">Manage Addresses</button>
+  <button class="myaccount-tab-btn" data-myaccount="payments">Payments</button>
+  <button class="myaccount-tab-btn" data-myaccount="favorites">Favorites</button>
+  <button class="myaccount-tab-btn" data-myaccount="offers">Offers</button>
+  <button class="myaccount-tab-btn" data-myaccount="help">Help Center</button>
+  <button class="myaccount-tab-btn" data-myaccount="logout">Log Out</button>
+</div>
+
+<div class="orders-tabs">
+  <button class="btn-tab active" id="btn-active">Active Orders</button>
+  <button class="btn-tab" id="btn-past">Past Orders</button>
+</div>
+
+<div id="orders-list" class="orders-list">
+  <!-- Orders will be dynamically inserted here -->
+</div>
+
+<template id="order-card-template">
+  <div class="order-card">
+    <div class="order-header">
+      <span class="order-date">Placed <span class="order-date-value"></span></span>
+      <span class="order-status"></span>
+    </div>
+    <div class="order-details">
+      <span class="order-title"></span>
+      <span class="order-amount"></span>
+      <span class="order-id"></span>
+    </div>
+    <div class="order-actions">
+      <button class="order-track">Track Order</button>
+      <button class="order-cancel">Cancel Order</button>
+      <button class="order-help">Help</button>
+    </div>
+    <div class="order-links">
+      <span class="order-view-items">View <span class="order-item-count"></span> item(s) ordered &gt;</span>
+      <span class="order-view-address">View Address And Billing Details &#9660;</span>
+    </div>
+  </div>
+</template>
