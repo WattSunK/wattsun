@@ -1,41 +1,41 @@
 <div class="myaccount-tabs">
+  <button class="myaccount-tab-btn" data-myaccount="profile">Profile</button>
   <button class="myaccount-tab-btn active" data-myaccount="orders">Orders</button>
-  <button class="myaccount-tab-btn" data-myaccount="addresses">Manage Addresses</button>
-  <button class="myaccount-tab-btn" data-myaccount="payments">Payments</button>
-  <button class="myaccount-tab-btn" data-myaccount="favorites">Favorites</button>
-  <button class="myaccount-tab-btn" data-myaccount="offers">Offers</button>
-  <button class="myaccount-tab-btn" data-myaccount="help">Help Center</button>
-  <button class="myaccount-tab-btn" data-myaccount="logout">Log Out</button>
+  <button class="myaccount-tab-btn" data-myaccount="addresses">Delivery Addresses</button>
+  <button class="myaccount-tab-btn" data-myaccount="payments">Payment Methods</button>
+  <button class="myaccount-tab-btn" data-myaccount="email-settings">Email Settings</button>
 </div>
 
-<div class="orders-tabs">
-  <button class="btn-tab active" id="btn-active">Active Orders</button>
-  <button class="btn-tab" id="btn-past">Past Orders</button>
-</div>
+<div class="orders-section" style="background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 8px rgba(0,0,0,0.05);">
+  <div class="orders-tabs" style="margin-bottom:20px;">
+    <button class="btn-tab active" id="btn-active">Active Orders</button>
+    <button class="btn-tab" id="btn-past">Past Orders</button>
+  </div>
 
-<div id="orders-list" class="orders-list">
-  <!-- Orders will be dynamically inserted here -->
+  <div id="orders-list" class="orders-list">
+    <!-- Orders will be dynamically inserted here -->
+  </div>
 </div>
 
 <template id="order-card-template">
-  <div class="order-card">
-    <div class="order-header">
+  <div class="order-card" style="border:1px solid #f1c40f; border-radius:6px; padding:15px; margin-bottom:15px; background:#fff;">
+    <div class="order-header" style="display:flex; justify-content:space-between; font-size:14px;">
       <span class="order-date">Placed <span class="order-date-value"></span></span>
-      <span class="order-status"></span>
+      <span class="order-status" style="color:#f39c12;"></span>
     </div>
-    <div class="order-details">
-      <span class="order-title"></span>
+    <div class="order-details" style="margin-top:10px; font-weight:500;">
+      <span class="order-title" style="display:inline-block; width:50%;"></span>
       <span class="order-amount"></span>
-      <span class="order-id"></span>
+      <span class="order-id" style="display:block; font-size:13px; color:#888;"></span>
     </div>
-    <div class="order-actions">
-      <button class="order-track">Track Order</button>
-      <button class="order-cancel">Cancel Order</button>
-      <button class="order-help">Help</button>
+    <div class="order-actions" style="margin-top:10px;">
+      <button class="order-track btn-yellow">Track Order</button>
+      <button class="order-cancel btn-yellow">Cancel Order</button>
+      <button class="order-help btn-yellow">Help</button>
     </div>
-    <div class="order-links">
+    <div class="order-links" style="margin-top:10px; font-size:13px;">
       <span class="order-view-items">View <span class="order-item-count"></span> item(s) ordered &gt;</span>
-      <span class="order-view-address">View Address And Billing Details &#9660;</span>
+      <span class="order-view-address" style="margin-left:10px;">View Address And Billing Details &#9660;</span>
     </div>
   </div>
 </template>

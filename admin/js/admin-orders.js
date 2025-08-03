@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const dateFrom = document.querySelectorAll("input.orders-input")[0];
   const dateTo = document.querySelectorAll("input.orders-input")[1];
   const searchBox = document.querySelector("input.search-box");
+  const driverDropdown = document.getElementById("order-driver");
 
   let ordersData = [];
 
@@ -18,6 +19,22 @@ document.addEventListener("DOMContentLoaded", () => {
       renderOrders(ordersData);
     } catch (err) {
       console.error("Error fetching orders:", err);
+    }
+  }
+
+  async function fetchDrivers() {
+    try {
+      const res = await fetch("/api/orders/drivers/list");
+      const drivers = await res.json();
+      driverDropdown.innerHTML = '<option value="">-- Select Driver --</option>';
+      drivers.forEach(driver => {
+        const opt = document.createElement("option");
+        opt.value = driver.name;
+        opt.textContent = driver.name;
+        driverDropdown.appendChild(opt);
+      });
+    } catch (err) {
+      console.error("Error fetching drivers:", err);
     }
   }
 
@@ -86,13 +103,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function openEditModal(id) {
-    // Logic to open modal and populate data by ID
     console.log("Open edit modal for order:", id);
+    fetchDrivers();
+    document.getElementById("orderModal").style.display = "block";
   }
 
   function openViewModal(id) {
-    // Logic to open readonly view modal
     console.log("Open view modal for order:", id);
+    document.getElementById("orderModal").style.display = "block";
   }
 
   // Event Bindings
