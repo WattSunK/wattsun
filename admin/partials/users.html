@@ -50,7 +50,7 @@
         </tr>
       </thead>
       <tbody id="users-table-body">
-        <!-- Dynamic user rows inserted here -->
+        <!-- Rendered dynamically: name cell becomes link to #myaccount/profile?id=... -->
       </tbody>
     </table>
     <div class="items-pagination">
@@ -69,37 +69,34 @@
   <div id="user-modal-bg" class="modal-bg" style="display:none;">
     <div class="modal admin-modal" id="user-modal">
       <button class="modal-close" id="user-modal-close" title="Close">&times;</button>
-      <h3 id="user-modal-title">User Details</h3>
-      <form id="user-modal-form" style="display:none;">
-        <label for="user-modal-name">Name</label>
-        <input id="user-modal-name" class="input-field" type="text" required />
-        <label for="user-modal-email">Email</label>
-        <input id="user-modal-email" class="input-field" type="email" required />
-        <label for="user-modal-phone">Phone</label>
-        <input id="user-modal-phone" class="input-field" type="text" />
-        <label for="user-modal-type">Type</label>
-        <select id="user-modal-type" class="input-field">
-          <option value="Customer">Customer</option>
-          <option value="Installer">Installer</option>
-          <option value="Admin">Admin</option>
-          <option value="Manufacturer">Manufacturer</option>
-        </select>
-        <label for="user-modal-status">Status</label>
-        <select id="user-modal-status" class="input-field">
-          <option value="Active">Active</option>
-          <option value="Inactive">Inactive</option>
-        </select>
-        <div class="modal-actions">
-          <button type="submit" id="user-modal-save" class="action-btn edit-btn button">Save</button>
-          <button type="button" id="user-modal-cancel" class="action-btn delete-btn button">Cancel</button>
+      <h3 id="user-modal-title">Edit User</h3>
+      <form id="user-modal-form" class="account-form" style="display:none;">
+        <div class="account-form-fields">
+          <label>Name <input type="text" id="user-modal-name" class="input-field" required></label>
+          <label>Email <input type="email" id="user-modal-email" class="input-field" required></label>
+          <label>Phone <input type="text" id="user-modal-phone" class="input-field"></label>
+        </div>
+        <label>Type
+          <select id="user-modal-type" class="input-field">
+            <option value="Customer">Customer</option>
+            <option value="Installer">Installer</option>
+            <option value="Admin">Admin</option>
+            <option value="Manufacturer">Manufacturer</option>
+          </select>
+        </label>
+        <label>Status
+          <select id="user-modal-status" class="input-field">
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+        </label>
+        <div class="account-actions">
+          <button type="submit" id="user-modal-save" class="account-btn">Save</button>
+          <button type="button" id="user-modal-cancel" class="account-btn account-btn-cancel">Cancel</button>
         </div>
         <div id="user-modal-message" style="margin-top:8px;font-size:0.97em;"></div>
       </form>
-      <div id="user-modal-view" style="display:none;">
-        <div class="modal-actions">
-          <button type="button" id="user-modal-close-view" class="action-btn button">Close</button>
-        </div>
-      </div>
+      <div id="user-modal-view" style="display:none;"></div>
     </div>
   </div>
 
