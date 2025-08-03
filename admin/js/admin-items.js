@@ -65,20 +65,19 @@ function closeItemModal() {
 }
 
 function setupSlideToggle(input) {
-  const wrapper = document.createElement('div');
+  const wrapper = document.createElement('label');
   wrapper.className = 'switch';
-  const id = input.id || `toggle-${Date.now()}`;
-  const checked = input.checked ? 'checked' : '';
-  wrapper.innerHTML = `
-    <input type="checkbox" id="${id}" ${checked}>
-    <span class="slider round"></span>
-  `;
+  const replacement = document.createElement('input');
+  replacement.type = 'checkbox';
+  replacement.id = input.id;
+  replacement.checked = input.checked;
+  replacement.name = input.name;
+  const slider = document.createElement('span');
+  slider.className = 'slider round';
+  wrapper.appendChild(replacement);
+  wrapper.appendChild(slider);
   input.parentElement.replaceChild(wrapper, input);
-} id="${input.id}">
-    <span class="slider round"></span>
-  `;
-  input.replaceWith(toggle.querySelector('input'));
-  input.parentElement.appendChild(toggle);
+}
 }
 
 function styleModal() {
