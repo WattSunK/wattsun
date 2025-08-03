@@ -143,6 +143,29 @@ function openAddItemModal() {
       if (!resp.ok) throw new Error('Failed to add');
       closeItemModal();
       fetchAndRenderItems();
+
+  document.getElementById('search-btn')?.addEventListener('click', function () {
+    const query = document.getElementById('item-search-input')?.value.trim().toLowerCase() || '';
+    const category = document.getElementById('item-category-filter')?.value.trim();
+    fetch('/api/items')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => {
+        const filtered = data.filter(item => {
+          const qMatch = item.name?.toLowerCase().includes(query) || item.sku?.toLowerCase().includes(query);
+          const cMatch = !category || category === 'All' || item.category === category;
+          return qMatch && cMatch;
+        });
+        renderItemsTable(filtered);
+      });
+  });
+
+  document.getElementById('clear-btn')?.addEventListener('click', function () {
+    const q = document.getElementById('item-search-input');
+    const c = document.getElementById('item-category-filter');
+    if (q) q.value = '';
+    if (c) c.selectedIndex = 0;
+    fetchAndRenderItems();
+  });
     } catch (err) {
       modal.querySelector('#item-modal-message').innerText = 'Error: Could not add item.';
     }
