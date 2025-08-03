@@ -12,6 +12,7 @@
   <button class="orders-btn orders-btn-clear">Clear</button>
   <input class="orders-input search-box" type="text" placeholder="Search">
 </div>
+
 <div class="orders-table-wrapper">
   <table class="orders-table">
     <thead>
@@ -29,26 +30,11 @@
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <td>1</td>
-        <td><a href="#" class="order-link">158626282371</a></td>
-        <td>Jack</td>
-        <td>ASAP Delivery</td>
-        <td>07-Apr-2020 02:24:42 pm</td>
-        <td>07-Apr-2020 05:24:42 pm</td>
-        <td>23, Shanthi Nagar, Sampangirama Nagar, Bengaluru, Karnataka</td>
-        <td>Card</td>
-        <td>KSh 158.40</td>
-        <td>
-          <button class="orders-action-btn" title="View">
-            <svg height="18" width="18" viewBox="0 0 24 24" fill="none" stroke="#FFD23F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2.05 12a9.94 9.94 0 0 1 19.9 0 9.94 9.94 0 0 1-19.9 0z"/></svg>
-          </button>
-        </td>
-      </tr>
+      <!-- Orders will be dynamically injected here by admin-orders.js -->
     </tbody>
   </table>
   <div class="orders-pagination">
-    <span>Showing 1 of 1 entries</span>
+    <span>Showing 0 of 0 entries</span>
     <div>
       <button class="orders-page-btn" disabled>First</button>
       <button class="orders-page-btn" disabled>Previous</button>
@@ -56,5 +42,30 @@
       <button class="orders-page-btn" disabled>Next</button>
       <button class="orders-page-btn" disabled>Last</button>
     </div>
+  </div>
+</div>
+
+<!-- Modal for View/Edit Order -->
+<div id="orderModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <span class="modal-close" onclick="document.getElementById('orderModal').style.display='none'">&times;</span>
+    <h3>Order Details</h3>
+    <p><strong>Order ID:</strong> <span id="modal-order-id">-</span></p>
+    <p><strong>Customer:</strong> <span id="modal-customer-name">-</span></p>
+    <p><strong>Status:</strong>
+      <select id="order-status">
+        <option value="Pending">Pending</option>
+        <option value="Confirmed">Confirmed</option>
+        <option value="Out for Delivery">Out for Delivery</option>
+        <option value="Delivered">Delivered</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+    </p>
+    <p><strong>Assign Driver:</strong>
+      <select id="order-driver">
+        <option value="">-- Select Driver --</option>
+      </select>
+    </p>
+    <button id="order-save-btn">Save Changes</button>
   </div>
 </div>
