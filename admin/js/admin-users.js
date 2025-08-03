@@ -1,6 +1,7 @@
 // admin/js/admin-users.js
 
-// Initialize users tab when loaded
+// Full logic with modal, profile link, filters, status toggle, and actions
+
 function initAdminUsers() {
   loadFilterState();
   fetchAndRenderUsers();
@@ -77,7 +78,7 @@ function renderUsersTable(users) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${idx + 1}</td>
-      <td>${user.name || '-'}</td>
+      <td><a href="#myaccount/profile?id=${user.id}" class="table-link">${user.name}</a></td>
       <td>${user.email || '-'}</td>
       <td>${user.phone || '-'}</td>
       <td>${user.type || '-'}</td>
@@ -111,15 +112,13 @@ async function openViewUserModal(userId) {
     modal.querySelector('#user-modal-form').style.display = 'none';
     const view = modal.querySelector('#user-modal-view');
     view.innerHTML = `
-      <div style="margin-bottom:12px;"><b>Name:</b> ${user.name || '-'}</div>
-      <div style="margin-bottom:12px;"><b>Email:</b> ${user.email || '-'}</div>
-      <div style="margin-bottom:12px;"><b>Phone:</b> ${user.phone || '-'}</div>
-      <div style="margin-bottom:12px;"><b>Type:</b> ${user.type || '-'}</div>
-      <div style="margin-bottom:12px;"><b>Status:</b> ${user.status || '-'}</div>
-      <div style="margin-bottom:12px;"><b>Last Active:</b> ${user.last_active || '-'}</div>
-      <div class="modal-actions">
-        <button type="button" id="user-modal-close-view" class="action-btn button">Close</button>
-      </div>
+      <div><b>Name:</b> ${user.name || '-'}</div>
+      <div><b>Email:</b> ${user.email || '-'}</div>
+      <div><b>Phone:</b> ${user.phone || '-'}</div>
+      <div><b>Type:</b> ${user.type || '-'}</div>
+      <div><b>Status:</b> ${user.status || '-'}</div>
+      <div><b>Last Active:</b> ${user.last_active || '-'}</div>
+      <div class="modal-actions"><button type="button" id="user-modal-close-view" class="action-btn button">Close</button></div>
     `;
     view.style.display = 'block';
     modalBg.style.display = 'block';
