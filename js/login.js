@@ -31,7 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      localStorage.setItem("wattsun_user", JSON.stringify(data.user));
+      localStorage.setItem("wattsun_user", JSON.stringify({ success: true, user: data.user }));
       window.location.href = "/admin/index.html";
     } catch (err) {
       loginError.textContent = "Server error. Please try again.";
