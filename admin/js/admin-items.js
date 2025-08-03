@@ -53,7 +53,6 @@ function renderItemsTable(items) {
     `;
     tbody.appendChild(tr);
   });
-  });
 }
 
 // --- MODAL MANAGEMENT ---
