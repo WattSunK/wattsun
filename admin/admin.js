@@ -1,3 +1,4 @@
+
 // admin.js for Wattsun Solar Admin Panel
 // Robust role checking and debug logging
 
@@ -27,7 +28,10 @@ function loadLayoutPartials() {
   fetch('partials/sidebar.html')
     .then(res => res.text())
     .then(html => {
-      document.getElementById('sidebar-container').innerHTML = html;
+      const sidebarContainer = document.getElementById('sidebar-container');
+      sidebarContainer.innerHTML = html;
+      sidebarContainer.classList.add('sidebar-loaded'); // ✅ ADDED HERE
+
       updateSidebarUserInfo();
 
       const user = getLoggedInUser();
@@ -110,17 +114,17 @@ function loadSection(section) {
       }
 
       if (section === 'users' && role === 'admin') {
-  const oldScript = document.getElementById('admin-users-js-script');
-  if (oldScript) oldScript.remove();
+        const oldScript = document.getElementById('admin-users-js-script');
+        if (oldScript) oldScript.remove();
 
-  const script = document.createElement('script');
-script.src = '/admin/js/admin-users.js';
-  script.id = 'admin-users-js-script';
-  script.onload = () => {
-    if (typeof initAdminUsers === 'function') initAdminUsers();
-  };
-  document.body.appendChild(script);
-}
+        const script = document.createElement('script');
+        script.src = '/admin/js/admin-users.js';
+        script.id = 'admin-users-js-script';
+        script.onload = () => {
+          if (typeof initAdminUsers === 'function') initAdminUsers();
+        };
+        document.body.appendChild(script);
+      }
 
     });
 
