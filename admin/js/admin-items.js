@@ -1,13 +1,11 @@
-// ✅ FIXED admin-items.js
+// ✅ FINAL FULL VERSION of admin-items.js with fixes
 
 document.addEventListener('DOMContentLoaded', function () {
   fetchAndRenderItems();
 
-  // Toolbar actions
   document.getElementById('add-item-btn')?.addEventListener('click', openAddItemModal);
   document.getElementById('manage-categories-btn')?.addEventListener('click', openCategoriesModal);
 
-  // Table actions (event delegation)
   document.getElementById('items-table')?.addEventListener('click', function(e) {
     const btn = e.target.closest('button');
     if (!btn) return;
@@ -21,7 +19,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // Modal close events
   document.body.addEventListener('click', function (e) {
     const modalBg = document.getElementById('item-modal-bg');
     if (modalBg && modalBg.style.display !== 'none' && e.target === modalBg) {
@@ -60,7 +57,12 @@ function renderItemsTable(items) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${idx + 1}</td>
-      <td>${item.image ? `<img src="${item.image}" class="item-thumb" alt="Item">` : ''}</td>
+      <td>
+        <img src="${item.image || '/images/products/default.jpg'}"
+             class="item-thumb"
+             alt="Item"
+             onerror="this.src='/images/products/default.jpg';">
+      </td>
       <td>${item.name || '-'}</td>
       <td>${item.sku || '-'}</td>
       <td>${item.category || '-'}</td>
@@ -243,8 +245,6 @@ function openCategoriesModal() {
   alert('Categories management coming soon!');
 }
 
-// ✅ Ensure this is called when section is dynamically loaded
 window.initAdminItems = function () {
   fetchAndRenderItems();
-  document.dispatchEvent(new Event('DOMContentLoaded'));
 };
