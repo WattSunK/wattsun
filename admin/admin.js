@@ -1,4 +1,3 @@
-
 // admin.js for Wattsun Solar Admin Panel
 // Robust role checking and debug logging
 
@@ -28,10 +27,7 @@ function loadLayoutPartials() {
   fetch('partials/sidebar.html')
     .then(res => res.text())
     .then(html => {
-      const sidebarContainer = document.getElementById('sidebar-container');
-      sidebarContainer.innerHTML = html;
-      sidebarContainer.classList.add('sidebar-loaded'); // ✅ ADDED HERE
-
+      document.getElementById('sidebar-container').innerHTML = html;
       updateSidebarUserInfo();
 
       const user = getLoggedInUser();
@@ -68,17 +64,19 @@ function loadSection(section) {
   const role = user && typeof user.type === 'string' ? user.type.trim().toLowerCase() : '';
   currentSection = section;
 
+  const cleanSection = section.split('?')[0];
+
   if ([
     'users', 'items', 'dispatch', 'settings'
-  ].includes(section) && role !== 'admin') {
+  ].includes(cleanSection) && role !== 'admin') {
     alert('Access denied: Admins only');
     window.location.hash = 'dashboard';
     section = 'dashboard';
   }
 
-  let file = section.startsWith('myaccount/')
-    ? `partials/myaccount/${section.split('/')[1]}.html`
-    : `partials/${section}.html`;
+  let file = cleanSection.startsWith('myaccount/')
+    ? `partials/myaccount/${cleanSection.split('/')[1]}.html`
+    : `partials/${cleanSection}.html`;
 
   fetch(file)
     .then(res => res.text())
@@ -86,34 +84,34 @@ function loadSection(section) {
       document.getElementById('main-content').innerHTML = html;
 
       if (window.AdminPartials) {
-        if (section === 'dashboard' && typeof window.AdminPartials.loadDashboard === 'function') {
+        if (cleanSection === 'dashboard' && typeof window.AdminPartials.loadDashboard === 'function') {
           window.AdminPartials.loadDashboard();
         }
-        if (section === 'users' && typeof window.AdminPartials.loadUsers === 'function') {
+        if (cleanSection === 'users' && typeof window.AdminPartials.loadUsers === 'function') {
           window.AdminPartials.loadUsers();
         }
-        if (section === 'myaccount/profile' && typeof window.AdminPartials.loadProfile === 'function') {
+        if (cleanSection === 'myaccount/profile' && typeof window.AdminPartials.loadProfile === 'function') {
           window.AdminPartials.loadProfile();
         }
-        if (section === 'myaccount/orders' && typeof window.AdminPartials.loadOrders === 'function') {
+        if (cleanSection === 'myaccount/orders' && typeof window.AdminPartials.loadOrders === 'function') {
           window.AdminPartials.loadOrders();
         }
-        if (section === 'myaccount/addresses' && typeof window.AdminPartials.loadAddresses === 'function') {
+        if (cleanSection === 'myaccount/addresses' && typeof window.AdminPartials.loadAddresses === 'function') {
           window.AdminPartials.loadAddresses();
         }
-        if (section === 'myaccount/payments' && typeof window.AdminPartials.loadPayments === 'function') {
+        if (cleanSection === 'myaccount/payments' && typeof window.AdminPartials.loadPayments === 'function') {
           window.AdminPartials.loadPayments();
         }
-        if (section === 'myaccount/email-settings' && typeof window.AdminPartials.loadEmailSettings === 'function') {
+        if (cleanSection === 'myaccount/email-settings' && typeof window.AdminPartials.loadEmailSettings === 'function') {
           window.AdminPartials.loadEmailSettings();
         }
       }
 
-      if (section === 'items' && typeof window.initAdminItems === 'function') {
+      if (cleanSection === 'items' && typeof window.initAdminItems === 'function') {
         window.initAdminItems();
       }
 
-      if (section === 'users' && role === 'admin') {
+      if (cleanSection === 'users' && role === 'admin') {
         const oldScript = document.getElementById('admin-users-js-script');
         if (oldScript) oldScript.remove();
 
@@ -125,10 +123,9 @@ function loadSection(section) {
         };
         document.body.appendChild(script);
       }
-
     });
 
-  window.location.hash = section;
+  window.location.hash = cleanSection;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -143,6 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
   loadLayoutPartials();
 
   let initialSection = window.location.hash ? window.location.hash.substring(1) : 'dashboard';
+  initialSection = initialSection.split('?')[0];
+
   if ([
     'users', 'items', 'dispatch', 'settings'
   ].includes(initialSection) && role !== 'admin') {
@@ -155,9 +154,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.matches('[data-section]')) {
       e.preventDefault();
       const section = e.target.getAttribute('data-section');
+      const clean = section.split('?')[0];
       if ([
         'users', 'items', 'dispatch', 'settings'
-      ].includes(section) && role !== 'admin') {
+      ].includes(clean) && role !== 'admin') {
         alert('Access denied: Admins only');
         return;
       }
@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   window.addEventListener('hashchange', () => {
-    let sec = window.location.hash.replace('#', '');
+    let sec = window.location.hash.replace('#', '').split('?')[0];
     if ([
       'users', 'items', 'dispatch', 'settings'
     ].includes(sec) && role !== 'admin') {
