@@ -29,9 +29,11 @@ function renderItemsTable(items) {
   tbody.innerHTML = '';
   items.forEach((item, idx) => {
     const tr = document.createElement('tr');
-    const activeStatus = item.active
-      ? '<span class="status-badge active">Active</span>'
-      : '<span class="status-badge inactive">Inactive</span>';
+    const activeStatus = `
+      <label class="switch">
+        <input type="checkbox" class="inline-status-toggle" data-sku="${item.sku}" ${item.active ? 'checked' : ''}>
+        <span class="slider"></span>
+      </label>`;
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td>
@@ -89,8 +91,7 @@ function styleModal() {
   const cancel = modal.querySelector('#item-modal-cancel');
   const close = modal.querySelector('#item-modal-close');
   [save, cancel, close].forEach(btn => btn.classList.add('button'));
-  const checkbox = modal.querySelector('#item-modal-active');
-  if (checkbox) setupSlideToggle(checkbox);
+  // (removed toggle styling from modal)
 }
 
 // --- ADD ---
@@ -223,6 +224,18 @@ async function openEditItemModal(sku) {
 }
 
 // --- DELETE / TOGGLE / CATEGORIES ---
+async function toggleItemStatusDirect(sku, active) {
+  try {
+    const resp = await fetch(`/api/items/${encodeURIComponent(sku)}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active })
+    });
+    if (!resp.ok) throw new Error('Failed to update');
+  } catch (err) {
+    alert('Could not update status.');
+  }
+}
 function confirmDeleteItem(sku) {
   if (!confirm('Are you sure you want to delete this item?')) return;
   deleteItem(sku);
@@ -263,6 +276,13 @@ function openCategoriesModal() {
 
 // --- INIT ENTRYPOINT ---
 window.initAdminItems = function () {
+  document.getElementById('items-table')?.addEventListener('change', function(e) {
+    const checkbox = e.target.closest('input.inline-status-toggle');
+    if (!checkbox) return;
+    const sku = checkbox.getAttribute('data-sku');
+    const active = checkbox.checked;
+    toggleItemStatusDirect(sku, active);
+  });
   fetchAndRenderItems();
 
   document.getElementById('add-item-btn')?.addEventListener('click', openAddItemModal);
