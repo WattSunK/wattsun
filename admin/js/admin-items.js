@@ -1,5 +1,9 @@
-// ✅ FINAL FULL VERSION of admin-items.js with fixes
+// ✅ FINAL FULL VERSION of admin-items.js with UI enhancements
 
+// Format popup layout and use slide toggle for status
+// Retains all existing logic and binds Manage Categories
+
+// --- FETCH AND RENDER ---
 async function fetchAndRenderItems() {
   const tbody = document.getElementById('items-table-body');
   if (!tbody) return;
@@ -52,6 +56,7 @@ function renderItemsTable(items) {
   });
 }
 
+// --- MODAL MANAGEMENT ---
 function closeItemModal() {
   const modalBg = document.getElementById('item-modal-bg');
   const modal = document.getElementById('item-modal');
@@ -59,6 +64,31 @@ function closeItemModal() {
   if (modal) modal.style.display = 'none';
 }
 
+function setupSlideToggle(input) {
+  const toggle = document.createElement('label');
+  toggle.className = 'switch';
+  toggle.innerHTML = `
+    <input type="checkbox" ${input.checked ? 'checked' : ''} id="${input.id}">
+    <span class="slider round"></span>
+  `;
+  input.replaceWith(toggle.querySelector('input'));
+  input.parentElement.appendChild(toggle);
+}
+
+function styleModal() {
+  const modal = document.getElementById('item-modal');
+  modal.classList.add('admin-modal');
+  const inputs = modal.querySelectorAll('input, textarea');
+  inputs.forEach(el => el.classList.add('input-field'));
+  const save = modal.querySelector('#item-modal-save');
+  const cancel = modal.querySelector('#item-modal-cancel');
+  const close = modal.querySelector('#item-modal-close');
+  [save, cancel, close].forEach(btn => btn.classList.add('button'));
+  const checkbox = modal.querySelector('#item-modal-active');
+  if (checkbox) setupSlideToggle(checkbox);
+}
+
+// --- ADD ---
 function openAddItemModal() {
   const modalBg = document.getElementById('item-modal-bg');
   const modal = document.getElementById('item-modal');
@@ -81,6 +111,8 @@ function openAddItemModal() {
   const newSave = form.querySelector('#item-modal-save');
   const newCancel = form.querySelector('#item-modal-cancel');
   const newClose = modal.querySelector('#item-modal-close');
+
+  styleModal();
 
   newSave.onclick = async function (e) {
     e.preventDefault();
@@ -112,6 +144,7 @@ function openAddItemModal() {
   newClose.onclick = closeItemModal;
 }
 
+// --- EDIT ---
 async function openEditItemModal(sku) {
   try {
     const resp = await fetch(`/api/items/${encodeURIComponent(sku)}`);
@@ -145,6 +178,8 @@ async function openEditItemModal(sku) {
     const newSave = form.querySelector('#item-modal-save');
     const newCancel = form.querySelector('#item-modal-cancel');
     const newClose = modal.querySelector('#item-modal-close');
+
+    styleModal();
 
     newSave.onclick = async function (e) {
       e.preventDefault();
@@ -181,6 +216,7 @@ async function openEditItemModal(sku) {
   }
 }
 
+// --- DELETE / TOGGLE / CATEGORIES ---
 function confirmDeleteItem(sku) {
   if (!confirm('Are you sure you want to delete this item?')) return;
   deleteItem(sku);
@@ -212,9 +248,14 @@ async function toggleItemActive(sku, btn) {
 }
 
 function openCategoriesModal() {
-  alert('Categories management coming soon!');
+  const modal = document.getElementById('categoriesModal');
+  if (!modal) return;
+  modal.style.display = 'block';
+  const closeBtn = document.getElementById('closeCategoriesModal');
+  closeBtn.onclick = () => (modal.style.display = 'none');
 }
 
+// --- INIT ENTRYPOINT ---
 window.initAdminItems = function () {
   fetchAndRenderItems();
 
@@ -225,7 +266,6 @@ window.initAdminItems = function () {
     const btn = e.target.closest('button');
     if (!btn) return;
     const sku = btn.getAttribute('data-sku');
-    console.log("Button clicked:", btn.className, sku);
     if (btn.classList.contains('edit-item-btn')) {
       openEditItemModal(sku);
     } else if (btn.classList.contains('delete-item-btn')) {
