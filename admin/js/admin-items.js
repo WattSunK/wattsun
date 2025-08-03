@@ -58,10 +58,10 @@ function renderItemsTable(items) {
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td>
-        <img src="${item.image || '/images/products/default.jpg'}"
+        <img src="${item.image || '/images/products/placeholder.jpg'}"
              class="item-thumb"
              alt="Item"
-             onerror="this.src='/images/products/default.jpg';">
+             onerror="this.onerror=null;this.src='/images/products/placeholder.jpg';">
       </td>
       <td>${item.name || '-'}</td>
       <td>${item.sku || '-'}</td>
