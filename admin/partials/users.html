@@ -67,7 +67,7 @@
 
   <!-- User Modal -->
   <div id="user-modal-bg" class="modal-bg" style="display:none;">
-    <div class="modal admin-modal" id="user-modal">
+    <div class="modal admin-modal" id="user-modal" style="display:flex;flex-direction:column;justify-content:center;align-items:center;">
       <button class="modal-close" id="user-modal-close" title="Close">&times;</button>
       <h3 id="user-modal-title">Edit User</h3>
       <form id="user-modal-form" class="account-form" style="display:none;">
@@ -96,7 +96,19 @@
         </div>
         <div id="user-modal-message" style="margin-top:8px;font-size:0.97em;"></div>
       </form>
-      <div id="user-modal-view" style="display:none;"></div>
+      <div id="user-modal-view" class="account-form" style="display:none;padding:16px 20px;max-width:450px;">
+        <div class="account-form-fields">
+          <div><strong>Name:</strong> <span id="view-name"></span></div>
+          <div><strong>Email:</strong> <span id="view-email"></span></div>
+          <div><strong>Phone:</strong> <span id="view-phone"></span></div>
+          <div><strong>Type:</strong> <span id="view-type"></span></div>
+          <div><strong>Status:</strong> <span id="view-status"></span></div>
+          <div><strong>Last Active:</strong> <span id="view-lastactive"></span></div>
+        </div>
+        <div class="account-actions">
+          <button type="button" id="user-modal-close-view" class="account-btn">Close</button>
+        </div>
+      </div>
     </div>
   </div>
 
