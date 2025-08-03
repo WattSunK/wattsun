@@ -110,25 +110,18 @@ function loadSection(section) {
       }
 
       if (section === 'users' && role === 'admin') {
-        ['users-js-script', 'admin-users-js-script'].forEach(id => {
-          const oldScript = document.getElementById(id);
-          if (oldScript) oldScript.remove();
-        });
+  const oldScript = document.getElementById('admin-users-js-script');
+  if (oldScript) oldScript.remove();
 
-        const script1 = document.createElement('script');
-        script1.src = 'admin/js/users.js';
-        script1.id = 'users-js-script';
-        script1.onload = () => {
-          const script2 = document.createElement('script');
-          script2.src = 'admin/js/admin-users.js';
-          script2.id = 'admin-users-js-script';
-          script2.onload = () => {
-            if (typeof initAdminUsers === 'function') initAdminUsers();
-          };
-          document.body.appendChild(script2);
-        };
-        document.body.appendChild(script1);
-      }
+  const script = document.createElement('script');
+  script.src = 'admin/js/admin-users.js';
+  script.id = 'admin-users-js-script';
+  script.onload = () => {
+    if (typeof initAdminUsers === 'function') initAdminUsers();
+  };
+  document.body.appendChild(script);
+}
+
     });
 
   window.location.hash = section;
