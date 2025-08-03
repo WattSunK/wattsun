@@ -116,11 +116,11 @@ function loadSection(section) {
         });
 
         const script1 = document.createElement('script');
-        script1.src = 'js/users.js';
+        script1.src = 'admin/js/users.js';
         script1.id = 'users-js-script';
         script1.onload = () => {
           const script2 = document.createElement('script');
-          script2.src = 'js/admin-users.js';
+          script2.src = 'admin/js/admin-users.js';
           script2.id = 'admin-users-js-script';
           script2.onload = () => {
             if (typeof initAdminUsers === 'function') initAdminUsers();
