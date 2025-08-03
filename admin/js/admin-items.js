@@ -1,18 +1,5 @@
 // ✅ FINAL FULL VERSION of admin-items.js with fixes
 
-
-
-  document.body.addEventListener('click', function (e) {
-    const modalBg = document.getElementById('item-modal-bg');
-    if (modalBg && modalBg.style.display !== 'none' && e.target === modalBg) {
-      closeItemModal();
-    }
-    if (e.target.classList.contains('modal-close')) {
-      closeItemModal();
-    }
-  });
-});
-
 async function fetchAndRenderItems() {
   const tbody = document.getElementById('items-table-body');
   if (!tbody) return;
