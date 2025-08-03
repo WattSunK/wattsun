@@ -50,24 +50,14 @@
         </tr>
       </thead>
       <tbody id="users-table-body">
-        <!-- Rendered dynamically: name cell becomes link to #myaccount/profile?id=... -->
+        <!-- Rendered dynamically -->
       </tbody>
     </table>
-    <div class="items-pagination">
-      <span id="pagination-info">Showing 0 of 0 entries</span>
-      <div>
-        <button class="items-page-btn" disabled>First</button>
-        <button class="items-page-btn" disabled>Previous</button>
-        <button class="items-page-btn active">1</button>
-        <button class="items-page-btn" disabled>Next</button>
-        <button class="items-page-btn" disabled>Last</button>
-      </div>
-    </div>
   </div>
 
   <!-- User Modal -->
   <div id="user-modal-bg" class="modal-bg" style="display:none;">
-    <div class="modal admin-modal" id="user-modal" style="display:flex;flex-direction:column;justify-content:center;align-items:center;">
+    <div class="modal admin-modal" id="user-modal">
       <button class="modal-close" id="user-modal-close" title="Close">&times;</button>
       <h3 id="user-modal-title">Edit User</h3>
       <form id="user-modal-form" class="account-form" style="display:none;">
@@ -96,7 +86,7 @@
         </div>
         <div id="user-modal-message" style="margin-top:8px;font-size:0.97em;"></div>
       </form>
-      <div id="user-modal-view" class="account-form" style="display:none;padding:16px 20px;max-width:450px;">
+      <div id="user-modal-view" class="account-form" style="display:none;">
         <div class="account-form-fields">
           <div><strong>Name:</strong> <span id="view-name"></span></div>
           <div><strong>Email:</strong> <span id="view-email"></span></div>
