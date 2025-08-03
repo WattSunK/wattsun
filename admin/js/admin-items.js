@@ -33,7 +33,8 @@ function renderItemsTable(items) {
       <label class="switch">
         <input type="checkbox" class="inline-status-toggle" data-sku="${item.sku}" ${item.active ? 'checked' : ''}>
         <span class="slider"></span>
-      </label>`;
+      </label>
+      <span class="status-label">${item.active ? 'Active' : 'Inactive'}</span>`;
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td>

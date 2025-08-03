@@ -1306,3 +1306,9 @@ input:checked + .slider {
 input:checked + .slider:before {
   transform: translateX(22px);
 }
+.status-label {
+  margin-left: 8px;
+  font-size: 0.85em;
+  color: #333;
+  vertical-align: middle;
+}
