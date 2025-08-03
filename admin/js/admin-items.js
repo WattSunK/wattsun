@@ -1,4 +1,4 @@
-// admin/js/admin-items.js
+// ✅ FIXED admin-items.js
 
 document.addEventListener('DOMContentLoaded', function () {
   fetchAndRenderItems();
@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // Modal close events (delegated)
+  // Modal close events
   document.body.addEventListener('click', function (e) {
     const modalBg = document.getElementById('item-modal-bg');
     if (modalBg && modalBg.style.display !== 'none' && e.target === modalBg) {
@@ -33,7 +33,6 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
-// Fetch and render items table
 async function fetchAndRenderItems() {
   const tbody = document.getElementById('items-table-body');
   if (!tbody) return;
@@ -41,8 +40,7 @@ async function fetchAndRenderItems() {
   try {
     const response = await fetch('/api/items');
     if (!response.ok) throw new Error('Network response was not ok');
-    let items = await response.json();
-
+    const items = await response.json();
     renderItemsTable(items);
   } catch (error) {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:red;">Error loading items</td></tr>`;
@@ -53,7 +51,7 @@ async function fetchAndRenderItems() {
 function renderItemsTable(items) {
   const tbody = document.getElementById('items-table-body');
   if (!tbody) return;
-  if (!items || !Array.isArray(items) || items.length === 0) {
+  if (!Array.isArray(items) || items.length === 0) {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">No items found</td></tr>`;
     return;
   }
@@ -62,9 +60,7 @@ function renderItemsTable(items) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${idx + 1}</td>
-      <td>
-        ${item.image ? `<img src="${item.image}" class="item-thumb" alt="Item">` : ''}
-      </td>
+      <td>${item.image ? `<img src="${item.image}" class="item-thumb" alt="Item">` : ''}</td>
       <td>${item.name || '-'}</td>
       <td>${item.sku || '-'}</td>
       <td>${item.category || '-'}</td>
@@ -84,29 +80,25 @@ function renderItemsTable(items) {
   });
 }
 
-// --- Add/Edit/Delete logic ---
-
 function closeItemModal() {
-  let modalBg = document.getElementById('item-modal-bg');
-  let modal = document.getElementById('item-modal');
+  const modalBg = document.getElementById('item-modal-bg');
+  const modal = document.getElementById('item-modal');
   if (modalBg) modalBg.style.display = 'none';
   if (modal) modal.style.display = 'none';
 }
 
-// Add Item
 function openAddItemModal() {
-  let modalBg = document.getElementById('item-modal-bg');
-  let modal = document.getElementById('item-modal');
+  const modalBg = document.getElementById('item-modal-bg');
+  const modal = document.getElementById('item-modal');
   if (!modalBg || !modal) return;
   modal.querySelector('#item-modal-title').innerText = 'Add Item';
-  let form = modal.querySelector('#item-modal-form');
+  const form = modal.querySelector('#item-modal-form');
   form.reset();
   form.style.display = 'block';
   modal.querySelector('#item-modal-message').innerText = '';
   modalBg.style.display = 'block';
   modal.style.display = 'block';
 
-  // Remove old handlers
   const saveBtn = form.querySelector('#item-modal-save');
   const cancelBtn = form.querySelector('#item-modal-cancel');
   const closeBtn = modal.querySelector('#item-modal-close');
@@ -114,7 +106,6 @@ function openAddItemModal() {
   cancelBtn.replaceWith(cancelBtn.cloneNode(true));
   closeBtn.replaceWith(closeBtn.cloneNode(true));
 
-  // Get fresh references
   const newSave = form.querySelector('#item-modal-save');
   const newCancel = form.querySelector('#item-modal-cancel');
   const newClose = modal.querySelector('#item-modal-close');
@@ -142,25 +133,24 @@ function openAddItemModal() {
       closeItemModal();
       fetchAndRenderItems();
     } catch (err) {
-      modal.querySelector('#item-modal-message').innerText = "Error: Could not add item.";
+      modal.querySelector('#item-modal-message').innerText = 'Error: Could not add item.';
     }
   };
   newCancel.onclick = closeItemModal;
   newClose.onclick = closeItemModal;
 }
 
-// Edit Item
 async function openEditItemModal(sku) {
   try {
     const resp = await fetch(`/api/items/${encodeURIComponent(sku)}`);
     if (!resp.ok) throw new Error('Item not found');
     const item = await resp.json();
 
-    let modalBg = document.getElementById('item-modal-bg');
-    let modal = document.getElementById('item-modal');
+    const modalBg = document.getElementById('item-modal-bg');
+    const modal = document.getElementById('item-modal');
     if (!modalBg || !modal) return;
     modal.querySelector('#item-modal-title').innerText = 'Edit Item';
-    let form = modal.querySelector('#item-modal-form');
+    const form = modal.querySelector('#item-modal-form');
     form.style.display = 'block';
     modal.querySelector('#item-modal-message').innerText = '';
     form['item-modal-sku'].value = item.sku || '';
@@ -173,7 +163,6 @@ async function openEditItemModal(sku) {
     form['item-modal-category'].value = item.category || '';
     form['item-modal-active'].checked = !!item.active;
 
-    // Remove old handlers
     const saveBtn = form.querySelector('#item-modal-save');
     const cancelBtn = form.querySelector('#item-modal-cancel');
     const closeBtn = modal.querySelector('#item-modal-close');
@@ -181,7 +170,6 @@ async function openEditItemModal(sku) {
     cancelBtn.replaceWith(cancelBtn.cloneNode(true));
     closeBtn.replaceWith(closeBtn.cloneNode(true));
 
-    // Get fresh references
     const newSave = form.querySelector('#item-modal-save');
     const newCancel = form.querySelector('#item-modal-cancel');
     const newClose = modal.querySelector('#item-modal-close');
@@ -208,7 +196,7 @@ async function openEditItemModal(sku) {
         closeItemModal();
         fetchAndRenderItems();
       } catch (err) {
-        modal.querySelector('#item-modal-message').innerText = "Error: Could not update item.";
+        modal.querySelector('#item-modal-message').innerText = 'Error: Could not update item.';
       }
     };
     newCancel.onclick = closeItemModal;
@@ -221,11 +209,11 @@ async function openEditItemModal(sku) {
   }
 }
 
-// Delete Item
 function confirmDeleteItem(sku) {
   if (!confirm('Are you sure you want to delete this item?')) return;
   deleteItem(sku);
 }
+
 async function deleteItem(sku) {
   try {
     const resp = await fetch(`/api/items/${encodeURIComponent(sku)}`, { method: 'DELETE' });
@@ -236,7 +224,6 @@ async function deleteItem(sku) {
   }
 }
 
-// Activate/Deactivate Item
 async function toggleItemActive(sku, btn) {
   try {
     const isActive = btn.textContent.trim() === 'Deactivate';
@@ -252,7 +239,12 @@ async function toggleItemActive(sku, btn) {
   }
 }
 
-// Categories Modal - stub (expand as needed)
 function openCategoriesModal() {
   alert('Categories management coming soon!');
 }
+
+// ✅ Ensure this is called when section is dynamically loaded
+window.initAdminItems = function () {
+  fetchAndRenderItems();
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+};

@@ -1,3 +1,4 @@
+<!-- ✅ FIXED partials/items.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -31,7 +32,7 @@
     <button class="items-btn items-btn-clear">Clear</button>
   </div>
   <div class="items-table-wrapper">
-    <table class="items-table">
+    <table class="items-table" id="items-table">
       <thead>
         <tr>
           <th>SL NO.</th>
@@ -45,35 +46,32 @@
           <th>ACTION</th>
         </tr>
       </thead>
-      <tbody>
-        <!-- Rows will be rendered dynamically by admin-items.js -->
+      <tbody id="items-table-body">
+        <!-- Rows will be rendered dynamically -->
       </tbody>
     </table>
-    <div class="items-pagination">
-      <span>Showing 1 to 1 of 1 entries</span>
-      <div>
-        <button class="items-page-btn" disabled>First</button>
-        <button class="items-page-btn" disabled>Previous</button>
-        <button class="items-page-btn active">1</button>
-        <button class="items-page-btn" disabled>Next</button>
-        <button class="items-page-btn" disabled>Last</button>
-      </div>
+  </div>
+
+  <!-- ✅ Add/edit modal required by admin-items.js -->
+  <div id="item-modal-bg" class="modal-bg" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4);">
+    <div id="item-modal" class="modal-content" style="background:#fff; width:90%; max-width:500px; margin:10vh auto; padding:2rem; border-radius:1rem; position:relative;">
+      <h3 id="item-modal-title">Add/Edit Item</h3>
+      <form id="item-modal-form">
+        <input type="text" id="item-modal-sku" name="item-modal-sku" placeholder="SKU" required><br>
+        <input type="text" id="item-modal-name" name="item-modal-name" placeholder="Name" required><br>
+        <textarea id="item-modal-description" name="item-modal-description" placeholder="Description" required></textarea><br>
+        <input type="number" id="item-modal-price" name="item-modal-price" placeholder="Price" required><br>
+        <input type="text" id="item-modal-warranty" name="item-modal-warranty" placeholder="Warranty"><br>
+        <input type="number" id="item-modal-stock" name="item-modal-stock" placeholder="Stock"><br>
+        <input type="text" id="item-modal-image" name="item-modal-image" placeholder="Image URL"><br>
+        <input type="text" id="item-modal-category" name="item-modal-category" placeholder="Category" required><br>
+        <label><input type="checkbox" id="item-modal-active" name="item-modal-active"> Active</label><br>
+        <div id="item-modal-message" style="color:red; font-size:0.9rem;"></div>
+        <button type="submit" id="item-modal-save">Save</button>
+        <button type="button" id="item-modal-cancel">Cancel</button>
+        <button type="button" id="item-modal-close" class="modal-close">X</button>
+      </form>
     </div>
   </div>
-  <!-- Categories Management Modal -->
-  <div id="categoriesModal" class="modal">
-    <div class="modal-content" style="width:400px; padding:2rem; border-radius:1rem; background:#fff; position:relative;">
-      <span id="closeCategoriesModal" class="close">&times;</span>
-      <h2 style="margin-top:0;">Manage Categories</h2>
-      <ul id="categoriesList" style="list-style:none; padding:0; margin-bottom:1rem; min-height:48px;">
-        <li style="color:#999;font-size:1rem;">(Category list will appear here)</li>
-      </ul>
-      <div style="display:flex; gap: 0.5rem;">
-        <input type="text" id="newCategoryInput" placeholder="New Category Name" style="flex:1; padding:0.5rem;">
-        <button id="addCategoryBtn" class="btn btn-success">Add</button>
-      </div>
-    </div>
-  </div>
-  <script src="js/admin-items.js"></script>
 </body>
 </html>
