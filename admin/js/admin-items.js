@@ -1,23 +1,6 @@
 // ✅ FINAL FULL VERSION of admin-items.js with fixes
 
-document.addEventListener('DOMContentLoaded', function () {
-  fetchAndRenderItems();
 
-  document.getElementById('add-item-btn')?.addEventListener('click', openAddItemModal);
-  document.getElementById('manage-categories-btn')?.addEventListener('click', openCategoriesModal);
-
-  document.getElementById('items-table')?.addEventListener('click', function(e) {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    const sku = btn.getAttribute('data-sku');
-    if (btn.classList.contains('edit-item-btn')) {
-      openEditItemModal(sku);
-    } else if (btn.classList.contains('delete-item-btn')) {
-      confirmDeleteItem(sku);
-    } else if (btn.classList.contains('toggle-active-btn')) {
-      toggleItemActive(sku, btn);
-    }
-  });
 
   document.body.addEventListener('click', function (e) {
     const modalBg = document.getElementById('item-modal-bg');
@@ -247,4 +230,31 @@ function openCategoriesModal() {
 
 window.initAdminItems = function () {
   fetchAndRenderItems();
+
+  document.getElementById('add-item-btn')?.addEventListener('click', openAddItemModal);
+  document.getElementById('manage-categories-btn')?.addEventListener('click', openCategoriesModal);
+
+  document.getElementById('items-table')?.addEventListener('click', function(e) {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const sku = btn.getAttribute('data-sku');
+    console.log("Button clicked:", btn.className, sku);
+    if (btn.classList.contains('edit-item-btn')) {
+      openEditItemModal(sku);
+    } else if (btn.classList.contains('delete-item-btn')) {
+      confirmDeleteItem(sku);
+    } else if (btn.classList.contains('toggle-active-btn')) {
+      toggleItemActive(sku, btn);
+    }
+  });
+
+  document.body.addEventListener('click', function (e) {
+    const modalBg = document.getElementById('item-modal-bg');
+    if (modalBg && modalBg.style.display !== 'none' && e.target === modalBg) {
+      closeItemModal();
+    }
+    if (e.target.classList.contains('modal-close')) {
+      closeItemModal();
+    }
+  });
 };
