@@ -3,7 +3,6 @@
 
 let currentSection = 'dashboard';
 
-// --- Get logged-in user from localStorage ---
 function getLoggedInUser() {
   try {
     return JSON.parse(localStorage.getItem('wattsun_user') || 'null');
@@ -12,7 +11,6 @@ function getLoggedInUser() {
   }
 }
 
-// --- Update sidebar user info ---
 function updateSidebarUserInfo() {
   const user = getLoggedInUser();
   const userDiv = document.getElementById('sidebar-user-info');
@@ -25,30 +23,22 @@ function updateSidebarUserInfo() {
   }
 }
 
-// --- Load sidebar, header, footer, and attach handlers ---
 function loadLayoutPartials() {
   fetch('partials/sidebar.html')
     .then(res => res.text())
     .then(html => {
       document.getElementById('sidebar-container').innerHTML = html;
-
-      // Update user info now that sidebar is loaded!
       updateSidebarUserInfo();
 
-      // Hardened admin role logic!
       const user = getLoggedInUser();
-      const role = user && typeof user.type === 'string'
-        ? user.type.trim().toLowerCase()
-        : '';
+      const role = user && typeof user.type === 'string' ? user.type.trim().toLowerCase() : '';
       console.log('User type (normalized):', role);
       if (role !== 'admin') {
         document.querySelectorAll('.sidebar .admin-only').forEach(el => el.style.display = 'none');
       } else {
-        // For debugging: log visible admin-only links
         console.log('Admin-only links:', document.querySelectorAll('.sidebar .admin-only'));
       }
 
-      // Attach logout handler
       const logoutBtn = document.querySelector('.sidebar .logout');
       if (logoutBtn) {
         logoutBtn.addEventListener('click', function (e) {
@@ -59,7 +49,6 @@ function loadLayoutPartials() {
       }
     });
 
-  // Header and footer
   fetch('partials/header.html')
     .then(res => res.text())
     .then(html => {
@@ -73,19 +62,14 @@ function loadLayoutPartials() {
     });
 }
 
-// --- Section loader with robust role-based access ---
 function loadSection(section) {
   const user = getLoggedInUser();
-  const role = user && typeof user.type === 'string'
-    ? user.type.trim().toLowerCase()
-    : '';
+  const role = user && typeof user.type === 'string' ? user.type.trim().toLowerCase() : '';
   currentSection = section;
 
-  // Admin-only tabs
-  if (
-    ['users', 'items', 'dispatch', 'settings'].includes(section) &&
-    role !== 'admin'
-  ) {
+  if ([
+    'users', 'items', 'dispatch', 'settings'
+  ].includes(section) && role !== 'admin') {
     alert('Access denied: Admins only');
     window.location.hash = 'dashboard';
     section = 'dashboard';
@@ -99,8 +83,6 @@ function loadSection(section) {
     .then(res => res.text())
     .then(html => {
       document.getElementById('main-content').innerHTML = html;
-
-      // --- Begin dynamic per-section JS logic ---
 
       if (window.AdminPartials) {
         if (section === 'dashboard' && typeof window.AdminPartials.loadDashboard === 'function') {
@@ -130,26 +112,35 @@ function loadSection(section) {
         initEmailSettings();
       }
 
-      // --- FIX: Explicitly run admin-items.js logic for items tab ---
       if (section === 'items' && typeof window.initAdminItems === 'function') {
         window.initAdminItems();
       }
 
-      // Load users.js only for users tab and only if admin
       if (section === 'users' && role === 'admin') {
-        var oldScript = document.getElementById('users-js-script');
-        if (oldScript) oldScript.remove();
-        var script = document.createElement('script');
-        script.src = 'js/users.js';
-        script.id = 'users-js-script';
-        document.body.appendChild(script);
+        ['users-js-script', 'admin-users-js-script'].forEach(id => {
+          const oldScript = document.getElementById(id);
+          if (oldScript) oldScript.remove();
+        });
+
+        const script1 = document.createElement('script');
+        script1.src = 'js/users.js';
+        script1.id = 'users-js-script';
+        script1.onload = () => {
+          const script2 = document.createElement('script');
+          script2.src = 'js/admin-users.js';
+          script2.id = 'admin-users-js-script';
+          script2.onload = () => {
+            if (typeof initAdminUsers === 'function') initAdminUsers();
+          };
+          document.body.appendChild(script2);
+        };
+        document.body.appendChild(script1);
       }
     });
 
   window.location.hash = section;
 }
 
-// --- Email settings helper (unchanged) ---
 function initEmailSettings() {
   async function fetchAdminEmail() {
     try {
@@ -213,41 +204,33 @@ function initEmailSettings() {
   fetchAdminEmail();
 }
 
-// --- Initial entrypoint: Check login and load page ---
 document.addEventListener('DOMContentLoaded', () => {
   const user = getLoggedInUser();
-  const role = user && typeof user.type === 'string'
-    ? user.type.trim().toLowerCase()
-    : '';
+  const role = user && typeof user.type === 'string' ? user.type.trim().toLowerCase() : '';
 
   if (!user) {
-    window.location.href = '/index.html'; // Not logged in: go to main site
+    window.location.href = '/index.html';
     return;
   }
 
   loadLayoutPartials();
 
-  // Don't default to admin-only tab for non-admin users
   let initialSection = window.location.hash ? window.location.hash.substring(1) : 'dashboard';
-  if (
-    ['users', 'items', 'dispatch', 'settings'].includes(initialSection) &&
-    role !== 'admin'
-  ) {
+  if ([
+    'users', 'items', 'dispatch', 'settings'
+  ].includes(initialSection) && role !== 'admin') {
     initialSection = 'dashboard';
     window.location.hash = 'dashboard';
   }
   loadSection(initialSection);
 
-  // Handle sidebar and tab navigation
   document.body.addEventListener('click', (e) => {
     if (e.target.matches('[data-section]')) {
       e.preventDefault();
       const section = e.target.getAttribute('data-section');
-      // Admin-only guard
-      if (
-        ['users', 'items', 'dispatch', 'settings'].includes(section) &&
-        role !== 'admin'
-      ) {
+      if ([
+        'users', 'items', 'dispatch', 'settings'
+      ].includes(section) && role !== 'admin') {
         alert('Access denied: Admins only');
         return;
       }
@@ -264,13 +247,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Handle direct links/hash changes
   window.addEventListener('hashchange', () => {
     let sec = window.location.hash.replace('#', '');
-    if (
-      ['users', 'items', 'dispatch', 'settings'].includes(sec) &&
-      role !== 'admin'
-    ) {
+    if ([
+      'users', 'items', 'dispatch', 'settings'
+    ].includes(sec) && role !== 'admin') {
       alert('Access denied: Admins only');
       window.location.hash = 'dashboard';
       sec = 'dashboard';

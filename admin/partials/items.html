@@ -1,77 +1,95 @@
-<!-- ✅ FIXED partials/items.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Admin - Items</title>
-  <link rel="stylesheet" href="admin.css">
-  <style>
-    .item-thumb {
-      width: 48px;
-      height: 48px;
-      object-fit: cover;
-      border-radius: 8px;
-      border: 1px solid #ddd;
-      background: #fafafa;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WattSun Admin - Items</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+  <script defer src="/admin/admin-items.js"></script>
 </head>
-<body>
-  <h2 class="items-title">Items</h2>
-  <div class="items-toolbar">
-    <button class="items-btn" id="add-item-btn">+ Add Item</button>
-    <button class="items-btn" id="manage-categories-btn">Manage Categories</button>
-    <select class="items-select">
-      <option>All Categories</option>
-      <option>Panels</option>
-      <option>Batteries</option>
-      <option>Inverters</option>
-    </select>
-    <input class="items-input" type="text" placeholder="Search by name/SKU/category">
-    <button class="items-btn">Search</button>
-    <button class="items-btn items-btn-clear">Clear</button>
-  </div>
-  <div class="items-table-wrapper">
-    <table class="items-table" id="items-table">
+<body onload="initAdminItems()">
+
+  <div class="admin-container">
+    <h1>Manage Items</h1>
+
+    <!-- Filters -->
+    <div class="filters">
+      <select id="item-category-filter">
+        <option value="All">All Categories</option>
+        <option value="Panels">Panels</option>
+        <option value="Batteries">Batteries</option>
+        <option value="Inverters">Inverters</option>
+      </select>
+
+      <input type="text" id="item-search-input" placeholder="Search by name/SKU/category">
+      <button id="search-btn">Search</button>
+      <button id="clear-btn">Clear</button>
+    </div>
+
+    <!-- Controls -->
+    <div class="actions">
+      <button id="add-item-btn">+ Add Item</button>
+      <button id="manage-categories-btn">Manage Categories</button>
+    </div>
+
+    <!-- Item Table -->
+    <table id="items-table">
       <thead>
         <tr>
-          <th>SL NO.</th>
-          <th>IMAGE</th>
-          <th>ITEM NAME</th>
+          <th>#</th>
+          <th>Image</th>
+          <th>Name</th>
           <th>SKU</th>
-          <th>CATEGORY</th>
-          <th>STOCK</th>
-          <th>UNIT PRICE</th>
-          <th>STATUS</th>
-          <th>ACTION</th>
+          <th>Category</th>
+          <th>Stock</th>
+          <th>Price</th>
+          <th>Status</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody id="items-table-body">
-        <!-- Rows will be rendered dynamically -->
+        <!-- Populated dynamically -->
       </tbody>
     </table>
   </div>
 
-  <!-- ✅ Add/edit modal required by admin-items.js -->
-  <div id="item-modal-bg" class="modal-bg" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4);">
-    <div id="item-modal" class="modal-content" style="background:#fff; width:90%; max-width:500px; margin:10vh auto; padding:2rem; border-radius:1rem; position:relative;">
-      <h3 id="item-modal-title">Add/Edit Item</h3>
+  <!-- Modal Container -->
+  <div id="item-modal-bg" class="modal-bg" style="display:none">
+    <div id="item-modal" class="admin-modal">
+      <div class="modal-header">
+        <h2 id="item-modal-title">Add Item</h2>
+        <button id="item-modal-close" class="modal-close">×</button>
+      </div>
       <form id="item-modal-form">
-        <input type="text" id="item-modal-sku" name="item-modal-sku" placeholder="SKU" required><br>
-        <input type="text" id="item-modal-name" name="item-modal-name" placeholder="Name" required><br>
-        <textarea id="item-modal-description" name="item-modal-description" placeholder="Description" required></textarea><br>
-        <input type="number" id="item-modal-price" name="item-modal-price" placeholder="Price" required><br>
-        <input type="text" id="item-modal-warranty" name="item-modal-warranty" placeholder="Warranty"><br>
-        <input type="number" id="item-modal-stock" name="item-modal-stock" placeholder="Stock"><br>
-        <input type="text" id="item-modal-image" name="item-modal-image" placeholder="Image URL"><br>
-        <input type="text" id="item-modal-category" name="item-modal-category" placeholder="Category" required><br>
-        <label><input type="checkbox" id="item-modal-active" name="item-modal-active"> Active</label><br>
-        <div id="item-modal-message" style="color:red; font-size:0.9rem;"></div>
-        <button type="submit" id="item-modal-save">Save</button>
-        <button type="button" id="item-modal-cancel">Cancel</button>
-        <button type="button" id="item-modal-close" class="modal-close">X</button>
+        <p id="item-modal-message" class="modal-message"></p>
+        <input id="item-modal-sku" name="item-modal-sku" placeholder="SKU" required>
+        <input id="item-modal-name" name="item-modal-name" placeholder="Name" required>
+        <textarea id="item-modal-description" name="item-modal-description" placeholder="Description"></textarea>
+        <input id="item-modal-price" name="item-modal-price" placeholder="Price" type="number">
+        <input id="item-modal-warranty" name="item-modal-warranty" placeholder="Warranty (months)" type="number">
+        <input id="item-modal-stock" name="item-modal-stock" placeholder="Stock" type="number">
+        <input id="item-modal-image" name="item-modal-image" placeholder="Image URL">
+        <input id="item-modal-category" name="item-modal-category" placeholder="Category">
+        <label><input id="item-modal-active" name="item-modal-active" type="checkbox"> Active</label>
+
+        <div class="modal-buttons">
+          <button type="submit" id="item-modal-save">Save</button>
+          <button type="button" id="item-modal-cancel">Cancel</button>
+        </div>
       </form>
     </div>
   </div>
+
+  <!-- Categories Modal -->
+  <div id="categoriesModal" class="admin-modal" style="display:none">
+    <div class="modal-header">
+      <h2>Manage Categories</h2>
+      <button id="closeCategoriesModal" class="modal-close">×</button>
+    </div>
+    <div class="modal-body">
+      <p>Category management UI coming soon.</p>
+    </div>
+  </div>
+
 </body>
 </html>

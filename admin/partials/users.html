@@ -50,7 +50,7 @@
         </tr>
       </thead>
       <tbody id="users-table-body">
-        <!-- User rows will be inserted here by users.js -->
+        <!-- Dynamic user rows inserted here -->
       </tbody>
     </table>
     <div class="items-pagination">
@@ -64,43 +64,45 @@
       </div>
     </div>
   </div>
+
   <!-- User Modal -->
   <div id="user-modal-bg" class="modal-bg" style="display:none;">
-    <div class="modal" id="user-modal">
+    <div class="modal admin-modal" id="user-modal">
       <button class="modal-close" id="user-modal-close" title="Close">&times;</button>
       <h3 id="user-modal-title">User Details</h3>
       <form id="user-modal-form" style="display:none;">
         <label for="user-modal-name">Name</label>
-        <input id="user-modal-name" type="text" required />
+        <input id="user-modal-name" class="input-field" type="text" required />
         <label for="user-modal-email">Email</label>
-        <input id="user-modal-email" type="email" required />
+        <input id="user-modal-email" class="input-field" type="email" required />
         <label for="user-modal-phone">Phone</label>
-        <input id="user-modal-phone" type="text" />
+        <input id="user-modal-phone" class="input-field" type="text" />
         <label for="user-modal-type">Type</label>
-        <select id="user-modal-type">
+        <select id="user-modal-type" class="input-field">
           <option value="Customer">Customer</option>
           <option value="Installer">Installer</option>
           <option value="Admin">Admin</option>
           <option value="Manufacturer">Manufacturer</option>
         </select>
         <label for="user-modal-status">Status</label>
-        <select id="user-modal-status">
+        <select id="user-modal-status" class="input-field">
           <option value="Active">Active</option>
           <option value="Inactive">Inactive</option>
         </select>
         <div class="modal-actions">
-          <button type="submit" id="user-modal-save" class="action-btn edit-btn">Save</button>
-          <button type="button" id="user-modal-cancel" class="action-btn delete-btn">Cancel</button>
+          <button type="submit" id="user-modal-save" class="action-btn edit-btn button">Save</button>
+          <button type="button" id="user-modal-cancel" class="action-btn delete-btn button">Cancel</button>
         </div>
         <div id="user-modal-message" style="margin-top:8px;font-size:0.97em;"></div>
       </form>
       <div id="user-modal-view" style="display:none;">
         <div class="modal-actions">
-          <button type="button" id="user-modal-close-view" class="action-btn">Close</button>
+          <button type="button" id="user-modal-close-view" class="action-btn button">Close</button>
         </div>
       </div>
     </div>
   </div>
+
   <style>
     .visually-hidden {
       position: absolute !important;
