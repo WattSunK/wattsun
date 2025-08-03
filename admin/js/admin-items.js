@@ -143,29 +143,10 @@ function openAddItemModal() {
       if (!resp.ok) throw new Error('Failed to add');
       closeItemModal();
       fetchAndRenderItems();
-
-  document.getElementById('search-btn')?.addEventListener('click', function () {
-    const query = document.getElementById('item-search-input')?.value.trim().toLowerCase() || '';
-    const category = document.getElementById('item-category-filter')?.value.trim();
-    fetch('/api/items')
-      .then(res => res.ok ? res.json() : [])
-      .then(data => {
-        const filtered = data.filter(item => {
-          const qMatch = item.name?.toLowerCase().includes(query) || item.sku?.toLowerCase().includes(query);
-          const cMatch = !category || category === 'All' || item.category === category;
-          return qMatch && cMatch;
-        });
-        renderItemsTable(filtered);
-      });
-  });
-
-  document.getElementById('clear-btn')?.addEventListener('click', function () {
-    const q = document.getElementById('item-search-input');
-    const c = document.getElementById('item-category-filter');
-    if (q) q.value = '';
-    if (c) c.selectedIndex = 0;
-    fetchAndRenderItems();
-  });
+    } catch (err) {
+      modal.querySelector('#item-modal-message').innerText = 'Error: Could not add item.';
+    }
+  };
     } catch (err) {
       modal.querySelector('#item-modal-message').innerText = 'Error: Could not add item.';
     }
@@ -300,6 +281,46 @@ function openCategoriesModal() {
 
 // --- INIT ENTRYPOINT ---
 window.initAdminItems = function () {
+  // --- SEARCH + FILTER LOGIC ---
+  const searchInput = document.getElementById('item-search-input');
+  const categoryFilter = document.getElementById('item-category-filter');
+
+  if (searchInput && categoryFilter) {
+    const savedQuery = localStorage.getItem('itemSearchQuery');
+    const savedCategory = localStorage.getItem('itemCategory');
+    if (savedQuery) searchInput.value = savedQuery;
+    if (savedCategory) categoryFilter.value = savedCategory;
+
+    function applyFilters() {
+      const query = searchInput.value.trim().toLowerCase();
+      const category = categoryFilter.value.trim();
+      localStorage.setItem('itemSearchQuery', query);
+      localStorage.setItem('itemCategory', category);
+
+      fetch('/api/items')
+        .then(res => res.ok ? res.json() : [])
+        .then(data => {
+          const filtered = data.filter(item => {
+            const qMatch = item.name?.toLowerCase().includes(query) || item.sku?.toLowerCase().includes(query);
+            const cMatch = !category || category === 'All' || item.category === category;
+            return qMatch && cMatch;
+          });
+          renderItemsTable(filtered);
+        });
+    }
+
+    document.getElementById('search-btn')?.addEventListener('click', applyFilters);
+    searchInput.addEventListener('input', applyFilters);
+    categoryFilter.addEventListener('change', applyFilters);
+
+    document.getElementById('clear-btn')?.addEventListener('click', function () {
+      searchInput.value = '';
+      categoryFilter.selectedIndex = 0;
+      localStorage.removeItem('itemSearchQuery');
+      localStorage.removeItem('itemCategory');
+      fetchAndRenderItems();
+    });
+  }
   document.getElementById('items-table')?.addEventListener('change', function(e) {
     const checkbox = e.target.closest('input.inline-status-toggle');
     if (!checkbox) return;
