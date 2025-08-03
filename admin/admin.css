@@ -1524,4 +1524,17 @@ margin-left: 8px;
   font-size: 0.85em;
   color: #333;
   vertical-align: middle;
+}.modal-view-content {
+  padding: 12px;
+  max-width: 440px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+}
+
+.modal-view-row {
+  margin-bottom: 10px;
+  font-size: 1em;
+  color: #333;
 }
