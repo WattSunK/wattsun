@@ -99,5 +99,153 @@ function renderUsersTable(users) {
   });
 }
 
-// Use existing modal logic from users.js or move modular
-// All modal logic (openViewUserModal, openEditUserModal, etc.) assumed available globally
+async function openViewUserModal(userId) {
+  try {
+    const resp = await fetch(`/api/users/${encodeURIComponent(userId)}`);
+    if (!resp.ok) throw new Error('User not found');
+    const user = await resp.json();
+
+    const modal = document.getElementById('user-modal');
+    const modalBg = document.getElementById('user-modal-bg');
+    modal.querySelector('#user-modal-title').innerText = 'View User';
+    modal.querySelector('#user-modal-form').style.display = 'none';
+    const view = modal.querySelector('#user-modal-view');
+    view.innerHTML = `
+      <div style="margin-bottom:12px;"><b>Name:</b> ${user.name || '-'}</div>
+      <div style="margin-bottom:12px;"><b>Email:</b> ${user.email || '-'}</div>
+      <div style="margin-bottom:12px;"><b>Phone:</b> ${user.phone || '-'}</div>
+      <div style="margin-bottom:12px;"><b>Type:</b> ${user.type || '-'}</div>
+      <div style="margin-bottom:12px;"><b>Status:</b> ${user.status || '-'}</div>
+      <div style="margin-bottom:12px;"><b>Last Active:</b> ${user.last_active || '-'}</div>
+      <div class="modal-actions">
+        <button type="button" id="user-modal-close-view" class="action-btn button">Close</button>
+      </div>
+    `;
+    view.style.display = 'block';
+    modalBg.style.display = 'block';
+    modal.style.display = 'block';
+    view.querySelector('#user-modal-close-view').onclick = closeUserModal;
+  } catch (e) {
+    alert('Could not load user');
+  }
+}
+
+async function openEditUserModal(userId) {
+  try {
+    const resp = await fetch(`/api/users/${encodeURIComponent(userId)}`);
+    if (!resp.ok) throw new Error('User not found');
+    const user = await resp.json();
+
+    const modal = document.getElementById('user-modal');
+    const modalBg = document.getElementById('user-modal-bg');
+    const form = modal.querySelector('#user-modal-form');
+    form['user-modal-name'].value = user.name || '';
+    form['user-modal-email'].value = user.email || '';
+    form['user-modal-phone'].value = user.phone || '';
+    form['user-modal-type'].value = user.type || 'Customer';
+    form['user-modal-status'].value = user.status || 'Active';
+
+    ['user-modal-save', 'user-modal-cancel', 'user-modal-close'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.replaceWith(el.cloneNode(true));
+    });
+
+    document.getElementById('user-modal-save').onclick = async function (e) {
+      e.preventDefault();
+      const updatedUser = {
+        name: form['user-modal-name'].value,
+        email: form['user-modal-email'].value,
+        phone: form['user-modal-phone'].value,
+        type: form['user-modal-type'].value,
+        status: form['user-modal-status'].value
+      };
+      try {
+        const updateResp = await fetch(`/api/users/${encodeURIComponent(userId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedUser)
+        });
+        if (!updateResp.ok) throw new Error('Failed to update');
+        closeUserModal();
+        fetchAndRenderUsers();
+      } catch (err) {
+        modal.querySelector('#user-modal-message').innerText = "Error: Could not update user.";
+      }
+    };
+
+    document.getElementById('user-modal-cancel').onclick = closeUserModal;
+    document.getElementById('user-modal-close').onclick = closeUserModal;
+
+    modal.querySelector('#user-modal-form').style.display = 'block';
+    modal.querySelector('#user-modal-view').style.display = 'none';
+    modalBg.style.display = 'block';
+    modal.style.display = 'block';
+  } catch (e) {
+    alert('Could not load user');
+  }
+}
+
+function openAddUserModal() {
+  const modal = document.getElementById('user-modal');
+  const modalBg = document.getElementById('user-modal-bg');
+  const form = modal.querySelector('#user-modal-form');
+  form.reset();
+
+  ['user-modal-save', 'user-modal-cancel', 'user-modal-close'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.replaceWith(el.cloneNode(true));
+  });
+
+  document.getElementById('user-modal-save').onclick = async function (e) {
+    e.preventDefault();
+    const newUser = {
+      name: form['user-modal-name'].value,
+      email: form['user-modal-email'].value,
+      phone: form['user-modal-phone'].value,
+      type: form['user-modal-type'].value,
+      status: form['user-modal-status'].value,
+      password: 'changeme'
+    };
+    try {
+      const resp = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser)
+      });
+      if (!resp.ok) throw new Error('Failed to add');
+      closeUserModal();
+      fetchAndRenderUsers();
+    } catch (err) {
+      modal.querySelector('#user-modal-message').innerText = "Error: Could not add user.";
+    }
+  };
+
+  document.getElementById('user-modal-cancel').onclick = closeUserModal;
+  document.getElementById('user-modal-close').onclick = closeUserModal;
+
+  modal.querySelector('#user-modal-title').innerText = 'Add User';
+  modal.querySelector('#user-modal-form').style.display = 'block';
+  modal.querySelector('#user-modal-view').style.display = 'none';
+  modalBg.style.display = 'block';
+  modal.style.display = 'block';
+}
+
+function confirmDeleteUser(userId) {
+  if (!confirm('Are you sure you want to delete this user?')) return;
+  deleteUser(userId);
+}
+
+async function deleteUser(userId) {
+  try {
+    const resp = await fetch(`/api/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+    if (!resp.ok) throw new Error('Failed to delete');
+    fetchAndRenderUsers();
+  } catch (err) {
+    alert('Could not delete user.');
+  }
+}
+
+function closeUserModal() {
+  document.getElementById('user-modal-bg').style.display = 'none';
+  document.getElementById('user-modal').style.display = 'none';
+}
