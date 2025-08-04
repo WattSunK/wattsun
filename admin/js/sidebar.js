@@ -2,8 +2,14 @@
 
 window.addEventListener("DOMContentLoaded", () => {
   const raw = localStorage.getItem("wattsun_user");
-  const parsed = raw ? JSON.parse(raw) : null;
-  const user = parsed?.user ?? null;
+  let user = null;
+
+  try {
+    const parsed = raw ? JSON.parse(raw) : null;
+    user = parsed?.user ?? null;
+  } catch (err) {
+    console.error("Failed to parse wattsun_user from localStorage:", err);
+  }
 
   const userInfoContainer = document.getElementById("sidebar-user-info");
 
