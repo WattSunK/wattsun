@@ -27,7 +27,9 @@ function initSidebarUserInfo() {
   }
 
   userInfoContainer.innerHTML = `
+    <a href="/admin/index.html#dashboard" style="text-decoration:none;color:inherit;">
     <i class="fas fa-user"></i> ${user.name || "Unknown"} (${user.type || "Unknown"})
+  </a>
   `;
 
   const adminLinks = document.querySelectorAll(".admin-only");
