@@ -33,4 +33,19 @@
   <button type="button" class="account-btn account-btn-danger" onclick="if(confirm('Deactivate your account?'))alert('Account deactivated!')">Deactivate Account</button>
 </form>
 <div id="profile-success" style="color:green;margin-top:10px;display:none;"></div>
-<div id="profile-error" style="color:red;margin-top:10px;display:none;"></div>
+<div id="profile-error" style="color:red;margin-top:10px;display:none;"></div><script>
+  document.addEventListener("partialsLoaded", () => {
+    const session = JSON.parse(localStorage.getItem("wattsun_user") || "null");
+    const user = session?.user || null;
+
+    if (user) {
+      document.getElementById("profile-name").textContent = user.name || "";
+      document.getElementById("profile-email").textContent = user.email || "";
+      document.getElementById("input-name").value = user.name || "";
+      document.getElementById("input-email").value = user.email || "";
+      document.getElementById("input-phone").value = user.phone || "";
+      document.getElementById("profile-avatar").textContent = user.name?.slice(0, 2).toUpperCase() || "??";
+      document.getElementById("profile-lastlogin").textContent = `Last active: ${user.last_active || "N/A"}`;
+    }
+  });
+</script>
