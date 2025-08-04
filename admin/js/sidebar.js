@@ -1,6 +1,6 @@
 // admin/js/sidebar.js
 
-window.addEventListener("DOMContentLoaded", () => {
+function initSidebarUserInfo() {
   const raw = localStorage.getItem("wattsun_user");
   console.log("✅ RAW localStorage:", raw);
 
@@ -30,17 +30,18 @@ window.addEventListener("DOMContentLoaded", () => {
     <i class="fas fa-user"></i> ${user.name || "Unknown"} (${user.type || "Unknown"})
   `;
 
-  // Show/hide admin-only links
   const adminLinks = document.querySelectorAll(".admin-only");
   adminLinks.forEach(link => {
     link.style.display = user.type === "Admin" ? "block" : "none";
     console.log("🔍 Admin-only link:", link, "Visible:", link.style.display);
   });
 
-  // Logout button
   const logoutBtn = document.querySelector(".logout");
   logoutBtn?.addEventListener("click", () => {
     localStorage.removeItem("wattsun_user");
     window.location.href = "/index.html";
   });
-});
+}
+
+// Wait for sidebar content to load
+document.addEventListener("partialsLoaded", initSidebarUserInfo);
