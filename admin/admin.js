@@ -140,6 +140,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   loadLayoutPartials();
 
+  // Patch header role label if present
+  const roleEl = document.getElementById("header-user-role");
+  if (roleEl && user?.type) {
+    roleEl.innerHTML = user.type;
+  }
+
+
   let initialSection = window.location.hash ? window.location.hash.substring(1) : 'dashboard';
   initialSection = initialSection.split('?')[0];
 

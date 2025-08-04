@@ -1,3 +1,12 @@
+<script>
+  const session = JSON.parse(localStorage.getItem("wattsun_user") || 'null');
+  if (!session || !session.user) {
+    alert("Please login first");
+    window.location.href = "/login.html";
+  }
+</script>
+
+
 <div class="myaccount-tabs">
   <button class="myaccount-tab-btn" data-myaccount="profile">Profile</button>
   <button class="myaccount-tab-btn active" data-myaccount="orders">Orders</button>
