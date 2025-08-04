@@ -413,7 +413,11 @@ function updateLoginUI() {
   const loginBtn = document.getElementById('loginBtn');
   const logoutBtn = document.getElementById('logoutBtn');
   if (user) {
-    userSpan.textContent = `👤 ${user.name} (${user.type})`;
+    
+    const role = user.type && user.type.toLowerCase() === 'admin' ? 'admin' : 'user';
+    const linkHref = role === 'admin' ? '/admin/index.html' : '/public/myaccount/myorders.html';
+    userSpan.innerHTML = `👤 ${user.name} (<a href="${linkHref}" style="color:#000;text-decoration:underline">${user.type}</a>)`;
+    
     userSpan.style.display = 'inline-block';
     loginBtn.style.display = 'none';
     logoutBtn.style.display = 'inline-block';
