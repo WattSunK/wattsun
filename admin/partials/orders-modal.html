@@ -1,0 +1,28 @@
+
+<!-- Order Modal -->
+<div id="orderModal" class="modal">
+  <div class="modal-content">
+    <span class="modal-close">&times;</span>
+    <h2 id="orderModalTitle">Order</h2>
+    <form id="orderForm">
+      <input type="hidden" id="orderId" />
+      <label>Customer Name</label>
+      <input id="orderCustomerName" placeholder="Customer Name" required />
+      <label>Address</label>
+      <input id="orderAddress" placeholder="Delivery Address" required />
+      <label>Order Type</label>
+      <select id="orderType">
+        <option>Outright</option>
+        <option>Financing</option>
+      </select>
+      <label>Payment Type</label>
+      <select id="orderPaymentType">
+        <option>Deposit</option>
+        <option>Full</option>
+      </select>
+      <label>Net Value (KSh)</label>
+      <input id="orderNetValue" type="number" required />
+      <button type="submit" id="orderSubmitBtn">Save Order</button>
+    </form>
+  </div>
+</div>
