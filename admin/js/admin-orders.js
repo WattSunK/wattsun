@@ -15,7 +15,29 @@ document.addEventListener("DOMContentLoaded", () => {
   async function fetchOrders() {
     try {
       const res = await fetch("/api/orders");
-      ordersData = await res.json();
+      const rawOrders = await res.json();
+
+      // Transform raw orders into table-compatible format
+      ordersData = rawOrders.map((order, index) => {
+        const total = (order.cart || []).reduce((sum, item) => {
+          const price = parseFloat(item.price) || 0;
+          const qty = parseInt(item.quantity || 1);
+          return sum + price * qty;
+        }, 0);
+        const hasFinancing = (order.cart || []).some(item => item.term);
+        return {
+          id: order.orderNumber || `AUTO-${index + 1}`,
+          customerName: order.fullName || "N/A",
+          orderType: hasFinancing ? "Financing" : "Outright",
+          orderDateTime: order.timestamp || "",
+          deliveredDateTime: null,
+          deliveryAddress: (order.address || "").replace(/
+/g, ", "),
+          paymentType: "Deposit",
+          netValue: total
+        };
+      });
+
       renderOrders(ordersData);
     } catch (err) {
       console.error("Error fetching orders:", err);
