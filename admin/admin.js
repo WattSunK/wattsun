@@ -1,11 +1,12 @@
-// admin.js for Wattsun Solar Admin Panel
-// Robust role checking and debug logging
+// Fixed admin.js for Wattsun Solar Admin Panel
+// Includes proper wattsun_user parsing
 
 let currentSection = 'dashboard';
 
 function getLoggedInUser() {
   try {
-    return JSON.parse(localStorage.getItem('wattsun_user') || 'null');
+    const parsed = JSON.parse(localStorage.getItem('wattsun_user') || 'null');
+    return parsed?.user ?? null;
   } catch (e) {
     return null;
   }
@@ -68,9 +69,7 @@ function loadSection(section) {
 
   const cleanSection = section.split('?')[0];
 
-  if ([
-    'users', 'items', 'dispatch', 'settings'
-  ].includes(cleanSection) && role !== 'admin') {
+  if (['users', 'items', 'dispatch', 'settings'].includes(cleanSection) && role !== 'admin') {
     alert('Access denied: Admins only');
     window.location.hash = 'dashboard';
     section = 'dashboard';
@@ -144,9 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let initialSection = window.location.hash ? window.location.hash.substring(1) : 'dashboard';
   initialSection = initialSection.split('?')[0];
 
-  if ([
-    'users', 'items', 'dispatch', 'settings'
-  ].includes(initialSection) && role !== 'admin') {
+  if (['users', 'items', 'dispatch', 'settings'].includes(initialSection) && role !== 'admin') {
     initialSection = 'dashboard';
     window.location.hash = 'dashboard';
   }
@@ -159,13 +156,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const section = e.target.getAttribute('data-section');
       const clean = section.split('?')[0];
 
-      // 🔁 Refresh role check each time
       const user = getLoggedInUser();
       const role = user && typeof user.type === 'string' ? user.type.trim().toLowerCase() : '';
 
-      if ([
-        'users', 'items', 'dispatch', 'settings'
-      ].includes(clean) && role !== 'admin') {
+      if (['users', 'items', 'dispatch', 'settings'].includes(clean) && role !== 'admin') {
         alert('Access denied: Admins only');
         return;
       }
@@ -188,9 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const user = getLoggedInUser();
     const role = user && typeof user.type === 'string' ? user.type.trim().toLowerCase() : '';
 
-    if ([
-      'users', 'items', 'dispatch', 'settings'
-    ].includes(sec) && role !== 'admin') {
+    if (['users', 'items', 'dispatch', 'settings'].includes(sec) && role !== 'admin') {
       alert('Access denied: Admins only');
       window.location.hash = 'dashboard';
       sec = 'dashboard';

@@ -1,4 +1,4 @@
-// admin/js/sidebar.js
+// admin/js/sidebar.js (fixed)
 
 function initSidebarUserInfo() {
   const raw = localStorage.getItem("wattsun_user");
