@@ -45,7 +45,6 @@ function loadLayoutPartials() {
         });
       }
 
-      // ✅ Dispatch event to notify sidebar.js that sidebar is now available
       document.dispatchEvent(new Event("partialsLoaded"));
     });
 
@@ -156,14 +155,21 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.addEventListener('click', (e) => {
     if (e.target.matches('[data-section]')) {
       e.preventDefault();
+
       const section = e.target.getAttribute('data-section');
       const clean = section.split('?')[0];
+
+      // 🔁 Refresh role check each time
+      const user = getLoggedInUser();
+      const role = user && typeof user.type === 'string' ? user.type.trim().toLowerCase() : '';
+
       if ([
         'users', 'items', 'dispatch', 'settings'
       ].includes(clean) && role !== 'admin') {
         alert('Access denied: Admins only');
         return;
       }
+
       document.querySelectorAll('.sidebar nav a').forEach(link => link.classList.remove('active'));
       e.target.classList.add('active');
       loadSection(section);
@@ -179,6 +185,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('hashchange', () => {
     let sec = window.location.hash.replace('#', '').split('?')[0];
+    const user = getLoggedInUser();
+    const role = user && typeof user.type === 'string' ? user.type.trim().toLowerCase() : '';
+
     if ([
       'users', 'items', 'dispatch', 'settings'
     ].includes(sec) && role !== 'admin') {
