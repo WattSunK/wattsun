@@ -408,15 +408,17 @@ document.getElementById('resetForm').addEventListener('submit', async function(e
 
 // Login/logout UI logic
 function updateLoginUI() {
-  const user = JSON.parse(localStorage.getItem('wattsun_user') || 'null');
+  const session = JSON.parse(localStorage.getItem('wattsun_user') || 'null');
+  const user = session?.user || null;
+  // replaced by session parsing above
   const userSpan = document.getElementById('loggedInUser');
   const loginBtn = document.getElementById('loginBtn');
   const logoutBtn = document.getElementById('logoutBtn');
   if (user) {
     
-    const role = user.type && user.type.toLowerCase() === 'admin' ? 'admin' : 'user';
+    const role = user?.type?.toLowerCase() === 'admin' ? 'admin' : 'user';
     const linkHref = role === 'admin' ? '/admin/index.html' : '/public/myaccount/myorders.html';
-    userSpan.innerHTML = `👤 ${user.name} (<a href="${linkHref}" style="color:#000;text-decoration:underline">${user.type}</a>)`;
+    userSpan.innerHTML = `👤 <a href="${linkHref}" style="color:#000;text-decoration:underline">${user.name} (${user.type})</a>`;
     
     userSpan.style.display = 'inline-block';
     loginBtn.style.display = 'none';
