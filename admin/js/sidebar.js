@@ -43,5 +43,5 @@ function initSidebarUserInfo() {
   });
 }
 
-// Wait for sidebar content to load
+// ✅ Listen for event triggered after sidebar injection
 document.addEventListener("partialsLoaded", initSidebarUserInfo);

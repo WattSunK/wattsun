@@ -44,6 +44,9 @@ function loadLayoutPartials() {
           window.location.href = "/index.html";
         });
       }
+
+      // ✅ Dispatch event to notify sidebar.js that sidebar is now available
+      document.dispatchEvent(new Event("partialsLoaded"));
     });
 
   fetch('partials/header.html')
