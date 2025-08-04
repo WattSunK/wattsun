@@ -1,8 +1,9 @@
 // admin/js/sidebar.js
 
 window.addEventListener("DOMContentLoaded", () => {
-  const userData = localStorage.getItem("wattsun_user");
-  const user = userData ? JSON.parse(userData).user : null;
+  const raw = localStorage.getItem("wattsun_user");
+  const parsed = raw ? JSON.parse(raw) : null;
+  const user = parsed?.user ?? null;
 
   const userInfoContainer = document.getElementById("sidebar-user-info");
 
