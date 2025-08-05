@@ -130,4 +130,24 @@ window.AdminPartials = {
       }
     };
   }
+  loadOrders: async function() {
+    const content = document.getElementById('admin-content');
+    if (!content) return;
+
+    try {
+      const res = await fetch('/admin/partials/orders.html');
+      const html = await res.text();
+      content.innerHTML = html;
+
+      const script = document.createElement('script');
+      script.src = '/admin/js/admin-orders.js';
+      script.onload = () => {
+        if (typeof initAdminOrders === 'function') initAdminOrders();
+      };
+      document.body.appendChild(script);
+    } catch (err) {
+      content.innerHTML = '<p>Error loading orders panel.</p>';
+      console.error('Failed to load orders.html:', err);
+    }
+  },
 };
