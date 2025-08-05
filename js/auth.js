@@ -58,6 +58,7 @@ if (signupForm) {
     e.preventDefault();
     const name = document.getElementById('signupName').value;
     const email = document.getElementById('signupEmail').value;
+    const phone = document.getElementById('signupPhone').value;
     const password = document.getElementById('signupPassword').value;
     const errorDiv = document.getElementById('signupError');
     const successDiv = document.getElementById('signupSuccess');
@@ -67,7 +68,7 @@ if (signupForm) {
       const res = await fetch('/api/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password })
+        body: JSON.stringify({ name, email, phone, password })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -130,7 +131,9 @@ function updateLoginUI() {
   const logoutBtn = document.getElementById('logoutBtn');
 
   if (user) {
-    userSpan.textContent = `👤 ${user.name} (${user.type})`;
+    const role = user?.type?.toLowerCase() === 'admin' ? 'admin' : 'user';
+    const linkHref = role === 'admin' ? '/admin/index.html' : '/public/myaccount/myorders.html';
+    userSpan.innerHTML = `👤 <a href="${linkHref}" style="color:#000;text-decoration:underline">${user.name} (${user.type})</a>`;
     userSpan.style.display = 'inline-block';
     loginBtn.style.display = 'none';
     logoutBtn.style.display = 'inline-block';
