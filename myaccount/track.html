@@ -68,7 +68,7 @@
     font-size: 0.95em;
     color: #555;
   }
-  .account-section input, .account-section button {
+  .account-section input, .account-section select, .account-section button {
     width: 100%;
     padding: 10px;
     margin-top: 10px;
@@ -168,8 +168,15 @@
 
 <div class="account-section">
   <h2>Track Your WattSun Order</h2>
-  <p>Enter your phone number to get the latest update:</p>
-  <input placeholder="+254 7XX XXX XXX" id="track-phone" type="tel"/>
+  <p>Enter your phone number and status to get the latest update:</p>
+  <div style="display: flex; gap: 10px;">
+    <input placeholder="+254 7XX XXX XXX" id="track-phone" type="tel" style="flex: 1;"/>
+    <select id="track-status" style="flex: 1;">
+      <option value="Pending">Pending</option>
+      <option value="Delivered">Delivered</option>
+      <option value="Cancelled">Cancelled</option>
+    </select>
+  </div>
   <button id="track-btn">Check Status</button>
   <div id="track-result" class="result-box" style="display:none;"></div>
 </div>
@@ -204,6 +211,7 @@ window.addEventListener('storage', updateCartCountBadge);
 <script>
 document.getElementById('track-btn').addEventListener('click', async () => {
   const phone = document.getElementById('track-phone').value.trim();
+  const status = document.getElementById('track-status').value;
   const resultBox = document.getElementById('track-result');
   resultBox.style.display = 'none';
   resultBox.innerHTML = '';
@@ -213,21 +221,34 @@ document.getElementById('track-btn').addEventListener('click', async () => {
   const res = await fetch("/api/track", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone })
+    body: JSON.stringify({ phone, status })
   });
 
-  const data = await res.json();
-  if (!res.ok) {
+  let data;
+  try {
+    data = await res.json();
+  } catch (err) {
+    alert("Invalid server response.");
+    return;
+  }
+
+  if (!res.ok || !Array.isArray(data)) {
     alert(data.error || "Something went wrong.");
     return;
   }
 
-  resultBox.innerHTML = `
-    <p><strong>Status:</strong> ${data.status}</p>
-    <p><strong>Last Updated:</strong> ${new Date(data.updatedAt).toLocaleString()}</p>
-    <p><strong>Order Number:</strong> ${data.orderNumber}</p>
-    <p><strong>Items:</strong><br>${data.cart_summary?.replaceAll("\n", "<br>") || "N/A"}</p>
-  `;
+  if (!data.length) {
+    resultBox.innerHTML = `<p>No orders found for this phone number and status.</p>`;
+  } else {
+    resultBox.innerHTML = data.map(order => `
+      <p><strong>Status:</strong> ${order.status}</p>
+      <p><strong>Last Updated:</strong> ${new Date(order.updatedAt).toLocaleString()}</p>
+      <p><strong>Order Number:</strong> ${order.orderNumber}</p>
+      <p><strong>Items:</strong><br>${(order.cart_summary || "N/A").replaceAll("\n", "<br>")}</p>
+      <hr>
+    `).join("");
+  }
+
   resultBox.style.display = 'block';
 });
 </script>
