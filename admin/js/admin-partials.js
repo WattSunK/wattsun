@@ -129,7 +129,7 @@ window.AdminPartials = {
         error.style.display = 'block';
       }
     };
-  }
+  },
  loadOrders: async function () {
     const content = document.getElementById('admin-content');
     if (!content) return;
