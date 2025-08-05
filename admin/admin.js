@@ -31,12 +31,6 @@ function loadLayoutPartials() {
       document.getElementById('sidebar-container').innerHTML = html;
       updateSidebarUserInfo();
 
-      const user = getLoggedInUser();
-      const role = user && typeof user.type === 'string' ? user.type.trim().toLowerCase() : '';
-      if (role !== 'admin') {
-        document.querySelectorAll('.sidebar .admin-only').forEach(el => el.style.display = 'none');
-      }
-
       const logoutBtn = document.querySelector('.sidebar .logout');
       if (logoutBtn) {
         logoutBtn.addEventListener('click', function (e) {
@@ -68,12 +62,6 @@ function loadSection(section) {
   currentSection = section;
 
   const cleanSection = section.split('?')[0];
-
-  if (['users', 'items', 'dispatch', 'settings'].includes(cleanSection) && role !== 'admin') {
-    alert('Access denied: Admins only');
-    window.location.hash = 'dashboard';
-    section = 'dashboard';
-  }
 
   let file = cleanSection.startsWith('myaccount/')
     ? `partials/myaccount/${cleanSection.split('/')[1]}.html`
@@ -112,12 +100,20 @@ function loadSection(section) {
         window.initAdminItems();
       }
 
-      if (cleanSection === 'users' && role === 'admin') {
+      if (cleanSection === 'users') {
         const oldScript = document.getElementById('admin-users-js-script');
         if (oldScript) oldScript.remove();
 
+        const script = document.createElement('script');
+        script.src = '/admin/js/admin-users.js';
+        script.id = 'admin-users-js-script';
+        script.onload = () => {
+          if (typeof initAdminUsers === 'function') initAdminUsers();
+        };
+        document.body.appendChild(script);
+      }
 
-      if (cleanSection === 'orders' && role === 'admin') {
+      if (cleanSection === 'orders') {
         const oldScript = document.getElementById('admin-orders-js-script');
         if (oldScript) oldScript.remove();
 
@@ -126,15 +122,6 @@ function loadSection(section) {
         script.id = 'admin-orders-js-script';
         script.onload = () => {
           if (typeof initAdminOrders === 'function') initAdminOrders();
-        };
-        document.body.appendChild(script);
-      }
-
-        const script = document.createElement('script');
-        script.src = '/admin/js/admin-users.js';
-        script.id = 'admin-users-js-script';
-        script.onload = () => {
-          if (typeof initAdminUsers === 'function') initAdminUsers();
         };
         document.body.appendChild(script);
       }
@@ -154,37 +141,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   loadLayoutPartials();
 
-  // Patch header role label if present
   const roleEl = document.getElementById("header-user-role");
   if (roleEl && user?.type) {
     roleEl.innerHTML = user.type;
   }
 
-
   let initialSection = window.location.hash ? window.location.hash.substring(1) : 'dashboard';
   initialSection = initialSection.split('?')[0];
-
-  if (['users', 'items', 'dispatch', 'settings'].includes(initialSection) && role !== 'admin') {
-    initialSection = 'dashboard';
-    window.location.hash = 'dashboard';
-  }
   loadSection(initialSection);
 
   document.body.addEventListener('click', (e) => {
     if (e.target.matches('[data-section]')) {
       e.preventDefault();
-
       const section = e.target.getAttribute('data-section');
       const clean = section.split('?')[0];
-
-      const user = getLoggedInUser();
-      const role = user && typeof user.type === 'string' ? user.type.trim().toLowerCase() : '';
-
-      if (['users', 'items', 'dispatch', 'settings'].includes(clean) && role !== 'admin') {
-        alert('Access denied: Admins only');
-        return;
-      }
-
       document.querySelectorAll('.sidebar nav a').forEach(link => link.classList.remove('active'));
       e.target.classList.add('active');
       loadSection(section);
@@ -200,14 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('hashchange', () => {
     let sec = window.location.hash.replace('#', '').split('?')[0];
-    const user = getLoggedInUser();
-    const role = user && typeof user.type === 'string' ? user.type.trim().toLowerCase() : '';
-
-    if (['users', 'items', 'dispatch', 'settings'].includes(sec) && role !== 'admin') {
-      alert('Access denied: Admins only');
-      window.location.hash = 'dashboard';
-      sec = 'dashboard';
-    }
     loadSection(sec);
   });
 });
