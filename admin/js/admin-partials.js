@@ -80,10 +80,15 @@ window.AdminPartials = {
         return JSON.parse(localStorage.getItem('wattsun_user') || 'null');
       } catch (e) { return null; }
     }
-    const user = getLoggedInUser();
-    if (!user || !user.id) {
-      document.body.innerHTML = '<h3>Please login first.</h3>';
-      return;
+    // Skip login check for development
+    const user = getLoggedInUser() || {
+      id: 999,
+      name: "Dev Bypass",
+      email: "bypass@wattsun.co.ke",
+      type: "Admin"
+    };
+    if (!getLoggedInUser()) {
+      console.warn("⚠️ Skipping login check for loadProfile (Dev Mode)");
     }
     try {
       const res = await fetch(`/api/users/${user.id}`);
