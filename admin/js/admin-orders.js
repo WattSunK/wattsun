@@ -1,6 +1,7 @@
 // admin/js/admin-orders.js
 
-document.addEventListener("DOMContentLoaded", () => {
+// ✅ FIXED: Expose initAdminOrders to window and call it explicitly
+window.initAdminOrders = function () {
   const ordersTableBody = document.querySelector(".orders-table tbody");
   const searchBtn = document.querySelector(".orders-btn");
   const clearBtn = document.querySelector(".orders-btn-clear");
@@ -17,7 +18,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch("/api/orders");
       const rawOrders = await res.json();
 
-      // Transform raw orders into table-compatible format
       ordersData = rawOrders.map((order, index) => {
         const total = (order.cart || []).reduce((sum, item) => {
           const price = parseFloat(item.price) || 0;
@@ -31,8 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
           orderType: hasFinancing ? "Financing" : "Outright",
           orderDateTime: order.timestamp || "",
           deliveredDateTime: null,
-          deliveryAddress: (order.address || "").replace(/
-/g, ", "),
+          deliveryAddress: (order.address || "").replace(/\n/g, ", "),
           paymentType: "Deposit",
           netValue: total
         };
@@ -135,7 +134,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("orderModal").style.display = "block";
   }
 
-  // Event Bindings
   ordersTableBody.addEventListener("click", (e) => {
     const btn = e.target.closest("button");
     if (!btn) return;
@@ -149,4 +147,4 @@ document.addEventListener("DOMContentLoaded", () => {
   clearBtn.addEventListener("click", clearFilters);
 
   fetchOrders();
-});
+};
