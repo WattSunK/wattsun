@@ -130,7 +130,7 @@ window.AdminPartials = {
       }
     };
   }
-  loadOrders: async function() {
+ loadOrders: async function () {
     const content = document.getElementById('admin-content');
     if (!content) return;
 
