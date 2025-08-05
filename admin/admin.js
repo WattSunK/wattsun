@@ -116,6 +116,20 @@ function loadSection(section) {
         const oldScript = document.getElementById('admin-users-js-script');
         if (oldScript) oldScript.remove();
 
+
+      if (cleanSection === 'orders' && role === 'admin') {
+        const oldScript = document.getElementById('admin-orders-js-script');
+        if (oldScript) oldScript.remove();
+
+        const script = document.createElement('script');
+        script.src = '/admin/js/admin-orders.js';
+        script.id = 'admin-orders-js-script';
+        script.onload = () => {
+          if (typeof initAdminOrders === 'function') initAdminOrders();
+        };
+        document.body.appendChild(script);
+      }
+
         const script = document.createElement('script');
         script.src = '/admin/js/admin-users.js';
         script.id = 'admin-users-js-script';
