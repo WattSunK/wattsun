@@ -1,3 +1,4 @@
+
 // Fixed admin.js for Wattsun Solar Admin Panel
 // Includes proper wattsun_user parsing
 
@@ -128,11 +129,10 @@ function loadSection(section) {
     });
 
   window.location.hash = cleanSection;
-
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   const user = getLoggedInUser();
-  const role = user && typeof user.type === 'string' ? user.type.trim().toLowerCase() : '';
 
   // Skip login check for development
   if (!user) {
