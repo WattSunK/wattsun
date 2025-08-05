@@ -1538,3 +1538,25 @@ margin-left: 8px;
   font-size: 1em;
   color: #333;
 }
+
+/* Enhanced user info styling in sidebar */
+.styled-user-info {
+  background: #fffbe7;
+  padding: 12px;
+  border-radius: 8px;
+  margin: 12px 10px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  font-size: 0.95em;
+  line-height: 1.4em;
+  text-align: center;
+  font-weight: 500;
+}
+.styled-user-info strong {
+  font-size: 1.05em;
+  color: #222;
+}
+.styled-user-info span {
+  display: block;
+  font-size: 0.93em;
+  color: #555;
+}
