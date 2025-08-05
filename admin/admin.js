@@ -63,10 +63,12 @@ function loadSection(section) {
 
   const cleanSection = section.split('?')[0];
 
+  let skipFetch = cleanSection === 'myaccount/orders';
   let file = cleanSection.startsWith('myaccount/')
     ? `partials/myaccount/${cleanSection.split('/')[1]}.html`
     : `partials/${cleanSection}.html`;
 
+  if (!skipFetch) {
   fetch(file)
     .then(res => res.text())
     .then(html => {
@@ -128,6 +130,8 @@ function loadSection(section) {
     });
 
   window.location.hash = cleanSection;
+} else {
+  console.warn("⏭️ Skipping fetch for 'myaccount/orders' to use static HTML.");
 }
 
 document.addEventListener('DOMContentLoaded', () => {
