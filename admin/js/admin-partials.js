@@ -136,13 +136,7 @@ window.AdminPartials = {
     };
   },
  loadOrders: async function () {
-    const content = document.getElementById('admin-content');
-    if (!content) return;
-
-    try {
-      const res = await fetch('/admin/partials/orders.html');
-      const html = await res.text();
-      content.innerHTML = html;
+    console.warn("⚠️ Skipping injection of orders.html – using static HTML instead.");
 
       const script = document.createElement('script');
       script.src = '/admin/js/admin-orders.js';
