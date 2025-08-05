@@ -134,9 +134,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const user = getLoggedInUser();
   const role = user && typeof user.type === 'string' ? user.type.trim().toLowerCase() : '';
 
+  // Skip login check for development
   if (!user) {
-    window.location.href = '/index.html';
-    return;
+    console.warn("🟡 No user found – skipping login check for development.");
   }
 
   loadLayoutPartials();

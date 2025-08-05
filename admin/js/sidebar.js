@@ -34,7 +34,7 @@ function initSidebarUserInfo() {
 
   const adminLinks = document.querySelectorAll(".admin-only");
   adminLinks.forEach(link => {
-    link.style.display = user.type === "Admin" ? "block" : "none";
+    link.style.display = "block";
     console.log("🔍 Admin-only link:", link, "Visible:", link.style.display);
   });
 
