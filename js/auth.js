@@ -20,6 +20,17 @@ function closePasswordReset() {
   document.getElementById('resetModal').style.display = 'none';
 }
 
+// Session utility
+function getCurrentUser() {
+  try {
+    const raw = localStorage.getItem('wattsun_user');
+    const parsed = JSON.parse(raw);
+    return parsed?.success ? parsed.user : null;
+  } catch {
+    return null;
+  }
+}
+
 // Login handler
 const loginForm = document.getElementById('loginForm');
 if (loginForm) {
@@ -44,6 +55,10 @@ if (loginForm) {
       localStorage.setItem('wattsun_user', JSON.stringify({ success: true, user: data.user }));
       updateLoginUI();
       closeLogin();
+
+      // ✅ Ensure latest user info (e.g. Admin type) is shown after login
+      setTimeout(() => location.reload(), 300);
+
     } catch (err) {
       errorDiv.textContent = "Login error";
       errorDiv.style.display = 'block';
@@ -122,9 +137,7 @@ if (resetForm) {
 
 // Login/logout UI logic
 function updateLoginUI() {
-  const raw = localStorage.getItem('wattsun_user');
-  const parsed = raw ? JSON.parse(raw) : null;
-  const user = parsed?.user ?? null;
+  const user = getCurrentUser();
 
   const userSpan = document.getElementById('loggedInUser');
   const loginBtn = document.getElementById('loginBtn');
@@ -149,6 +162,7 @@ if (logoutBtn) {
   logoutBtn.onclick = function() {
     localStorage.removeItem('wattsun_user');
     updateLoginUI();
+    location.reload(); // optional refresh
   };
 }
 
