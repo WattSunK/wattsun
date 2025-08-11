@@ -1,8 +1,7 @@
-// /public/js/dashboard.js — stable legacy Orders loader (creates table if missing)
 document.addEventListener("DOMContentLoaded", () => {
-  const content = document.getElementById("admin-content");
-  const sidebar = document.querySelector(".sidebar nav");
-  const hdrSearch = document.querySelector(".header-search");
+  const content  = document.getElementById("admin-content");
+  const sidebar  = document.querySelector(".sidebar nav");
+  const hdrSearch= document.querySelector(".header-search");
 
   // ---- Session helpers ----
   function getUser() {
@@ -65,7 +64,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return { table, tbody };
     }
-
     const card = document.createElement("div");
     card.className = "card";
     card.innerHTML = `
@@ -161,6 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
   async function populateOrders() {
     const { tbody } = ensureOrdersTableShell();
     if (!tbody) return;
+
     await ensureOrdersModal();
 
     let arr = [];
@@ -173,13 +172,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const rows = arr.map(o => {
-      const id = String(o.orderNumber || o.id || "");
-      const name = o.fullName || o.name || "";
-      const phone = o.phone || "—";
-      const email = o.email || "—";
+      const id     = String(o.orderNumber || o.id || "");
+      const name   = o.fullName || o.name || "";
+      const phone  = o.phone || "—";
+      const email  = o.email || "—";
       const status = o.status || o.orderType || "Pending";
-      const pm = o.paymentType || o.paymentMethod || "—";
-      const total = (typeof o.total === "number") ? ("KES " + o.total.toLocaleString()) : "—";
+      const pm     = o.paymentType || o.paymentMethod || "—";
+      const total  = (typeof o.total === "number") ? ("KES " + o.total.toLocaleString()) : "—";
       return `
         <tr>
           <td>${id}</td>
@@ -210,37 +209,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setHeaderSearchVisible(!hasOwnSearch.has(section));
 
     try {
-      // special case: users section needs to load partial first
-      if (section === "users") {
-        try {
-          const res = await fetch(`/partials/users.html?v=${Date.now()}`);
-          content.innerHTML = res.ok ? await res.text() : `<div class="p-3">Users view failed to load.</div>`;
-        } catch (err) {
-          console.error("Failed to load users partial:", err);
-          content.innerHTML = `<div class="p-3">Error loading users view.</div>`;
-          return;
-        }
-        if (typeof fetchAndRenderUsers !== "function") {
-          if (!document.querySelector('script[src="/admin/js/admin-users.js"]')) {
-            const script = document.createElement("script");
-            script.src = "/admin/js/admin-users.js";
-            script.onload = () => {
-              if (typeof fetchAndRenderUsers === "function") {
-                fetchAndRenderUsers();
-              } else {
-                console.error("fetchAndRenderUsers not found after loading admin-users.js");
-              }
-            };
-            script.onerror = () => console.error("Failed to load admin-users.js");
-            document.body.appendChild(script);
-          }
-        } else {
-          fetchAndRenderUsers();
-        }
-        return;
-      }
-
-      // default partial load
       const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
       content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
 
@@ -256,6 +224,26 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      if (section === "users") {
+        if (typeof fetchAndRenderUsers !== "function") {
+          if (!document.querySelector('script[src="/admin/js/admin-users.js"]')) {
+            const script = document.createElement("script");
+            script.src = "/admin/js/admin-users.js";
+            script.onload = () => {
+              if (typeof fetchAndRenderUsers === "function") {
+                fetchAndRenderUsers();
+              } else {
+                console.error("fetchAndRenderUsers not found after loading script");
+              }
+            };
+            script.onerror = () => console.error("Failed to load admin-users.js");
+            document.body.appendChild(script);
+          }
+        } else {
+          fetchAndRenderUsers();
+        }
+        return;
+      }
     } catch (e) {
       console.error("Section init error:", e);
     }
@@ -265,26 +253,26 @@ document.addEventListener("DOMContentLoaded", () => {
   function hydrateProfile(u) {
     const info = u?.user || u || {};
     const name = info.name || "User";
-    const email = info.email || "";
+    const email= info.email || "";
     const role = info.type || "Customer";
-    const phone = info.phone || info.msisdn || "";
+    const phone= info.phone || info.msisdn || "";
     const last = info.lastLogin || info.updatedAt || info.createdAt || "—";
 
-    const elName = content.querySelector("#userName");
+    const elName  = content.querySelector("#userName");
     const elEmail = content.querySelector("#userEmail");
-    const elRole = content.querySelector("#userRole");
-    const elLast = content.querySelector("#lastLogin");
-    const elAvatar = content.querySelector("#userAvatar");
-    if (elName) elName.textContent = name;
+    const elRole  = content.querySelector("#userRole");
+    const elLast  = content.querySelector("#lastLogin");
+    const elAvatar= content.querySelector("#userAvatar");
+    if (elName)  elName.textContent  = name;
     if (elEmail) elEmail.textContent = email || (phone ? `${phone}@` : "—");
-    if (elRole) elRole.textContent = role;
-    if (elLast) elLast.textContent = `Last login: ${last}`;
-    if (elAvatar) elAvatar.textContent = (name || "U").trim().charAt(0).toUpperCase() || "U";
+    if (elRole)  elRole.textContent  = role;
+    if (elLast)  elLast.textContent  = `Last login: ${last}`;
+    if (elAvatar)elAvatar.textContent = (name || "U").trim().charAt(0).toUpperCase() || "U";
 
-    const fName = content.querySelector("#pf-name");
+    const fName  = content.querySelector("#pf-name");
     const fEmail = content.querySelector("#pf-email");
     const fPhone = content.querySelector("#pf-phone");
-    if (fName) fName.value = name || "";
+    if (fName)  fName.value  = name || "";
     if (fEmail) fEmail.value = email || "";
     if (fPhone) fPhone.value = phone || "";
 
@@ -297,7 +285,7 @@ document.addEventListener("DOMContentLoaded", () => {
           ...(u || { success: true }),
           user: {
             ...(u?.user || {}),
-            name: (content.querySelector("#pf-name")?.value || "").trim(),
+            name:  (content.querySelector("#pf-name")?.value || "").trim(),
             email: (content.querySelector("#pf-email")?.value || "").trim(),
             phone: (content.querySelector("#pf-phone")?.value || "").trim(),
             type: role,
