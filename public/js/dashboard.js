@@ -255,17 +255,25 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (section === "users") {
-        // Some admin users code exposes fetchAndRenderUsers() or initAdminUsers()
-        // call whichever is present. Use deferInit to tolerate timing issues.
-        deferInit(() => {
-          if (typeof fetchAndRenderUsers === "function") {
-            try { fetchAndRenderUsers(); } catch (e) { console.error("fetchAndRenderUsers error:", e); }
-          }
-          if (typeof initAdminUsers === "function") {
-            try { initAdminUsers(); } catch (e) { console.error("initAdminUsers error:", e); }
-          }
-        });
-        return;
+  // Ensure we only load the script once
+  if (typeof fetchAndRenderUsers !== "function") {
+    if (!document.querySelector('script[src="/admin/js/admin-users.js"]')) {
+      const script = document.createElement("script");
+      script.src = "/admin/js/admin-users.js"; // adjust path if needed
+      script.onload = () => {
+        if (typeof fetchAndRenderUsers === "function") {
+          fetchAndRenderUsers();
+        } else {
+          console.error("fetchAndRenderUsers not found after loading script");
+        }
+      };
+      script.onerror = () => console.error("Failed to load admin-users.js");
+      document.body.appendChild(script);
+    }
+  } else {
+    fetchAndRenderUsers();
+  }
+  return;
       }
 
       // other sections can be handled here as needed (items, dispatch, settings, myorders, etc.)
