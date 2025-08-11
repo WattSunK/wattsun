@@ -1,3 +1,4 @@
+// /public/js/dashboard.js
 document.addEventListener("DOMContentLoaded", () => {
   const content  = document.getElementById("admin-content");
   const sidebar  = document.querySelector(".sidebar nav");
@@ -90,7 +91,6 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       </div>`;
     content.appendChild(card);
-
     const tableEl = card.querySelector("#ordersTable");
     const tbodyEl = card.querySelector("#ordersTbody");
     return { table: tableEl, tbody: tbodyEl };
@@ -159,9 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
   async function populateOrders() {
     const { tbody } = ensureOrdersTableShell();
     if (!tbody) return;
-
     await ensureOrdersModal();
-
     let arr = [];
     try {
       const j = await fetch("/api/orders").then(r => r.json());
@@ -170,7 +168,6 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Failed to fetch /api/orders", e);
       return;
     }
-
     const rows = arr.map(o => {
       const id     = String(o.orderNumber || o.id || "");
       const name   = o.fullName || o.name || "";
@@ -191,9 +188,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <td><button type="button" class="btn btn-sm btn-outline-secondary view-btn" data-id="${id}">View</button></td>
         </tr>`;
     }).join("");
-
     tbody.innerHTML = rows;
-
     tbody.querySelectorAll(".view-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const id = btn.getAttribute("data-id");
@@ -208,44 +203,64 @@ document.addEventListener("DOMContentLoaded", () => {
     const hasOwnSearch = new Set(["orders", "users", "items", "myorders"]);
     setHeaderSearchVisible(!hasOwnSearch.has(section));
 
+    if (section === "orders") {
+      try {
+        const res = await fetch(`/partials/orders.html?v=${Date.now()}`);
+        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+      } catch {
+        content.innerHTML = `<div class="p-3"></div>`;
+      }
+      await populateOrders();
+      return;
+    }
+
+    if (section === "profile") {
+      try {
+        const res = await fetch(`/partials/profile.html?v=${Date.now()}`);
+        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+      } catch {
+        content.innerHTML = `<div class="p-3"></div>`;
+      }
+      const u = getUser();
+      hydrateProfile(u);
+      window.addEventListener("ws:user", ev => hydrateProfile(ev.detail));
+      return;
+    }
+
+    if (section === "users") {
+      // Load users.html first
+      try {
+        const res = await fetch(`/partials/users.html?v=${Date.now()}`);
+        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+      } catch {
+        content.innerHTML = `<div class="p-3"></div>`;
+        return;
+      }
+      // Now load script if needed
+      if (typeof fetchAndRenderUsers !== "function") {
+        if (!document.querySelector('script[src="/admin/js/admin-users.js"]')) {
+          const script = document.createElement("script");
+          script.src = "/admin/js/admin-users.js";
+          script.onload = () => {
+            if (typeof fetchAndRenderUsers === "function") {
+              fetchAndRenderUsers();
+            }
+          };
+          script.onerror = () => console.error("Failed to load admin-users.js");
+          document.body.appendChild(script);
+        }
+      } else {
+        fetchAndRenderUsers();
+      }
+      return;
+    }
+
+    // Default: just load the partial
     try {
       const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
       content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-
-      if (section === "orders") {
-        await populateOrders();
-        return;
-      }
-
-      if (section === "profile") {
-        const u = getUser();
-        hydrateProfile(u);
-        window.addEventListener("ws:user", ev => hydrateProfile(ev.detail));
-        return;
-      }
-
-      if (section === "users") {
-        if (typeof fetchAndRenderUsers !== "function") {
-          if (!document.querySelector('script[src="/admin/js/admin-users.js"]')) {
-            const script = document.createElement("script");
-            script.src = "/admin/js/admin-users.js";
-            script.onload = () => {
-              if (typeof fetchAndRenderUsers === "function") {
-                fetchAndRenderUsers();
-              } else {
-                console.error("fetchAndRenderUsers not found after loading script");
-              }
-            };
-            script.onerror = () => console.error("Failed to load admin-users.js");
-            document.body.appendChild(script);
-          }
-        } else {
-          fetchAndRenderUsers();
-        }
-        return;
-      }
-    } catch (e) {
-      console.error("Section init error:", e);
+    } catch {
+      content.innerHTML = `<div class="p-3"></div>`;
     }
   }
 
@@ -257,7 +272,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const role = info.type || "Customer";
     const phone= info.phone || info.msisdn || "";
     const last = info.lastLogin || info.updatedAt || info.createdAt || "—";
-
     const elName  = content.querySelector("#userName");
     const elEmail = content.querySelector("#userEmail");
     const elRole  = content.querySelector("#userRole");
@@ -268,14 +282,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (elRole)  elRole.textContent  = role;
     if (elLast)  elLast.textContent  = `Last login: ${last}`;
     if (elAvatar)elAvatar.textContent = (name || "U").trim().charAt(0).toUpperCase() || "U";
-
     const fName  = content.querySelector("#pf-name");
     const fEmail = content.querySelector("#pf-email");
     const fPhone = content.querySelector("#pf-phone");
     if (fName)  fName.value  = name || "";
     if (fEmail) fEmail.value = email || "";
     if (fPhone) fPhone.value = phone || "";
-
     const btnSave = content.querySelector("#btnSave");
     const btnCancel = content.querySelector("#btnCancel");
     if (btnSave && !btnSave.dataset.bound) {
