@@ -51,3 +51,106 @@
     font-size: 0.85rem;
   }
 </style>
+<!-- ===== Your existing items.html content remains here, unchanged ===== -->
+
+<!-- Add Item Modal -->
+<div id="add-item-modal" class="modal-bg" style="display:none;">
+  <div class="modal">
+    <h2>Add Item</h2>
+    <form id="add-item-form">
+      <label for="add-sku">SKU</label>
+      <input type="text" id="add-sku" required>
+
+      <label for="add-name">Name</label>
+      <input type="text" id="add-name" required>
+
+      <label for="add-description">Description</label>
+      <textarea id="add-description"></textarea>
+
+      <label for="add-price">Price</label>
+      <input type="number" id="add-price" step="0.01" required>
+
+      <label for="add-category">Category</label>
+      <select id="add-category"></select>
+
+      <label for="add-stock">Stock</label>
+      <input type="number" id="add-stock" value="0">
+
+      <label for="add-warranty">Warranty</label>
+      <input type="text" id="add-warranty">
+
+      <label for="add-image">Image filename</label>
+      <input type="text" id="add-image" placeholder="example.png">
+
+      <div class="form-check">
+        <input type="checkbox" id="add-status" class="form-check-input" checked>
+        <label for="add-status" class="form-check-label">Active</label>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" id="add-item-save" class="btn btn-warning">Save</button>
+        <button type="button" id="add-item-cancel" class="btn btn-secondary">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Item Modal -->
+<div id="edit-item-modal" class="modal-bg" style="display:none;">
+  <div class="modal">
+    <h2>Edit Item</h2>
+    <form id="edit-item-form">
+      <label for="edit-sku">SKU</label>
+      <input type="text" id="edit-sku" required>
+
+      <label for="edit-name">Name</label>
+      <input type="text" id="edit-name" required>
+
+      <label for="edit-description">Description</label>
+      <textarea id="edit-description"></textarea>
+
+      <label for="edit-price">Price</label>
+      <input type="number" id="edit-price" step="0.01" required>
+
+      <label for="edit-category">Category</label>
+      <select id="edit-category"></select>
+
+      <label for="edit-stock">Stock</label>
+      <input type="number" id="edit-stock" value="0">
+
+      <label for="edit-warranty">Warranty</label>
+      <input type="text" id="edit-warranty">
+
+      <label for="edit-image">Image filename</label>
+      <input type="text" id="edit-image">
+
+      <div class="form-check">
+        <input type="checkbox" id="edit-status" class="form-check-input">
+        <label for="edit-status" class="form-check-label">Active</label>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" id="edit-item-save" class="btn btn-warning">Save</button>
+        <button type="button" id="edit-item-cancel" class="btn btn-secondary">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Manage Categories Modal -->
+<div id="manage-categories-modal" class="modal-bg" style="display:none;">
+  <div class="modal">
+    <h2>Manage Categories</h2>
+    <div id="categories-list" class="mb-3">
+      <!-- Populated by JS -->
+    </div>
+
+    <label for="add-category-name">New Category</label>
+    <input type="text" id="add-category-name">
+
+    <div class="modal-actions">
+      <button type="button" id="add-category-save" class="btn btn-warning">Add</button>
+      <button type="button" id="manage-categories-cancel" class="btn btn-secondary">Close</button>
+    </div>
+  </div>
+</div>
