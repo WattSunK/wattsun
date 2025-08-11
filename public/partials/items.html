@@ -1,103 +1,53 @@
-<div class="container-fluid px-4">
-    <h2 class="mt-4">Items</h2>
-
-    <!-- Top controls -->
-    <div class="mb-3 d-flex align-items-center flex-wrap gap-2">
-        <button id="btn-add-item" class="btn btn-outline-warning btn-sm">+ Add Item</button>
-        <button id="btn-manage-categories" class="btn btn-outline-warning btn-sm">Manage Categories</button>
-
-        <select id="category-filter" class="form-select form-select-sm w-auto ms-auto">
-            <option value="">All Categories</option>
-        </select>
-        <input type="text" id="search-text" class="form-control form-control-sm w-auto" placeholder="Search by name or SKU">
-        <button id="search-button" class="btn btn-outline-warning btn-sm">Search</button>
-        <button id="clear-button" class="btn btn-outline-warning btn-sm">Clear</button>
+<div class="items-section">
+  <div class="items-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <div>
+      <button id="add-item-btn" class="btn btn-warning btn-sm">+ Add Item</button>
+      <button id="manage-categories-btn" class="btn btn-warning btn-sm">Manage Categories</button>
     </div>
-
-    <!-- Items Table -->
-    <div class="table-responsive">
-        <table class="table table-bordered table-striped align-middle">
-            <thead class="table-warning">
-                <tr>
-                    <th>SL. NO</th>
-                    <th>IMAGE</th>
-                    <th>ITEM NAME</th>
-                    <th>SKU</th>
-                    <th>CATEGORY</th>
-                    <th>STOCK</th>
-                    <th>UNIT PRICE</th>
-                    <th>STATUS</th>
-                    <th>ACTION</th>
-                </tr>
-            </thead>
-            <tbody id="items-table-body">
-                <!-- Dynamically filled by admin-items.js -->
-            </tbody>
-        </table>
+    <div style="display:flex; gap:5px; align-items:center;">
+      <select id="item-category-filter" class="form-control form-control-sm">
+        <option value="">All Categories</option>
+      </select>
+      <input id="item-search-input" type="text" placeholder="Search by name or SKU" class="form-control form-control-sm">
+      <button id="item-search-btn" class="btn btn-warning btn-sm">Search</button>
+      <button id="item-clear-btn" class="btn btn-outline-secondary btn-sm">Clear</button>
     </div>
+  </div>
+
+  <div class="table-responsive">
+    <table id="items-table" class="table table-bordered table-striped table-sm">
+      <thead style="background-color:#fff8e1;">
+        <tr>
+          <th style="width:50px;">SL. NO</th>
+          <th style="width:90px;">IMAGE</th>
+          <th>ITEM NAME</th>
+          <th>SKU</th>
+          <th>CATEGORY</th>
+          <th>STOCK</th>
+          <th>UNIT PRICE</th>
+          <th>STATUS</th>
+          <th style="width:120px;">ACTION</th>
+        </tr>
+      </thead>
+      <tbody id="items-table-body">
+        <!-- Rows will be injected here by admin-items.js -->
+      </tbody>
+    </table>
+  </div>
 </div>
 
-<!-- Add Item Modal -->
-<div id="add-item-modal" class="modal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content p-3">
-            <h5>Add New Item</h5>
-            <form id="add-item-form">
-                <div class="mb-2"><label>SKU:</label><input type="text" id="add-sku" class="form-control"></div>
-                <div class="mb-2"><label>Name:</label><input type="text" id="add-name" class="form-control"></div>
-                <div class="mb-2"><label>Description:</label><textarea id="add-description" class="form-control"></textarea></div>
-                <div class="mb-2"><label>Price:</label><input type="number" id="add-price" class="form-control"></div>
-                <div class="mb-2"><label>Category:</label><select id="add-category" class="form-select"></select></div>
-                <div class="mb-2"><label>Stock:</label><input type="number" id="add-stock" value="0" class="form-control"></div>
-                <div class="mb-2"><label>Warranty:</label><input type="text" id="add-warranty" class="form-control"></div>
-                <div class="mb-2"><label>Image filename (optional):</label><input type="text" id="add-image" placeholder="e.g. Lithium-battery.png" class="form-control"></div>
-                <div class="form-check mb-3"><input type="checkbox" id="add-status" class="form-check-input" checked> <label class="form-check-label">Active</label></div>
-                <div class="d-flex justify-content-end gap-2">
-                    <button type="button" id="add-item-save" class="btn btn-warning">Add Item</button>
-                    <button type="button" id="add-item-cancel" class="btn btn-secondary">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Edit Item Modal -->
-<div id="edit-item-modal" class="modal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content p-3">
-            <h5>Edit Item</h5>
-            <form id="edit-item-form">
-                <div class="mb-2"><label>SKU:</label><input type="text" id="edit-sku" class="form-control"></div>
-                <div class="mb-2"><label>Name:</label><input type="text" id="edit-name" class="form-control"></div>
-                <div class="mb-2"><label>Description:</label><textarea id="edit-description" class="form-control"></textarea></div>
-                <div class="mb-2"><label>Price:</label><input type="number" id="edit-price" class="form-control"></div>
-                <div class="mb-2"><label>Category:</label><select id="edit-category" class="form-select"></select></div>
-                <div class="mb-2"><label>Stock:</label><input type="number" id="edit-stock" value="0" class="form-control"></div>
-                <div class="mb-2"><label>Warranty:</label><input type="text" id="edit-warranty" class="form-control"></div>
-                <div class="mb-2"><label>Image filename (optional):</label><input type="text" id="edit-image" class="form-control"></div>
-                <div class="form-check mb-3"><input type="checkbox" id="edit-status" class="form-check-input"> <label class="form-check-label">Active</label></div>
-                <div class="d-flex justify-content-end gap-2">
-                    <button type="button" id="edit-item-save" class="btn btn-warning">Save Changes</button>
-                    <button type="button" id="edit-item-cancel" class="btn btn-secondary">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Manage Categories Modal -->
-<div id="manage-categories-modal" class="modal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content p-3">
-            <h5>Manage Categories</h5>
-            <div id="categories-list" class="mb-3">
-                <!-- Filled by JS -->
-            </div>
-            <div class="mb-2"><label>New Category Name:</label><input type="text" id="add-category-name" class="form-control"></div>
-            <div class="d-flex justify-content-end gap-2">
-                <button type="button" id="add-category-save" class="btn btn-warning">Add Category</button>
-                <button type="button" id="manage-categories-cancel" class="btn btn-secondary">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
+<style>
+  #items-table img {
+    max-width: 60px;
+    max-height: 60px;
+    object-fit: contain;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    padding: 3px;
+    border-radius: 4px;
+  }
+  .btn-sm {
+    padding: 2px 6px;
+    font-size: 0.85rem;
+  }
+</style>
