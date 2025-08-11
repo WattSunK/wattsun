@@ -228,7 +228,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (section === "users") {
-      // Load users.html first
       try {
         const res = await fetch(`/partials/users.html?v=${Date.now()}`);
         content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
@@ -236,7 +235,6 @@ document.addEventListener("DOMContentLoaded", () => {
         content.innerHTML = `<div class="p-3"></div>`;
         return;
       }
-      // Now load script if needed
       if (typeof fetchAndRenderUsers !== "function") {
         if (!document.querySelector('script[src="/admin/js/admin-users.js"]')) {
           const script = document.createElement("script");
@@ -255,7 +253,30 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Default: just load the partial
+    // --- NEW: Items section ---
+    if (section === "items") {
+      try {
+        const res = await fetch(`/partials/items.html?v=${Date.now()}`);
+        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+      } catch {
+        content.innerHTML = `<div class="p-3"></div>`;
+        return;
+      }
+      if (typeof initAdminItems !== "function") {
+        if (!document.querySelector('script[src="/admin/js/admin-items.js"]')) {
+          const script = document.createElement("script");
+          script.src = "/admin/js/admin-items.js";
+          script.onload = () => { if (typeof initAdminItems === "function") initAdminItems(); };
+          script.onerror = () => console.error("Failed to load admin-items.js");
+          document.body.appendChild(script);
+        }
+      } else {
+        initAdminItems();
+      }
+      return;
+    }
+    // --- End Items section ---
+
     try {
       const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
       content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
