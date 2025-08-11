@@ -1,151 +1,250 @@
-// /public/admin/js/admin-users.js
-// Stable build: works standalone or via injected dashboard sections.
-// Follows the same robust pattern as myorders.js
+// admin/js/admin-users.js
 
-(function () {
-  const PAGE_SIZE = 10; // adjust as needed
+// Full logic with modal, profile link, filters, status toggle, and actions
 
-  const $ = (id) => document.getElementById(id);
-  const els = {
-    tbody: null,
-    search: null,
-    type: null,
-    status: null,
-    searchBtn: null,
-    clearBtn: null,
-    count: null,
-    pageNum: null,
-    first: null,
-    prev: null,
-    next: null,
-    last: null
-  };
+function initAdminUsers() {
+  loadFilterState();
+  fetchAndRenderUsers();
 
-  let all = [];
-  let filtered = [];
-  let page = 1;
+  document.getElementById('add-user-btn')?.addEventListener('click', openAddUserModal);
+  document.getElementById('user-search-input')?.addEventListener('input', handleLiveSearch);
+  document.getElementById('user-search-btn')?.addEventListener('click', fetchAndRenderUsers);
+  document.getElementById('user-clear-btn')?.addEventListener('click', clearUserSearch);
+  document.getElementById('user-type-filter')?.addEventListener('change', fetchAndRenderUsers);
+  document.getElementById('user-status-filter')?.addEventListener('change', fetchAndRenderUsers);
 
-  function bindDOM() {
-    els.tbody = $('users-table-body');
-    els.search = $('user-search-input');
-    els.type = $('user-type-filter');
-    els.status = $('user-status-filter');
-    els.searchBtn = $('user-search-btn');
-    els.clearBtn = $('user-clear-btn');
-    els.count = $('users-count');
-    els.pageNum = $('users-page-num');
-    els.first = $('users-first');
-    els.prev = $('users-prev');
-    els.next = $('users-next');
-    els.last = $('users-last');
-  }
+  document.getElementById('users-table-body')?.addEventListener('click', async function (e) {
+    const btn = e.target.closest('button');
+    const toggle = e.target.closest('.inline-status-toggle');
+    const id = btn?.dataset.id || toggle?.dataset.id;
+    if (!id) return;
 
-  async function fetchUsers() {
-    if (!els.tbody) return;
-    els.tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">Loading...</td></tr>`;
+    if (btn?.classList.contains('view-user-btn')) return openViewUserModal(id);
+    if (btn?.classList.contains('edit-user-btn')) return openEditUserModal(id);
+    if (btn?.classList.contains('delete-user-btn')) return confirmDeleteUser(id);
 
-    try {
-      const res = await fetch('/api/users');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      let users = await res.json();
-
-      all = Array.isArray(users) ? users : [];
-      applyFilters();
-      render();
-    } catch (e) {
-      console.error('[admin-users] fetch failed', e);
-      if (els.tbody) {
-        els.tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:red;">Error loading users</td></tr>`;
-      }
+    if (toggle) {
+      const newStatus = toggle.checked ? 'Active' : 'Inactive';
+      await fetch(`/api/users/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      toggle.closest('td').querySelector('[data-status-label]').textContent = newStatus;
     }
-  }
+  });
+}
 
-  function applyFilters() {
-    const search = (els.search?.value || '').toLowerCase();
-    const type = els.type?.value || 'All';
-    const status = els.status?.value || 'All';
+function handleLiveSearch() {
+  localStorage.setItem('user_search_text', document.getElementById('user-search-input').value);
+  fetchAndRenderUsers();
+}
 
-    filtered = all.filter(u =>
+function loadFilterState() {
+  const saved = localStorage.getItem('user_search_text');
+  if (saved) document.getElementById('user-search-input').value = saved;
+}
+
+function clearUserSearch() {
+  document.getElementById('user-search-input').value = '';
+  localStorage.removeItem('user_search_text');
+  fetchAndRenderUsers();
+}
+
+async function fetchAndRenderUsers() {
+  const tbody = document.getElementById('users-table-body');
+  tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">Loading...</td></tr>`;
+  let search = document.getElementById('user-search-input').value.toLowerCase();
+  let type = document.getElementById('user-type-filter').value;
+  let status = document.getElementById('user-status-filter').value;
+
+  try {
+    let users = await fetch('/api/users').then(r => r.json());
+    users = users.filter(u =>
       (!search || [u.name, u.email, u.phone].some(v => v?.toLowerCase().includes(search))) &&
       (type === 'All' || u.type === type) &&
       (status === 'All' || u.status === status)
     );
-
-    page = 1;
+    renderUsersTable(users);
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:red;">Error loading users</td></tr>`;
   }
+}
 
-  function render() {
-    if (!els.tbody) return;
+function renderUsersTable(users) {
+  const tbody = document.getElementById('users-table-body');
+  tbody.innerHTML = users.length ? '' : `<tr><td colspan="9" style="text-align:center;">No users found</td></tr>`;
+  users.forEach((user, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${idx + 1}</td>
+      <td><a href="#myaccount/profile?id=${user.id}" class="table-link">${user.name}</a></td>
+      <td>${user.email || '-'}</td>
+      <td>${user.phone || '-'}</td>
+      <td>${user.type || '-'}</td>
+      <td>${user.orders || 0}</td>
+      <td>
+        <label class="switch">
+          <input type="checkbox" class="inline-status-toggle" data-id="${user.id}" ${user.status === 'Active' ? 'checked' : ''}>
+          <span class="slider"></span>
+        </label>
+        <span class="status-label" data-status-label>${user.status}</span>
+      </td>
+      <td>${user.last_active || '-'}</td>
+      <td>
+        <button class="action-btn view-btn view-user-btn" data-id="${user.id}">View</button>
+        <button class="action-btn edit-btn edit-user-btn" data-id="${user.id}">Edit</button>
+        <button class="action-btn delete-btn delete-user-btn" data-id="${user.id}">Delete</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
 
-    const total = filtered.length;
-    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    page = Math.min(page, totalPages);
+async function openViewUserModal(userId) {
+  try {
+    const resp = await fetch(`/api/users/${encodeURIComponent(userId)}`);
+    if (!resp.ok) throw new Error('User not found');
+    const user = await resp.json();
 
-    const start = (page - 1) * PAGE_SIZE;
-    const rows = filtered.slice(start, start + PAGE_SIZE);
-
-    els.tbody.innerHTML = rows.map((u, i) => `
-      <tr>
-        <td>${start + i + 1}</td>
-        <td>${u.name || '—'}</td>
-        <td>${u.email || '—'}</td>
-        <td>${u.phone || '—'}</td>
-        <td>${u.type || '—'}</td>
-        <td>${u.status || '—'}</td>
-        <td>${u.createdAt || '—'}</td>
-        <td>${u.updatedAt || '—'}</td>
-        <td style="text-align:center;">
-          <button class="admin-action" data-view="${u.id}">View</button>
-        </td>
-      </tr>
-    `).join('') || `<tr><td colspan="9" style="text-align:center;">No users found</td></tr>`;
-
-    if (els.count) els.count.textContent = `Showing ${rows.length} of ${total} entries`;
-    if (els.pageNum) els.pageNum.textContent = String(page);
-
-    if (els.first) els.first.disabled = page <= 1;
-    if (els.prev)  els.prev.disabled  = page <= 1;
-    if (els.next)  els.next.disabled  = page >= totalPages;
-    if (els.last)  els.last.disabled  = page >= totalPages;
+    const modal = document.getElementById('user-modal');
+    const modalBg = document.getElementById('user-modal-bg');
+    modal.querySelector('#user-modal-title').innerText = 'View User';
+    modal.querySelector('#user-modal-form').style.display = 'none';
+    const view = modal.querySelector('#user-modal-view');
+    view.innerHTML = `
+      <div><b>Name:</b> ${user.name || '-'}</div>
+      <div><b>Email:</b> ${user.email || '-'}</div>
+      <div><b>Phone:</b> ${user.phone || '-'}</div>
+      <div><b>Type:</b> ${user.type || '-'}</div>
+      <div><b>Status:</b> ${user.status || '-'}</div>
+      <div><b>Last Active:</b> ${user.last_active || '-'}</div>
+      <div class="modal-actions"><button type="button" id="user-modal-close-view" class="action-btn button">Close</button></div>
+    `;
+    view.style.display = 'block';
+    modalBg.style.display = 'block';
+    modal.style.display = 'block';
+    view.querySelector('#user-modal-close-view').onclick = closeUserModal;
+  } catch (e) {
+    alert('Could not load user');
   }
+}
 
-  function bindEvents() {
-    els.searchBtn?.addEventListener('click', () => { applyFilters(); render(); });
-    els.clearBtn?.addEventListener('click', () => {
-      if (els.search) els.search.value = '';
-      if (els.type) els.type.value = 'All';
-      if (els.status) els.status.value = 'All';
-      applyFilters();
-      render();
+async function openEditUserModal(userId) {
+  try {
+    const resp = await fetch(`/api/users/${encodeURIComponent(userId)}`);
+    if (!resp.ok) throw new Error('User not found');
+    const user = await resp.json();
+
+    const modal = document.getElementById('user-modal');
+    const modalBg = document.getElementById('user-modal-bg');
+    const form = modal.querySelector('#user-modal-form');
+    form['user-modal-name'].value = user.name || '';
+    form['user-modal-email'].value = user.email || '';
+    form['user-modal-phone'].value = user.phone || '';
+    form['user-modal-type'].value = user.type || 'Customer';
+    form['user-modal-status'].value = user.status || 'Active';
+
+    ['user-modal-save', 'user-modal-cancel', 'user-modal-close'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.replaceWith(el.cloneNode(true));
     });
-    els.search?.addEventListener('input', () => { applyFilters(); render(); });
 
-    els.first?.addEventListener('click', () => { page = 1; render(); });
-    els.prev ?.addEventListener('click', () => { page = Math.max(1, page - 1); render(); });
-    els.next ?.addEventListener('click', () => { page = page + 1; render(); });
-    els.last ?.addEventListener('click', () => { page = Math.ceil(filtered.length / PAGE_SIZE); render(); });
+    document.getElementById('user-modal-save').onclick = async function (e) {
+      e.preventDefault();
+      const updatedUser = {
+        name: form['user-modal-name'].value,
+        email: form['user-modal-email'].value,
+        phone: form['user-modal-phone'].value,
+        type: form['user-modal-type'].value,
+        status: form['user-modal-status'].value
+      };
+      try {
+        const updateResp = await fetch(`/api/users/${encodeURIComponent(userId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedUser)
+        });
+        if (!updateResp.ok) throw new Error('Failed to update');
+        closeUserModal();
+        fetchAndRenderUsers();
+      } catch (err) {
+        modal.querySelector('#user-modal-message').innerText = "Error: Could not update user.";
+      }
+    };
 
-    els.tbody?.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-view]');
-      if (!btn) return;
-      const id = btn.getAttribute('data-view');
-      console.log('View user', id);
-    });
+    document.getElementById('user-modal-cancel').onclick = closeUserModal;
+    document.getElementById('user-modal-close').onclick = closeUserModal;
+
+    modal.querySelector('#user-modal-form').style.display = 'block';
+    modal.querySelector('#user-modal-view').style.display = 'none';
+    modalBg.style.display = 'block';
+    modal.style.display = 'block';
+  } catch (e) {
+    alert('Could not load user');
   }
+}
 
-  // Public entry
-  window.initAdminUsers = async function initAdminUsers() {
-    bindDOM();
-    bindEvents();
-    await fetchUsers();
-  };
+function openAddUserModal() {
+  const modal = document.getElementById('user-modal');
+  const modalBg = document.getElementById('user-modal-bg');
+  const form = modal.querySelector('#user-modal-form');
+  form.reset();
 
-  // Standalone safety for admin-users.html
-  document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('users-table-body') && !window.__adminUsersBooted) {
-      window.__adminUsersBooted = true;
-      window.initAdminUsers();
-    }
+  ['user-modal-save', 'user-modal-cancel', 'user-modal-close'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.replaceWith(el.cloneNode(true));
   });
 
-})();
+  document.getElementById('user-modal-save').onclick = async function (e) {
+    e.preventDefault();
+    const newUser = {
+      name: form['user-modal-name'].value,
+      email: form['user-modal-email'].value,
+      phone: form['user-modal-phone'].value,
+      type: form['user-modal-type'].value,
+      status: form['user-modal-status'].value,
+      password: 'changeme'
+    };
+    try {
+      const resp = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser)
+      });
+      if (!resp.ok) throw new Error('Failed to add');
+      closeUserModal();
+      fetchAndRenderUsers();
+    } catch (err) {
+      modal.querySelector('#user-modal-message').innerText = "Error: Could not add user.";
+    }
+  };
+
+  document.getElementById('user-modal-cancel').onclick = closeUserModal;
+  document.getElementById('user-modal-close').onclick = closeUserModal;
+
+  modal.querySelector('#user-modal-title').innerText = 'Add User';
+  modal.querySelector('#user-modal-form').style.display = 'block';
+  modal.querySelector('#user-modal-view').style.display = 'none';
+  modalBg.style.display = 'block';
+  modal.style.display = 'block';
+}
+
+function confirmDeleteUser(userId) {
+  if (!confirm('Are you sure you want to delete this user?')) return;
+  deleteUser(userId);
+}
+
+async function deleteUser(userId) {
+  try {
+    const resp = await fetch(`/api/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+    if (!resp.ok) throw new Error('Failed to delete');
+    fetchAndRenderUsers();
+  } catch (err) {
+    alert('Could not delete user.');
+  }
+}
+
+function closeUserModal() {
+  document.getElementById('user-modal-bg').style.display = 'none';
+  document.getElementById('user-modal').style.display = 'none';
+}
