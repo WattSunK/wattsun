@@ -216,7 +216,7 @@
     <tbody></tbody>
   </table>
   </div>
-  
+  <div class="total" id="totalAmount">Total Deposit: KES 0</div>
   <form autocomplete="on" class="checkout-form" id="checkoutForm" name="order">
     <label for="fullName">Full Name</label>
     <input id="fullName" name="fullName" placeholder="Your full name" required type="text"/>
@@ -228,10 +228,7 @@
     <textarea id="address" name="address" placeholder="Enter delivery location" required rows="3"></textarea>
     <div class="checkout-actions">
       <a class="loan-btn secondary" href="shop.html">← Back to Shop</a>
-      <div class="right" style="display:flex;align-items:center;gap:12px;">
-        <span id="totalInline" class="total-inline">Total Deposit: KES 0</span>
-        <button class="btn" type="submit">Place Order →</button>
-      </div>
+      <button class="btn" type="submit">Place Order →</button>
     </div>
   </form>
 </div>
@@ -309,22 +306,14 @@ document.addEventListener("DOMContentLoaded", function () {
       `;
       tbody.appendChild(row);
     });
-    document.getElementById("totalInline").textContent =
+    document.getElementById("totalAmount").textContent =
       "Total Deposit: KES " + totalDeposit.toLocaleString();
   }
   renderCart();
 
   // Prefill logic for checkout form
-  function getStoredUser(){
-    try{
-      const raw = localStorage.getItem('wattsunUser') || localStorage.getItem('ws_user');
-      if(!raw) return null;
-      const obj = JSON.parse(raw);
-      return obj && obj.user ? obj.user : obj;
-    }catch(e){ return null; }
-  }
   function prefillCheckoutFields() {
-    const user = getStoredUser();
+    const user = JSON.parse(localStorage.getItem('wattsunUser') || 'null');
     if (user) {
       document.getElementById('fullName').value = user.name || "";
       document.getElementById('email').value = user.email || "";
@@ -334,14 +323,13 @@ document.addEventListener("DOMContentLoaded", function () {
       if (user.address) address = user.address;
       else if (user.deliveryAddress) address = user.deliveryAddress;
       document.getElementById('address').value = address || "";
-      ['fullName','email','phone'].forEach(id=>{ const el=document.getElementById(id); if(el){ el.readOnly=true; el.classList.add('readonly'); }});
     }
   }
   prefillCheckoutFields();
 
   // Auth Section in Heading
   function renderAuthSection() {
-    const user = getStoredUser();
+    const user = JSON.parse(localStorage.getItem('wattsunUser') || 'null');
     const section = document.getElementById('authSection');
     if (user) {
       section.innerHTML = `<span class="welcome-msg">Welcome, ${user.name || ''}</span>
@@ -355,8 +343,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // On logout, clear session and update UI
   window.logoutUser = function() {
-    try{ localStorage.removeItem('wattsunUser'); }catch(e){}
-    try{ localStorage.removeItem('ws_user'); }catch(e){}
+    localStorage.removeItem('wattsun_user');
     renderAuthSection();
     // Optionally clear form fields
     document.getElementById('fullName').value = "";
@@ -492,7 +479,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const data = await response.json();
       if (response.ok && data.status === "success") {
         // If logged in, update their delivery address in localStorage for future
-        const user = getStoredUser();
+        const user = JSON.parse(localStorage.getItem('wattsunUser') || 'null');
         if (user) {
           user.address = orderData.address;
           user.phone = orderData.phone;
