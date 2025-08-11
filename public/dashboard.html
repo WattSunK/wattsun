@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WattSun Dashboard</title>
 
-  <!-- Admin CSS (kept). Switch to v2 by visiting: /public/dashboard.html?css=v2 -->
-  <link id="adminCSS" rel="stylesheet" href="/public/admin/admin.css" />
+  <!-- Admin CSS (toggle v2 with ?css=v2) -->
+  <link id="adminCSS" rel="stylesheet" href="./admin/admin.css" />
   <script>
     (function () {
       const p = new URLSearchParams(location.search);
       if (p.get("css") === "v2") {
         const link = document.getElementById("adminCSS");
-        if (link) link.href = "/public/admin/admin.v2.css";
+        if (link) link.href = "./admin/admin.v2.css";
       }
     })();
   </script>
@@ -22,12 +22,12 @@
     <div class="sidebar">
       <div class="sidebar-top">
         <div class="sidebar-logo">
-          <img src="/images/logo.png" alt="WattSun"
+          <img src="./images/logo.png" alt="WattSun"
                style="height:22px;width:auto;vertical-align:middle;margin-right:8px;">
           WattSun
         </div>
         <nav>
-          <!-- Use data-partial for sections that load into the content slot -->
+          <!-- Use data-partial to load ./partials/<name>.html -->
           <a href="#" class="active" data-partial="system-status">Dashboard</a>
           <a href="#" data-partial="profile">Profile</a>
           <a href="#" data-partial="orders">Orders</a>
@@ -35,8 +35,7 @@
           <a href="#" data-partial="users">Users</a>
           <a href="#" data-partial="dispatch">Dispatch</a>
           <a href="#" data-partial="settings">Settings</a>
-          <!-- My Orders goes to its page directly (not a partial): -->
-          <a href="/public/myaccount/myorders.html">My Orders</a>
+          <a href="./myaccount/myorders.html">My Orders</a>
         </nav>
       </div>
     </div>
@@ -62,31 +61,27 @@
     </div>
   </div>
 
-  <!-- Data adapter (fetch + normalization) -->
-  <script src="/public/admin/js/data-adapter.js"></script>
+  <!-- Adapter + controller + loader (RELATIVE paths) -->
+  <script src="./admin/js/data-adapter.js"></script>
+  <script src="./admin/js/orders-controller.js" defer></script>
+  <script src="./admin/js/dashboard.js" defer></script>
 
-  <!-- Controllers (safe to preload; they auto-init only if their target exists) -->
-  <script src="/public/admin/js/orders-controller.js" defer></script>
-
-  <!-- Tiny partial loader/router -->
-  <script src="/public/admin/js/dashboard.js" defer></script>
-
-  <!-- Home / Logout wiring (unchanged behavior) -->
+  <!-- Home / Logout -->
   <script>
     document.addEventListener('DOMContentLoaded', function(){
       var home = document.getElementById('adminHomeBtn');
       var logout = document.getElementById('adminLogoutBtn');
-      if (home) home.addEventListener('click', function(){ window.location.href = '/index.html'; });
+      if (home) home.addEventListener('click', function(){ window.location.href = './index.html'; });
       if (logout) logout.addEventListener('click', function(){
         try { localStorage.removeItem('wattsunUser'); } catch(e){}
         try { localStorage.removeItem('ws_user'); } catch(e){}
-        window.location.href = '/index.html';
+        window.location.href = './index.html';
       });
 
-      // Load initial partial from hash or default to system-status
+      // Load initial partial from hash; fall back to ORDERS so you see results immediately
       if (!location.hash) {
-        const first = document.querySelector('a[data-partial="system-status"]');
-        if (first) first.click();
+        const link = document.querySelector('a[data-partial="orders"]') || document.querySelector('a[data-partial="system-status"]');
+        if (link) link.click();
       }
     });
   </script>
