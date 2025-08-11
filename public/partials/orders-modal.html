@@ -41,6 +41,11 @@
       <div class="ws-row"><label>Phone:</label>         <span id="modal-phone" class="ws-val">—</span></div>
       <div class="ws-row"><label>Email:</label>         <span id="modal-email" class="ws-val">—</span></div>
 
+      <!-- Hidden spans for dashboard.js compatibility -->
+      <span id="modal-payment-method" style="display:none"></span>
+      <span id="modal-amount" style="display:none"></span>
+      <span id="modal-deposit" style="display:none"></span>
+
       <div class="ws-row"><label>Payment Method:</label>
         <select id="modal-payment" class="ws-select">
           <option value="">—</option>
@@ -80,7 +85,6 @@
 </div>
 
 <script>
-/* Keep Update disabled when no ID, keep inputs in sync with what dashboard.js writes into the spans, and REBIND Update per order. */
 (function(){
   const btn   = document.getElementById('updateOrderStatusBtn');
   const idEl  = document.getElementById('modal-order-id');
@@ -101,7 +105,6 @@
   }
 
   function syncInputsFromSpans(){
-    // dashboard.js writes spans #modal-payment-method, #modal-amount, #modal-deposit
     const pmSpan = document.getElementById('modal-payment-method');
     const amSpan = document.getElementById('modal-amount');
     const dpSpan = document.getElementById('modal-deposit');
@@ -138,11 +141,10 @@
         const j = await r.json();
         if (!j || !(j.ok || j.success)) throw new Error(j?.error || 'Update failed');
 
-        // refresh Orders section without touching dashboard.js internals:
+        // refresh Orders section
         const link = document.querySelector('.sidebar nav a[data-section="orders"]');
         if (link) link.click(); else location.reload();
 
-        // close modal
         document.getElementById('closeOrderModalBtn')?.click();
         toast('Order updated');
       } catch(e){
@@ -151,14 +153,12 @@
     };
   }
 
-  // react whenever dashboard.js fills the modal
   const mo = new MutationObserver(() => { 
     syncInputsFromSpans();
     rebindUpdate();
   });
   mo.observe(document.getElementById('orderDetailsModal'), { subtree:true, childList:true, characterData:true });
 
-  // initial
   syncInputsFromSpans();
   rebindUpdate();
 })();
