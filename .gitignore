@@ -25,3 +25,7 @@ run/**
 *.log
 orders.json
 items.csv
+inventory.db
+user-setup/users.db
+data/users.db
+orders.json
