@@ -1,4 +1,4 @@
-// /public/js/dashboard.js — stable legacy Orders loader (creates table if missing)
+// /public/js/dashboard.js — dashboard partial loader with safe section init
 document.addEventListener("DOMContentLoaded", () => {
   const content  = document.getElementById("admin-content");
   const sidebar  = document.querySelector(".sidebar nav");
@@ -39,6 +39,18 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---- UI helpers ----
   function setHeaderSearchVisible(show) { if (hdrSearch) hdrSearch.style.display = show ? "" : "none"; }
 
+  // small helper: run a function after a tick to give inline scripts time to execute
+  function deferInit(fn) {
+    try {
+      // try immediate call first (most cases)
+      fn();
+    } catch (e) {
+      // if it fails, schedule soon
+      setTimeout(fn, 50);
+    }
+  }
+
+  // ---- Orders modal + table helpers (unchanged logic) ----
   async function ensureOrdersModal() {
     if (document.getElementById("orderDetailsModal")) return;
     try {
@@ -213,32 +225,54 @@ document.addEventListener("DOMContentLoaded", () => {
     const hasOwnSearch = new Set(["orders", "users", "items", "myorders"]);
     setHeaderSearchVisible(!hasOwnSearch.has(section));
 
+    // load partial into content
     try {
       const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
-      content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-    } catch {
+      if (res.ok) {
+        content.innerHTML = await res.text();
+      } else {
+        content.innerHTML = `<div class="p-3"></div>`;
+      }
+    } catch (err) {
+      console.error("Failed to load partial:", err);
       content.innerHTML = `<div class="p-3"></div>`;
     }
 
-    if (section === "orders") {
-      await populateOrders(); // always works: creates shell if partial is empty
-      return;
-    }
+    // AFTER partial is injected, call section-specific initializers
+    try {
+      if (section === "orders") {
+        // orders needs to create table shell if partial is missing
+        await populateOrders();
+        return;
+      }
 
-    if (section === "profile") {
-      const u = getUser();
-      hydrateProfile(u);
-      window.addEventListener("ws:user", ev => hydrateProfile(ev.detail));
-      return;
-    }
+      if (section === "profile") {
+        const u = getUser();
+        hydrateProfile(u);
+        // keep profile live-updating
+        window.addEventListener("ws:user", ev => hydrateProfile(ev.detail));
+        return;
+      }
 
-    if (section === "users") {
-    if (typeof fetchAndRenderUsers === "function") {
-        fetchAndRenderUsers();
-    }
-    return;
-}
+      if (section === "users") {
+        // Some admin users code exposes fetchAndRenderUsers() or initAdminUsers()
+        // call whichever is present. Use deferInit to tolerate timing issues.
+        deferInit(() => {
+          if (typeof fetchAndRenderUsers === "function") {
+            try { fetchAndRenderUsers(); } catch (e) { console.error("fetchAndRenderUsers error:", e); }
+          }
+          if (typeof initAdminUsers === "function") {
+            try { initAdminUsers(); } catch (e) { console.error("initAdminUsers error:", e); }
+          }
+        });
+        return;
+      }
 
+      // other sections can be handled here as needed (items, dispatch, settings, myorders, etc.)
+    } catch (e) {
+      console.error("Section init error:", e);
+    }
+  }
 
   // ---- Profile mapping ----
   function hydrateProfile(u) {
