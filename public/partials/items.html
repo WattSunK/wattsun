@@ -1,156 +1,162 @@
-<div class="items-section">
-  <div class="items-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-    <div>
-      <button id="add-item-btn" class="btn btn-warning btn-sm">+ Add Item</button>
-      <button id="manage-categories-btn" class="btn btn-warning btn-sm">Manage Categories</button>
-    </div>
-    <div style="display:flex; gap:5px; align-items:center;">
-      <select id="item-category-filter" class="form-control form-control-sm">
-        <option value="">All Categories</option>
-      </select>
-      <input id="item-search-input" type="text" placeholder="Search by name or SKU" class="form-control form-control-sm">
-      <button id="item-search-btn" class="btn btn-warning btn-sm">Search</button>
-      <button id="item-clear-btn" class="btn btn-outline-secondary btn-sm">Clear</button>
-    </div>
+<div class="container-fluid px-4">
+  <h2 class="mt-4">Items</h2>
+
+  <!-- Top controls -->
+  <div class="mb-3 d-flex align-items-center flex-wrap gap-2">
+    <button id="btn-add-item" class="btn btn-outline-warning btn-sm">+ Add Item</button>
+    <button id="btn-manage-categories" class="btn btn-outline-warning btn-sm">Manage Categories</button>
+
+    <select id="category-filter" class="form-select form-select-sm w-auto ms-auto">
+      <option value="">All Categories</option>
+    </select>
+    <input type="text" id="search-text" class="form-control form-control-sm w-auto" placeholder="Search by name or SKU">
+    <button id="search-button" class="btn btn-outline-warning btn-sm">Search</button>
+    <button id="clear-button" class="btn btn-outline-warning btn-sm">Clear</button>
   </div>
 
+  <!-- Show entries selector -->
+  <div class="d-flex justify-content-start mb-2 align-items-center gap-2">
+    <label for="items-per-page" class="form-label mb-0">Show</label>
+    <select id="items-per-page" class="form-select form-select-sm w-auto">
+      <option value="15" selected>15</option>
+      <option value="25">25</option>
+      <option value="50">50</option>
+      <option value="100">100</option>
+    </select>
+    <span>entries</span>
+  </div>
+
+  <!-- Items Table -->
   <div class="table-responsive">
-    <table id="items-table" class="table table-bordered table-striped table-sm">
-      <thead style="background-color:#fff8e1;">
+    <table class="table table-bordered table-striped align-middle">
+      <thead class="table-warning">
         <tr>
-          <th style="width:50px;">SL. NO</th>
-          <th style="width:90px;">IMAGE</th>
+          <th>SL. NO</th>
+          <th>IMAGE</th>
           <th>ITEM NAME</th>
           <th>SKU</th>
           <th>CATEGORY</th>
           <th>STOCK</th>
           <th>UNIT PRICE</th>
           <th>STATUS</th>
-          <th style="width:120px;">ACTION</th>
+          <th>ACTION</th>
         </tr>
       </thead>
       <tbody id="items-table-body">
-        <!-- Rows will be injected here by admin-items.js -->
+        <!-- Filled dynamically by admin-items.js -->
       </tbody>
     </table>
   </div>
-</div>
 
-<style>
-  #items-table img {
-    max-width: 60px;
-    max-height: 60px;
-    object-fit: contain;
-    background-color: #f9f9f9;
-    border: 1px solid #ddd;
-    padding: 3px;
-    border-radius: 4px;
-  }
-  .btn-sm {
-    padding: 2px 6px;
-    font-size: 0.85rem;
-  }
-</style>
-<!-- ===== Your existing items.html content remains here, unchanged ===== -->
-
-<!-- Add Item Modal -->
-<div id="add-item-modal" class="modal-bg" style="display:none;">
-  <div class="modal">
-    <h2>Add Item</h2>
-    <form id="add-item-form">
-      <label for="add-sku">SKU</label>
-      <input type="text" id="add-sku" required>
-
-      <label for="add-name">Name</label>
-      <input type="text" id="add-name" required>
-
-      <label for="add-description">Description</label>
-      <textarea id="add-description"></textarea>
-
-      <label for="add-price">Price</label>
-      <input type="number" id="add-price" step="0.01" required>
-
-      <label for="add-category">Category</label>
-      <select id="add-category"></select>
-
-      <label for="add-stock">Stock</label>
-      <input type="number" id="add-stock" value="0">
-
-      <label for="add-warranty">Warranty</label>
-      <input type="text" id="add-warranty">
-
-      <label for="add-image">Image filename</label>
-      <input type="text" id="add-image" placeholder="example.png">
-
-      <div class="form-check">
-        <input type="checkbox" id="add-status" class="form-check-input" checked>
-        <label for="add-status" class="form-check-label">Active</label>
-      </div>
-
-      <div class="modal-actions">
-        <button type="button" id="add-item-save" class="btn btn-warning">Save</button>
-        <button type="button" id="add-item-cancel" class="btn btn-secondary">Cancel</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Edit Item Modal -->
-<div id="edit-item-modal" class="modal-bg" style="display:none;">
-  <div class="modal">
-    <h2>Edit Item</h2>
-    <form id="edit-item-form">
-      <label for="edit-sku">SKU</label>
-      <input type="text" id="edit-sku" required>
-
-      <label for="edit-name">Name</label>
-      <input type="text" id="edit-name" required>
-
-      <label for="edit-description">Description</label>
-      <textarea id="edit-description"></textarea>
-
-      <label for="edit-price">Price</label>
-      <input type="number" id="edit-price" step="0.01" required>
-
-      <label for="edit-category">Category</label>
-      <select id="edit-category"></select>
-
-      <label for="edit-stock">Stock</label>
-      <input type="number" id="edit-stock" value="0">
-
-      <label for="edit-warranty">Warranty</label>
-      <input type="text" id="edit-warranty">
-
-      <label for="edit-image">Image filename</label>
-      <input type="text" id="edit-image">
-
-      <div class="form-check">
-        <input type="checkbox" id="edit-status" class="form-check-input">
-        <label for="edit-status" class="form-check-label">Active</label>
-      </div>
-
-      <div class="modal-actions">
-        <button type="button" id="edit-item-save" class="btn btn-warning">Save</button>
-        <button type="button" id="edit-item-cancel" class="btn btn-secondary">Cancel</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Manage Categories Modal -->
-<div id="manage-categories-modal" class="modal-bg" style="display:none;">
-  <div class="modal">
-    <h2>Manage Categories</h2>
-    <div id="categories-list" class="mb-3">
-      <!-- Populated by JS -->
+  <!-- Pagination info & controls -->
+  <div class="d-flex justify-content-between align-items-center mt-2">
+    <div id="items-table-info" class="small text-muted">
+      Showing 0 to 0 of 0 entries
     </div>
-
-    <label for="add-category-name">New Category</label>
-    <input type="text" id="add-category-name">
-
-    <div class="modal-actions">
-      <button type="button" id="add-category-save" class="btn btn-warning">Add</button>
-      <button type="button" id="manage-categories-cancel" class="btn btn-secondary">Close</button>
-    </div>
+    <div class="pagination" id="items-pagination"></div>
   </div>
 </div>
+
+<script>
+  
+document.addEventListener("DOMContentLoaded", function() {
+  const tableBody = document.getElementById("items-table-body");
+  const pagination = document.getElementById("items-pagination");
+  const info = document.getElementById("items-table-info");
+  const perPageSelect = document.getElementById("items-per-page");
+  const searchInput = document.getElementById("search-text");
+  const categoryFilter = document.getElementById("category-filter");
+
+  let allRows = [];
+  let filteredRows = [];
+  let currentPage = 1;
+  let perPage = parseInt(perPageSelect.value);
+
+  function initRows() {
+    allRows = Array.from(tableBody.querySelectorAll("tr"));
+    applyFilters();
+  }
+
+  function applyFilters() {
+    const searchTerm = searchInput.value.toLowerCase();
+    const selectedCategory = categoryFilter.value;
+
+    filteredRows = allRows.filter(row => {
+      const cells = row.querySelectorAll("td");
+      const name = cells[2]?.textContent.toLowerCase() || "";
+      const sku = cells[3]?.textContent.toLowerCase() || "";
+      const category = cells[4]?.textContent || "";
+      const matchesSearch = !searchTerm || name.includes(searchTerm) || sku.includes(searchTerm);
+      const matchesCategory = !selectedCategory || category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+
+    currentPage = 1;
+    renderTable();
+  }
+
+  function renderTable() {
+    tableBody.innerHTML = "";
+    const start = (currentPage - 1) * perPage;
+    const end = start + perPage;
+    const pageRows = filteredRows.slice(start, end);
+    pageRows.forEach(row => tableBody.appendChild(row));
+
+    const total = filteredRows.length;
+    const showingStart = total === 0 ? 0 : start + 1;
+    const showingEnd = Math.min(end, total);
+    info.textContent = `Showing ${showingStart} to ${showingEnd} of ${total} entries`;
+
+    renderPagination(total);
+  }
+
+  function renderPagination(total) {
+    pagination.innerHTML = "";
+    const totalPages = Math.ceil(total / perPage);
+    if (totalPages <= 1) return;
+
+    const createButton = (label, disabled, onClick) => {
+      const btn = document.createElement("button");
+      btn.textContent = label;
+      btn.className = "btn btn-outline-warning btn-sm mx-1";
+      btn.disabled = disabled;
+      btn.addEventListener("click", onClick);
+      pagination.appendChild(btn);
+    };
+
+    createButton("First", currentPage === 1, () => { currentPage = 1; renderTable(); });
+    createButton("Prev", currentPage === 1, () => { currentPage--; renderTable(); });
+
+    const pageWindow = 2;
+    const startPage = Math.max(1, currentPage - pageWindow);
+    const endPage = Math.min(totalPages, currentPage + pageWindow);
+
+    for (let i = startPage; i <= endPage; i++) {
+      const btn = document.createElement("button");
+      btn.textContent = i;
+      btn.className = `btn ${i === currentPage ? "btn-warning" : "btn-outline-warning"} btn-sm mx-1`;
+      btn.addEventListener("click", () => { currentPage = i; renderTable(); });
+      pagination.appendChild(btn);
+    }
+
+    createButton("Next", currentPage === totalPages, () => { currentPage++; renderTable(); });
+    createButton("Last", currentPage === totalPages, () => { currentPage = totalPages; renderTable(); });
+  }
+
+  perPageSelect.addEventListener("change", () => {
+    perPage = parseInt(perPageSelect.value);
+    currentPage = 1;
+    renderTable();
+  });
+
+  document.getElementById("search-button").addEventListener("click", applyFilters);
+  document.getElementById("clear-button").addEventListener("click", () => {
+    searchInput.value = "";
+    categoryFilter.value = "";
+    applyFilters();
+  });
+  categoryFilter.addEventListener("change", applyFilters);
+
+  setTimeout(initRows, 500); // delay to allow admin-items.js to populate table
+});
+</script>
