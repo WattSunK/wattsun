@@ -231,7 +231,14 @@ document.addEventListener("DOMContentLoaded", () => {
       window.addEventListener("ws:user", ev => hydrateProfile(ev.detail));
       return;
     }
-  }
+
+    if (section === "users") {
+    if (typeof fetchAndRenderUsers === "function") {
+        fetchAndRenderUsers();
+    }
+    return;
+}
+
 
   // ---- Profile mapping ----
   function hydrateProfile(u) {
