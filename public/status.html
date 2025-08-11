@@ -1,101 +1,134 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-store" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>WattSun System Status</title>
   <link rel="stylesheet" href="main.css" />
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f3f3f3;
-      color: #222;
-      padding: 2rem;
-      max-width: 700px;
-      margin: auto;
+    :root{
+      --ok:#16a34a;   /* green  */
+      --warn:#f59e0b; /* amber  */
+      --bad:#dc2626;  /* red    */
+      --card:#fff; --ink:#222; --muted:#666; --accent:#228B22;
     }
-    header {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-    header img {
-      max-width: 180px;
-    }
-    h1 {
-      color: #228B22;
-      font-size: 2rem;
-      margin-top: 0.5rem;
-    }
-    .status-card {
-      background: #fff;
-      padding: 1.2rem;
-      margin-bottom: 1rem;
-      border-left: 6px solid #228B22;
-      border-radius: 8px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    .status-card.red {
-      border-left-color: #cc0000;
-    }
-    .status-label {
-      font-weight: bold;
-      font-size: 1.1rem;
-    }
-    .timestamp {
-      font-size: 0.9rem;
-      color: #666;
-      margin-top: 1rem;
-      text-align: center;
-    }
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f3f3f3;color:var(--ink);padding:2rem;max-width:780px;margin:0 auto;}
+    header{ text-align:center; margin-bottom:1.2rem;}
+    header img{ max-width:180px; display:block; margin:0 auto .5rem;}
+    h1{ color:var(--accent); margin:.25rem 0 0; font-size:2rem;}
+
+    .card{background:var(--card); border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.06);
+      padding:1rem 1.25rem; margin-bottom:1rem; display:grid; grid-template-columns:1.1rem auto; gap:.75rem; align-items:center;
+      border-left:6px solid var(--ok);}
+    .card.ok   { border-left-color: var(--ok); }
+    .card.warn { border-left-color: var(--warn); }
+    .card.bad  { border-left-color: var(--bad); }
+
+    .dot{ width:12px; height:12px; border-radius:50%; background:var(--ok);}
+    .dot.ok   { background:var(--ok); }
+    .dot.warn { background:var(--warn); }
+    .dot.bad  { background:var(--bad); }
+
+    .title{ font-weight:700;}
+    .detail{ color:var(--muted); margin-left:.35rem;}
+    .row{ display:flex; align-items:center; gap:.25rem; flex-wrap:wrap;}
+    .meta{ text-align:center; color:var(--muted); font-size:.92rem; margin-top:.75rem;}
+    button.refresh{ appearance:none; border:1px solid #ddd; background:#fff; padding:.45rem .8rem; border-radius:8px; cursor:pointer;}
+    button.refresh:hover{ background:#fafafa;}
   </style>
 </head>
 <body>
   <header>
-    <img src="/images/logo.png" alt="WattSun Logo" />
+    <img src="/images/logo.png" alt="WattSun Logo">
     <h1>System Status</h1>
   </header>
 
-  <div id="statusContainer">
-    <div class="status-card"><span class="status-label">Backend API:</span> Checking...</div>
-    <div class="status-card"><span class="status-label">Cloudflare Tunnel:</span> Checking...</div>
+  <section id="cards">
+    <div id="api-card" class="card warn" aria-live="polite">
+      <span class="dot warn" aria-hidden="true"></span>
+      <div class="row"><span class="title">Backend API:</span><span class="detail">Checking…</span></div>
+    </div>
+
+    <div id="cf-card" class="card warn" aria-live="polite">
+      <span class="dot warn" aria-hidden="true"></span>
+      <div class="row"><span class="title">Cloudflare Tunnel:</span><span class="detail">Checking…</span></div>
+    </div>
+  </section>
+
+  <div class="meta">
+    <span id="stamp">Last checked: —</span>
+    &nbsp;•&nbsp;
+    <button id="btnRefresh" class="refresh" type="button">Refresh</button>
+    <div>Auto-refreshes every 30s</div>
   </div>
 
-  <div class="timestamp" id="timestamp">Loading...</div>
-
   <script>
-    async function checkStatus() {
-      const container = document.getElementById('statusContainer');
-      const timestamp = document.getElementById('timestamp');
-      container.innerHTML = '';
-      // Backend API check
-      let backendStatus = await fetch('/api/health')
-        .then(res => res.ok ? '🟢 OK' : '🔴 DOWN')
-        .catch(() => '🔴 DOWN');
+    const $ = (s, r=document)=>r.querySelector(s);
 
-      // Tunnel check
-      let tunnelStatus = await fetch('/api/tunnel')
-        .then(res => res.ok ? '🟢 Connected' : '🔴 Disconnected')
-        .catch(() => '🔴 Disconnected');
-
-      container.innerHTML += `
-        <div class="status-card ${backendStatus.includes('🔴') ? 'red' : ''}">
-          <span class="status-label">Backend API:</span> ${backendStatus}
-        </div>
-      `;
-      container.innerHTML += `
-        <div class="status-card ${tunnelStatus.includes('🔴') ? 'red' : ''}">
-          <span class="status-label">Cloudflare Tunnel:</span> ${tunnelStatus}
-        </div>
-      `;
-
-      timestamp.innerText = `Last checked: ${new Date().toLocaleTimeString()} - auto-refreshes every 30s`;
-
+    // map: ok=green, warn=yellow, bad=red
+    function setCard(state, text, id){
+      const card = $(id), dot = $('.dot', card), detail = $('.detail', card);
+      card.classList.remove('ok','warn','bad');
+      dot.classList.remove('ok','warn','bad');
+      card.classList.add(state);
+      dot.classList.add(state);
+      detail.textContent = text;
     }
-     // * ===Fix: Replace em-dash with ASCII dash in status.html for JS compatibility */
-     // Initial check and set interval for auto-refresh
-    checkStatus();
-    setInterval(checkStatus, 30000);
+
+    async function checkApi(){
+      try{
+        const r = await fetch('/api/health', { cache:'no-store' });
+        if(r.ok){
+          setCard('ok','OK','#api-card');
+        }else{
+          setCard('bad',`HTTP ${r.status}`,'#api-card');
+        }
+      }catch{
+        setCard('bad','Unreachable','#api-card');
+      }
+    }
+
+    // Edge-true Cloudflare check
+    async function checkTunnel(){
+      let state='bad', label='Disconnected';
+      try{
+        const r = await fetch('/cdn-cgi/trace', { cache:'no-store' });
+        if(r.ok){
+          const txt = await r.text();
+          const host=(txt.match(/h=([^\n]+)/)||[])[1];
+          const colo=(txt.match(/colo=([^\n]+)/)||[])[1];
+          if(host && host===location.hostname){
+            state='ok'; label=`Connected${colo?` via ${colo}`:''}`;
+          }else{
+            state='warn'; label='Disconnected';
+          }
+        }else{
+          state='warn'; label='Disconnected';
+        }
+      }catch{
+        // fallback: look for Cloudflare headers on API
+        try{
+          const r = await fetch('/api/health', { cache:'no-store' });
+          const viaCF = !!r.headers.get('cf-ray') ||
+            String(r.headers.get('server')||'').toLowerCase().includes('cloudflare');
+          if(viaCF){ state='ok'; label='Connected'; }
+          else { state='warn'; label='Disconnected'; }
+        }catch{
+          state='bad'; label='Error';
+        }
+      }
+      setCard(state,label,'#cf-card');
+    }
+
+    async function refresh(){
+      await Promise.all([checkApi(), checkTunnel()]);
+      $('#stamp').textContent = 'Last checked: ' + new Date().toLocaleTimeString();
+    }
+
+    $('#btnRefresh').addEventListener('click', refresh);
+    refresh();
+    setInterval(refresh, 30_000);
   </script>
 </body>
 </html>
