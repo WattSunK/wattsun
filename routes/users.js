@@ -4,7 +4,7 @@ const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 
 const router = express.Router();
-const dbPath = path.join(__dirname, "../user-setup/users.db");
+const dbPath = path.join(__dirname, "../data/dev/wattsun.dev.db");
 console.log("📂 Using DB path:", dbPath);
 const db = new sqlite3.Database(dbPath);
 
