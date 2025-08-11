@@ -9,33 +9,50 @@
   <style>
     :root{
       --ok:#16a34a;   /* green  */
-      --warn:#f59e0b; /* amber  */
+      --warn:#f59e0b; /* yellow */
       --bad:#dc2626;  /* red    */
       --card:#fff; --ink:#222; --muted:#666; --accent:#228B22;
     }
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f3f3f3;color:var(--ink);padding:2rem;max-width:780px;margin:0 auto;}
-    header{ text-align:center; margin-bottom:1.2rem;}
-    header img{ max-width:180px; display:block; margin:0 auto .5rem;}
-    h1{ color:var(--accent); margin:.25rem 0 0; font-size:2rem;}
+    header{text-align:center;margin-bottom:1.2rem;}
+    header img{max-width:180px;display:block;margin:0 auto .5rem;}
+    h1{color:var(--accent);margin:.25rem 0 0;font-size:2rem;}
 
-    .card{background:var(--card); border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.06);
-      padding:1rem 1.25rem; margin-bottom:1rem; display:grid; grid-template-columns:1.1rem auto; gap:.75rem; align-items:center;
-      border-left:6px solid var(--ok);}
+    .card{
+      background:var(--card);
+      border-radius:12px;
+      box-shadow:0 2px 8px rgba(0,0,0,.06);
+      padding:1rem 1.25rem;
+      margin-bottom:1rem;
+      display:grid;
+      grid-template-columns:1.1rem auto;
+      gap:.75rem;
+      align-items:center;
+      border-left:6px solid var(--warn);
+    }
     .card.ok   { border-left-color: var(--ok); }
     .card.warn { border-left-color: var(--warn); }
     .card.bad  { border-left-color: var(--bad); }
 
-    .dot{ width:12px; height:12px; border-radius:50%; background:var(--ok);}
-    .dot.ok   { background:var(--ok); }
-    .dot.warn { background:var(--warn); }
-    .dot.bad  { background:var(--bad); }
+    /* >>> THIS is the colored dot you were looking for <<< */
+    .status-dot{
+      display:inline-block !important;
+      width:12px; height:12px;
+      border-radius:50%;
+      background:var(--warn);
+      margin-right:.5rem;
+      vertical-align:middle;
+    }
+    .status-dot.ok   { background:var(--ok); }
+    .status-dot.warn { background:var(--warn); }
+    .status-dot.bad  { background:var(--bad); }
 
-    .title{ font-weight:700;}
-    .detail{ color:var(--muted); margin-left:.35rem;}
-    .row{ display:flex; align-items:center; gap:.25rem; flex-wrap:wrap;}
-    .meta{ text-align:center; color:var(--muted); font-size:.92rem; margin-top:.75rem;}
-    button.refresh{ appearance:none; border:1px solid #ddd; background:#fff; padding:.45rem .8rem; border-radius:8px; cursor:pointer;}
-    button.refresh:hover{ background:#fafafa;}
+    .title{font-weight:700;}
+    .detail{color:var(--muted);margin-left:.35rem;}
+    .row{display:flex;align-items:center;gap:.25rem;flex-wrap:wrap;}
+    .meta{text-align:center;color:var(--muted);font-size:.92rem;margin-top:.75rem;}
+    button.refresh{appearance:none;border:1px solid #ddd;background:#fff;padding:.45rem .8rem;border-radius:8px;cursor:pointer;}
+    button.refresh:hover{background:#fafafa;}
   </style>
 </head>
 <body>
@@ -46,13 +63,19 @@
 
   <section id="cards">
     <div id="api-card" class="card warn" aria-live="polite">
-      <span class="dot warn" aria-hidden="true"></span>
-      <div class="row"><span class="title">Backend API:</span><span class="detail">Checking…</span></div>
+      <span id="api-dot" class="status-dot warn" aria-hidden="true"></span>
+      <div class="row">
+        <span class="title">Backend API:</span>
+        <span class="detail" id="api-text">Checking…</span>
+      </div>
     </div>
 
     <div id="cf-card" class="card warn" aria-live="polite">
-      <span class="dot warn" aria-hidden="true"></span>
-      <div class="row"><span class="title">Cloudflare Tunnel:</span><span class="detail">Checking…</span></div>
+      <span id="cf-dot" class="status-dot warn" aria-hidden="true"></span>
+      <div class="row">
+        <span class="title">Cloudflare Tunnel:</span>
+        <span class="detail" id="cf-text">Checking…</span>
+      </div>
     </div>
   </section>
 
@@ -66,11 +89,10 @@
   <script>
     const $ = (s, r=document)=>r.querySelector(s);
 
-    // map: ok=green, warn=yellow, bad=red
-    function setCard(state, text, id){
-      const card = $(id), dot = $('.dot', card), detail = $('.detail', card);
-      card.classList.remove('ok','warn','bad');
-      dot.classList.remove('ok','warn','bad');
+    function setCard(state, text, ids){
+      const { cardId, dotId, textId } = ids;
+      const card = $(cardId), dot = $(dotId), detail = $(textId);
+      for (const cls of ['ok','warn','bad']) { card.classList.remove(cls); dot.classList.remove(cls); }
       card.classList.add(state);
       dot.classList.add(state);
       detail.textContent = text;
@@ -79,19 +101,15 @@
     async function checkApi(){
       try{
         const r = await fetch('/api/health', { cache:'no-store' });
-        if(r.ok){
-          setCard('ok','OK','#api-card');
-        }else{
-          setCard('bad',`HTTP ${r.status}`,'#api-card');
-        }
+        if(r.ok) setCard('ok','OK',{cardId:'#api-card',dotId:'#api-dot',textId:'#api-text'});
+        else     setCard('bad',`HTTP ${r.status}`,{cardId:'#api-card',dotId:'#api-dot',textId:'#api-text'});
       }catch{
-        setCard('bad','Unreachable','#api-card');
+        setCard('bad','Unreachable',{cardId:'#api-card',dotId:'#api-dot',textId:'#api-text'});
       }
     }
 
-    // Edge-true Cloudflare check
     async function checkTunnel(){
-      let state='bad', label='Disconnected';
+      let state='warn', label='Disconnected';
       try{
         const r = await fetch('/cdn-cgi/trace', { cache:'no-store' });
         if(r.ok){
@@ -100,25 +118,20 @@
           const colo=(txt.match(/colo=([^\n]+)/)||[])[1];
           if(host && host===location.hostname){
             state='ok'; label=`Connected${colo?` via ${colo}`:''}`;
-          }else{
-            state='warn'; label='Disconnected';
           }
-        }else{
-          state='warn'; label='Disconnected';
         }
-      }catch{
-        // fallback: look for Cloudflare headers on API
+      }catch{/* ignore */}
+
+      if(state!=='ok'){
         try{
           const r = await fetch('/api/health', { cache:'no-store' });
           const viaCF = !!r.headers.get('cf-ray') ||
             String(r.headers.get('server')||'').toLowerCase().includes('cloudflare');
           if(viaCF){ state='ok'; label='Connected'; }
-          else { state='warn'; label='Disconnected'; }
-        }catch{
-          state='bad'; label='Error';
-        }
+        }catch{ state='bad'; label='Error'; }
       }
-      setCard(state,label,'#cf-card');
+
+      setCard(state,label,{cardId:'#cf-card',dotId:'#cf-dot',textId:'#cf-text'});
     }
 
     async function refresh(){
