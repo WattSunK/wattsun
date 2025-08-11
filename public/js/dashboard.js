@@ -1,8 +1,8 @@
-// /public/js/dashboard.js — dashboard partial loader with safe section init
+// /public/js/dashboard.js — stable legacy Orders loader (creates table if missing)
 document.addEventListener("DOMContentLoaded", () => {
-  const content  = document.getElementById("admin-content");
-  const sidebar  = document.querySelector(".sidebar nav");
-  const hdrSearch= document.querySelector(".header-search");
+  const content = document.getElementById("admin-content");
+  const sidebar = document.querySelector(".sidebar nav");
+  const hdrSearch = document.querySelector(".header-search");
 
   // ---- Session helpers ----
   function getUser() {
@@ -39,18 +39,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---- UI helpers ----
   function setHeaderSearchVisible(show) { if (hdrSearch) hdrSearch.style.display = show ? "" : "none"; }
 
-  // small helper: run a function after a tick to give inline scripts time to execute
-  function deferInit(fn) {
-    try {
-      // try immediate call first (most cases)
-      fn();
-    } catch (e) {
-      // if it fails, schedule soon
-      setTimeout(fn, 50);
-    }
-  }
-
-  // ---- Orders modal + table helpers (unchanged logic) ----
   async function ensureOrdersModal() {
     if (document.getElementById("orderDetailsModal")) return;
     try {
@@ -67,10 +55,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function ensureOrdersTableShell() {
-    // If the partial has a table already, use it.
     let table = content.querySelector("#ordersTable") || content.querySelector("table");
     if (table) {
-      // Ensure we have a <tbody>
       let tbody = table.querySelector("#ordersTbody") || table.querySelector("tbody");
       if (!tbody) {
         tbody = document.createElement("tbody");
@@ -80,7 +66,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return { table, tbody };
     }
 
-    // Otherwise create a clean shell the first time
     const card = document.createElement("div");
     card.className = "card";
     card.innerHTML = `
@@ -163,7 +148,7 @@ document.addEventListener("DOMContentLoaded", () => {
           .then(j => {
             if (!j || !(j.ok || j.success)) throw new Error(j?.error || "Update failed");
             close();
-            populateOrders(); // refresh
+            populateOrders();
           })
           .catch(e => {
             console.error(e);
@@ -176,7 +161,6 @@ document.addEventListener("DOMContentLoaded", () => {
   async function populateOrders() {
     const { tbody } = ensureOrdersTableShell();
     if (!tbody) return;
-
     await ensureOrdersModal();
 
     let arr = [];
@@ -189,13 +173,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const rows = arr.map(o => {
-      const id     = String(o.orderNumber || o.id || "");
-      const name   = o.fullName || o.name || "";
-      const phone  = o.phone || "—";
-      const email  = o.email || "—";
+      const id = String(o.orderNumber || o.id || "");
+      const name = o.fullName || o.name || "";
+      const phone = o.phone || "—";
+      const email = o.email || "—";
       const status = o.status || o.orderType || "Pending";
-      const pm     = o.paymentType || o.paymentMethod || "—";
-      const total  = (typeof o.total === "number") ? ("KES " + o.total.toLocaleString()) : "—";
+      const pm = o.paymentType || o.paymentMethod || "—";
+      const total = (typeof o.total === "number") ? ("KES " + o.total.toLocaleString()) : "—";
       return `
         <tr>
           <td>${id}</td>
@@ -225,23 +209,42 @@ document.addEventListener("DOMContentLoaded", () => {
     const hasOwnSearch = new Set(["orders", "users", "items", "myorders"]);
     setHeaderSearchVisible(!hasOwnSearch.has(section));
 
-    // load partial into content
     try {
-      const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
-      if (res.ok) {
-        content.innerHTML = await res.text();
-      } else {
-        content.innerHTML = `<div class="p-3"></div>`;
+      // special case: users section needs to load partial first
+      if (section === "users") {
+        try {
+          const res = await fetch(`/partials/users.html?v=${Date.now()}`);
+          content.innerHTML = res.ok ? await res.text() : `<div class="p-3">Users view failed to load.</div>`;
+        } catch (err) {
+          console.error("Failed to load users partial:", err);
+          content.innerHTML = `<div class="p-3">Error loading users view.</div>`;
+          return;
+        }
+        if (typeof fetchAndRenderUsers !== "function") {
+          if (!document.querySelector('script[src="/admin/js/admin-users.js"]')) {
+            const script = document.createElement("script");
+            script.src = "/admin/js/admin-users.js";
+            script.onload = () => {
+              if (typeof fetchAndRenderUsers === "function") {
+                fetchAndRenderUsers();
+              } else {
+                console.error("fetchAndRenderUsers not found after loading admin-users.js");
+              }
+            };
+            script.onerror = () => console.error("Failed to load admin-users.js");
+            document.body.appendChild(script);
+          }
+        } else {
+          fetchAndRenderUsers();
+        }
+        return;
       }
-    } catch (err) {
-      console.error("Failed to load partial:", err);
-      content.innerHTML = `<div class="p-3"></div>`;
-    }
 
-    // AFTER partial is injected, call section-specific initializers
-    try {
+      // default partial load
+      const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
+      content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+
       if (section === "orders") {
-        // orders needs to create table shell if partial is missing
         await populateOrders();
         return;
       }
@@ -249,34 +252,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (section === "profile") {
         const u = getUser();
         hydrateProfile(u);
-        // keep profile live-updating
         window.addEventListener("ws:user", ev => hydrateProfile(ev.detail));
         return;
       }
 
-      if (section === "users") {
-  // Ensure we only load the script once
-  if (typeof fetchAndRenderUsers !== "function") {
-    if (!document.querySelector('script[src="/admin/js/admin-users.js"]')) {
-      const script = document.createElement("script");
-      script.src = "/admin/js/admin-users.js"; // adjust path if needed
-      script.onload = () => {
-        if (typeof fetchAndRenderUsers === "function") {
-          fetchAndRenderUsers();
-        } else {
-          console.error("fetchAndRenderUsers not found after loading script");
-        }
-      };
-      script.onerror = () => console.error("Failed to load admin-users.js");
-      document.body.appendChild(script);
-    }
-  } else {
-    fetchAndRenderUsers();
-  }
-  return;
-      }
-
-      // other sections can be handled here as needed (items, dispatch, settings, myorders, etc.)
     } catch (e) {
       console.error("Section init error:", e);
     }
@@ -286,26 +265,26 @@ document.addEventListener("DOMContentLoaded", () => {
   function hydrateProfile(u) {
     const info = u?.user || u || {};
     const name = info.name || "User";
-    const email= info.email || "";
+    const email = info.email || "";
     const role = info.type || "Customer";
-    const phone= info.phone || info.msisdn || "";
+    const phone = info.phone || info.msisdn || "";
     const last = info.lastLogin || info.updatedAt || info.createdAt || "—";
 
-    const elName  = content.querySelector("#userName");
+    const elName = content.querySelector("#userName");
     const elEmail = content.querySelector("#userEmail");
-    const elRole  = content.querySelector("#userRole");
-    const elLast  = content.querySelector("#lastLogin");
-    const elAvatar= content.querySelector("#userAvatar");
-    if (elName)  elName.textContent  = name;
+    const elRole = content.querySelector("#userRole");
+    const elLast = content.querySelector("#lastLogin");
+    const elAvatar = content.querySelector("#userAvatar");
+    if (elName) elName.textContent = name;
     if (elEmail) elEmail.textContent = email || (phone ? `${phone}@` : "—");
-    if (elRole)  elRole.textContent  = role;
-    if (elLast)  elLast.textContent  = `Last login: ${last}`;
-    if (elAvatar)elAvatar.textContent = (name || "U").trim().charAt(0).toUpperCase() || "U";
+    if (elRole) elRole.textContent = role;
+    if (elLast) elLast.textContent = `Last login: ${last}`;
+    if (elAvatar) elAvatar.textContent = (name || "U").trim().charAt(0).toUpperCase() || "U";
 
-    const fName  = content.querySelector("#pf-name");
+    const fName = content.querySelector("#pf-name");
     const fEmail = content.querySelector("#pf-email");
     const fPhone = content.querySelector("#pf-phone");
-    if (fName)  fName.value  = name || "";
+    if (fName) fName.value = name || "";
     if (fEmail) fEmail.value = email || "";
     if (fPhone) fPhone.value = phone || "";
 
@@ -318,7 +297,7 @@ document.addEventListener("DOMContentLoaded", () => {
           ...(u || { success: true }),
           user: {
             ...(u?.user || {}),
-            name:  (content.querySelector("#pf-name")?.value || "").trim(),
+            name: (content.querySelector("#pf-name")?.value || "").trim(),
             email: (content.querySelector("#pf-email")?.value || "").trim(),
             phone: (content.querySelector("#pf-phone")?.value || "").trim(),
             type: role,
