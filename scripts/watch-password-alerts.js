@@ -2,66 +2,45 @@ const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 const nodemailer = require("nodemailer");
 
-// CONFIGURE THIS
-const DB_PATH = path.resolve(__dirname, "user-setup/users.db");
-const POLL_INTERVAL = 30000; // 30 seconds
-const EMAIL_FROM = "mainakamunyu@gmail.com";
-const EMAIL_TO = "mainakamunyu@gmail.com";
-const EMAIL_PASS = "wepo dlsx xwav smof"; // Gmail App Password
+const DB_PATH = process.env.DB_PATH_USERS || path.resolve(__dirname, "../user-setup/users.db");
+const POLL_INTERVAL = Number(process.env.ALERT_POLL_MS || 30000);
+const FROM = process.env.EMAIL_FROM || "no-reply@wattsun.co.ke";
+const TO   = process.env.ALERT_EMAIL_TO || FROM;
+
+const SMTP_HOST = process.env.SMTP_HOST || "";
+const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
+const SMTP_USER = process.env.SMTP_USER || "";
+const SMTP_PASS = process.env.SMTP_PASS || "";
 
 let lastSeenId = 0;
-
-// DB connection
 const db = new sqlite3.Database(DB_PATH);
-
-// Configure mail transporter
 const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: EMAIL_FROM,
-    pass: EMAIL_PASS,
-  },
+  host: SMTP_HOST, port: SMTP_PORT, secure: SMTP_PORT === 465,
+  auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
 });
 
-function checkAlerts() {
-  const sql = `
-    SELECT ua.id, ua.user_id, u.email, ua.changed_at
-    FROM users_audit ua
-    JOIN users u ON ua.user_id = u.id
-    WHERE ua.id > ? AND ua.col = 'password_hash'
-    ORDER BY ua.id ASC
-  `;
-
-  db.all(sql, [lastSeenId], (err, rows) => {
-    if (err) {
-      console.error("[ALERT WATCHER] DB error:", err);
-      return;
-    }
-
-    if (rows.length > 0) {
-      rows.forEach(row => {
-        console.log(`[ALERT WATCHER] Password change detected for ${row.email} at ${row.changed_at}`);
-
-        const mailOptions = {
-          from: EMAIL_FROM,
-          to: EMAIL_TO,
-          subject: `Password Change Alert for ${row.email}`,
-          text: `Password for user ${row.email} (ID ${row.user_id}) was changed at ${row.changed_at}.`,
-        };
-
-        transporter.sendMail(mailOptions, (error, info) => {
-          if (error) {
-            console.error("[ALERT WATCHER] Email error:", error);
-          } else {
-            console.log("[ALERT WATCHER] Email sent:", info.response);
-          }
-        });
+function check() {
+  db.all(
+    "SELECT id,user_id,action,changed_at FROM users_audit WHERE id > ? ORDER BY id ASC",
+    [lastSeenId],
+    (err, rows) => {
+      if (err) return console.error("[ALERT] DB error:", err.message);
+      if (!rows?.length) return;
+      rows.forEach(r => {
+        const subject = `[WattSun] User change: ${r.action} (#${r.id})`;
+        const text = `user_id=${r.user_id}\naction=${r.action}\nwhen=${r.changed_at}`;
+        if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+          transporter.sendMail({ from: FROM, to: TO, subject, text }, e => {
+            if (e) console.error("[ALERT] email error:", e.message);
+            else console.log("[ALERT] email sent:", subject);
+          });
+        } else {
+          console.log("[ALERT]", subject, text);
+        }
       });
-
       lastSeenId = rows[rows.length - 1].id;
     }
-  });
+  );
 }
-
-console.log(`[ALERT WATCHER] Monitoring ${DB_PATH} for password changes via users_audit...`);
-setInterval(checkAlerts, POLL_INTERVAL);
+console.log(`[ALERT] watching ${DB_PATH} every ${POLL_INTERVAL}ms → ${TO}`);
+setInterval(check, POLL_INTERVAL);
