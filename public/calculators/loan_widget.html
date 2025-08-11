@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WattSun Loan Estimator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #FFFDF7; color: #333; margin: 0; padding: 20px; }
+    h1 { font-size: 20px; color: #009245; }
+    .calculator-box { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    .row { margin-bottom: 12px; }
+    label { font-weight: bold; display: block; margin-bottom: 4px; }
+    input[type="number"], select { width: 100%; padding: 8px; font-size: 16px; box-sizing: border-box; }
+    .result { margin-top: 12px; padding: 8px; background-color: #FEC84B; color: #333; border-radius: 8px; font-weight: bold; }
+    .footer { margin-top: 20px; font-size: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>Solar Loan Estimator</h1>
+  <div class="calculator-box">
+    <div class="row">
+      <label for="systemSize">System Size</label>
+      <select id="systemSize" onchange="calculateLoan()">
+        <option value="150000">1 kW – KES 150,000</option>
+        <option value="400000">3 kW – KES 400,000</option>
+        <option value="700000">6 kW – KES 700,000</option>
+        <option value="1050000">9 kW – KES 1,050,000</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="deposit">Deposit Amount (KES)</label>
+      <input type="number" id="deposit" value="37500" oninput="calculateLoan()">
+    </div>
+    <div class="result">
+      <div>Deposit %: <span id="depositPct">25%</span></div>
+      <div>Loan Amount: <span id="loanAmount">KES 112,500</span></div>
+      <div>Monthly Payment: <span id="monthlyPayment">KES 7,200</span></div>
+    </div>
+  </div>
+  <div class="footer">* This is an indicative estimate. Actual loan terms may vary.</div>
+
+  <script>
+    function calculateLoan() {
+      const systemCost = parseFloat(document.getElementById('systemSize').value);
+      const deposit = parseFloat(document.getElementById('deposit').value);
+      const interest = 0.15;
+      const term = 18;
+      const depositPct = deposit / systemCost * 100;
+      const loan = systemCost - deposit;
+      const monthly = (loan * (1 + interest)) / term;
+      document.getElementById('depositPct').innerText = depositPct.toFixed(1) + '%';
+      document.getElementById('loanAmount').innerText = 'KES ' + loan.toLocaleString();
+      document.getElementById('monthlyPayment').innerText = 'KES ' + monthly.toFixed(0);
+    }
+    calculateLoan();
+  </script>
+</body>
+</html>

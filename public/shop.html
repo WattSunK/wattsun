@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta charset="utf-8"/>
+<title>Shop - WattSun</title>
+<link href="main.css" rel="stylesheet"/>
+<style>
+    html, body { height: 100%; min-height: 100%; box-sizing: border-box; }
+    body { display: flex; flex-direction: column; min-height: 100vh; background: #fffdf7; }
+    header {
+  order: 0; flex-shrink: 0; }
+    .container { max-width: 1200px; margin: 28px auto 0 auto; padding: 18px 5px 0 5px; flex: 1; display: flex; flex-direction: column; }
+    h2 { text-align: center; margin-bottom: 12px; }
+    .product-card { background: #fff; border-radius: 16px; box-shadow: 0 6px 28px -7px rgba(0,0,0,0.10); padding: 20px 18px 22px 18px; text-align: center; display: flex; flex-direction: column; align-items: center; min-width: 0; min-height: 0; border: none; transition: box-shadow 0.16s; }
+    .product-card:hover { box-shadow: 0 12px 36px -9px #f7b73355; transform: translateY(-2px) scale(1.03); box-shadow: 0 6px 22px #f7b73333; }
+    .product-card img, .product-img-placeholder { width: 100%; height: 90px; object-fit: cover; border-radius: 10px 10px 0 0; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); background: #f7f2e9; display: block; }
+    .product-info { min-height: 102px; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; width: 100%; }
+    .product-card h3 { font-size: 1.17em; margin: 7px 0 4px 0; color: #191813; font-weight: bold; text-align: center; width: 100%; letter-spacing: 0.05em; }
+    .product-card p { font-size: 14px; margin: 3px 0 0 0; color: #444; text-align: center; width: 100%; }
+    .product-card input { width: 100%; padding: 10px; margin: 15px 0 10px 0; border-radius: 7px; border: 1px solid #eee1b9; font-size: 15px; }
+    .product-card .loan-btn, .product-card button { background: linear-gradient(90deg, #f7b733 0%, #fcf6ba 100%); color: #965700 !important; padding: 7px 24px; font-size: 1em; font-weight: bold; border: none; border-radius: 9px; cursor: pointer; box-shadow: 0 3px 12px #f7b73333; transition: background 0.3s, transform 0.2s, box-shadow 0.2s; letter-spacing: 0.5px; width: auto; margin-top: 0; margin-bottom: 0; display: inline-block; align-self: center; min-width: 0; }
+    .product-card .loan-btn:hover, .product-card button:hover { background: linear-gradient(90deg, #fcf6ba 0%, #f7b733 100%); color: #b37900 !important; }
+    @media (max-width: 600px) {
+      .container { padding: 0.5em; }
+      .product-card img, .product-img-placeholder { height: 48px !important; max-height: 48px !important; }
+      .product-info { min-height: 50px !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
+      .grid { grid-template-columns: 1fr; gap: 16px 0; }
+    }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 36px 20px; }
+    @media (max-width: 1000px) { .grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 600px) { .grid { grid-template-columns: 1fr; gap: 16px 0; } }
+
+    /* Cart Icon in NavBar */
+    .cart-icon-link {
+      position: relative;
+      display: inline-block;
+      text-decoration: none;
+      color: inherit;
+      vertical-align: middle;
+      margin-left: 10px;
+    }
+    .cart-icon {
+      font-size: 1.24em;
+      display: flex;
+      align-items: center;
+      position: relative;
+    }
+    .cart-count-badge {
+      position: absolute;
+      top: -0.7em;
+      right: -0.7em;
+      background: red;
+      color: white;
+      border-radius: 50%;
+      padding: 2px 6px;
+      font-size: 0.7em;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 0.13em #0001;
+      transition: background 0.2s;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* === Mobile Sticky Footer === */
+    .mobile-nav {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      .mobile-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        height: 56px;
+        width: 100%;
+        background-color: #f4a940;
+        justify-content: space-around;
+        align-items: center;
+        z-index: 1000;
+        box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
+        padding: 0;
+      }
+      .mobile-nav a {
+        font-size: 20px;
+        height: 56px;
+        line-height: 56px;
+        padding: 0;
+        margin: 0;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        color: black;
+        position: relative;
+      }
+      #cart-count {
+        position: absolute;
+        top: 6px;
+        right: 10px;
+        background: red;
+        color: white;
+        font-size: 11px;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        padding: 0 5px;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
+
+    /* === Desktop & Mobile Logo Styles from index.html === */
+    .logo-container { display: none; }
+    .desktop-logo { display: block; }
+    .brand-name { font-size: 1.8em; font-weight: bold; color: white; white-space: nowrap; }
+    .site-logo { height: 48px; max-width: 48px; object-fit: contain; vertical-align: middle; }
+    @media (max-width: 768px) {
+      .desktop-logo { display: none; }
+      .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        white-space: nowrap;
+        padding: 4px 12px;
+        height: 56px;
+        margin-left: 10px;
+      }
+      .site-logo { height: auto; max-height: 36px; object-fit: contain; }
+      .brand-name { font-size: 1.3em; }
+    }
+    @media (max-width: 768px) {
+      h1 img.site-logo { width: auto !important; max-height: 32px !important; margin-right: 8px; }
+    }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.container {
+  flex: 1;
+}
+/* --- Footer patch for full-width, centered content --- */
+footer {
+      width: 100%;
+      background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
+      color: #6b5100;
+      font-size: 1.08em;
+      padding: 18px 0 5px 0;
+      letter-spacing: 0.01em;
+      font-family: inherit;
+      flex-shrink: 0;
+      border: none;
+      box-sizing: border-box;
+      position: relative;
+      text-align: center;
+}
+.footer-inner {
+  margin: 0 auto;
+  text-align: center;
+  max-width: 1200px;
+  font-weight: normal;
+  
+}
+.footer-contacts { display: inline; }
+.footer-contacts a { color: #6b5100; text-decoration: underline; }
+.footer-contacts a:hover { color: #a58512; }
+/* --- end footer patch --- */
+
+</style>
+</head>
+<body>
+<div id="toast" style="display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#3E9F50; color:white; padding:12px 20px; border-radius:8px; font-size:0.95em; box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:9999; transition:opacity 0.3s ease;">
+    Added to cart!
+  </div>
+<header>
+<div class="header-bar">
+<h1 class="desktop-logo">
+<img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
+  WattSun Solar
+</h1>
+<div class="logo-container">
+<img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
+<span class="brand-name">WattSun Solar</span>
+</div>
+<button aria-label="Open menu" class="nav-toggle">☰</button>
+</div>
+<nav>
+<a href="index.html">Home</a>
+<a href="solutions.html">Solutions</a>
+<a href="shop.html">Shop</a>
+<a href="financing.html">Financing</a>
+<a href="projects.html">Projects</a>
+<a href="contact.html">Contact</a>
+<!-- Cart Icon START -->
+<a aria-label="View shopping cart" class="cart-icon-link" href="/cart.html" title="View cart">
+  <span class="cart-icon">
+    🛒
+    <span id="cart-count-badge" class="cart-count-badge" style="background:#19c37d; color:white; font-weight:bold;">0</span>
+  </span>
+</a>
+<!-- Cart Icon END --></nav>
+</header>
+<div class="container" style="flex: 1;">
+<h2>Available Solar Systems</h2>
+<p style="text-align:center; font-style:italic; color:#666;">
+      Note: A minimum deposit of 50% is required for installation to commence.
+    </p>
+<div class="grid" id="shop-products">
+  <!-- Products will be dynamically loaded here -->
+</div>
+<script>
+  function parsePrice(raw) {
+    return parseInt((raw || '').replace(/[^\d]/g, '')) || 0;
+  }
+
+  async function loadProducts() {
+    const box = document.getElementById("shop-products");
+    try {
+      const res = await fetch("/api/items");
+      const items = await res.json();
+      box.innerHTML = "";
+      const priority = ["SYS-1KW","SYS-3KW","SYS-6KW","SYS-9KW","INV-5KW","KIT-CLEAN","BATT-24V100AH","PANEL-450W"];
+      const sorted = [...items.filter(p=>priority.includes(p.sku)), ...items.filter(p=>!priority.includes(p.sku))];
+      sorted.forEach((prod, idx) => {
+        const img = prod.image ? "/images/products/" + prod.image : "/images/placeholder.jpg";
+        const price = parsePrice(prod.price);
+        const id = "dep_" + idx;
+        const card = document.createElement("div");
+        card.className = "product-card";
+        const safeDesc = (prod.description || "").replace(/'/g, "");
+        card.innerHTML = `
+          <img src="${img}" alt="${prod.name}" onerror="this.src='/images/placeholder.jpg'" />
+          <div class="product-info">
+            <h3>${prod.name}</h3>
+            <p>${prod.description}</p>
+            <p>Total Price: KES ${price.toLocaleString()}</p>
+          </div>
+          <input id="${id}" placeholder="Enter your deposit (KES)" type="number"/>
+          <button class="loan-btn" onclick="addToCart('${prod.name}', ${price}, '${id}', '${safeDesc}')">Add to Cart</button>
+        `;
+        box.appendChild(card);
+      });
+    } catch (e) {
+      console.error("Failed to load products:", e);
+      box.innerHTML = "<p style='color:red;'>Failed to load products.</p>";
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', loadProducts);
+</script>
+
+<footer class="mobile-nav">
+<a aria-label="Home" href="index.html">🏠</a>
+<a aria-label="Account" href="account.html">👤</a>
+<a aria-label="Cart" href="cart.html">🛒<span id="cart-count" style="background:#19c37d; color:white;">0</span></a>
+<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
+</footer>
+<script>
+    function syncCartToBackend() {
+      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+      fetch("/api/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cart)
+      }).catch(console.error);
+    }
+
+    function addToCart(item, price, inputId, description) {
+      const depositValue = document.getElementById(inputId).value;
+      const deposit = Number(depositValue);
+      if (!deposit || isNaN(deposit) || deposit <= 0) {
+        alert("Please enter a valid deposit amount.");
+        return;
+      }
+      let cart = JSON.parse(localStorage.getItem("cart")) || [];
+      const index = cart.findIndex(prod => prod.name === item);
+      if (index !== -1) {
+        cart[index].quantity = (cart[index].quantity || 1) + 1;
+        cart[index].deposit = deposit;
+        if (description) cart[index].description = description;
+      } else {
+        cart.push({ name: item, price: price, quantity: 1, deposit: deposit, description: description });
+      }
+      localStorage.setItem("cart", JSON.stringify(cart));
+      syncCartToBackend();
+      updateCartCountBadge();
+      const toast = document.getElementById("toast");
+      toast.style.display = "block";
+      setTimeout(() => toast.style.display = "none", 3000);
+      // Clear deposit input field after adding to cart
+      document.getElementById(inputId).value = '';
+    }
+
+    function updateCartCountBadge() {
+      let count = 0;
+      try {
+        const cart = JSON.parse(localStorage.getItem("cart")) || [];
+        count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+      } catch (e) {}
+      const badge = document.getElementById('cart-count-badge');
+      if (badge) badge.textContent = count, badge.style.display = count > 0 ? 'flex' : 'none';
+      const mobileCount = document.getElementById('cart-count');
+      if (mobileCount) mobileCount.textContent = count;
+    }
+
+    document.addEventListener('DOMContentLoaded', updateCartCountBadge);
+    window.addEventListener('storage', updateCartCountBadge);
+
+    document.querySelector('.nav-toggle').addEventListener('click', () => {
+      document.querySelector('header').classList.toggle('nav-open');
+    });
+    document.querySelectorAll('header nav a').forEach(link => {
+      link.addEventListener('click', () => document.querySelector('header').classList.remove('nav-open'));
+    });
+  </script>
+  <footer>
+    <div class="footer-inner">
+      © 2025 WattSun Solar Kenya |
+      <span class="footer-contacts">
+        <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>
+      </span>
+    </div>
+  </footer>
+</body>
+</html>

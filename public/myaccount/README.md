@@ -1,0 +1,1 @@
+# public/myaccount — placeholder

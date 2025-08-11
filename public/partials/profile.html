@@ -1,0 +1,50 @@
+<!-- /public/partials/profile.html -->
+<section class="ws-admin-section" id="ws-profile-root">
+  <!-- Header card -->
+  <div class="settings-card" style="display:flex; align-items:center; gap:16px; padding:18px 22px; margin-bottom:14px;">
+    <div id="userAvatar"
+         style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+                font-weight:800;font-size:20px;color:#000;background:#fadb14; user-select:none;">
+      U
+    </div>
+    <div style="line-height:1.3">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <h3 id="userName" style="margin:0;font-size:18px;">User Name</h3>
+        <span id="userRole"
+              style="background:#d9f7be;color:#389e0d;font-weight:700;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid #c2f0a2;">
+          Customer
+        </span>
+      </div>
+      <div id="userEmail" style="font-size:14px;color:#666;">user@example.com</div>
+      <div id="lastLogin" style="font-size:13px;color:#999;">Last login: —</div>
+    </div>
+  </div>
+
+  <!-- Profile form card -->
+  <div class="settings-card">
+    <div class="account-section-title">My Account</div>
+
+    <label for="pf-name">Name</label>
+    <input id="pf-name" type="text" class="settings-input" autocomplete="name" />
+
+    <label for="pf-email">Email</label>
+    <input id="pf-email" type="email" class="settings-input" autocomplete="email" />
+
+    <label for="pf-phone">Phone</label>
+    <input id="pf-phone" type="tel" class="settings-input" autocomplete="tel" />
+
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:8px;">
+      <label>Password</label>
+      <a href="/reset-password.html" class="order-link">Change Password &gt;</a>
+    </div>
+
+    <div style="display:flex; gap:12px; margin-top:10px;">
+      <button class="settings-btn" id="btnSave">Save Changes</button>
+      <button class="settings-btn settings-btn-cancel" id="btnCancel" type="button">Cancel</button>
+    </div>
+
+    <div style="margin-top:14px;">
+      <button class="danger-btn" id="btnDeactivate" type="button">Deactivate Account</button>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,151 @@
+
+<!-- /public/partials/settings.html -->
+<section class="ws-admin-section">
+  <h2 class="ws-admin-title">Settings</h2>
+
+  <!-- Company Information -->
+  <div class="settings-card">
+    <h3>Company Information</h3>
+
+    <label>Company Name
+      <input type="text" class="settings-input" id="set-company-name" value="WattSun Solar">
+    </label>
+
+    <label>Support Email
+      <input type="email" class="settings-input" id="set-support-email" value="support@wattsun.co.ke">
+    </label>
+
+    <label>Support Phone
+      <input type="text" class="settings-input" id="set-support-phone" value="+254700123456">
+    </label>
+
+    <label>Physical Address
+      <input type="text" class="settings-input" id="set-support-address" value="Nairobi, Kenya">
+    </label>
+  </div>
+
+  <!-- User Management -->
+  <div class="settings-card">
+    <h3>User Management</h3>
+
+    <label style="display:flex;align-items:center;gap:10px;">
+      <input type="checkbox" id="set-strong-pw" checked>
+      Enforce strong passwords
+    </label>
+
+    <label>Session Timeout
+      <select id="set-timeout" class="settings-input">
+        <option>15 minutes</option>
+        <option>30 minutes</option>
+        <option selected>1 hour</option>
+        <option>2 hours</option>
+        <option>4 hours</option>
+      </select>
+    </label>
+
+    <label style="display:flex;align-items:center;gap:10px;">
+      <input type="checkbox" id="set-allow-reset" checked>
+      Allow Password Reset
+    </label>
+  </div>
+
+  <!-- Notifications -->
+  <div class="settings-card">
+    <h3>Notifications</h3>
+
+    <label style="display:flex;align-items:center;gap:10px;">
+      <input type="checkbox" id="set-order-placed" checked>
+      Order Placed Email
+    </label>
+
+    <label style="display:flex;align-items:center;gap:10px;">
+      <input type="checkbox" id="set-order-delivered" checked>
+      Order Delivered Email
+    </label>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+      <label style="margin:0;display:flex;align-items:center;gap:10px;">
+        <input type="checkbox" id="set-low-stock" checked>
+        Low Stock Alerts
+      </label>
+      <input type="number" min="1" id="set-low-stock-threshold" class="settings-input" style="width:80px;" value="10">
+      <span>threshold</span>
+    </div>
+
+    <label style="margin-top:10px;">Send notifications to
+      <input type="email" class="settings-input" id="set-alerts-email" value="alerts@wattsun.co.ke">
+    </label>
+  </div>
+
+  <!-- Integrations -->
+  <div class="settings-card">
+    <h3>Integrations</h3>
+
+    <label>Paybill Number
+      <input type="text" class="settings-input" id="set-paybill" value="123456">
+    </label>
+
+    <label>API Key
+      <input type="password" class="settings-input" id="set-api-key" value="••••••••••">
+    </label>
+
+    <label>SMS Gateway
+      <select id="set-sms-gateway" class="settings-input">
+        <option>Twilio</option>
+        <option selected>Africa's Talking</option>
+        <option>Infobip</option>
+      </select>
+    </label>
+
+    <label>Sender ID
+      <input type="text" class="settings-input" id="set-sender-id" value="WattSun">
+    </label>
+
+    <label>SMS API Key
+      <input type="password" class="settings-input" id="set-sms-api-key" value="••••••••••">
+    </label>
+  </div>
+
+  <!-- Appearance -->
+  <div class="settings-card">
+    <h3>Appearance</h3>
+
+    <label>Logo Upload
+      <input type="file" id="set-logo-file">
+    </label>
+
+    <label>Theme
+      <select id="set-theme" class="settings-input">
+        <option selected>Light</option>
+        <option>Dark</option>
+        <option>System</option>
+      </select>
+    </label>
+  </div>
+
+  <!-- System Controls -->
+  <div class="settings-card">
+    <h3>System Controls</h3>
+
+    <div class="settings-actions">
+      <button class="settings-btn" id="btn-backup">Backup Data</button>
+    </div>
+
+    <label>Restore from Backup
+      <input type="file" id="set-restore-file">
+    </label>
+
+    <div class="settings-actions">
+      <button class="settings-btn" id="btn-export">Export Data</button>
+    </div>
+  </div>
+
+  <!-- Danger Zone -->
+  <div class="settings-card danger">
+    <h3>Danger Zone</h3>
+    <div class="settings-actions">
+      <button class="danger-btn" id="btn-delete-test">Delete All Test Data</button>
+      <button class="danger-btn" id="btn-factory-reset">Factory Reset</button>
+    </div>
+  </div>
+</section>

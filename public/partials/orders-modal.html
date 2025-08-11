@@ -1,0 +1,165 @@
+<!-- /public/partials/orders-modal.html -->
+<style>
+  .ws-modal{display:none;position:fixed;inset:0;z-index:1000}
+  .ws-modal .ws-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+  .ws-modal .ws-dialog{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(860px,95vw);max-height:88vh;overflow:auto;background:#fff;border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.25)}
+  header{padding:12px 16px;display:flex;align-items:center;gap:12px;background:#fffbe7;border-bottom:1px solid #FFD23F;border-radius:12px 12px 0 0}
+  header h3{margin:0;font-size:16px;font-weight:600;color:#111}
+  .ws-close{margin-left:auto;background:none;border:none;font-size:18px;line-height:1;cursor:pointer;color:#444}
+  .ws-body{padding:16px 18px 6px;display:grid;grid-template-columns:1fr 1fr;gap:12px 26px}
+  .ws-row{display:flex;gap:8px;align-items:center;min-height:28px}
+  .ws-row label{width:140px;color:#666;font-size:13px}
+  .ws-val{font-weight:600;color:#111}
+  .ws-input,.ws-select{min-width:200px;padding:7px 10px;border-radius:6px;border:1.2px solid #FFD23F;background:#fffbe7;color:#222;outline:none}
+  .ws-input:focus,.ws-select:focus{box-shadow:0 0 0 3px rgba(255,210,63,.25)}
+  footer{border-top:1px solid #eee;display:flex;gap:10px;justify-content:flex-end;padding:12px 16px 14px;border-radius:0 0 12px 12px}
+  .ws-btn{padding:7px 14px;border-radius:6px;border:1px solid #FFD23F;cursor:pointer;font-weight:500;background:#fffbe7;color:#222;transition:background .18s}
+  .ws-btn:hover{background:#FFD23F}
+  .ws-btn.primary{background:#FFD23F}
+  .ws-btn[disabled]{opacity:.5;cursor:not-allowed}
+  /* Items block */
+  .ws-items{grid-column:1 / -1}
+  .ws-items .ws-box{margin-top:6px;background:#fff;border:1.2px solid #FFD23F;border-radius:10px;padding:10px 12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .ws-items label{display:block;color:#666;font-size:13px;margin-bottom:4px}
+  .ws-items ul{margin:0;padding-left:18px}
+  .ws-items li{margin:3px 0}
+  @media(min-width:860px){.ws-items ul{columns:2;column-gap:32px}.ws-items li{break-inside:avoid}}
+  @media(max-width:640px){.ws-body{grid-template-columns:1fr}.ws-row label{width:120px}}
+</style>
+
+<div id="orderDetailsModal" class="ws-modal" aria-hidden="true">
+  <div class="ws-backdrop" data-close="1"></div>
+  <div class="ws-dialog" role="dialog" aria-modal="true" aria-labelledby="wsOrderTitle">
+    <header>
+      <h3 id="wsOrderTitle">Order Details</h3>
+      <button id="closeOrderModal" class="ws-close" title="Close">×</button>
+    </header>
+
+    <div class="ws-body">
+      <div class="ws-row"><label>Order ID:</label>     <span id="modal-order-id" class="ws-val">—</span></div>
+      <div class="ws-row"><label>Customer Name:</label> <span id="modal-customer-name" class="ws-val">—</span></div>
+      <div class="ws-row"><label>Phone:</label>         <span id="modal-phone" class="ws-val">—</span></div>
+      <div class="ws-row"><label>Email:</label>         <span id="modal-email" class="ws-val">—</span></div>
+
+      <div class="ws-row"><label>Payment Method:</label>
+        <select id="modal-payment" class="ws-select">
+          <option value="">—</option>
+          <option>Cash</option>
+          <option>M-Pesa</option>
+          <option>Card</option>
+          <option>Bank</option>
+        </select>
+      </div>
+
+      <div class="ws-row"><label>Amount:</label>
+        <input id="modal-amount-input" class="ws-input" type="number" step="1" min="0" placeholder="KES">
+      </div>
+
+      <div class="ws-row"><label>Deposit Paid:</label>
+        <input id="modal-deposit-input" class="ws-input" type="number" step="1" min="0" placeholder="KES">
+      </div>
+
+      <div class="ws-row" style="align-items:center;">
+        <label>Status:</label>
+        <select id="modal-status" class="ws-select">
+          <option>Pending</option><option>Processing</option><option>Delivered</option><option>Cancelled</option>
+        </select>
+      </div>
+
+      <div class="ws-items">
+        <label>Items</label>
+        <div class="ws-box"><ul id="modal-items-list"></ul></div>
+      </div>
+    </div>
+
+    <footer>
+      <button id="closeOrderModalBtn" class="ws-btn">Close</button>
+      <button id="updateOrderStatusBtn" class="ws-btn primary">Update</button>
+    </footer>
+  </div>
+</div>
+
+<script>
+/* Keep Update disabled when no ID, keep inputs in sync with what dashboard.js writes into the spans, and REBIND Update per order. */
+(function(){
+  const btn   = document.getElementById('updateOrderStatusBtn');
+  const idEl  = document.getElementById('modal-order-id');
+  const payEl = document.getElementById('modal-payment');
+  const amtIn = document.getElementById('modal-amount-input');
+  const depIn = document.getElementById('modal-deposit-input');
+
+  function toast(msg){
+    const t = document.getElementById('wsToast');
+    if (t){ t.textContent = msg; t.style.display='block'; clearTimeout(t._t); t._t = setTimeout(()=>t.style.display='none', 3000); }
+    else alert(msg);
+  }
+
+  function parseKES(txt){
+    if (!txt) return undefined;
+    const n = Number(String(txt).replace(/[^\d.-]/g, ''));
+    return Number.isFinite(n) ? n : undefined;
+  }
+
+  function syncInputsFromSpans(){
+    // dashboard.js writes spans #modal-payment-method, #modal-amount, #modal-deposit
+    const pmSpan = document.getElementById('modal-payment-method');
+    const amSpan = document.getElementById('modal-amount');
+    const dpSpan = document.getElementById('modal-deposit');
+
+    const pm = (pmSpan?.textContent || '').trim();
+    const am = parseKES((amSpan?.textContent || '').trim());
+    const dp = parseKES((dpSpan?.textContent || '').trim());
+
+    if (payEl) payEl.value = pm || '';
+    if (amtIn) amtIn.value = (am ?? '');
+    if (depIn) depIn.value = (dp ?? '');
+  }
+
+  function rebindUpdate(){
+    if (!btn) return;
+    const id = (idEl.textContent || '').trim();
+
+    btn.disabled = !id;
+    btn.title = id ? '' : 'Cannot update legacy orders without an ID';
+
+    btn.onclick = async function(){
+      if (!id) return;
+      const payload = {
+        orderId: id,
+        status: document.getElementById('modal-status')?.value || 'Pending',
+        paymentType: payEl?.value || '',
+        amount: amtIn?.value ? Number(amtIn.value) : undefined,
+        deposit: depIn?.value ? Number(depIn.value) : undefined
+      };
+      try{
+        const r = await fetch('/api/update-order', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+        });
+        const j = await r.json();
+        if (!j || !(j.ok || j.success)) throw new Error(j?.error || 'Update failed');
+
+        // refresh Orders section without touching dashboard.js internals:
+        const link = document.querySelector('.sidebar nav a[data-section="orders"]');
+        if (link) link.click(); else location.reload();
+
+        // close modal
+        document.getElementById('closeOrderModalBtn')?.click();
+        toast('Order updated');
+      } catch(e){
+        toast('Failed to update: ' + (e.message || e));
+      }
+    };
+  }
+
+  // react whenever dashboard.js fills the modal
+  const mo = new MutationObserver(() => { 
+    syncInputsFromSpans();
+    rebindUpdate();
+  });
+  mo.observe(document.getElementById('orderDetailsModal'), { subtree:true, childList:true, characterData:true });
+
+  // initial
+  syncInputsFromSpans();
+  rebindUpdate();
+})();
+</script>

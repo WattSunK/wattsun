@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta charset="utf-8"/>
+<title>Contact Us | WattSun Solar</title>
+<link href="main.css" rel="stylesheet"/>
+<style>
+  body { background: #FFFAF0; }
+  section { max-width: 950px; margin: 42px auto 0 auto; padding: 0 16px; }
+  .contact-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    justify-content: space-between;
+  }
+  .contact-form, .contact-info {
+    background: #fff;
+    border-radius: 13px;
+    box-shadow: 0 4px 20px rgba(247,183,51,0.10), 0 1.5px 9px rgba(0,0,0,0.05);
+    padding: 38px 26px 32px 26px;
+    min-width: 260px;
+  }
+  .contact-form { flex: 2 1 350px; }
+  .contact-info { flex: 1 1 240px; }
+  .contact-form label {
+    display: block;
+    margin-bottom: 9px;
+    font-weight: bold;
+    font-size: 1.1em;
+  }
+  .contact-form input,
+  .contact-form textarea {
+    width: 100%;
+    border-radius: 12px;
+    padding: 13px 10px;
+    font-size: 1em;
+    background: #faf9f7;
+    box-sizing: border-box;
+    display: block;
+    margin-bottom: 18px;
+  }
+  .contact-form button {
+    width: 94%;
+    max-width: 350px;
+    margin: 0 auto;
+    padding: 14px 0;
+    font-size: 1.1em;
+    font-weight: 600;
+    border: none;
+    border-radius: 24px;
+    color: #184211;
+    background: linear-gradient(90deg, #f7b733 0%, #fcf6ba 100%);
+    box-shadow: 0 2px 14px rgba(247,183,51,0.11);
+    transition: background 0.15s, color 0.12s, transform 0.1s;
+    cursor: pointer;
+    display: block;
+    text-align: center;
+  }
+  .contact-form button:hover {
+    background: linear-gradient(90deg, #fcf6ba 0%, #f7b733 100%);
+    color: #b37900 !important;
+    transform: translateY(-1px) scale(1.02);
+  }
+  .contact-info h3 { margin-top: 0; margin-bottom: 10px; color: #b47d08;}
+  .contact-info p { margin: 7px 0 11px 0; }
+  .map {
+    margin-top: 32px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(247,183,51,0.09);
+  }
+  @media (max-width: 900px) {
+    .contact-container { flex-direction: column; gap: 18px; }
+    .contact-form, .contact-info { width: 100%; min-width: 0; }
+    .map { height: 200px; }
+  }
+  html, body {
+    width: 100vw;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  body { background: #fafafa; }
+  /* --- Footer Patch Below --- */
+  footer {
+    margin-top: 48px;
+    width: 100vw;
+    background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
+    color: #6b5100;
+    text-align: center;
+    font-size: 1.08em;
+    padding: 18px 0 5px 0;
+    letter-spacing: 0.01em;
+    font-family: inherit;
+    flex-shrink: 0;
+    display: block;
+  }
+  .footer-contacts { display: inline; }
+  .footer-contacts a { color: #6b5100; text-decoration: underline; }
+  .footer-contacts a:hover { color: #a58512; }
+  footer.mobile-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 1002;
+    background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
+    color: #6b5100;
+    box-shadow: 0 -3px 14px #e6d0773d;
+    display: none;
+    justify-content: space-around;
+    align-items: center;
+    padding: 8px 0 4px 0;
+    font-size: 1.55em;
+  }
+  footer.mobile-nav a {
+    color: #6b5100;
+    text-decoration: none;
+    font-size: 1.1em;
+    padding: 2px 13px 0 13px;
+    display: inline-block;
+    background: none;
+    border: none;
+    outline: none;
+  }
+  footer.mobile-nav a:hover { color: #ad890b; }
+  @media (max-width: 700px) {
+    footer:not(.mobile-nav) { display: none !important; }
+    footer.mobile-nav { display: flex !important; }
+  }
+</style>
+</head>
+<body>
+<!-- Header: Unchanged -->
+<header>
+  <div class="header-bar">
+    <h1 class="desktop-logo">
+      <img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
+      WattSun Solar
+    </h1>
+    <div class="logo-container">
+      <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
+      <span class="brand-name">WattSun Solar</span>
+    </div>
+    <button aria-label="Open menu" class="nav-toggle">☰</button>
+  </div>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="solutions.html">Solutions</a>
+    <a href="shop.html">Shop</a>
+    <a href="financing.html">Financing</a>
+    <a href="projects.html">Projects</a>
+    <a href="contact.html">Contact</a>
+  </nav>
+</header>
+<section>
+  <div class="contact-container">
+    <div class="contact-form">
+      <!-- API-enabled contact form -->
+      <form id="contactForm" novalidate>
+  <label for="name">Full Name</label>
+  <input id="name" name="name" placeholder="Your name" required type="text" autocomplete="name"/>
+  <label for="email">Email Address</label>
+  <input id="email" name="email" placeholder="you@example.com" required type="email" autocomplete="email"/>
+  <label for="phone">Phone Number</label>
+  <input id="phone" name="phone" placeholder="+254 7XX XXX XXX" type="tel" autocomplete="tel"/ pattern="^\+\d{10,15}$">
+  <label for="message">Your Message</label>
+  <textarea id="message" name="message" placeholder="Tell us about your project..." required rows="6"></textarea>
+  <button type="submit">Send Inquiry</button>
+  <div id="contactFormMsg" style="margin-top:12px;font-size:1.1em;"></div>
+</form>
+    </div>
+    <div class="contact-info">
+      <h3>Our Office</h3>
+      <p><strong>WattSun Solar</strong></p>
+      <p>
+        Loresho Ridge, next to Qaribu Inn,<br/>
+        Nairobi, Kenya
+      </p>
+      <h3>Contact</h3>
+      <p style="display: flex; align-items: center; gap: 10px; margin-bottom: 7px;">
+        <a class="whatsapp-link" href="https://wa.me/254722761212" rel="noopener" target="_blank" title="Chat with us on WhatsApp"></a>
+        <a href="mailto:info@wattsunsolar.co.ke" style="color:inherit; text-decoration:underline; margin-left:2px;">info@wattsunsolar.co.ke</a>
+      </p>
+      <h3>Office Hours</h3>
+      <p>Mon–Sat: 9 AM – 6 PM EAT</p>
+    </div>
+  </div>
+  <div class="map">
+    <iframe allowfullscreen="" height="300" loading="lazy" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15955.00815487748!2d36.81667!3d-1.28333!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x182f11726626627d%3A0x9ad4d4d4d4d4d4d4!2sNairobi!5e0!3m2!1sen!2ske!4v1590000000000!5m2!1sen!2ske" style="border:0;" width="100%"></iframe>
+  </div>
+</section>
+<!-- FOOTER PATCH START -->
+<footer>
+   © 2025 WattSun Solar Kenya |
+   <div class="footer-contacts">
+     <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>
+   </div>
+</footer>
+<footer class="mobile-nav">
+  <a aria-label="Home" href="index.html">🏠</a>
+  <a aria-label="Account" href="account.html">👤</a>
+  <a aria-label="Cart" href="cart.html">🛒<span id="cart-count">0</span></a>
+  <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
+</footer>
+<!-- FOOTER PATCH END -->
+<script>
+  // Nav menu toggle logic
+  const navToggle = document.querySelector('.nav-toggle');
+  const header = document.querySelector('header');
+  navToggle.addEventListener('click', function() {
+    header.classList.toggle('nav-open');
+  });
+  document.querySelectorAll('header nav a').forEach(link => {
+    link.addEventListener('click', () => header.classList.remove('nav-open'));
+  });
+</script>
+<script src="main.js"></script>
+<script>
+  // Cart count badge updater for both desktop and mobile navs
+  function updateCartCountBadge() {
+    let count = 0;
+    try {
+      const cart = JSON.parse(localStorage.getItem("cart")) || [];
+      count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    } catch (e) {}
+
+    const badge = document.getElementById('cart-count-badge');
+    const mobileCount = document.getElementById('cart-count');
+    if (badge) {
+      if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+    if (mobileCount) {
+      mobileCount.textContent = count;
+    }
+  }
+  document.addEventListener('DOMContentLoaded', updateCartCountBadge);
+  window.addEventListener('storage', updateCartCountBadge);
+</script>
+<script>
+  document.getElementById('contactForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const msgDiv = document.getElementById('contactFormMsg');
+    msgDiv.textContent = '';
+    msgDiv.style.color = '';
+
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const message = document.getElementById('message').value.trim();
+
+    if (!name || !email || !message) {
+      msgDiv.textContent = 'Please fill in all required fields.';
+      msgDiv.style.color = '#b22222';
+      return;
+    }
+
+    msgDiv.textContent = 'Sending...';
+    msgDiv.style.color = '#444';
+
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, email, phone, message })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        msgDiv.textContent = 'Thank you! Your message has been sent successfully.';
+        msgDiv.style.color = '#2ca123';
+        document.getElementById('contactForm').reset();
+      } else {
+        msgDiv.textContent = data.error || 'Failed to send message.';
+        msgDiv.style.color = '#b22222';
+      }
+    } catch (err) {
+      msgDiv.textContent = 'A server error occurred. Please try again later.';
+      msgDiv.style.color = '#b22222';
+    }
+  });
+</script>
+</body>
+</html>

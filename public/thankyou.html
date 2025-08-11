@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <meta charset="utf-8"/>
+  <title>Thank You – WattSun Solar</title>
+  <link href="main.css" rel="stylesheet"/>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      font-family: 'Segoe UI', 'Arial', sans-serif;
+      background: #f9f8ec;
+    }
+    .page-content { flex: 1 0 auto; }
+    footer { flex-shrink: 0; }
+    .container {
+      max-width: 410px;
+      margin: 64px auto 34px auto;
+      background: #fffdfa;
+      padding: 38px 20px 44px 20px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px #e5c75e33;
+      text-align: center;
+    }
+    h1 { color: #ad890b; margin-bottom: 15px;}
+    p { color: #4a3d06; font-size: 1.14em; margin-bottom: 9px;}
+    .info-block {
+      margin-top: 24px;
+      background: #fffbe8;
+      border-radius: 10px;
+      padding: 18px 10px;
+      box-shadow: 0 2px 12px #e5c75e20;
+      margin-bottom: 21px;
+      font-size: 1.04em;
+    }
+    .label { font-weight: bold; color: #b47d08;}
+    .button {
+      display: inline-block;
+      background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
+      color: #965700;
+      font-weight: bold;
+      text-decoration: none;
+      padding: 13px 36px;
+      border-radius: 10px;
+      margin-top: 19px;
+      margin-bottom: 9px;
+      box-shadow: 0 2px 10px #f7b73333;
+      font-size: 1.13em;
+      border: none;
+      transition: background 0.14s, color 0.14s;
+    }
+    .button:active { background: #f5c13b;}
+    @media (max-width: 540px) {
+      .container { margin: 14vw 2vw 8vw 2vw; max-width: 98vw; padding: 24px 2vw 28px 2vw; }
+      h1 { font-size: 1.4em; }
+      .button { font-size: 1em; padding: 11px 4vw;}
+    }
+    footer {
+      margin-top: 48px;
+      width: 100vw;
+      background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
+      color: #6b5100;
+      text-align: center;
+      font-size: 1.08em;
+      padding: 18px 0 5px 0;
+      letter-spacing: 0.01em;
+      font-family: inherit;
+    }
+    .footer-contacts { display: inline; }
+    .footer-contacts a { color: #6b5100; text-decoration: underline; }
+    .footer-contacts a:hover { color: #a58512; }
+    .mobile-nav { display: none !important; }
+  </style>
+</head>
+<body>
+<header>
+<div class="header-bar">
+<h1 class="desktop-logo">
+<img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
+  WattSun Solar
+</h1>
+<div class="logo-container">
+<img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
+<span class="brand-name">WattSun Solar</span>
+</div>
+<button aria-label="Open menu" class="nav-toggle" onclick="toggleNav()">☰</button>
+</div>
+<nav id="mainNav">
+<a href="index.html">Home</a>
+<a href="solutions.html">Solutions</a>
+<a href="shop.html">Shop</a>
+<a href="financing.html">Financing</a>
+<a href="projects.html">Projects</a>
+<a href="contact.html">Contact</a>
+<!-- Cart Icon START -->
+<a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
+<span class="cart-icon">
+    🛒
+    <span class="cart-count-badge" id="cart-count-badge">0</span>
+</span>
+</a>
+<!-- Cart Icon END -->
+</nav>
+</header>
+<div class="page-content">
+  <div class="container">
+    <h1>Thank You!</h1>
+    <div id="order-info" class="info-block" style="display: none;">
+      <div><span class="label">Order Number:</span> <span id="orderNum"></span></div>
+      <div><span class="label">Customer Name:</span> <span id="custName"></span></div>
+    </div>
+    <p>Your order has been received.<br/>
+      We’ll contact you soon to confirm details and arrange delivery.<br/>
+      For urgent questions, email <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>.
+    </p>
+    <a class="button" href="index.html">Return to Home</a>
+  </div>
+</div>
+<script>
+function toggleNav() {
+  var nav = document.getElementById("mainNav");
+  nav.classList.toggle("active");
+}
+window.addEventListener('resize', function() {
+    if(window.innerWidth > 800) {
+        document.getElementById("mainNav").classList.remove("active");
+    }
+});
+document.addEventListener("DOMContentLoaded", function () {
+  // Only show dynamic info if it exists in sessionStorage
+  const orderNumber = sessionStorage.getItem("orderNumber");
+  const customerName = sessionStorage.getItem("customerName");
+  if (orderNumber || customerName) {
+    document.getElementById("order-info").style.display = "block";
+    document.getElementById("orderNum").textContent = orderNumber || "-";
+    document.getElementById("custName").textContent = customerName || "-";
+    sessionStorage.removeItem("orderNumber");
+    sessionStorage.removeItem("customerName");
+  }
+  localStorage.removeItem("cart");
+});
+</script>
+<footer>
+  © 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
+</footer>
+</body>
+</html>

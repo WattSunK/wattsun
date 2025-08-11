@@ -1,0 +1,63 @@
+<h2 class="items-title">Users</h2>
+<div class="items-toolbar">
+  <button class="items-btn" id="add-user-btn">+ Add User</button>
+  <select class="items-select" id="user-type-filter">
+    <option value="All">All Types</option>
+    <option value="Customer">Customer</option>
+    <option value="Installer">Installer</option>
+    <option value="Admin">Admin</option>
+    <option value="Manufacturer">Manufacturer</option>
+  </select>
+  <select class="items-select" id="user-status-filter">
+    <option value="All">All Status</option>
+    <option value="Active">Active</option>
+    <option value="Inactive">Inactive</option>
+  </select>
+  <input class="items-input" type="text" placeholder="Search by name/email/phone">
+  <button class="items-btn">Search</button>
+  <button class="items-btn items-btn-clear">Clear</button>
+</div>
+<div class="items-table-wrapper">
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th>SL NO.</th>
+        <th>NAME</th>
+        <th>EMAIL</th>
+        <th>PHONE</th>
+        <th>TYPE</th>
+        <th>ORDERS</th>
+        <th>STATUS</th>
+        <th>LAST ACTIVE</th>
+        <th>ACTION</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td class="items-link">John Doe</td>
+        <td>john@email.com</td>
+        <td>0700123456</td>
+        <td>Customer</td>
+        <td>5</td>
+        <td><span class="items-status active">Active</span></td>
+        <td>05-Jul-2024</td>
+        <td>
+          <button class="items-action-btn view-user-btn" title="View">View</button>
+          <button class="items-action-btn edit-user-btn" title="Edit">Edit</button>
+          <button class="items-action-btn delete-user-btn" title="Delete">Delete</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="items-pagination">
+    <span>Showing 1 of 1 entries</span>
+    <div>
+      <button class="items-page-btn" disabled>First</button>
+      <button class="items-page-btn" disabled>Previous</button>
+      <button class="items-page-btn active">1</button>
+      <button class="items-page-btn" disabled>Next</button>
+      <button class="items-page-btn" disabled>Last</button>
+    </div>
+  </div>
+</div>

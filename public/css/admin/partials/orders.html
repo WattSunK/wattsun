@@ -1,0 +1,60 @@
+<h2 class="orders-title">Orders</h2>
+<div class="orders-toolbar">
+  <select class="orders-input">
+    <option>Select Order Type</option>
+    <option>ASAP Delivery</option>
+    <option>Normal Delivery</option>
+  </select>
+  <input class="orders-input" type="date" placeholder="From Date">
+  <span style="margin: 0 6px;">to</span>
+  <input class="orders-input" type="date" placeholder="To Date">
+  <button class="orders-btn">Search</button>
+  <button class="orders-btn orders-btn-clear">Clear</button>
+  <input class="orders-input search-box" type="text" placeholder="Search">
+</div>
+<div class="orders-table-wrapper">
+  <table class="orders-table">
+    <thead>
+      <tr>
+        <th>SL NO.</th>
+        <th>ORDER ID</th>
+        <th>CUSTOMER NAME</th>
+        <th>ORDER TYPE</th>
+        <th>ORDER DATE/TIME</th>
+        <th>DATE DELIVERED</th>
+        <th>DELIVERY ADDRESS</th>
+        <th>PAYMENT TYPE</th>
+        <th>NET VALUE</th>
+        <th>ACTION</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td><a href="#" class="order-link">158626282371</a></td>
+        <td>Jack</td>
+        <td>ASAP Delivery</td>
+        <td>07-Apr-2020 02:24:42 pm</td>
+        <td>07-Apr-2020 05:24:42 pm</td>
+        <td>23, Shanthi Nagar, Sampangirama Nagar, Bengaluru, Karnataka</td>
+        <td>Card</td>
+        <td>KSh 158.40</td>
+        <td>
+          <button class="orders-action-btn" title="View">
+            <svg height="18" width="18" viewBox="0 0 24 24" fill="none" stroke="#FFD23F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2.05 12a9.94 9.94 0 0 1 19.9 0 9.94 9.94 0 0 1-19.9 0z"/></svg>
+          </button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="orders-pagination">
+    <span>Showing 1 of 1 entries</span>
+    <div>
+      <button class="orders-page-btn" disabled>First</button>
+      <button class="orders-page-btn" disabled>Previous</button>
+      <button class="orders-page-btn active">1</button>
+      <button class="orders-page-btn" disabled>Next</button>
+      <button class="orders-page-btn" disabled>Last</button>
+    </div>
+  </div>
+</div>

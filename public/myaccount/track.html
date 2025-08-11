@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Checkout - WattSun Solar</title>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <link href="main.css" rel="stylesheet"/>
+
+  <style>
+    /* keep your existing styles; only minimal edits below */
+    body { background:#f9f8ec; margin:0; font-family:'Segoe UI','Arial',sans-serif; }
+    .container {
+      max-width: 880px; margin: 32px auto 0; background:#fffdfa; border-radius:18px;
+      box-shadow:0 6px 24px #e5c75e33; padding:28px 24px 34px;
+      /* removed extra bottom padding (no sticky footer now) */
+    }
+    h2 { color:#ad890b; margin:6px 0 20px; font-size:2em; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .checkout-heading-right { font-size:1em; margin-left:auto; display:flex; align-items:center; gap:7px; }
+    .login-btn,.signup-btn{ background:#f4a940; color:#fff; border:none; border-radius:6px; font-weight:600; font-size:1em; padding:6px 20px; cursor:pointer; }
+    .logout-btn{ background:#f0701a; color:#fff; border:none; border-radius:6px; font-weight:600; font-size:1em; padding:6px 14px; cursor:pointer; }
+
+    .checkout-form label{ display:block; margin:10px 0 6px; color:#5a4808; font-weight:600; }
+    .checkout-form input,.checkout-form textarea{
+      width:100%; padding:10px 12px; font-size:1em; border:1.2px solid #FFD23F; border-radius:6px; background:#fffbe7; outline:none;
+    }
+    .checkout-form input:focus,.checkout-form textarea:focus{ box-shadow:0 0 0 3px rgba(255,210,63,.25); }
+    .checkout-form input.readonly{ background:#fff3c4; color:#333; }
+
+    .checkout-actions{
+      display:flex; align-items:center; gap:12px; justify-content:space-between; margin-top:14px; flex-wrap:wrap;
+    }
+    .checkout-actions .left{ display:flex; align-items:center; gap:12px; }
+    .btn{ background:#f4a940; color:#fff; border:none; border-radius:6px; padding:10px 16px; font-weight:700; cursor:pointer; }
+    .secondary{ background:#fff; border:1px solid #f0c419; color:#8a6b10; }
+    .total-inline{ font-weight:700; color:#5a4808; }
+
+    /* small table niceties */
+    .table-wrapper{ margin-bottom:14px; }
+    .checkout-table th,.checkout-table td{ padding:8px; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="header-bar">
+    <h1 class="desktop-logo">
+      <img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width:60px;object-fit:contain;margin-right:10px;"/>
+      WattSun Solar
+    </h1>
+    <div class="logo-container">
+      <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
+      <span class="brand-name">WattSun Solar</span>
+    </div>
+    <button aria-label="Open menu" class="nav-toggle" onclick="toggleNav()">☰</button>
+  </div>
+  <nav id="mainNav">
+    <a href="index.html">Home</a>
+    <a href="solutions.html">Solutions</a>
+    <a href="shop.html">Shop</a>
+    <a href="financing.html">Financing</a>
+    <a href="projects.html">Projects</a>
+    <a href="contact.html">Contact</a>
+    <a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
+      <span class="cart-icon">🛒<span class="cart-count-badge" id="cart-count-badge">0</span></span>
+    </a>
+  </nav>
+</header>
+
+<div class="container">
+  <h2>
+    Checkout
+    <span class="checkout-heading-right" id="authSection"><!-- injected --></span>
+  </h2>
+
+  <div class="table-wrapper">
+    <table class="checkout-table" id="cartTable">
+      <thead>
+      <tr>
+        <th class="product-col">Product</th>
+        <th class="desc-col">Description</th>
+        <th class="compact-col">Price<br/>(KES)</th>
+        <th class="compact-col">Deposit<br/>(KES)</th>
+        <th class="compact-col">Qty</th>
+        <th class="compact-col">Total<br/>(KES)</th>
+      </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Removed old "Total Deposit" block here to avoid duplication -->
+
+  <form autocomplete="on" class="checkout-form" id="checkoutForm" name="order">
+    <label for="fullName">Full Name</label>
+    <input id="fullName" name="fullName" placeholder="Your full name" required type="text"/>
+
+    <label for="email">Email Address</label>
+    <input id="email" name="email" placeholder="you@example.com" required type="email"/>
+
+    <label for="phone">Phone Number</label>
+    <input id="phone" name="phone" placeholder="+254 7XX XXX XXX" required type="tel" pattern="^\+\d{10,15}$"/>
+
+    <label for="address">Delivery Address</label>
+    <textarea id="address" name="address" placeholder="Enter delivery location" required rows="3"></textarea>
+
+    <div class="checkout-actions">
+      <div class="left">
+        <a class="loan-btn secondary" href="shop.html">← Back to Shop</a>
+      </div>
+      <div class="right" style="display:flex;align-items:center;gap:12px;">
+        <span id="totalInline" class="total-inline">Total Deposit: KES 0</span>
+        <button class="btn" type="submit">Place Order →</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Removed sticky footer "Place Order" bar entirely -->
+
+<!-- AUTH MODAL (unchanged structure) -->
+<div id="modalAuthBg" class="modal-auth-bg" style="display:none">
+  <div class="modal-auth" id="modalAuth" style="background:#fffdfa;padding:28px 26px 20px;max-width:410px;width:95vw;border-radius:11px;box-shadow:0 6px 40px rgba(0,0,0,.14);position:relative;">
+    <button class="modal-auth-close" onclick="closeAuthModal()" style="position:absolute;right:11px;top:7px;background:none;border:none;font-size:2.1em;color:#bbb;cursor:pointer;line-height:1;">&times;</button>
+    <div class="modal-auth-tabs" style="display:flex;justify-content:center;gap:15px;margin-bottom:16px;">
+      <button class="modal-auth-tab" id="tabLogin" onclick="switchAuthTab('login')" style="border:none;background:none;font-weight:600;font-size:1.12em;color:#b88d0d;cursor:pointer;border-bottom:2.5px solid transparent;padding:0 7px 3px;">Login</button>
+      <button class="modal-auth-tab" id="tabSignup" onclick="switchAuthTab('signup')" style="border:none;background:none;font-weight:600;font-size:1.12em;color:#b88d0d;cursor:pointer;border-bottom:2.5px solid transparent;padding:0 7px 3px;">Sign Up</button>
+    </div>
+
+    <form id="loginForm" style="display:none;display:flex;flex-direction:column;gap:13px;">
+      <input type="email" id="loginEmail" placeholder="Email" required>
+      <input type="password" id="loginPassword" placeholder="Password" required>
+      <button type="submit" class="auth-submit-btn" style="background:#f4a940;color:#fff;border:none;border-radius:7px;font-weight:bold;font-size:1.08em;padding:9px 0;cursor:pointer;">Login</button>
+    </form>
+
+    <form id="signupForm" style="display:none;display:flex;flex-direction:column;gap:13px;">
+      <input type="text" id="signupName" placeholder="Full Name" required>
+      <input type="email" id="signupEmail" placeholder="Email" required>
+      <input type="tel" id="signupPhone" placeholder="Phone (+254...)" pattern="^\+\d{10,15}$">
+      <input type="password" id="signupPassword" placeholder="Password" required>
+      <button type="submit" class="auth-submit-btn" style="background:#f4a940;color:#fff;border:none;border-radius:7px;font-weight:bold;font-size:1.08em;padding:9px 0;cursor:pointer;">Sign Up</button>
+    </form>
+
+    <div id="authError" class="auth-error" style="text-align:center;color:#c81e1e;display:none;"></div>
+    <div id="authSuccess" class="auth-success" style="text-align:center;color:#21913d;display:none;"></div>
+  </div>
+</div>
+
+<footer>
+  © 2025 WattSun Solar Kenya |
+  <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
+</footer>
+
+<script>
+function toggleNav(){ var nav=document.getElementById("mainNav"); nav.classList.toggle("active"); }
+window.addEventListener('resize', function(){ if(window.innerWidth>800){ document.getElementById("mainNav").classList.remove("active"); } });
+
+/* --- helpers to read session in any shape --- */
+function getStoredUser(){
+  try{
+    const raw = localStorage.getItem('wattsunUser') || localStorage.getItem('ws_user');
+    if(!raw) return null;
+    const obj = JSON.parse(raw);
+    // normalize: {success:true,user:{...}} or plain {name,email,phone}
+    return obj && obj.user ? obj.user : obj;
+  }catch(e){ return null; }
+}
+
+/* --- Cart rendering --- */
+function formatNumber(n){ return Number(n||0).toLocaleString('en-US'); }
+function truncateDesc(d){ if(!d) return ""; const s=d.replace(/(\r\n|\n|\r)/gm," "); return s.length>64? s.slice(0,61)+"…" : s; }
+
+function renderCart(){
+  const cart = JSON.parse(localStorage.getItem("cart")||"[]");
+  const tbody = document.querySelector("#cartTable tbody");
+  tbody.innerHTML = "";
+  let totalDeposit = 0;
+
+  cart.forEach(item=>{
+    const qty = item.quantity || 1;
+    const deposit = Number(item.deposit||0);
+    const totalPrice = Number(item.price||0) * qty;
+    const totalItemDeposit = deposit * qty;
+    totalDeposit += totalItemDeposit;
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td class="product-col">${item.name||''}</td>
+      <td class="desc-col"><span class="desc-text" title="${(item.description||'').replace(/(\r\n|\n|\r)/gm,' ').replace(/"/g,'&quot;')}">${truncateDesc(item.description||'')}</span></td>
+      <td class="compact-col">${formatNumber(item.price)}</td>
+      <td class="compact-col">${formatNumber(deposit)}</td>
+      <td class="compact-col">${qty}</td>
+      <td class="compact-col">${formatNumber(totalPrice)}</td>
+    `;
+    tbody.appendChild(row);
+  });
+
+  document.getElementById('totalInline').textContent = "Total Deposit: KES " + totalDeposit.toLocaleString();
+}
+
+/* --- Prefill & lock fields when logged in --- */
+function prefillCheckoutFields(){
+  const u = getStoredUser();
+  const fn = document.getElementById('fullName');
+  const em = document.getElementById('email');
+  const ph = document.getElementById('phone');
+  const ad = document.getElementById('address');
+
+  if(u){
+    fn.value = u.name || "";
+    em.value = u.email || "";
+    ph.value = u.phone || "";
+
+    let address = u.address || u.deliveryAddress || "";
+    ad.value = address;
+
+    [fn, em, ph].forEach(el => { el.readOnly = true; el.classList.add('readonly'); });
+  }
+}
+
+/* --- Auth buttons in heading --- */
+function renderAuthSection(){
+  const u = getStoredUser();
+  const section = document.getElementById('authSection');
+  if(u){
+    section.innerHTML = `<span class="welcome-msg" style="color:#ad890b;font-weight:600;">Welcome, ${u.name||''}</span>
+      <button class="logout-btn" onclick="logoutUser()">Logout</button>`;
+  }else{
+    section.innerHTML = `<button class="login-btn" onclick="showAuthModal('login')">Login</button>
+      <button class="signup-btn" onclick="showAuthModal('signup')">Sign Up</button>`;
+  }
+}
+
+function logoutUser(){
+  try{ localStorage.removeItem('wattsunUser'); }catch(e){}
+  try{ localStorage.removeItem('ws_user'); }catch(e){}
+  ['fullName','email','phone'].forEach(id=>{ const el=document.getElementById(id); if(el){ el.readOnly=false; el.classList.remove('readonly'); el.value=''; }});
+  renderAuthSection();
+  prefillCheckoutFields();
+  window.location.href = 'index.html';
+}
+
+/* --- AUTH MODAL minimal wiring --- */
+function showAuthModal(tab){ document.getElementById('modalAuthBg').style.display='flex'; switchAuthTab(tab||'login'); document.getElementById('authError').style.display='none'; document.getElementById('authSuccess').style.display='none'; }
+function closeAuthModal(){ document.getElementById('modalAuthBg').style.display='none'; }
+function switchAuthTab(tab){
+  document.getElementById('tabLogin').classList.toggle('active', tab==='login');
+  document.getElementById('tabSignup').classList.toggle('active', tab==='signup');
+  document.getElementById('loginForm').style.display = tab==='login'?'flex':'none';
+  document.getElementById('signupForm').style.display = tab==='signup'?'flex':'none';
+  document.getElementById('authError').style.display='none';
+  document.getElementById('authSuccess').style.display='none';
+}
+
+/* Login */
+document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+  const err=document.getElementById('authError'), ok=document.getElementById('authSuccess');
+  err.style.display='none'; ok.style.display='none';
+  try{
+    const res = await fetch('/api/login',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password}) });
+    const data = await res.json();
+    if(!res.ok){ err.textContent=data.error||'Login failed'; err.style.display='block'; return; }
+    localStorage.setItem('wattsunUser', JSON.stringify(data)); // keep backend shape
+    ok.textContent='Login successful!'; ok.style.display='block';
+    renderAuthSection(); prefillCheckoutFields(); closeAuthModal();
+  }catch{ err.textContent='Login error'; err.style.display='block'; }
+});
+
+/* Signup */
+document.getElementById('signupForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const name=document.getElementById('signupName').value;
+  const email=document.getElementById('signupEmail').value;
+  const password=document.getElementById('signupPassword').value;
+  const phone=document.getElementById('signupPhone').value;
+  const err=document.getElementById('authError'), ok=document.getElementById('authSuccess');
+  err.style.display='none'; ok.style.display='none';
+  try{
+    const res = await fetch('/api/signup',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name,email,password,phone}) });
+    const data = await res.json();
+    if(!res.ok){ err.textContent=data.error||'Signup failed'; err.style.display='block'; return; }
+    localStorage.setItem('wattsunUser', JSON.stringify(data)); // keep backend shape
+    ok.textContent='Signup successful!'; ok.style.display='block';
+    renderAuthSection(); prefillCheckoutFields(); closeAuthModal();
+  }catch{ err.textContent='Signup error'; err.style.display='block'; }
+});
+
+/* Submit order */
+document.getElementById("checkoutForm").addEventListener("submit", async function(e){
+  e.preventDefault();
+  let valid = true;
+  this.querySelectorAll('input[required], textarea[required]').forEach(input=>{
+    if(!input.value.trim()){ input.style.borderColor="red"; valid=false; } else { input.style.borderColor=""; }
+  });
+  const cart = JSON.parse(localStorage.getItem("cart")||"[]");
+  if(cart.length===0){ alert("Your cart is empty."); valid=false; }
+  if(!valid) return;
+
+  const orderData = {
+    fullName: this.fullName.value,
+    email: this.email.value,
+    phone: this.phone.value,
+    address: this.address.value,
+    cart: cart,
+    cart_summary: cart.map(i=>`${i.name} (x${i.quantity||1}): Price ${i.price}, Deposit ${i.deposit}`).join("\n")
+  };
+
+  try{
+    const response = await fetch("/api/checkout",{ method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify(orderData) });
+    const data = await response.json();
+    if(response.ok && data.status==="success"){
+      const u = getStoredUser();
+      if(u){ u.address = orderData.address; u.phone = orderData.phone; localStorage.setItem('wattsunUser', JSON.stringify({success:true,user:u})); }
+      sessionStorage.setItem("orderNumber", data.orderNumber);
+      sessionStorage.setItem("customerName", data.fullName);
+      localStorage.removeItem("cart");
+      window.location.href = "thankyou.html";
+    }else{
+      alert(data.message || "Order submission failed. Please try again.");
+    }
+  }catch(err){
+    console.error(err); alert("Network or server error. Please try again later.");
+  }
+});
+
+/* on load */
+document.addEventListener("DOMContentLoaded", function(){
+  renderCart();
+  renderAuthSection();
+  prefillCheckoutFields();
+  // cart badge
+  (function updateCartCountBadge(){
+    let count=0; try{ const cart=JSON.parse(localStorage.getItem("cart"))||[]; count=cart.reduce((s,i)=>s+(i.quantity||1),0);}catch(e){}
+    const badge=document.getElementById('cart-count-badge');
+    if(badge){ if(count>0){ badge.textContent=count; badge.style.display='flex'; } else { badge.style.display='none'; } }
+  })();
+});
+</script>
+</body>
+</html>

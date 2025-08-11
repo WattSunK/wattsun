@@ -1,0 +1,1 @@
+# public/assets — placeholder

@@ -1,0 +1,135 @@
+<!-- /public/partials/orders.html -->
+<section class="ws-admin-orders">
+  <style>
+    .ws-admin-orders .card{border:1px solid #eee;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.02)}
+    .ws-admin-orders .card-h{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #f0f0f0;background:#fff}
+    .ws-admin-orders .card-h h2{margin:0;font-size:18px;font-weight:600;color:#111827}
+    .ws-admin-orders .toolbar{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .ws-admin-orders .toolbar label{font-size:12px;color:#6b7280}
+    .ws-admin-orders .inp,.ws-admin-orders .sel{height:34px;padding:6px 10px;border:1.2px solid #FFD23F;border-radius:8px;background:#fffbe7;color:#111827}
+    .ws-admin-orders .inp[type="text"]{min-width:240px;border-radius:18px}
+    .ws-admin-orders .card-b{padding:10px 12px 14px}
+    .table-wrap{overflow:auto;max-height:calc(100vh - 260px)}
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    thead th{position:sticky;top:0;z-index:1;background:#fffbe7;text-align:left;font-size:12px;color:#333;letter-spacing:.02em;text-transform:uppercase;padding:10px 12px;border-bottom:1px solid #f3f3f3;border-top:1.5px solid #FFD23F}
+    tbody td{padding:10px 12px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#111827;white-space:nowrap}
+    tbody tr:nth-child(odd){background:#fcfcfd} tbody tr:hover{background:#f7fbff}
+    .view-btn{height:30px;padding:0 10px;border-radius:8px;border:1px solid #FFD23F;background:#fffbe7;color:#111827;cursor:pointer}
+    .view-btn:hover{background:#FFD23F}
+    .ws-pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid #e5e7eb}
+    .ws-pill.pending{background:#fffbe7;color:#7a5b00;border-color:#FFD23F}
+    .ws-pill.processing{background:#e7f6ff;color:#055a8c;border-color:#b9e3ff}
+    .ws-pill.delivered{background:#e8f6e8;color:#1e6b27;border-color:#bfe6bf}
+    .ws-pill.cancelled{background:#fbeaea;color:#8a1f1f;border-color:#f2c1c1}
+    .orders-meta{font-size:.94em;color:#666;margin:6px 2px}
+    .orders-pagination{display:flex;justify-content:space-between;align-items:center;font-size:.96em;color:#888;padding:6px 2px 0}
+    .orders-page-btn{background:#fffbe7;border:1px solid #FFD23F;border-radius:4px;margin-left:3px;padding:2px 9px;font-size:.96em;color:#222;cursor:pointer}
+    .orders-page-btn[disabled]{opacity:.45;cursor:not-allowed}
+    .orders-page-num{font-weight:600}
+    .ws-toast{position:fixed;right:18px;bottom:18px;background:#8a1f1f;color:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.25);z-index:2000;display:none;max-width:70vw}
+  </style>
+
+  <div class="card">
+    <div class="card-h">
+      <h2>Orders</h2>
+      <div class="toolbar">
+        <label>Order Type</label>
+        <select class="sel" id="ordersFilterType">
+          <option value="">All</option><option>Pending</option><option>Processing</option><option>Delivered</option><option>Cancelled</option>
+        </select>
+        <label style="margin-left:6px">From</label>
+        <input type="date" class="inp" id="ordersDateFrom">
+        <label>to</label>
+        <input type="date" class="inp" id="ordersDateTo">
+        <input type="text" class="inp" id="ordersSearch" placeholder="Search">
+      </div>
+    </div>
+
+    <div class="card-b">
+      <div class="table-wrap">
+        <table id="ordersTable">
+          <thead><tr>
+            <th>Order ID</th><th>Customer</th><th>Phone</th><th>Email</th>
+            <th>Status</th><th>Payment</th><th>Net Value</th><th>Action</th>
+          </tr></thead>
+          <tbody id="ordersTbody"></tbody>
+        </table>
+      </div>
+      <div class="orders-meta" id="ordersMeta"></div>
+      <div id="ordersPager" class="orders-pagination" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div id="wsToast" class="ws-toast" role="status" aria-live="polite"></div>
+
+  <script>
+  (function(){
+    const TB  = document.getElementById('ordersTbody');
+    const PG  = document.getElementById('ordersPager');
+    const MT  = document.getElementById('ordersMeta');
+    const sel = document.getElementById('ordersFilterType');
+    const q   = document.getElementById('ordersSearch');
+    const hdr = document.querySelector('.header-search');
+    if (hdr) { hdr.style.display=''; if(!hdr._boundOrders){ hdr._boundOrders=1; hdr.addEventListener('input', ()=>{ q.value = hdr.value; applyFilter(); }); } }
+
+    const PER = 10; let page = 1;
+
+    function markKeepAll(){ TB.querySelectorAll('tr').forEach(tr=>tr.classList.add('__keep')); }
+    function totalRows(){ return TB.querySelectorAll('tr.__keep').length; }
+    function pages(){ return Math.max(1, Math.ceil(totalRows()/PER)); }
+
+    function pillize(){
+      TB.querySelectorAll('tr').forEach(tr=>{
+        const td = tr.children[4]; if(!td || td.dataset.pill==='1') return;
+        const raw=(td.textContent||'').trim(), key=raw.toLowerCase();
+        td.innerHTML = `<span class="ws-pill ${key==='delivered'?'delivered':key==='processing'?'processing':key==='cancelled'?'cancelled':'pending'}">${raw}</span>`;
+        td.dataset.pill='1';
+      });
+    }
+
+    function applyFilter(){
+      const term=(q.value||'').toLowerCase().trim(), type=(sel.value||'').toLowerCase();
+      TB.querySelectorAll('tr').forEach(tr=>{
+        const cols=[...tr.children].map(td=>(td.textContent||'').toLowerCase());
+        const status=cols[4]||'', okType=!type || status.includes(type);
+        const okText=!term || cols.some(c=>c.includes(term));
+        const keep=okType && okText;
+        tr.style.display=keep?'':'none';
+        tr.classList.toggle('__keep', keep);
+      });
+      page=1; applyPage();
+    }
+
+    function applyPage(){
+      const rows=[...TB.querySelectorAll('tr.__keep')];
+      rows.forEach((tr,i)=>{ const p=Math.floor(i/PER)+1; tr.style.display=(p===page)?'':'none'; });
+      const max=pages(); if (MT) MT.textContent=`${totalRows()} orders • page ${page}/${max}`;
+      PG.innerHTML = `
+        <span></span><div>
+          <button class="orders-page-btn" ${page<=1?'disabled':''} data-act="first">First</button>
+          <button class="orders-page-btn" ${page<=1?'disabled':''} data-act="prev">Previous</button>
+          <span class="orders-page-btn orders-page-num">${page}</span>
+          <button class="orders-page-btn" ${page>=max?'disabled':''} data-act="next">Next</button>
+          <button class="orders-page-btn" ${page>=max?'disabled':''} data-act="last">Last</button>
+        </div>`;
+      PG.querySelectorAll('button[data-act]').forEach(b=>{
+        b.onclick=()=>{ if (b.disabled) return;
+          if(b.dataset.act==='first') page=1;
+          else if(b.dataset.act==='prev') page=Math.max(1,page-1);
+          else if(b.dataset.act==='next') page=Math.min(max,page+1);
+          else if(b.dataset.act==='last') page=max;
+          applyPage();
+        };
+      });
+    }
+
+    const mo=new MutationObserver(()=>{ markKeepAll(); pillize(); applyFilter(); });
+    mo.observe(TB,{childList:true});
+
+    sel.addEventListener('change', applyFilter);
+    q.addEventListener('input', ()=>{ page=1; applyFilter(); });
+
+    markKeepAll(); pillize(); applyFilter();
+  })();
+  </script>
+</section>

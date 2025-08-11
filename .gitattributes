@@ -1,0 +1,9 @@
+# Ensure all HTML files use LF line endings
+*.html text eol=lf
+
+# Optional: Do the same for CSS and JS files
+*.css text eol=lf
+*.js text eol=lf
+
+# Optional: Default for all files (safe for most web projects)
+* text=auto

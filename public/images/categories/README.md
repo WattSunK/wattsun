@@ -1,0 +1,1 @@
+# public/images/categories — placeholder

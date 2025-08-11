@@ -1,0 +1,54 @@
+<h2 class="items-title">Items</h2>
+<div class="items-toolbar">
+  <button class="items-btn" id="add-item-btn">+ Add Item</button>
+  <select class="items-select">
+    <option>All Categories</option>
+    <option>Panels</option>
+    <option>Batteries</option>
+    <option>Inverters</option>
+  </select>
+  <input class="items-input" type="text" placeholder="Search by name/SKU/category">
+  <button class="items-btn">Search</button>
+  <button class="items-btn items-btn-clear">Clear</button>
+</div>
+<div class="items-table-wrapper">
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th>SL NO.</th>
+        <th>ITEM NAME</th>
+        <th>SKU</th>
+        <th>CATEGORY</th>
+        <th>STOCK</th>
+        <th>UNIT PRICE</th>
+        <th>STATUS</th>
+        <th>ACTION</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td class="items-link">100W Panel</td>
+        <td>PNL-100W</td>
+        <td>Panels</td>
+        <td>25</td>
+        <td>KSh 6,500</td>
+        <td><span class="items-status active">Active</span></td>
+        <td>
+          <button class="items-action-btn edit-btn" title="Edit">Edit</button>
+          <button class="items-action-btn delete-btn" title="Delete">Delete</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="items-pagination">
+    <span>Showing 1 to 1 of 1 entries</span>
+    <div>
+      <button class="items-page-btn" disabled>First</button>
+      <button class="items-page-btn" disabled>Previous</button>
+      <button class="items-page-btn active">1</button>
+      <button class="items-page-btn" disabled>Next</button>
+      <button class="items-page-btn" disabled>Last</button>
+    </div>
+  </div>
+</div>

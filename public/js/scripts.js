@@ -1,0 +1,1 @@
+console.log('WattSun JS loaded');

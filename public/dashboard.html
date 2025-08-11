@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WattSun Dashboard</title>
+  <link rel="stylesheet" href="/admin/admin.css" />
+</head>
+<body>
+  <div class="admin-layout">
+    <div class="sidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-logo">
+          <img src="/images/logo.png" alt="WattSun"
+               style="height:22px;width:auto;vertical-align:middle;margin-right:8px;">
+          WattSun
+        </div>
+        <nav>
+          <a href="#" class="active" data-section="system-status">Dashboard</a>
+          <a href="#" data-section="profile">Profile</a>
+          <a href="#" data-section="orders">Orders</a>
+          <a href="#" data-section="items">Items</a>
+          <a href="#" data-section="users">Users</a>
+          <a href="#" data-section="dispatch">Dispatch</a>
+          <a href="#" data-section="settings">Settings</a>
+          <a href="#" data-section="myorders">My Orders</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="main-header">
+        <div class="header-title">Dashboard</div>
+        <div class="header-spacer"></div>
+        <div class="header-actions">
+          <input type="text" class="header-search" placeholder="Search..." />
+          <div class="header-user">👤 Admin</div>
+          <button id="adminHomeBtn" class="btn" title="Return to Home">Home</button>
+          <button id="adminLogoutBtn" class="btn" title="Logout">Logout</button>
+        </div>
+      </div>
+
+      <!-- Section content goes here -->
+      <div class="main-section" id="admin-content"></div>
+
+      <div class="footer">
+        © 2025 WattSun Solar. All rights reserved. | Admin Panel
+      </div>
+    </div>
+  </div>
+
+  <!-- Your patched loader that wires sections and Orders -->
+  <script src="/js/dashboard.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      var home = document.getElementById('adminHomeBtn');
+      var logout = document.getElementById('adminLogoutBtn');
+      if (home) home.addEventListener('click', function(){ window.location.href = '/index.html'; });
+      if (logout) logout.addEventListener('click', function(){
+        try { localStorage.removeItem('wattsunUser'); } catch(e){}
+        try { localStorage.removeItem('ws_user'); } catch(e){}
+        window.location.href = '/index.html';
+      });
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Flexible Solar Financing Options</title>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<link href="main.css" rel="stylesheet"/>
+<style>
+    /* Fix hamburger alignment */
+    .header-bar {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .nav-toggle {
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex !important;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-size: 2.2em;
+      color: #fff;
+      height: 44px;
+      width: 44px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Mobile nav toggle */
+    @media (max-width: 700px) {
+      nav {
+        display: none;
+      }
+      header.nav-open nav {
+        display: flex !important;
+        flex-direction: column;
+        background: #ffc947;
+        padding-bottom: 8px;
+        border-top: 1.5px solid #ffd67a;
+      }
+      nav a {
+        color: #fff;
+        padding: 12px 34px;
+        border-bottom: 1px solid #f2e2b6;
+        font-weight: 700;
+      }
+      nav a:last-child {
+        border-bottom: none;
+      }
+    }
+
+    /* Other styles */
+    body {
+      background: #f7f7f7;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      color: #333;
+    }
+    .container {
+      max-width: 700px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 40px 35px 30px 35px;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 2em;
+      font-weight: bold;
+      letter-spacing: 0.1px;
+    }
+    p {
+      font-size: 1.13em;
+      line-height: 1.5;
+      margin-bottom: 28px;
+      text-align: center;
+    }
+    label {
+      display: block;
+      margin: 15px 0 6px 0;
+      font-weight: bold;
+      font-size: 1.11em;
+    }
+    input, select {
+      width: 100%;
+      padding: 13px 12px;
+      margin-bottom: 13px;
+      border: 1.2px solid #ccc;
+      border-radius: 5px;
+      font-size: 1em;
+      box-sizing: border-box;
+      background: #faf9f7;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus {
+      border-color: #f7b733;
+      outline: none;
+    }
+    button {
+      width: 100%;
+      background: #ffc043;
+      color: #fff;
+      border: none;
+      padding: 15px;
+      border-radius: 6px;
+      font-size: 1.15em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      margin-top: 10px;
+      margin-bottom: 8px;
+      box-shadow: 0 3px 18px rgba(247,183,51,0.11);
+      letter-spacing: 0.04em;
+    }
+    button:hover {
+      background: #ffb347;
+      color: #965700;
+    }
+    .result {
+      margin-top: 18px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 1.16em;
+    }
+    .disclaimer {
+      font-size: 0.98em;
+      text-align: center;
+      color: #888;
+      margin-top: 14px;
+    }
+    @media (max-width: 800px) {
+      .container {
+        max-width: 98vw;
+        padding: 22px 5vw;
+      }
+    }
+  
+    .cart-btn { background: #ffc043; color: white; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 3px 12px rgba(0,0,0,0.06); }
+
+/* === Mobile Enhancements === */
+    .mobile-nav {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      header {
+        height: 56px;
+      }
+
+      .mobile-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        height: 56px;
+        width: 100%;
+        background-color: #f4a940;
+        justify-content: space-around;
+        align-items: center;
+        z-index: 1000;
+        box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .mobile-nav a {
+        font-size: 24px;
+        text-decoration: none;
+        color: black;
+        position: relative;
+        line-height: 1;
+      }
+
+      #cart-count {
+        background: red;
+        color: white;
+        border-radius: 50%;
+        padding: 2px 6px;
+        font-size: 12px;
+        position: absolute;
+        top: -8px;
+        right: -12px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .mobile-nav a {
+        font-size: 20px;
+        padding: 6px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .mobile-nav {
+        height: 56px;
+        padding: 0;
+      }
+
+      .mobile-nav a {
+        font-size: 20px;
+        height: 56px;
+        line-height: 56px;
+        padding: 0;
+        margin: 0;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #cart-count {
+        top: 4px;
+        right: 10px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      #cart-count {
+        position: absolute;
+        top: 6px;
+        right: 10px;
+        background: red;
+        color: white;
+        font-size: 11px;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        padding: 0 5px;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 768px) {
+    }
+
+@media (min-width: 701px) {
+  .nav-toggle {
+    display: none !important;
+  }
+}
+
+/* --- Desktop cart badge style --- */
+.cart-count-badge {
+  position: absolute;
+  top: -8px;
+  right: -16px;
+  background: #19c37d;
+  color: #fff;
+  font-size: 0.9em;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  box-shadow: 0 0 2px #0002;
+  z-index: 2;
+  display: none;
+}
+</style>
+</head>
+<body>
+<header>
+<div class="header-bar">
+<h1 class="desktop-logo">
+<img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
+  WattSun Solar
+</h1>
+<div class="logo-container">
+<img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
+<span class="brand-name">WattSun Solar</span>
+</div>
+
+<button aria-label="Open menu" class="nav-toggle" >☰</button>
+</div>
+<nav>
+<a href="index.html">Home</a>
+<a href="solutions.html">Solutions</a>
+<a href="shop.html">Shop</a>
+<a aria-current="page" class="active" href="financing.html">Financing</a>
+<a href="projects.html">Projects</a>
+<a href="contact.html">Contact</a>
+<span id="cartLinkWrapper" style="display:none; position: relative;">
+  <a href="cart.html" style="position:relative; display:inline-block;">
+    🛒
+    <span id="cartCount" style="font-weight:bold; background:#3E9F50; color:white; padding:2px 6px; border-radius:50%; font-size:0.8em; vertical-align:top;"></span>
+    <!-- Desktop badge for cart count -->
+    <span class="cart-count-badge" id="cart-count-badge">0</span>
+  </a>
+</span>
+</nav>
+</header>
+<div class="container">
+<h2>Flexible Solar Financing Options</h2>
+<p>
+    WattSun Solar offers tailored financing plans to help you transition to clean, renewable energy without the burden of large upfront costs. Use the estimator below to calculate your expected monthly repayment based on system size and interest terms.
+  </p>
+<form id="loanForm">
+<label for="system">Select System Size:</label>
+<select id="system" required="">
+<option value="">-- Select --</option>
+<option value="150000">1 kW – KES 150,000</option>
+<option value="400000">3 kW – KES 400,000</option>
+<option value="700000">6 kW – KES 700,000</option>
+<option value="1050000">9 kW – KES 1,050,000</option>
+<option value="1420000">12 kW – KES 1,420,000</option>
+</select>
+<label for="deposit">Your Deposit (KES):</label>
+<input id="deposit" min="0" required="" type="number"/>
+<label for="term">Loan Term (Months):</label>
+<input id="term" max="36" min="6" required="" type="number" value="36"/>
+<button type="submit">Calculate Loan</button>
+</form>
+<div class="result" id="result"></div>
+<div class="disclaimer">* This is an indicative estimate. Actual loan terms may vary.</div>
+</div>
+<footer>
+  © 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
+</footer>
+<footer class="mobile-nav">
+<a aria-label="Home" href="index.html">🏠</a>
+<a aria-label="Account" href="account.html">👤</a>
+<a aria-label="Cart" href="cart.html">🛒<span id="cart-count" style="position: absolute; top: 6px; right: 10px; background: red; color: white; font-size: 11px; min-width: 16px; height: 16px; border-radius: 8px; padding: 0 5px; text-align: center; display: flex; align-items: center; justify-content: center;">0</span></a>
+<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
+</footer>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const loanForm = document.getElementById("loanForm");
+  const resultDiv = document.getElementById("result");
+  const navToggle = document.querySelector(".nav-toggle");
+  const header = document.querySelector("header");
+  const nav = document.querySelector("header nav");
+
+  // Toggle menu open/close
+  if (navToggle && header) {
+    navToggle.addEventListener("click", function (e) {
+      e.stopPropagation();
+      header.classList.toggle("nav-open");
+    });
+  }
+
+  // Close menu if clicking outside
+  document.body.addEventListener("click", function (e) {
+    if (
+      header.classList.contains("nav-open") &&
+      !nav.contains(e.target) &&
+      !navToggle.contains(e.target)
+    ) {
+      header.classList.remove("nav-open");
+    }
+  }, true);
+
+  // Scroll and highlight result
+  loanForm.addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    const price = parseFloat(document.getElementById('system').value);
+    const deposit = parseFloat(document.getElementById('deposit').value);
+    const term = parseInt(document.getElementById('term').value);
+
+    if (!price || isNaN(deposit) || isNaN(term)) {
+      resultDiv.textContent = "Please fill in all fields.";
+      return;
+    }
+
+    const minDeposit = 0.5 * price;
+    if (deposit < minDeposit) {
+      resultDiv.textContent = "Minimum deposit is KES " + minDeposit.toLocaleString("en-KE");
+      return;
+    }
+
+    if (deposit > price) {
+      resultDiv.textContent = "Deposit cannot be greater than system cost (KES " + price.toLocaleString("en-KE") + ")";
+      return;
+    }
+
+    const loanAmount = price - deposit;
+    const annualInterestRate = 0.15;
+    const monthlyInterestRate = annualInterestRate / 12;
+    const monthlyRepayment = (loanAmount * monthlyInterestRate) / (1 - Math.pow(1 + monthlyInterestRate, -term));
+
+    resultDiv.textContent =
+      "Loan Amount: KES " + loanAmount.toLocaleString("en-KE") +
+      " | Monthly Repayment: KES " + monthlyRepayment.toFixed(0).toLocaleString("en-KE");
+
+    resultDiv.scrollIntoView({ behavior: "smooth", block: "center" });
+    resultDiv.style.transition = "background 0.3s ease-in-out";
+    resultDiv.style.background = "#fff5c2";
+    setTimeout(() => {
+      resultDiv.style.background = "transparent";
+    }, 2200);
+
+    localStorage.setItem('loanKit', JSON.stringify({
+      system: document.getElementById('system').selectedOptions[0].text,
+      price: price,
+      deposit: deposit,
+      loanAmount: loanAmount,
+      term: term,
+      monthly: monthlyRepayment.toFixed(0)
+    }));
+
+    if (!document.getElementById('addToCartBtn')) {
+      const btn = document.createElement('button');
+      btn.textContent = "Add to Cart";
+      btn.id = "addToCartBtn";
+      btn.className = "cart-btn";
+      btn.style.margin = '14px auto 0';
+      btn.style.display = 'block';
+      btn.style.padding = '12px 28px';
+      btn.onclick = function() {
+        const kit = JSON.parse(localStorage.getItem('loanKit'));
+        const cart = JSON.parse(localStorage.getItem('cart')) || [];
+        const name = "Loan Kit – " + kit.system;
+        // Find duplicate loan kit in cart (same name, deposit, term, monthly)
+        const found = cart.find(item =>
+          item.name === name &&
+          item.deposit === kit.deposit &&
+          item.term === kit.term &&
+          item.monthly === kit.monthly
+        );
+        if (found) {
+          found.quantity = (found.quantity || 1) + 1;
+        } else {
+          cart.push({
+            name: name,
+            price: kit.price,
+            deposit: kit.deposit,
+            term: kit.term,
+            monthly: kit.monthly,
+            quantity: 1
+          });
+        }
+        localStorage.setItem('cart', JSON.stringify(cart));
+        updateCartCount();
+        btn.remove();
+        document.getElementById('loanForm').reset();
+        resultDiv.textContent = "Loan added to cart!";
+        resultDiv.scrollIntoView({ behavior: "smooth", block: "center" });
+      };
+      document.querySelector('.disclaimer').after(btn);
+    }
+  });
+
+  function updateCartCount() {
+    let count = 0;
+    try {
+      const cart = JSON.parse(localStorage.getItem("cart")) || [];
+      count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    } catch (e) {}
+    const badgeDesktop = document.getElementById("cart-count-badge");
+    if (badgeDesktop) {
+      badgeDesktop.textContent = count;
+      badgeDesktop.style.display = count > 0 ? 'flex' : 'none';
+    }
+    const badgeMobile = document.getElementById("cart-count");
+    if (badgeMobile) badgeMobile.textContent = count;
+  }
+
+  // Listen for changes across tabs/windows
+  window.addEventListener('storage', updateCartCount);
+
+  const wrapper = document.getElementById("cartLinkWrapper");
+  if (wrapper) {
+    wrapper.style.display = "inline-block";
+    updateCartCount();
+  }
+});
+</script></body>
+</html>
