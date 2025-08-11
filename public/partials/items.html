@@ -1,89 +1,86 @@
-<!-- /public/partials/items.html -->
-<div class="ws-admin-section">
-
-  <div class="ws-admin-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-    <div class="ws-admin-controls-left" style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button id="add-item-btn" class="btn btn-primary btn-sm">+ Add Item</button>
-      <button id="manage-categories-btn" class="btn btn-secondary btn-sm">Manage Categories</button>
-    </div>
-
-    <div class="ws-admin-controls-right" style="display:flex;gap:8px;flex-wrap:wrap;">
-      <select id="item-category-filter" class="form-select form-select-sm" style="min-width:150px;">
-        <option value="">All Categories</option>
-      </select>
-      <input type="text" id="item-search-input" class="form-control form-control-sm" placeholder="Search by name or SKU" style="min-width:200px;">
-      <button id="item-search-btn" class="btn btn-sm btn-outline-primary">Search</button>
-      <button id="item-clear-btn" class="btn btn-sm btn-outline-secondary">Clear</button>
-    </div>
+<!-- Items Section -->
+<div style="margin-bottom: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <button id="addItemBtn" class="btn btn-primary btn-sm">+ Add Item</button>
+    <button id="manageCategoriesBtn" class="btn btn-secondary btn-sm">Manage Categories</button>
   </div>
 
-  <div class="table-responsive">
-    <table id="items-table" class="table table-bordered table-striped table-sm align-middle">
-      <thead class="table-light">
-        <tr>
-          <th style="width:50px;">SL. NO</th>
-          <th style="width:80px;">IMAGE</th>
-          <th>ITEM NAME</th>
-          <th style="width:100px;">SKU</th>
-          <th style="width:120px;">CATEGORY</th>
-          <th style="width:80px;">STOCK</th>
-          <th style="width:120px;">UNIT PRICE</th>
-          <th style="width:100px;">STATUS</th>
-          <th style="width:140px;">ACTION</th>
-        </tr>
-      </thead>
-      <tbody id="items-table-body">
-        <!-- Rows inserted by admin-items.js -->
-      </tbody>
-    </table>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <select id="categoryFilter" class="form-select form-select-sm" style="min-width: 150px;">
+      <option value="">All Categories</option>
+    </select>
+    <input type="text" id="searchInput" placeholder="Search by name or SKU" class="form-control form-control-sm" style="min-width: 200px;">
+    <button id="searchBtn" class="btn btn-sm btn-outline-primary">Search</button>
+    <button id="clearBtn" class="btn btn-sm btn-outline-secondary">Clear</button>
   </div>
 </div>
 
-<!-- Item Modal (Add/Edit) -->
-<div id="item-modal-bg" class="modal-bg" style="display:none;">
-  <div id="item-modal" class="modal-dialog">
+<div class="table-responsive">
+  <table id="itemsTable" class="table table-bordered table-striped table-sm align-middle">
+    <thead class="table-light">
+      <tr>
+        <th style="width: 50px;">SL. NO</th>
+        <th style="width: 80px;">IMAGE</th>
+        <th>ITEM NAME</th>
+        <th style="width: 100px;">SKU</th>
+        <th style="width: 120px;">CATEGORY</th>
+        <th style="width: 80px;">STOCK</th>
+        <th style="width: 120px;">UNIT PRICE</th>
+        <th style="width: 100px;">STATUS</th>
+        <th style="width: 140px;">ACTION</th>
+      </tr>
+    </thead>
+    <tbody id="itemsBody">
+      <!-- Rows inserted dynamically by admin-items.js -->
+    </tbody>
+  </table>
+</div>
+
+<!-- Add/Edit Item Modal -->
+<div id="itemModal" class="modal" style="display:none;">
+  <div class="modal-dialog">
     <div class="modal-content p-3">
-      <h5 id="item-modal-title" class="mb-3">Add New Item</h5>
-      <form id="item-form">
+      <h5 id="itemModalTitle" class="mb-3">Add New Item</h5>
+      <form id="itemForm">
         <div class="mb-2">
           <label class="form-label">SKU:</label>
-          <input type="text" id="item-sku" class="form-control form-control-sm">
+          <input type="text" id="sku" class="form-control form-control-sm">
         </div>
         <div class="mb-2">
           <label class="form-label">Name:</label>
-          <input type="text" id="item-name" class="form-control form-control-sm">
+          <input type="text" id="name" class="form-control form-control-sm">
         </div>
         <div class="mb-2">
           <label class="form-label">Description:</label>
-          <textarea id="item-description" class="form-control form-control-sm"></textarea>
+          <textarea id="description" class="form-control form-control-sm"></textarea>
         </div>
         <div class="mb-2">
           <label class="form-label">Price:</label>
-          <input type="number" id="item-price" class="form-control form-control-sm">
+          <input type="number" id="price" class="form-control form-control-sm">
         </div>
         <div class="mb-2">
           <label class="form-label">Category:</label>
-          <select id="item-category" class="form-select form-select-sm"></select>
+          <select id="category" class="form-select form-select-sm"></select>
         </div>
         <div class="mb-2">
           <label class="form-label">Stock:</label>
-          <input type="number" id="item-stock" class="form-control form-control-sm" value="0">
+          <input type="number" id="stock" class="form-control form-control-sm" value="0">
         </div>
         <div class="mb-2">
           <label class="form-label">Warranty:</label>
-          <input type="text" id="item-warranty" class="form-control form-control-sm">
+          <input type="text" id="warranty" class="form-control form-control-sm">
         </div>
         <div class="mb-2">
           <label class="form-label">Image filename (optional):</label>
-          <input type="text" id="item-image" class="form-control form-control-sm" placeholder="e.g. Lithium-battery.png">
+          <input type="text" id="image" class="form-control form-control-sm" placeholder="e.g. Lithium-battery.png">
         </div>
         <div class="form-check mb-3">
-          <input type="checkbox" id="item-active" class="form-check-input" checked>
-          <label class="form-check-label" for="item-active">Active</label>
+          <input type="checkbox" id="active" class="form-check-input" checked>
+          <label class="form-check-label" for="active">Active</label>
         </div>
         <div class="d-flex justify-content-end gap-2">
-          <button type="submit" id="item-save-btn" class="btn btn-primary btn-sm">Save Item</button>
-          <button type="button" id="item-cancel-btn" class="btn btn-secondary btn-sm">Cancel</button>
+          <button type="submit" id="saveItemBtn" class="btn btn-primary btn-sm">Save Item</button>
+          <button type="button" id="cancelItemBtn" class="btn btn-secondary btn-sm">Cancel</button>
         </div>
       </form>
     </div>
