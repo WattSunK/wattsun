@@ -1,10 +1,9 @@
 #!/bin/sh
 # Monorepo updater for NAS (pull-only)
-# - Ensures origin points to WattSunK/wattsun
-# - Stops current app safely
-# - Fetch/reset to origin/main
-# - Normalizes scripts, installs deps
-# - Starts app and verifies health
+# - Fixes origin to WattSunK/wattsun and disables pushes
+# - Stops app, fetch/reset to origin/main
+# - Skips npm install if lockfile unchanged; shows progress if running
+# - Starts app and verifies health; logs to logs/update.log
 set -eu
 
 ROOT="/volume1/web/wattsun"
@@ -14,32 +13,26 @@ EXPECTED_REMOTE="git@github.com:WattSunK/wattsun.git"
 
 mkdir -p "$ROOT/logs" "$ROOT/run"
 echo "=== Update started at $(date) ===" >> "$LOGFILE" 2>&1
-# send all subsequent output to the log
 exec >> "$LOGFILE" 2>&1
 
 echo "[info] cd $ROOT"
 cd "$ROOT" || { echo "[fatal] Repo directory not found: $ROOT"; exit 1; }
 
-# Guard: correct remote if it drifted to an old repo
+# Guard: correct remote if it ever drifts
 CUR_REMOTE="$(git remote get-url origin 2>/dev/null || echo "")"
 if [ "$CUR_REMOTE" != "$EXPECTED_REMOTE" ]; then
   echo "[warn] origin was '$CUR_REMOTE' → fixing to '$EXPECTED_REMOTE'"
   git remote set-url origin "$EXPECTED_REMOTE"
 fi
-
-# Optional: make this clone pull-only (blocks accidental pushes)
-if ! git remote -v | awk '$1=="origin" && $2=="DISABLED" && $3=="(push)"' | grep -q .; then
-  git remote set-url --push origin DISABLED || true
-fi
+# Block accidental pushes from NAS
+git remote set-url --push origin DISABLED 2>/dev/null || true
 
 echo "[step] stopping app"
 if [ -x scripts/stop_nas.sh ]; then
   scripts/stop_nas.sh || true
 else
-  # Fallback: stop by PID file or by port owner
   if [ -f run/app.pid ]; then
-    PID="$(cat run/app.pid || true)"
-    [ -n "$PID" ] && kill "$PID" 2>/dev/null || true
+    PID="$(cat run/app.pid || true)"; [ -n "$PID" ] && kill "$PID" 2>/dev/null || true
     rm -f run/app.pid
   fi
   INUSE_PID="$(netstat -tlnp 2>/dev/null | awk -v P="$PORT" '$4 ~ ":"P && $6=="LISTEN" { split($7,a,"/"); print a[1]; exit }')"
@@ -51,34 +44,51 @@ git fetch --all
 git reset --hard origin/main
 git clean -fd
 
+NEW_SHA="$(git rev-parse HEAD)"
+OLD_SHA="$(cat run/last_sha 2>/dev/null || echo '')"
+
 echo "[step] normalize scripts"
 sed -i 's/\r$//' scripts/*.sh 2>/dev/null || true
 chmod +x scripts/*.sh 2>/dev/null || true
 
-echo "[step] install/refresh deps"
-npm ci --omit=dev || npm install --omit=dev
+# Decide if we actually need npm install
+LOCK_CHANGED=1
+if [ -n "$OLD_SHA" ]; then
+  # 0 or 1+ if package-lock.json changed between deployed and new
+  LOCK_CHANGED="$(git diff --name-only "$OLD_SHA" "$NEW_SHA" | grep -c '^package-lock\.json$' || true)"
+fi
+
+if [ ! -d node_modules ] || [ -z "$OLD_SHA" ] || [ "$LOCK_CHANGED" -gt 0 ]; then
+  echo "[step] install/refresh deps (node_modules missing or lockfile changed)"
+  ( npm ci --omit=dev ) &
+  npm_pid=$!
+  secs=0
+  while kill -0 "$npm_pid" 2>/dev/null; do
+    secs=$((secs+1))
+    if [ $((secs % 5)) -eq 0 ]; then echo "… npm still running (${secs}s)"; fi
+    sleep 1
+  done
+  wait "$npm_pid" || npm install --omit=dev
+else
+  echo "[skip] deps unchanged; skipping npm install"
+fi
 
 echo "[step] starting app"
 if [ -x scripts/start_nas.sh ]; then
   scripts/start_nas.sh
 else
-  # Minimal fallback if helper missing
-  set +e
   nohup node server.js >> "$ROOT/logs/app.out" 2>> "$ROOT/logs/app.err" &
   echo $! > "$ROOT/run/app.pid"
-  set -e
   echo "[warn] used fallback start; consider restoring scripts/start_nas.sh"
 fi
 
 echo "[step] health check"
-ok=0
-i=0
+ok=0; i=0
 while [ $i -lt 5 ]; do
   code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/api/health" || true)"
   echo "health ${code}"
   if [ "$code" = "200" ]; then ok=1; break; fi
-  i=$((i+1))
-  sleep 2
+  i=$((i+1)); sleep 2
 done
 
 if [ "$ok" -ne 1 ]; then
@@ -87,5 +97,6 @@ if [ "$ok" -ne 1 ]; then
   exit 1
 fi
 
-echo "[ok] service healthy on port ${PORT}"
+echo "$NEW_SHA" > run/last_sha || true
+echo "[ok] service healthy on port ${PORT} (commit $NEW_SHA)"
 echo "=== Update finished (OK) at $(date) ==="
