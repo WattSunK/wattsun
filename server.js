@@ -14,14 +14,21 @@ const nodemailer = require("nodemailer");
 const session = require("express-session");
 require("dotenv").config();
 
-const app = express();                        // ← create app first
+const app = express(); // ← create app first
 
+// Default to the *users* DB; allow override via env
+const DB_PATH =
+  process.env.SQLITE_DB ||
+  process.env.DB_PATH || // optional legacy
+  path.join(__dirname, "data", "dev", "wattsun.dev.db");
 
-// Use ONE file for everything (override with SQLITE_DB if you want later)
-const DB_PATH  = process.env.SQLITE_DB || path.join(__dirname, "inventory.db");
 const sqliteDb = new sqlite3.Database(DB_PATH, (err) => {
-  if (err) { console.error("SQLite open failed:", err); process.exit(1); }
-  else { console.log("Admin overlay DB:", DB_PATH); }
+  if (err) {
+    console.error("SQLite open failed:", err);
+    process.exit(1);
+  } else {
+    console.log("Admin overlay DB:", DB_PATH);
+  }
 });
 app.set("db", sqliteDb);
 
@@ -281,6 +288,19 @@ app.post("/api/update-order-status", (req, res) => {
   applyOrderUpdate(o, req.body);
   return res.json({ ok: true, updated: true, order: o });
 });
+
+(function checkDbAtEnd(){
+  try {
+    const db = app.get("db");
+    if (!db) return console.warn("[EndCheck] no db handle on app");
+    db.all("PRAGMA database_list", [], (e, rows) => {
+      if (e) console.warn("[EndCheck] PRAGMA failed:", e.message);
+      else console.log("[EndCheck] final sqlite main file:", (rows||[]).find(r=>r.name==="main")?.file);
+    });
+  } catch (e) {
+    console.warn("[EndCheck] check failed:", e.message);
+  }
+})();
 
 // Start server (configurable port)
 const PORT = Number(process.env.PORT) || 3001;
