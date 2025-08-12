@@ -16,10 +16,15 @@ require("dotenv").config();
 
 const app = express();                        // ← create app first
 
-// SQLite (admin overlay) — reuse the main inventory.db file
-const DB_PATH = path.join(__dirname, "inventory.db"); // same file Knex uses
-const sqliteDb = new sqlite3.Database(DB_PATH);
-app.set("db", sqliteDb);  // ← now it's safe
+
+// Use ONE file for everything (override with SQLITE_DB if you want later)
+const DB_PATH  = process.env.SQLITE_DB || path.join(__dirname, "inventory.db");
+const sqliteDb = new sqlite3.Database(DB_PATH, (err) => {
+  if (err) { console.error("SQLite open failed:", err); process.exit(1); }
+  else { console.log("Admin overlay DB:", DB_PATH); }
+});
+app.set("db", sqliteDb);
+
 
 // Knex (your existing DB)
 const db = knex({
