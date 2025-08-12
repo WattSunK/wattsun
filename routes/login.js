@@ -5,7 +5,7 @@ const bcrypt = require("bcrypt");
 const sqlite3 = require("sqlite3").verbose();
 
 const router = express.Router();
-const dbPath = path.resolve(__dirname, "../user-setup/users.db");
+const dbPath = process.env.DB_PATH_USERS || path.resolve(__dirname, "../inventory.db");
 console.log("[DEBUG] Using DB file:", dbPath);  // startup DB path
 const db = new sqlite3.Database(dbPath);
 

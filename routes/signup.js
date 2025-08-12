@@ -5,7 +5,7 @@ const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 
 const router = express.Router();
-const db = new sqlite3.Database(path.resolve(__dirname, "../user-setup/users.db"));
+const db = new sqlite3.Database(process.env.DB_PATH_USERS || path.resolve(__dirname, "../inventory.db"));
 
 // Normalize phone consistently
 function normalizePhone(phone) {

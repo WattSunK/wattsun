@@ -309,7 +309,7 @@
       label.textContent = user.name;
       label.style.cursor = "pointer";
       label.addEventListener("click", () => {
-        const target = user.type === "Admin" ? "/admin/index.html" : "/myaccount/userdash.html";
+        const target = user.type === "Admin" ? "/dashboard.html?css=v2#orders" : "/myaccount/userdash.html";
         window.location.href = target;
       });
       logout.addEventListener("click", () => {
