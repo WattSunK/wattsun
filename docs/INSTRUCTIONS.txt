@@ -1,0 +1,22 @@
+Step 6.4 - Customer Reflection (merge admin overlay into reads)
+
+1) Add the new route:
+   - Copy routes/admin-orders-meta.js → your project's routes/ folder
+   - Mount it in server.js:
+       app.use("/api/admin/orders/meta", require("./routes/admin-orders-meta"));
+
+2) Replace the admin Orders controller:
+   - Copy public/admin/js/orders-controller.js → replace your file
+   - Keep the script include order in public/dashboard.html (adapter -> controller -> edit -> dashboard)
+
+3) (Optional but recommended) Customer-side auto-refresh:
+   - Copy public/myaccount/orders-refresh-hooks.js
+   - Include it on the My Orders / Track page:
+       <script src="./myaccount/orders-refresh-hooks.js?v=1" defer></script>
+
+4) Restart the server, hard-refresh the browser.
+
+Smoke test:
+  - Admin Orders list shows edited status after reload (overlay merged).
+  - Edit an order status, then switch to the customer view tab and focus it;
+    it should re-fetch and show the new status.
