@@ -49,6 +49,7 @@ app.use("/api/items", require("./routes/items")(db));
 app.use("/api/categories", require("./routes/categories")(db));
 app.use("/api/admin/orders", require("./routes/admin-orders")); // NEW (PATCH)
 app.use("/api/admin/users",  require("./routes/admin-users"));  // NEW (GET drivers)
+app.use("/api/admin/_diag", require("./routes/admin-diagnostics"));
 app.use("/api", require("./routes/calculator"));
 app.use("/api", require("./routes/users"));
 app.use("/api", require("./routes/login"));
