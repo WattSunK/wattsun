@@ -132,4 +132,23 @@
     </table>`;
     try{ dlg.showModal(); }catch{ dlg.setAttribute("open","true"); }
   });
+   function renderPager() {
+   // ... existing code ...
+ }
+
+// Expose a small hook so the edit dialog can update one row and re-render
+window.refreshOrderRow = function (id, patch = {}) {
+  const idx = State.raw.findIndex(o => String(o.id) === String(id));
+  if (idx === -1) return;
+  State.raw[idx] = { ...State.raw[idx], ...patch };
+  applyFilters();
+  renderRows();
+  renderPager();
+};
+
+ document.addEventListener('DOMContentLoaded', () => {
+   // ... existing code ...
+ });
+ 
 })();
+
