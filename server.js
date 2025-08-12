@@ -282,7 +282,9 @@ app.post("/api/update-order-status", (req, res) => {
   return res.json({ ok: true, updated: true, order: o });
 });
 
-// Start server
-http.createServer(app).listen(3001, () => {
-  console.log("✅ WattSun backend running on HTTP port 3001");
+// Start server (configurable port)
+const PORT = Number(process.env.PORT) || 3001;
+http.createServer(app).listen(PORT, () => {
+  console.log(`✅ WattSun backend running on HTTP port ${PORT}`);
 });
+
