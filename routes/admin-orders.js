@@ -1,82 +1,89 @@
 // routes/admin-orders.js
-// Admin update endpoints that persist to orders.json (atomic)
-// and refresh the in-memory cache used by GET /api/orders.
+// PATCH /api/admin/orders/:id  → persist status/driver/notes in SQLite overlay table
 
 const express = require("express");
-const fs = require("fs");
-const path = require("path");
-
 const router = express.Router();
-const ordersPath = path.resolve(__dirname, "../orders.json");
 
-function readOrders() {
+const ALLOWED_STATUS = new Set(["Pending", "Processing", "Delivered", "Cancelled"]);
+
+function getDb(req) {
+  const db = req.app.get("db");
+  if (!db) throw new Error("SQLite database handle not found (app.set('db', db))");
+  return db;
+}
+
+// Ensure overlay table exists once
+function ensureMetaTable(db) {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS admin_order_meta (
+      order_id   TEXT PRIMARY KEY,
+      status     TEXT NOT NULL,
+      driver_id  INTEGER,
+      notes      TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+}
+function run(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) return reject(err);
+      resolve(this);
+    });
+  });
+}
+function get(db, sql, params = []) {
+  return new Promise((resolve, reject) => db.get(sql, params, (e, row) => e ? reject(e) : resolve(row)));
+}
+
+router.patch("/:id", async (req, res) => {
+  const db = getDb(req);
+  ensureMetaTable(db);
+
+  const orderId = String(req.params.id || "").trim();
+  const { status, driverId = null, notes = "" } = req.body || {};
+
+  if (!orderId) return res.status(400).json({ success: false, error: "Missing order id" });
+  if (!status || !ALLOWED_STATUS.has(String(status))) {
+    return res.status(400).json({ success: false, error: "Invalid status" });
+  }
+
+  // Upsert overlay (SQLite 3.24+ supports ON CONFLICT)
   try {
-    if (!fs.existsSync(ordersPath)) return [];
-    return JSON.parse(fs.readFileSync(ordersPath, "utf8"));
-  } catch (e) {
-    console.error("readOrders error:", e);
-    return [];
+    await run(
+      db,
+      `INSERT INTO admin_order_meta (order_id, status, driver_id, notes, updated_at)
+       VALUES (?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(order_id) DO UPDATE SET
+         status=excluded.status,
+         driver_id=excluded.driver_id,
+         notes=excluded.notes,
+         updated_at=datetime('now')`,
+      [orderId, String(status), driverId ?? null, String(notes || "")]
+    );
+
+    // Optional: include driver name if present
+    let driver = null;
+    if (driverId != null) {
+      driver = await get(db, `SELECT id, name, email, phone FROM users WHERE id = ?`, [driverId]);
+    }
+
+    // Return just the fields we updated; the UI will merge with the current row
+    return res.json({
+      success: true,
+      order: {
+        id: orderId,
+        status: String(status),
+        driverId: driverId ?? null,
+        driverName: driver ? driver.name : null,
+        notes: String(notes || ""),
+        updatedAt: new Date().toISOString(),
+      },
+    });
+  } catch (err) {
+    console.error("PATCH /api/admin/orders/:id failed:", err);
+    return res.status(500).json({ success: false, error: "Database error" });
   }
-}
-
-function writeOrdersAtomic(list) {
-  const tmp = ordersPath + ".tmp";
-  fs.writeFileSync(tmp, JSON.stringify(list, null, 2));
-  fs.renameSync(tmp, ordersPath);
-}
-
-function normalizeNumber(n) {
-  if (n === null || n === undefined || n === "") return undefined;
-  const num = Number(n);
-  return Number.isFinite(num) ? num : undefined;
-}
-
-function applyPatch(order, body) {
-  const status = body.status ?? body.newStatus;
-  const payment = body.paymentType ?? body.payment;
-  const total = normalizeNumber(body.total ?? body.amount);
-  const deposit = normalizeNumber(body.deposit);
-
-  if (status != null) {
-    order.status = String(status);
-    // keep legacy field in sync
-    order.orderType = String(status);
-  }
-  if (payment != null) order.paymentType = String(payment);
-  if (total !== undefined) order.total = total;
-  if (deposit !== undefined) order.deposit = deposit;
-
-  order.updatedAt = new Date().toISOString();
-  return order;
-}
-
-function updateOrderAndPersist(req, res) {
-  const id = String(req.body.orderId || req.body.id || "").trim();
-  if (!id) return res.status(400).json({ ok: false, error: "Missing order id" });
-
-  // Always load latest from disk
-  const list = readOrders();
-  const idx = list.findIndex(
-    (o) =>
-      String(o.orderNumber || o.id || "").trim() === id ||
-      String(o.id || "").trim() === id
-  );
-  if (idx === -1) return res.status(404).json({ ok: false, error: "Order not found" });
-
-  applyPatch(list[idx], req.body);
-  writeOrdersAtomic(list);
-
-  // Refresh in-memory caches used by GET /api/orders (if present)
-  req.app.locals.orders = list;
-  req.app.locals.ordersWrap = { total: list.length, orders: list };
-
-  return res.json({ ok: true, order: list[idx] });
-}
-
-// Preferred endpoint
-router.post("/update-order", updateOrderAndPersist);
-
-// Legacy alias (kept if something still posts here)
-router.post("/update-order-status", updateOrderAndPersist);
+});
 
 module.exports = router;

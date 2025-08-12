@@ -5,34 +5,27 @@
 // - Adds POST /api/update-order-status (legacy alias)
 // - Leaves your existing routes intact
 
+const path = require("path");                 // keep only once
+const sqlite3 = require("sqlite3").verbose();
 const express = require("express");
 const http = require("http");
-const path = require("path");
 const knex = require("knex");
 const nodemailer = require("nodemailer");
 const session = require("express-session");
-const { saveOrder } = require("./order");
+require("dotenv").config();
 
-require("dotenv").config(); // Load .env
+const app = express();                        // ← create app first
 
-const app = express();
+// SQLite (admin overlay) — reuse the main inventory.db file
+const DB_PATH = path.join(__dirname, "inventory.db"); // same file Knex uses
+const sqliteDb = new sqlite3.Database(DB_PATH);
+app.set("db", sqliteDb);  // ← now it's safe
 
-// Knex DB connection
+// Knex (your existing DB)
 const db = knex({
   client: "sqlite3",
-  connection: {
-    filename: path.join(__dirname, "inventory.db"),
-  },
+  connection: { filename: path.join(__dirname, "inventory.db") },
   useNullAsDefault: true,
-});
-
-// Email transporter (from .env)
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
 });
 
 // Middleware
@@ -54,11 +47,13 @@ app.use("/api/checkout", require("./routes/checkout"));
 app.use("/api/myorders", require("./routes/myorders"));
 app.use("/api/items", require("./routes/items")(db));
 app.use("/api/categories", require("./routes/categories")(db));
+app.use("/api/admin/orders", require("./routes/admin-orders")); // NEW (PATCH)
+app.use("/api/admin/users",  require("./routes/admin-users"));  // NEW (GET drivers)
 app.use("/api", require("./routes/calculator"));
 app.use("/api", require("./routes/users"));
 app.use("/api", require("./routes/login"));
 app.use("/api", require("./routes/reset"));
-app.use("/api", require("./routes/admin-orders"));
+
 
 // --- Wrap /api/orders to cache the latest list in memory ---
 const ordersRouter = require("./routes/orders");
