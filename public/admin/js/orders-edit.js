@@ -35,15 +35,16 @@
   }
 
   async function getDrivers() {
-    if (cache.drivers) return cache.drivers;
-    try {
-      const { users } = await Data.users.get({ type: "Driver", page: 1, per: 1000 });
-      cache.drivers = Array.isArray(users) ? users : [];
-    } catch {
-      cache.drivers = [];
-    }
-    return cache.drivers;
+  if (cache.drivers) return cache.drivers;
+  try {
+    const res = await fetch("/api/admin/users?type=Driver", { cache: "no-store" });
+    const data = await res.json();
+    cache.drivers = Array.isArray(data.users) ? data.users : [];
+  } catch {
+    cache.drivers = [];
   }
+  return cache.drivers;
+}
 
   async function openEdit(orderId, currentStatus) {
     const ok = await ensureDialog();

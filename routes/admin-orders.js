@@ -41,40 +41,56 @@ router.patch("/:id", async (req, res) => {
   ensureMetaTable(db);
 
   const orderId = String(req.params.id || "").trim();
-  const { status, driverId = null, notes = "" } = req.body || {};
+  let { status, driverId = null, notes = "" } = req.body || {};
 
   if (!orderId) return res.status(400).json({ success: false, error: "Missing order id" });
   if (!status || !ALLOWED_STATUS.has(String(status))) {
     return res.status(400).json({ success: false, error: "Invalid status" });
   }
 
-  // Upsert overlay (SQLite 3.24+ supports ON CONFLICT)
-  try {
-    await run(
-      db,
-      `INSERT INTO admin_order_meta (order_id, status, driver_id, notes, updated_at)
-       VALUES (?, ?, ?, ?, datetime('now'))
-       ON CONFLICT(order_id) DO UPDATE SET
-         status=excluded.status,
-         driver_id=excluded.driver_id,
-         notes=excluded.notes,
-         updated_at=datetime('now')`,
-      [orderId, String(status), driverId ?? null, String(notes || "")]
-    );
+  // Coerce driverId → integer or null
+  if (driverId === "" || driverId === undefined || driverId === null) {
+    driverId = null;
+  } else {
+    const n = parseInt(driverId, 10);
+    driverId = Number.isFinite(n) ? n : null;
+  }
 
-    // Optional: include driver name if present
+  try {
+    // Optional validation: if a driver is provided, ensure the user exists and is a Driver
     let driver = null;
-    if (driverId != null) {
-      driver = await get(db, `SELECT id, name, email, phone FROM users WHERE id = ?`, [driverId]);
+    if (driverId !== null) {
+      driver = await get(db, "SELECT id, name, type FROM users WHERE id = ?", [driverId]);
+      if (!driver) {
+        return res.status(400).json({ success: false, error: "Selected driver not found" });
+      }
+      if (String(driver.type).toLowerCase() !== "driver") {
+        return res.status(400).json({ success: false, error: "Selected user is not a Driver" });
+      }
     }
 
-    // Return just the fields we updated; the UI will merge with the current row
+    // Manual insert-or-update (compatible with older SQLite)
+    const existing = await get(db, "SELECT order_id FROM admin_order_meta WHERE order_id = ?", [orderId]);
+    if (existing) {
+      await run(
+        db,
+        "UPDATE admin_order_meta SET status = ?, driver_id = ?, notes = ?, updated_at = datetime('now') WHERE order_id = ?",
+        [String(status), driverId, String(notes || ""), orderId]
+      );
+    } else {
+      await run(
+        db,
+        "INSERT INTO admin_order_meta (order_id, status, driver_id, notes, updated_at) VALUES (?, ?, ?, ?, datetime('now'))",
+        [orderId, String(status), driverId, String(notes || "")]
+      );
+    }
+
     return res.json({
       success: true,
       order: {
         id: orderId,
         status: String(status),
-        driverId: driverId ?? null,
+        driverId,
         driverName: driver ? driver.name : null,
         notes: String(notes || ""),
         updatedAt: new Date().toISOString(),
