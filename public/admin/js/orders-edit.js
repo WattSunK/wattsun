@@ -1,8 +1,8 @@
 // public/admin/js/orders-edit.js
-// Edit modal (status + driver + notes), money fields (read-only), items list.
-// PATCH on save, update table row, and broadcast Step 6.4 signals.
+// Edit modal: status + driver search/select + notes + money (editable) + items.
+// Loads details from the Track API first so the shape matches Track, then PATCHes.
+// On success: inline row update + Step 6.4 broadcast.
 
-// -------------------- IIFE --------------------
 (() => {
   // -------------------- Elements --------------------
   const modal       = document.getElementById('orderEditModal');
@@ -13,63 +13,47 @@
   const statusSel   = document.getElementById('orderEditStatus');
 
   // Driver combobox (search + select)
-  const driverIdH   = document.getElementById('orderEditDriverId');     // hidden numeric id
-  const driverInp   = document.getElementById('orderEditDriverInput');  // text input (search)
-  const driverList  = document.getElementById('orderEditDriverList');   // results list (<ul>)
-  const driverClear = document.getElementById('orderEditDriverClear');  // clear selected
+  const driverIdH   = document.getElementById('orderEditDriverId');
+  const driverInp   = document.getElementById('orderEditDriverInput');
+  const driverList  = document.getElementById('orderEditDriverList');
+  const driverClear = document.getElementById('orderEditDriverClear');
 
   const notesEl     = document.getElementById('orderEditNotes');
 
-  // Money read-only fields
-  const moneyTotalEl   = document.getElementById('orderEditTotal');
-  const moneyDepositEl = document.getElementById('orderEditDeposit');
-  const moneyCurrEl    = document.getElementById('orderEditCurrency');
+  // Editable money fields
+  const totalInp    = document.getElementById('orderEditTotalInput');
+  const depositInp  = document.getElementById('orderEditDepositInput');
+  const currInp     = document.getElementById('orderEditCurrencyInput');
 
   // Items table body
-  const itemsBody = document.getElementById('orderEditItemsBody');
+  const itemsBody   = document.getElementById('orderEditItemsBody');
 
   // Orders table host for inline refresh
   const host = document.getElementById('ordersTbody') || document.getElementById('adminContent') || document.body;
 
   // -------------------- State --------------------
   let current = null;                        // order object being edited
-  let allowedStatuses = null;                // Set<string> hydrated from Orders list "Status" filter
+  let allowedStatuses = null;                // Set<string> from Orders filter
   let driverChosen = { id: null, name: '' }; // display label for row update
 
   // -------------------- Helpers --------------------
-  const setSaving = (on) => {
-    if (!saveBtn) return;
-    saveBtn.disabled = !!on;
-    saveBtn.textContent = on ? 'Saving…' : 'Save';
-  };
+  const setSaving = (on) => { if (saveBtn) { saveBtn.disabled = !!on; saveBtn.textContent = on ? 'Saving…' : 'Save'; } };
 
   const fmtMoney = (amt, cur) => {
     const n = Number(amt || 0);
     const c = (cur || 'KES') + '';
-    try {
-      return new Intl.NumberFormat(undefined, { style: 'currency', currency: c }).format(n);
-    } catch {
-      return `${c} ${n.toLocaleString()}`;
-    }
+    try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: c }).format(n); }
+    catch { return `${c} ${n.toLocaleString()}`; }
   };
 
-  // Debounce
-  const debounce = (fn, ms = 220) => {
-    let t = 0;
-    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-  };
+  const debounce = (fn, ms = 220) => { let t = 0; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
   // -------------------- Status: hydrate from Orders filter --------------------
   function findOrdersStatusFilter() {
-    const scopes = [
-      document.getElementById('adminContent'),
-      document.querySelector('.main-section'),
-      document
-    ].filter(Boolean);
-
+    const scopes = [document.getElementById('adminContent'), document.querySelector('.main-section'), document]
+      .filter(Boolean);
     for (const s of scopes) {
-      const sels = s.querySelectorAll('select');
-      for (const sel of sels) {
+      for (const sel of s.querySelectorAll('select')) {
         const first = sel.options?.[0]?.textContent?.trim()?.toLowerCase?.();
         if (first === 'all') return sel; // common pattern on Orders tab
       }
@@ -88,17 +72,44 @@
         options.push(label);
       }
     }
-    // Fallback if no filter found
     if (!options.length) options.push('Pending', 'Processing', 'Delivered', 'Cancelled');
 
     allowedStatuses = new Set(options.map(s => s.toLowerCase()));
-    statusSel.innerHTML = options.map(s => {
-      const sel = String(s).toLowerCase() === String(currentStatus || '').toLowerCase() ? ' selected' : '';
-      return `<option${sel}>${s}</option>`;
-    }).join('');
+    statusSel.innerHTML = options
+      .map(s => `<option${String(s).toLowerCase() === String(currentStatus || '').toLowerCase() ? ' selected' : ''}>${s}</option>`)
+      .join('');
   }
 
-  // -------------------- Data: fetch helpers --------------------
+  // -------------------- Data: Track first, admin as fallback --------------------
+  function getSession() {
+    try {
+      const raw = localStorage.getItem('wattsunUser') || localStorage.getItem('ws_user');
+      if (!raw) return {};
+      const o = JSON.parse(raw);
+      return o.user ? o.user : o;
+    } catch { return {}; }
+  }
+
+  async function fetchViaTrack(orderId) {
+    // Use the Track endpoint so the shape matches the Track page.
+    const email = getSession().email || '';
+    try {
+      const res = await fetch('/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-WS-Email': email || '' },
+        body: JSON.stringify({ order: orderId })
+      });
+      const data = await res.json().catch(() => ({}));
+      const list = Array.isArray(data) ? data : (data && Array.isArray(data.orders) ? data.orders : []);
+      if (list && list.length) {
+        // If multiple returned (rare), prefer exact match
+        const hit = list.find(o => String(o.orderNumber) === String(orderId)) || list[0];
+        return hit || null;
+      }
+      return null;
+    } catch { return null; }
+  }
+
   function fromCache(id) {
     if (window.ORDERS_BY_ID?.[id]) return window.ORDERS_BY_ID[id];
     if (Array.isArray(window.ORDERS)) {
@@ -109,12 +120,11 @@
     return null;
   }
 
-  async function fetchOne(id) {
-    // Prefer a per-order endpoint if present; fallback to full list
+  async function fetchViaAdmin(id) {
     const tryUrls = [
       `/api/admin/orders/${encodeURIComponent(id)}`,
-      `/api/admin/orders?id=${encodeURIComponent(id)}`, // alternative style
-      `/api/admin/orders` // last resort (pick by id)
+      `/api/admin/orders?id=${encodeURIComponent(id)}`,
+      `/api/admin/orders`
     ];
     for (const url of tryUrls) {
       try {
@@ -127,26 +137,19 @@
         } else if (data && (data.id || data.orderNumber)) {
           return data;
         }
-      } catch { /* keep trying */ }
+      } catch {}
     }
     return null;
   }
 
-  // Normalize different back-end shapes
-  function coerceItems(o) {
-    return (
-      o?.items ||
-      o?.lines ||
-      o?.cart ||
-      []
-    );
-  }
   function coerceTotals(o) {
     const total = o?.total ?? o?.net ?? o?.amount ?? 0;
     const deposit = o?.deposit ?? o?.depositAmount ?? o?.advance ?? o?.downpayment ?? 0;
     const currency = o?.currency ?? o?.curr ?? 'KES';
-    return { total, deposit, currency };
+    return { total: Number(total || 0), deposit: Number(deposit || 0), currency };
   }
+
+  function coerceItems(o) { return o?.items || o?.lines || o?.cart || []; }
 
   function renderItems(o) {
     if (!itemsBody) return;
@@ -173,20 +176,33 @@
     }
   }
 
-  function renderMoney(o) {
-    if (!moneyTotalEl && !moneyDepositEl && !moneyCurrEl) return;
-    const t = coerceTotals(o);
-    if (moneyTotalEl)   moneyTotalEl.textContent   = fmtMoney(t.total, t.currency);
-    if (moneyDepositEl) moneyDepositEl.textContent = fmtMoney(t.deposit, t.currency);
-    if (moneyCurrEl)    moneyCurrEl.textContent    = (t.currency || 'KES');
-  }
-
   // -------------------- Driver search/select --------------------
+  const onDriverType = debounce(async () => {
+    const q = (driverInp?.value || '').trim();
+    if (!q) { if (driverList) driverList.style.display = 'none'; return; }
+    const endpoints = [
+      `/api/admin/users?type=driver&q=${encodeURIComponent(q)}`,
+      `/api/admin/users?role=driver&q=${encodeURIComponent(q)}`,
+      `/api/admin/users?q=${encodeURIComponent(q)}&type=driver`,
+      `/api/admin/drivers?q=${encodeURIComponent(q)}`
+    ];
+    let list = [];
+    for (const url of endpoints) {
+      try {
+        const r = await fetch(url);
+        if (!r.ok) continue;
+        const data = await r.json();
+        list = Array.isArray(data) ? data : (Array.isArray(data?.users) ? data.users : []);
+        if (list?.length) break;
+      } catch {}
+    }
+    renderDriverResults(list);
+  }, 200);
+
   function renderDriverResults(items) {
     if (!driverList) return;
     driverList.innerHTML = '';
     const arr = Array.isArray(items) ? items : [];
-
     if (!arr.length) {
       const li = document.createElement('li');
       li.className = 'ws-driver-empty';
@@ -195,7 +211,6 @@
       driverList.style.display = 'block';
       return;
     }
-
     for (const d of arr) {
       const li = document.createElement('li');
       li.className = 'ws-driver-item';
@@ -215,39 +230,11 @@
     driverList.style.display = 'block';
   }
 
-  async function searchDrivers(q) {
-    const qs = encodeURIComponent(q || '');
-    const endpoints = [
-      `/api/admin/users?type=driver&q=${qs}`,
-      `/api/admin/users?role=driver&q=${qs}`,
-      `/api/admin/users?q=${qs}&type=driver`,
-      `/api/admin/drivers?q=${qs}`
-    ];
-    for (const url of endpoints) {
-      try {
-        const r = await fetch(url);
-        if (!r.ok) continue;
-        const data = await r.json();
-        const list = Array.isArray(data) ? data : (Array.isArray(data?.users) ? data.users : []);
-        if (list?.length) return list;
-      } catch {}
-    }
-    return [];
-  }
-
-  const onDriverType = debounce(async () => {
-    const q = (driverInp?.value || '').trim();
-    if (!q) { if (driverList) driverList.style.display = 'none'; return; }
-    const res = await searchDrivers(q);
-    renderDriverResults(res);
-  }, 200);
-
   function wireDriverCombo() {
     if (!driverInp || !driverList) return;
     driverInp.addEventListener('input', onDriverType);
     driverInp.addEventListener('focus', onDriverType);
     document.addEventListener('click', (e) => {
-      if (!driverList) return;
       const inside = e.target === driverList || driverList.contains(e.target) || e.target === driverInp;
       if (!inside) driverList.style.display = 'none';
     });
@@ -265,20 +252,26 @@
     current = order || null;
     if (!current) return;
 
-    // Fill from cache; if items/totals missing, fetch a fuller shape
-    let full = current;
-    const needDetails = !(coerceItems(full)?.length) || (full.total == null && full.amount == null);
-    if (needDetails) {
-      const fetched = await fetchOne(current.id || current.orderNumber);
-      if (fetched) full = Object.assign({}, full, fetched);
+    // Load fuller shape using Track endpoint first
+    const idVal = current.id || current.orderNumber || current.order || '';
+    let full = (await fetchViaTrack(idVal)) || current;
+    if (!coerceItems(full)?.length || (full.total == null && full.amount == null)) {
+      const fallback = await fetchViaAdmin(idVal);
+      if (fallback) full = Object.assign({}, full, fallback);
     }
 
     hydrateStatusOptions(full.status);
 
-    const idVal = full.id || full.orderNumber || '';
     if (idInput)   idInput.value   = idVal;
     if (statusSel) statusSel.value = full.status || statusSel.value || 'Pending';
 
+    // Money (editable)
+    const totals = coerceTotals(full);
+    if (totalInp)   totalInp.value   = String(totals.total ?? '');
+    if (depositInp) depositInp.value = String(totals.deposit ?? '');
+    if (currInp)    currInp.value    = totals.currency || 'KES';
+
+    // Driver
     const initDriverId   = (full.driver_id != null ? Number(full.driver_id) : null);
     const initDriverName = full.driver_name || full.driver || '';
     if (driverIdH)  driverIdH.value = initDriverId ? String(initDriverId) : '';
@@ -287,7 +280,6 @@
 
     if (notesEl) notesEl.value = full.notes || '';
 
-    renderMoney(full);
     renderItems(full);
 
     if (modal) {
@@ -322,7 +314,11 @@
     const payload = {
       status,
       driver_id: driverIdH?.value ? Number(driverIdH.value) : null,
-      notes: (notesEl?.value || '').trim()
+      notes: (notesEl?.value || '').trim(),
+      // money fields (editable)
+      total:   totalInp?.value !== ''   ? Number(totalInp.value)   : undefined,
+      deposit: depositInp?.value !== '' ? Number(depositInp.value) : undefined,
+      currency: (currInp?.value || '').trim() || undefined
     };
 
     try {
@@ -348,10 +344,10 @@
 
       if (row) {
         const statusCell = row.querySelector('[data-col="status"], .col-status');
-        if (statusCell) statusCell.textContent = payload.status;
+        if (statusCell) statusCell.textContent = status;
 
         const driverCell = row.querySelector('[data-col="driver"], .col-driver');
-        if (driverCell) driverCell.textContent = (driverChosen.name || (payload.driver_id ? `Driver ${payload.driver_id}` : ''));
+        if (driverCell) driverCell.textContent = driverChosen.name || (payload.driver_id ? `Driver ${payload.driver_id}` : '');
 
         const notesCell = row.querySelector('[data-col="notes"], .col-notes');
         if (notesCell) notesCell.textContent = payload.notes || '';
@@ -372,7 +368,7 @@
     }
   });
 
-  // Safety delegate in case native edit binds are missing
+  // Safety delegate (if native binds are missing)
   document.addEventListener('DOMContentLoaded', () => {
     wireDriverCombo();
     host?.addEventListener('click', async (e) => {
@@ -382,13 +378,11 @@
       const oid = btn.dataset.oid || btn.getAttribute('data-id') || row?.dataset?.oid || row?.dataset?.id || '';
       if (!oid) { alert('Could not determine order id.'); return; }
       let order = fromCache(oid);
-      if (!order) order = await fetchOne(oid);
+      if (!order) order = await fetchViaTrack(oid) || await fetchViaAdmin(oid);
       openModalFor(order || { id: oid });
     });
   });
 
   // Programmatic hook used by the dashboard binder
-  if (typeof window.openOrderEdit !== 'function') {
-    window.openOrderEdit = (order) => openModalFor(order);
-  }
+  if (typeof window.openOrderEdit !== 'function') window.openOrderEdit = (order) => openModalFor(order);
 })();
