@@ -135,106 +135,7 @@
     el.innerHTML = html;
   }
 
-  // ---- Built-in Edit modal (rollback, no dependency on orders-edit.js) ----
-  const ALLOWED_STATUSES = ["Pending", "Processing", "Delivered", "Cancelled"]; // server 6.4 contract
-
-  function ensureEditModal() {
-    let dlg = document.getElementById("orderEditDialog");
-    if (dlg) return dlg;
-    dlg = document.createElement("dialog");
-    dlg.id = "orderEditDialog";
-    dlg.innerHTML = `
-      <form method="dialog" class="ws-order-edit" style="min-width:min(520px,95vw);border:none;padding:0;">
-        <div style="padding:16px 16px 0;">
-          <h3 style="margin:0 0 10px;">Edit Order</h3>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div>
-              <label>Status</label>
-              <select id="oeStatus" required></select>
-            </div>
-            <div>
-              <label>Notes</label>
-              <textarea id="oeNotes" rows="2" placeholder="Optional"></textarea>
-            </div>
-          </div>
-        </div>
-        <div style="padding:12px 16px;display:flex;gap:8px;justify-content:flex-end;">
-          <button type="button" id="oeCancel" class="btn">Cancel</button>
-          <button type="submit" id="oeSave" class="btn btn-primary">Save</button>
-        </div>
-      </form>
-    `;
-    document.body.appendChild(dlg);
-    return dlg;
-  }
-
-  function openEdit(order) {
-    const dlg = ensureEditModal();
-    const statusSel = dlg.querySelector("#oeStatus");
-    const notesEl = dlg.querySelector("#oeNotes");
-    const btnCancel = dlg.querySelector("#oeCancel");
-    const form = dlg.querySelector("form");
-
-    // populate status options (server-accepted set from 6.4)
-    statusSel.innerHTML = ALLOWED_STATUSES.map(s => `<option value="${s}">${s}</option>`).join("");
-    statusSel.value = ALLOWED_STATUSES.includes(order.status) ? order.status : "Pending";
-    notesEl.value = order.notes || "";
-
-    const close = () => {
-      try { dlg.close(); } catch { dlg.removeAttribute("open"); }
-    };
-    btnCancel.onclick = (e) => { e.preventDefault(); close(); };
-
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      const status = statusSel.value;
-      const notes = (notesEl.value || "").trim();
-
-      if (!ALLOWED_STATUSES.includes(status)) {
-        alert(`Invalid status "${status}". Allowed: ${ALLOWED_STATUSES.join(", ")}`);
-        return;
-      }
-
-      const btn = dlg.querySelector("#oeSave");
-      btn.disabled = true;
-      try {
-        const res = await fetch(`/api/admin/orders/${encodeURIComponent(order.id)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({ status, notes }),
-        });
-        const out = await res.json().catch(() => ({}));
-        if (!res.ok || out?.success === false) {
-          throw new Error(out?.error?.message || out?.message || `Save failed (${res.status})`);
-        }
-
-        // Inline update: status cell
-        const row = document.querySelector(`#ordersTbody tr[data-oid="${CSS.escape(String(order.id))}"]`);
-        const cell = row && row.querySelector('[data-col="status"]');
-        if (cell) cell.textContent = status;
-
-        // Notify controller data + reflection (6.4)
-        if (typeof window.refreshOrderRow === "function") {
-          window.refreshOrderRow(order.id, { status, notes });
-        }
-        try {
-          localStorage.setItem("ordersUpdatedAt", String(Date.now()));
-          window.postMessage({ type: "orders-updated" }, "*");
-        } catch {}
-
-        close();
-      } catch (err) {
-        alert(err.message || "Failed to save");
-      } finally {
-        btn.disabled = false;
-      }
-    };
-
-    try { dlg.showModal(); } catch { dlg.setAttribute("open", "true"); }
-  }
-
-  // ---- Wire UI ----
+    // ---- Wire UI ----
   function wire() {
     const s = $(SEL.search),
       sa = $(SEL.statusA),
@@ -283,14 +184,18 @@
       window.dispatchEvent(new CustomEvent("orders:view", { detail: { id } }));
     });
 
-    // Edit (rollback: open built-in modal)
-    document.addEventListener("click", (e) => {
-      const b = e.target.closest(".btn-edit");
-      if (!b) return;
-      const id = b.getAttribute("data-oid");
-      const o = State.raw.find((x) => String(x.id ?? x.orderNumber) === String(id));
-      if (o) openEdit(o);
-    });
+    // Edit (use real drawer defined in orders-edit.js)
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".btn-edit");
+  if (!b) return;
+  const id = b.getAttribute("data-oid");
+  const o = State.raw.find((x) => String(x.id ?? x.orderNumber) === String(id));
+  if (o && typeof window.openEditOrder === "function") {
+    window.openEditOrder(o);
+  } else {
+    console.warn("[Orders] openEditOrder missing or order not found", { id, o });
+  }
+});
   }
 
   async function fetchOnce() {
