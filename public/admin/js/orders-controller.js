@@ -278,11 +278,12 @@
     const sess = JSON.parse(localStorage.getItem("wattsunUser") || "null");
     const role = (sess && (sess.role || sess.user?.role || sess.type)) || "";
     if (String(role).toLowerCase() !== "admin") {
-      location.replace("/public/myaccount/myorders.html");
+      location.replace("/myaccount/myorders.html");
       return;
     }
   } catch {
-    location.replace("/public/myaccount/myorders.html");
+    location.replace("/myaccount/myorders.html");
+
     return;
   }
 
