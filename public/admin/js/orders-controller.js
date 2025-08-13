@@ -1,38 +1,38 @@
 // public/admin/js/orders-controller.js
-// Admin Orders: list + search + status filter + pager + view + (re-added) edit.
+// Admin Orders: client-side search, status filter & pagination.
+// View button shows a lightweight dialog (items if provided by API).
+// Edit button opens the edit drawer defined in orders-edit.js.
 
 (function () {
   "use strict";
 
-  // Data adapter must be present (set by data-adapter.js)
   if (!window.WattSunAdminData) {
     console.warn("[OrdersController] WattSunAdminData missing");
     return;
   }
   const Data = window.WattSunAdminData;
 
-  // ---- Selectors ----
   const SEL = {
     table: "#ordersTable",
     tbody: "#ordersTbody",
     search: "#ordersSearch",
     statusA: "#ordersStatus",
-    statusB: "#ordersFilterType", // keep both; whichever exists will work
+    statusB: "#ordersFilterType",
     pager: "#ordersPager",
   };
 
-  // ---- tiny helpers ----
   const $ = (s, r = document) => r.querySelector(s);
   const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
   const debounce = (fn, ms) => {
     let t;
-    return (...a) => (clearTimeout(t), (t = setTimeout(() => fn(...a), ms)));
+    return (...a) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...a), ms);
+    };
   };
 
-  // ---- State ----
   const State = { raw: [], view: [], page: 1, per: 10, q: "", status: "" };
 
-  // ---- Filters ----
   function applyFilters() {
     const q = (State.q || "").toLowerCase();
     const st = (State.status || "").toLowerCase();
@@ -40,14 +40,12 @@
 
     if (q) {
       arr = arr.filter((o) =>
-        [o.id, o.orderNumber, o.fullName, o.email, o.phone]
-          .filter(Boolean)
-          .some((v) => String(v).toLowerCase().includes(q))
+        [o.id, o.fullName, o.email, o.phone]
+          .some((v) => (v || "").toString().toLowerCase().includes(q))
       );
     }
-    if (st) arr = arr.filter((o) => String(o.status || "").toLowerCase() === st);
+    if (st) arr = arr.filter((o) => (o.status || "").toLowerCase() === st);
 
-    // newest first
     arr.sort(
       (a, b) =>
         (b.createdAt ? +new Date(b.createdAt) : 0) -
@@ -55,8 +53,8 @@
     );
 
     State.view = arr;
-    const max = Math.max(1, Math.ceil(arr.length / State.per));
-    if (State.page > max) State.page = 1;
+    const maxPage = Math.max(1, Math.ceil(arr.length / State.per));
+    if (State.page > maxPage) State.page = 1;
   }
 
   function fmtKES(n) {
@@ -67,11 +65,10 @@
         maximumFractionDigits: 0,
       }).format(n || 0);
     } catch {
-      return "KSh " + (n || 0).toLocaleString();
+      return "KSH " + (n || 0).toLocaleString();
     }
   }
 
-  // ---- Render ----
   function renderRows() {
     const tbody = $(SEL.tbody);
     if (!tbody) return;
@@ -80,8 +77,9 @@
     const end = start + State.per;
 
     const rows = State.view.slice(start, end).map((o) => {
-      const id = o.id ?? o.orderNumber ?? "";
-      const placed = o.createdAt ? new Date(o.createdAt).toLocaleString() : "—";
+      const placed = o.createdAt ? new Date(o.createdAt).toLocaleString() : "";
+      const total = fmtKES(o.total || 0);
+      const id = o.id || "";
       return `
         <tr data-oid="${id}">
           <td data-col="order">${id || "—"}</td>
@@ -89,7 +87,7 @@
           <td data-col="phone">${o.phone || "—"}</td>
           <td data-col="email">${o.email || "—"}</td>
           <td data-col="status">${o.status || "Pending"}</td>
-          <td>${fmtKES(o.totalCents ? o.totalCents / 100 : o.total || 0)}</td>
+          <td>${total}</td>
           <td>${placed}</td>
           <td>
             <button type="button" class="btn-view" data-oid="${id}">View</button>
@@ -100,7 +98,8 @@
     }).join("");
 
     tbody.innerHTML =
-      rows || `<tr><td colspan="8" style="text-align:center;padding:12px;">No orders found</td></tr>`;
+      rows ||
+      `<tr><td colspan="8" style="text-align:center;padding:12px;">No orders found</td></tr>`;
   }
 
   function renderPager() {
@@ -111,10 +110,10 @@
     const cur = Math.min(State.page, pages);
     State.page = cur;
 
-    const B = (n, l, dis = false, curr = false) =>
+    const B = (n, l, d = false, a = false) =>
       `<button type="button" class="pg-btn" data-page="${n}" ${
-        dis ? "disabled" : ""
-      } ${curr ? 'aria-current="page"' : ""}>${l}</button>`;
+        d ? "disabled" : ""
+      } ${a ? 'aria-current="page"' : ""}>${l}</button>`;
 
     let html = "";
     html += B(1, "«", cur === 1);
@@ -134,7 +133,6 @@
     el.innerHTML = html;
   }
 
-  // ---- Wire UI ----
   function wire() {
     const s = $(SEL.search),
       sa = $(SEL.statusA),
@@ -150,10 +148,10 @@
         applyFilters();
         renderRows();
         renderPager();
-      }, 180)
+      }, 200)
     );
 
-    const bindStatus = (el) =>
+    const w = (el) =>
       el &&
       on(el, "change", () => {
         State.status = (el.value || "").trim();
@@ -162,8 +160,8 @@
         renderRows();
         renderPager();
       });
-    bindStatus(sa);
-    bindStatus(sb);
+    w(sa);
+    w(sb);
 
     on(p, "click", (e) => {
       const b = e.target.closest("button.pg-btn");
@@ -175,7 +173,7 @@
       renderPager();
     });
 
-    // --- View
+    // View
     document.addEventListener("click", (e) => {
       const b = e.target.closest(".btn-view");
       if (!b) return;
@@ -183,12 +181,12 @@
       window.dispatchEvent(new CustomEvent("orders:view", { detail: { id } }));
     });
 
-    // --- Edit (re-added)
+    // Edit (single binding)
     document.addEventListener("click", (e) => {
       const b = e.target.closest(".btn-edit");
       if (!b) return;
       const id = b.getAttribute("data-oid");
-      const o = State.raw.find((x) => String(x.id ?? x.orderNumber) === String(id));
+      const o = State.raw.find((x) => String(x.id) === String(id));
       if (o && typeof window.openEditOrder === "function") {
         window.openEditOrder(o);
       } else {
@@ -198,6 +196,7 @@
   }
 
   async function fetchOnce() {
+    // Fetch many and paginate client-side for now
     const { orders } = await Data.orders.get({ page: 1, per: 10000 });
     State.raw = Array.isArray(orders) ? orders : [];
     State.page = 1;
@@ -217,7 +216,11 @@
     document.addEventListener("DOMContentLoaded", auto);
   else auto();
 
-  // -------- View dialog (kept minimal) --------
+  window.addEventListener("admin:partial-loaded", (e) => {
+    if (e?.detail?.name === "orders") auto();
+  });
+
+  // -------- View dialog --------
   function ensureViewModal() {
     let dlg = document.getElementById("orderViewDialog");
     if (dlg) return dlg;
@@ -240,12 +243,12 @@
         maximumFractionDigits: 0,
       }).format(n || 0);
     } catch {
-      return "KSh " + (n || 0).toLocaleString();
+      return "KSH " + (n || 0).toLocaleString();
     }
   }
   window.addEventListener("orders:view", (e) => {
     const id = e.detail?.id;
-    const o = State.raw.find((x) => String(x.id ?? x.orderNumber) === String(id));
+    const o = State.raw.find((x) => String(x.id) === String(id));
     if (!o) return;
     const dlg = ensureViewModal();
     const c = dlg.querySelector(".content");
@@ -259,7 +262,7 @@
       .join("");
     c.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-      <div><strong>Order #</strong><div>${o.id || o.orderNumber || "—"}</div></div>
+      <div><strong>Order #</strong><div>${o.id || "—"}</div></div>
       <div><strong>Status</strong><div>${o.status || "Pending"}</div></div>
       <div><strong>Customer</strong><div>${o.fullName || "—"}</div></div>
       <div><strong>Phone</strong><div>${o.phone || "—"}</div></div>
@@ -267,30 +270,32 @@
       <div><strong>Placed</strong><div>${
         o.createdAt ? new Date(o.createdAt).toLocaleString() : "—"
       }</div></div>
-      <div><strong>Total</strong><div>${fmtKESdlg(
-        o.totalCents ? o.totalCents / 100 : o.total || 0
-      )}</div></div>
+      <div><strong>Total</strong><div>${fmtKESdlg(o.total || 0)}</div></div>
     </div>
     <h4 style="margin:14px 0 6px;">Items</h4>
     <table style="width:100%;border-collapse:collapse;">
       <thead><tr><th>SKU</th><th>Name</th><th>Qty</th><th>Price</th></tr></thead>
       <tbody>${items || `<tr><td colspan="4">No items</td></tr>`}</tbody>
     </table>`;
-    try { dlg.showModal(); } catch { dlg.setAttribute("open", "true"); }
+    try {
+      dlg.showModal();
+    } catch {
+      dlg.setAttribute("open", "true");
+    }
   });
 
-  // Tiny helper other scripts can call to re-render a single row
+  // Expose tiny hook so the edit dialog can update a row and re-render
   window.refreshOrderRow = function (id, patch = {}) {
-    const idx = State.raw.findIndex((o) => String(o.id ?? o.orderNumber) === String(id));
+    const idx = State.raw.findIndex((o) => String(o.id) === String(id));
     if (idx === -1) return;
     State.raw[idx] = { ...State.raw[idx], ...patch };
     applyFilters();
     renderRows();
     renderPager();
   };
-})(); // end main controller IIFE
+})(); // end controller IIFE
 
-/* === Phase 6.5 append-only bits === */
+/* === Phase 6.5 append-only patch (safe at EOF) === */
 
 /* Admin client guard — only on /dashboard.html and only when we KNOW role != Admin */
 (() => {
@@ -299,18 +304,19 @@
   let sess = null;
   try { sess = JSON.parse(localStorage.getItem("wattsunUser") || "null"); } catch {}
 
-  const role = (sess && (sess.role || sess.user?.role || sess.type)) || "";
+  const role =
+    (sess && (sess.role || (sess.user && sess.user.role) || sess.type)) || "";
   const norm = String(role).trim().toLowerCase();
 
-  // Redirect ONLY if we have a role and it's not Admin.
+  // Redirect ONLY if we positively know the user is not an admin.
   if (norm && norm !== "admin") {
     location.replace("/myaccount/myorders.html");
     return;
   }
-  // If role is missing/unknown, do nothing (no redirect). Server still protects /api/admin/*.
+  // If role missing/unknown, do nothing. Server still protects /api/admin/*.
 })();
 
-/* Unified statuses + badge renderer (only if not already present) */
+/* Unified statuses + badge renderer (only define if not already present) */
 const __ALLOWED_STATUSES__ = [
   "Pending",
   "Confirmed",
@@ -342,11 +348,10 @@ if (typeof window.AdminOrders.updateRowInline !== "function") {
     const tbody = document.getElementById("ordersTbody");
     if (!tbody || !orderId) return;
 
-    // Your table rows use data-oid
     const row = tbody.querySelector(`tr[data-oid="${CSS.escape(String(orderId))}"]`);
     if (!row) return;
 
-    // Update status cell (data-col="status")
+    // Status cell
     if (patch.status) {
       const cell = row.querySelector('[data-col="status"]');
       if (cell) {
@@ -356,10 +361,10 @@ if (typeof window.AdminOrders.updateRowInline !== "function") {
       }
     }
 
-    // Driver column optional (data-col="driver")
+    // Driver column (optional — if table adds data-col="driver")
     if (Object.prototype.hasOwnProperty.call(patch, "driverName") || patch.driverId === null) {
-      const dcell = row.querySelector('[data-col="driver"]');
-      if (dcell) dcell.textContent = patch.driverName ? patch.driverName : "—";
+      const driverCell = row.querySelector('[data-col="driver"]');
+      if (driverCell) driverCell.textContent = patch.driverName ? patch.driverName : "—";
     }
   };
 }
