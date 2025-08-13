@@ -1,7 +1,7 @@
 // public/admin/js/orders-edit.js
-// Edit modal: status + driver search/select + notes + money (editable) + items.
-// Loads details from the Track API first so the shape matches Track, then PATCHes.
-// On success: inline row update + Step 6.4 broadcast.
+// Edit modal: status + driver search/select + notes + editable money + items.
+// Loads details from the Track API (order + phone + email) first,
+// then PATCHes to /api/admin/orders/:id. On success: inline row update + Step 6.4 broadcast.
 
 (() => {
   // -------------------- Elements --------------------
@@ -37,7 +37,12 @@
   let driverChosen = { id: null, name: '' }; // display label for row update
 
   // -------------------- Helpers --------------------
-  const setSaving = (on) => { if (saveBtn) { saveBtn.disabled = !!on; saveBtn.textContent = on ? 'Saving…' : 'Save'; } };
+  const setSaving = (on) => {
+    if (saveBtn) {
+      saveBtn.disabled = !!on;
+      saveBtn.textContent = on ? 'Saving…' : 'Save';
+    }
+  };
 
   const fmtMoney = (amt, cur) => {
     const n = Number(amt || 0);
@@ -91,18 +96,22 @@
   }
 
   async function fetchViaTrack(orderId) {
-    // Use the Track endpoint so the shape matches the Track page.
-    const email = getSession().email || '';
+    // Use same inputs Track uses
+    const sess = getSession();
+    const body = {
+      order: orderId,
+      phone: (sess.phone || '').trim(),
+      email: (sess.email || '').trim()
+    };
     try {
       const res = await fetch('/api/track', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-WS-Email': email || '' },
-        body: JSON.stringify({ order: orderId })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
       });
       const data = await res.json().catch(() => ({}));
       const list = Array.isArray(data) ? data : (data && Array.isArray(data.orders) ? data.orders : []);
       if (list && list.length) {
-        // If multiple returned (rare), prefer exact match
         const hit = list.find(o => String(o.orderNumber) === String(orderId)) || list[0];
         return hit || null;
       }
@@ -252,7 +261,6 @@
     current = order || null;
     if (!current) return;
 
-    // Load fuller shape using Track endpoint first
     const idVal = current.id || current.orderNumber || current.order || '';
     let full = (await fetchViaTrack(idVal)) || current;
     if (!coerceItems(full)?.length || (full.total == null && full.amount == null)) {
@@ -282,17 +290,11 @@
 
     renderItems(full);
 
-    if (modal) {
-      modal.style.display = 'block';
-      modal.removeAttribute('aria-hidden');
-    }
+    if (modal) { modal.style.display = 'block'; modal.removeAttribute('aria-hidden'); }
   }
 
   function closeModal() {
-    if (modal) {
-      modal.style.display = 'none';
-      modal.setAttribute('aria-hidden', 'true');
-    }
+    if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); }
     current = null;
   }
 
@@ -321,8 +323,13 @@
       currency: (currInp?.value || '').trim() || undefined
     };
 
+    // Defensive: coerce NaNs to undefined so backend validator doesn’t choke
+    if (Number.isNaN(payload.total))   payload.total = undefined;
+    if (Number.isNaN(payload.deposit)) payload.deposit = undefined;
+
     try {
       setSaving(true);
+
       const res = await fetch(`/api/admin/orders/${encodeURIComponent(idForUrl)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -330,12 +337,12 @@
       });
 
       if (!res.ok) {
-        const t = await res.text();
+        const t = await res.text().catch(()=>'');
         alert(`Failed to save order changes.\n${t || res.status}`);
         return;
       }
 
-      // Inline row update (best effort)
+      // Inline row update (best effort) — does NOT touch filters/pagination
       const selId = String(idForUrl);
       const row =
         host?.querySelector(`tr[data-oid="${selId}"]`) ||
@@ -383,6 +390,6 @@
     });
   });
 
-  // Programmatic hook used by the dashboard binder
+  // Expose programmatic hook for the binder
   if (typeof window.openOrderEdit !== 'function') window.openOrderEdit = (order) => openModalFor(order);
 })();
