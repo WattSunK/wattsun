@@ -1,7 +1,8 @@
 // public/admin/js/orders-edit.js
 // Edit modal: status + driver search/select + notes + editable money + items.
-// Loads details from the Track API (order + phone + email) first,
-// then PATCHes to /api/admin/orders/:id. On success: inline row update + Step 6.4 broadcast.
+// Details are fetched from the Track API (order + phone + email); fallback to admin endpoints.
+// On Save: PATCH to /api/admin/orders/:id using field names that exist on the order,
+// then update the row inline and broadcast Step 6.4.
 
 (() => {
   // -------------------- Elements --------------------
@@ -32,21 +33,16 @@
   const host = document.getElementById('ordersTbody') || document.getElementById('adminContent') || document.body;
 
   // -------------------- State --------------------
-  let current = null;                        // order object being edited
+  let current = null;                        // order object being edited (may be minimal)
+  let fullOrder = null;                      // fully-hydrated order (with items + totals)
   let allowedStatuses = null;                // Set<string> from Orders filter
   let driverChosen = { id: null, name: '' }; // display label for row update
 
   // -------------------- Helpers --------------------
-  const setSaving = (on) => {
-    if (saveBtn) {
-      saveBtn.disabled = !!on;
-      saveBtn.textContent = on ? 'Saving…' : 'Save';
-    }
-  };
+  const setSaving = (on) => { if (saveBtn) { saveBtn.disabled = !!on; saveBtn.textContent = on ? 'Saving…' : 'Save'; } };
 
   const fmtMoney = (amt, cur) => {
-    const n = Number(amt || 0);
-    const c = (cur || 'KES') + '';
+    const n = Number(amt || 0), c = (cur || 'KES') + '';
     try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: c }).format(n); }
     catch { return `${c} ${n.toLocaleString()}`; }
   };
@@ -55,13 +51,10 @@
 
   // -------------------- Status: hydrate from Orders filter --------------------
   function findOrdersStatusFilter() {
-    const scopes = [document.getElementById('adminContent'), document.querySelector('.main-section'), document]
-      .filter(Boolean);
-    for (const s of scopes) {
-      for (const sel of s.querySelectorAll('select')) {
-        const first = sel.options?.[0]?.textContent?.trim()?.toLowerCase?.();
-        if (first === 'all') return sel; // common pattern on Orders tab
-      }
+    const scopes = [document.getElementById('adminContent'), document.querySelector('.main-section'), document].filter(Boolean);
+    for (const s of scopes) for (const sel of s.querySelectorAll('select')) {
+      const first = sel.options?.[0]?.textContent?.trim()?.toLowerCase?.();
+      if (first === 'all') return sel;
     }
     return null;
   }
@@ -77,12 +70,9 @@
         options.push(label);
       }
     }
-    if (!options.length) options.push('Pending', 'Processing', 'Delivered', 'Cancelled');
-
+    if (!options.length) options.push('Pending','Processing','Delivered','Cancelled');
     allowedStatuses = new Set(options.map(s => s.toLowerCase()));
-    statusSel.innerHTML = options
-      .map(s => `<option${String(s).toLowerCase() === String(currentStatus || '').toLowerCase() ? ' selected' : ''}>${s}</option>`)
-      .join('');
+    statusSel.innerHTML = options.map(s => `<option${String(s).toLowerCase()===String(currentStatus||'').toLowerCase()?' selected':''}>${s}</option>`).join('');
   }
 
   // -------------------- Data: Track first, admin as fallback --------------------
@@ -95,19 +85,19 @@
     } catch { return {}; }
   }
 
-  async function fetchViaTrack(orderId) {
-    // Use same inputs Track uses
+  async function fetchViaTrack(orderId, phone, email) {
+    // Use same inputs Track uses (order + phone + email). Phone/email from row > session > empty.
     const sess = getSession();
-    const body = {
+    const payload = {
       order: orderId,
-      phone: (sess.phone || '').trim(),
-      email: (sess.email || '').trim()
+      phone: (phone || sess.phone || '').trim(),
+      email: (email || sess.email || '').trim()
     };
     try {
       const res = await fetch('/api/track', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify(payload)
       });
       const data = await res.json().catch(() => ({}));
       const list = Array.isArray(data) ? data : (data && Array.isArray(data.orders) ? data.orders : []);
@@ -175,12 +165,7 @@
       const qty  = it.qty || it.quantity || 1;
       const price = it.price || it.unitPrice || it.amount || 0;
       const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${sku}</td>
-        <td>${name}</td>
-        <td>${qty}</td>
-        <td>${fmtMoney(price, currency)}</td>
-      `;
+      tr.innerHTML = `<td>${sku}</td><td>${name}</td><td>${qty}</td><td>${fmtMoney(price, currency)}</td>`;
       itemsBody.appendChild(tr);
     }
   }
@@ -262,45 +247,41 @@
     if (!current) return;
 
     const idVal = current.id || current.orderNumber || current.order || '';
-    let full = (await fetchViaTrack(idVal)) || current;
-    if (!coerceItems(full)?.length || (full.total == null && full.amount == null)) {
-      const fallback = await fetchViaAdmin(idVal);
-      if (fallback) full = Object.assign({}, full, fallback);
-    }
-
-    hydrateStatusOptions(full.status);
+    hydrateStatusOptions(current.status);
 
     if (idInput)   idInput.value   = idVal;
-    if (statusSel) statusSel.value = full.status || statusSel.value || 'Pending';
+    if (statusSel) statusSel.value = current.status || statusSel.value || 'Pending';
 
-    // Money (editable)
-    const totals = coerceTotals(full);
-    if (totalInp)   totalInp.value   = String(totals.total ?? '');
-    if (depositInp) depositInp.value = String(totals.deposit ?? '');
-    if (currInp)    currInp.value    = totals.currency || 'KES';
-
-    // Driver
-    const initDriverId   = (full.driver_id != null ? Number(full.driver_id) : null);
-    const initDriverName = full.driver_name || full.driver || '';
+    // Driver (initial)
+    const initDriverId   = (current.driver_id != null ? Number(current.driver_id) : null);
+    const initDriverName = current.driver_name || current.driver || '';
     if (driverIdH)  driverIdH.value = initDriverId ? String(initDriverId) : '';
     if (driverInp)  driverInp.value = initDriverName || (initDriverId ? `Driver ${initDriverId}` : '');
     driverChosen = { id: initDriverId, name: driverInp?.value || '' };
 
-    if (notesEl) notesEl.value = full.notes || '';
+    if (notesEl) notesEl.value = current.notes || '';
 
-    renderItems(full);
+    // Load full order via Track first (uses phone/email passed from binder), then admin fallback.
+    const track = await fetchViaTrack(idVal, current.phone, current.email);
+    fullOrder = track || await fetchViaAdmin(idVal) || current;
+
+    // Money defaults
+    const t = coerceTotals(fullOrder);
+    if (totalInp)   totalInp.value   = String(t.total ?? '');
+    if (depositInp) depositInp.value = String(t.deposit ?? '');
+    if (currInp)    currInp.value    = t.currency || 'KES';
+
+    // Items
+    renderItems(fullOrder);
 
     if (modal) { modal.style.display = 'block'; modal.removeAttribute('aria-hidden'); }
   }
 
-  function closeModal() {
-    if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); }
-    current = null;
-  }
+  function closeModal() { if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden','true'); } current = null; }
 
   // -------------------- Events --------------------
-  cancelBtn?.addEventListener('click', (e) => { e.preventDefault(); closeModal(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+  cancelBtn?.addEventListener('click', (e)=>{ e.preventDefault(); closeModal(); });
+  document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeModal(); });
 
   saveBtn?.addEventListener('click', async (e) => {
     e.preventDefault();
@@ -313,23 +294,33 @@
     }
 
     const idForUrl = current.id || current.orderNumber;
+
+    // Pick PATCH keys that your backend already uses on this order:
+    const aliasPick = (obj, candidates, fallback) => {
+      for (const k of candidates) if (k in (obj||{})) return k;
+      return fallback;
+    };
+    const totalKey   = aliasPick(fullOrder, ['total','net','amount'], 'total');
+    const depositKey = aliasPick(fullOrder, ['deposit','depositAmount','advance','downpayment'], 'deposit');
+    const currKey    = aliasPick(fullOrder, ['currency','curr'], 'currency');
+
     const payload = {
       status,
       driver_id: driverIdH?.value ? Number(driverIdH.value) : null,
-      notes: (notesEl?.value || '').trim(),
-      // money fields (editable)
-      total:   totalInp?.value !== ''   ? Number(totalInp.value)   : undefined,
-      deposit: depositInp?.value !== '' ? Number(depositInp.value) : undefined,
-      currency: (currInp?.value || '').trim() || undefined
+      notes: (notesEl?.value || '').trim()
     };
 
-    // Defensive: coerce NaNs to undefined so backend validator doesn’t choke
-    if (Number.isNaN(payload.total))   payload.total = undefined;
-    if (Number.isNaN(payload.deposit)) payload.deposit = undefined;
+    // Add money fields if user provided values
+    const totalVal   = totalInp?.value !== ''   ? Number(totalInp.value)   : null;
+    const depositVal = depositInp?.value !== '' ? Number(depositInp.value) : null;
+    const currVal    = (currInp?.value || '').trim();
+
+    if (totalVal != null && !Number.isNaN(totalVal))   payload[totalKey]   = totalVal;
+    if (depositVal != null && !Number.isNaN(depositVal)) payload[depositKey] = depositVal;
+    if (currVal)                                       payload[currKey]    = currVal;
 
     try {
       setSaving(true);
-
       const res = await fetch(`/api/admin/orders/${encodeURIComponent(idForUrl)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -337,12 +328,12 @@
       });
 
       if (!res.ok) {
-        const t = await res.text().catch(()=>'');
+        const t = await res.text().catch(()=> '');
         alert(`Failed to save order changes.\n${t || res.status}`);
         return;
       }
 
-      // Inline row update (best effort) — does NOT touch filters/pagination
+      // Inline row update (best effort)
       const selId = String(idForUrl);
       const row =
         host?.querySelector(`tr[data-oid="${selId}"]`) ||
@@ -384,9 +375,30 @@
       const row = btn.closest('tr');
       const oid = btn.dataset.oid || btn.getAttribute('data-id') || row?.dataset?.oid || row?.dataset?.id || '';
       if (!oid) { alert('Could not determine order id.'); return; }
-      let order = fromCache(oid);
-      if (!order) order = await fetchViaTrack(oid) || await fetchViaAdmin(oid);
-      openModalFor(order || { id: oid });
+
+      // Collect phone/email from the same row to feed Track API
+      const pickText = (sel) => (row?.querySelector(sel)?.textContent || '').trim();
+      const phone = pickText('[data-col="phone"], .col-phone') || (() => {
+        for (const td of (row?.querySelectorAll('td') || [])) {
+          const txt = (td.textContent || '').trim();
+          if (/^\+?\d[\d\s\-]{6,}$/.test(txt)) return txt;
+        }
+        return '';
+      })();
+      const email = pickText('[data-col="email"], .col-email') || (() => {
+        for (const td of (row?.querySelectorAll('td') || [])) {
+          const txt = (td.textContent || '').trim();
+          if (/@/.test(txt)) return txt;
+        }
+        return '';
+      })();
+
+      let order = fromCache(oid) || { id: oid, orderNumber: oid, phone, email };
+      // pass phone/email so Track can resolve items/totals
+      order.phone = order.phone || phone;
+      order.email = order.email || email;
+
+      openModalFor(order);
     });
   });
 

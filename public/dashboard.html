@@ -91,7 +91,8 @@
     });
   </script>
 
-  <!-- Edit-only binder: ONLY "Edit" triggers edit modal; "View" remains native -->
+  <!-- Edit-only binder: ONLY "Edit" triggers edit modal; "View" remains native.
+       Also collects phone/email from the clicked row and passes to openOrderEdit -->
   <script>
     (function(){
       const HOST = document.getElementById('adminContent') || document.body;
@@ -116,12 +117,28 @@
         const m2 = txt.match(/\b\d{8,}\b/);     if (m2) return m2[0];
         return '';
       }
+      function collectRowInfo(row) {
+        const id = rowId(row);
+        const pick = sel => (row?.querySelector(sel)?.textContent || '').trim();
+        let phone = pick('[data-col="phone"], .col-phone');
+        if (!phone) {
+          for (const td of (row?.querySelectorAll('td') || [])) {
+            const txt = (td.textContent || '').trim();
+            if (/^\+?\d[\d\s\-]{6,}$/.test(txt)) { phone = txt; break; }
+          }
+        }
+        let email = pick('[data-col="email"], .col-email');
+        if (!email) {
+          for (const td of (row?.querySelectorAll('td') || [])) {
+            const txt = (td.textContent || '').trim();
+            if (/@/.test(txt)) { email = txt; break; }
+          }
+        }
+        return { id, phone, email };
+      }
       function normalize(root){
-        // keep pagination intact; do not touch anchors except the edit ones
         root.querySelectorAll(EDIT_SEL).forEach(el=>{
-          el.removeAttribute('disabled');
-          el.removeAttribute('aria-disabled');
-          el.classList.remove('disabled','is-disabled');
+          el.removeAttribute('disabled'); el.removeAttribute('aria-disabled'); el.classList.remove('disabled','is-disabled');
         });
       }
 
@@ -130,9 +147,10 @@
         HOST.addEventListener('click', (e)=>{
           const el = e.target.closest('a,button'); if (!el) return;
           const editLike = el.matches(EDIT_SEL) || isEditText(el); if (!editLike) return;
-          const id = rowId(el.closest('tr'));
-          if (!id || typeof window.openOrderEdit !== 'function') return;
-          e.preventDefault(); window.openOrderEdit({ id });
+          const row = el.closest('tr'); const info = collectRowInfo(row);
+          if (!info.id || typeof window.openOrderEdit !== 'function') return;
+          e.preventDefault();
+          window.openOrderEdit({ id: info.id, orderNumber: info.id, phone: info.phone, email: info.email });
         }, true);
 
         const mo = new MutationObserver(()=> normalize(HOST));
@@ -148,8 +166,6 @@
 
   <!-- Admin Order Edit Modal (driver search+select + editable money + items) -->
   <style>
-    /* scope UI to the modal to avoid global CSS clashes */
-    * { box-sizing: border-box; } /* modal-only scope would be ideal, but this keeps widths sane in most setups */
     #orderEditModal .ws-grid { display:grid; grid-template-columns:140px minmax(0,1fr); gap:10px; align-items:center; margin:8px 0; }
     #orderEditModal .ws-card { width:min(860px,92vw); background:#fff; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.25); overflow:hidden; }
     #orderEditModal header, #orderEditModal footer { padding:12px 16px; }
