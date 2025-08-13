@@ -91,110 +91,123 @@
     });
   </script>
 
-  <!-- Minimal binder: make "View"/"Edit" buttons open the existing modal -->
+  <!-- Edit-only binder: ONLY "Edit" triggers edit modal; "View" remains native -->
   <script>
     (function(){
       const HOST = document.getElementById('adminContent') || document.body;
-      const COMPLEX_SEL = [
-        '[data-action="view"]','[data-action="edit"]',
-        '.order-view-btn','.order-edit-btn',
-        '.js-order-view-btn','.js-order-edit-btn',
-        'button[title*="View" i]','button[title*="Edit" i]',
-        'a[title*="View" i]','a[title*="Edit" i]'
+
+      const EDIT_SEL = [
+        '[data-action="edit"]',
+        '.order-edit-btn',
+        '.js-order-edit-btn',
+        'button[title*="Edit" i]',
+        'a[title*="Edit" i]'
       ].join(',');
 
-      function isActionText(el){
+      function isEditText(el){
         const t = (el.textContent || '').trim().toLowerCase();
-        return t === 'view' || t === 'edit';
+        return t === 'edit';
       }
-      function getRowId(row){
+      function rowId(row){
         if (!row) return '';
-        const dataId = row.dataset?.oid || row.dataset?.id;
-        if (dataId) return dataId;
+        const d = row.dataset?.oid || row.dataset?.id;
+        if (d) return d;
         const cell = row.querySelector('[data-col="order"], .col-order');
-        const textFromCell = (cell?.textContent || '').trim();
-        if (textFromCell) return textFromCell;
+        if (cell?.textContent?.trim()) return cell.textContent.trim();
         const txt = row.innerText || '';
-        const m1 = txt.match(/WATT[\w-]{6,}/i);
-        if (m1) return m1[0];
-        const m2 = txt.match(/\b\d{8,}\b/);
-        return m2 ? m2[0] : '';
+        const m1 = txt.match(/WATT[\w-]{6,}/i); if (m1) return m1[0];
+        const m2 = txt.match(/\b\d{8,}\b/);     if (m2) return m2[0];
+        return '';
       }
-      function normalizeButtons(root){
-        root.querySelectorAll('a,button').forEach(el=>{
-          const t=(el.textContent||'').trim().toLowerCase();
-          if (t==='view' || t==='edit') {
-            el.removeAttribute('disabled');
-            el.removeAttribute('aria-disabled');
-            el.classList.remove('disabled','is-disabled');
-          }
-        });
-        root.querySelectorAll(COMPLEX_SEL).forEach(el=>{
-          el.removeAttribute('disabled'); el.removeAttribute('aria-disabled'); el.classList.remove('disabled','is-disabled');
+      function normalize(root){
+        root.querySelectorAll(EDIT_SEL).forEach(el=>{
+          el.removeAttribute('disabled');
+          el.removeAttribute('aria-disabled');
+          el.classList.remove('disabled','is-disabled');
         });
       }
 
       function bind(){
-        if (HOST.__wsBound) return;
-        HOST.addEventListener('click', function(e){
+        if (HOST.__wsBoundEditOnly) return;
+        HOST.addEventListener('click', (e)=>{
           const el = e.target.closest('a,button');
           if (!el) return;
-          const matches = el.matches(COMPLEX_SEL) || isActionText(el);
-          if (!matches) return;
-          const row = el.closest('tr');
-          const id = getRowId(row);
-          if (!id) return;
-          if (typeof window.openOrderEdit === 'function') {
-            e.preventDefault();
-            window.openOrderEdit({ id });
-          }
+          const editLike = el.matches(EDIT_SEL) || isEditText(el);
+          if (!editLike) return;
+
+          const id = rowId(el.closest('tr'));
+          if (!id || typeof window.openOrderEdit !== 'function') return;
+          e.preventDefault();
+          window.openOrderEdit({ id });
         }, true);
 
-        const mo = new MutationObserver(()=> normalizeButtons(HOST));
+        const mo = new MutationObserver(()=> normalize(HOST));
         mo.observe(HOST, { childList:true, subtree:true });
-        normalizeButtons(HOST);
-        HOST.__wsBound = true;
+        normalize(HOST);
+        HOST.__wsBoundEditOnly = true;
       }
 
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', bind);
-      } else {
-        bind();
-      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+      else bind();
     })();
   </script>
 
-  <!-- Admin Order Edit Modal markup (used by orders-edit.js) -->
+  <!-- Admin Order Edit Modal (with Driver search+select) -->
+  <style>
+    /* scoped to the modal to avoid global impact */
+    #orderEditModal .ws-grid { display:grid; grid-template-columns:140px 1fr; gap:10px; align-items:center; margin:8px 0; }
+    #orderEditModal .ws-card { width:min(720px,92vw); background:#fff; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.25); overflow:hidden; }
+    #orderEditModal header, #orderEditModal footer { padding:12px 16px; }
+    #orderEditModal header { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; }
+    #orderEditModal footer { display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #eee; }
+    #orderEditModal input, #orderEditModal select, #orderEditModal textarea { width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:10px; }
+    /* driver combobox */
+    #orderEditDriverWrap { position:relative; }
+    #orderEditDriverList { position:absolute; z-index:10000; top:100%; left:0; right:0; display:none; background:#fff; border:1px solid #e5e7eb; border-radius:10px; margin-top:6px; max-height:220px; overflow:auto; padding:6px 0; box-shadow:0 10px 20px rgba(0,0,0,.12); }
+    #orderEditDriverList li { padding:8px 12px; cursor:pointer; }
+    #orderEditDriverList li:hover, #orderEditDriverList li:focus { background:#f3f4f6; outline:none; }
+    #orderEditDriverList .ws-driver-empty { color:#6b7280; cursor:default; }
+    #orderEditDriverClear { margin-left:8px; }
+  </style>
+
   <div id="orderEditModal" style="display:none" aria-hidden="true" role="dialog" aria-modal="true">
     <div style="position:fixed;inset:0;background:rgba(0,0,0,.35);"></div>
     <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;">
-      <div style="width:min(680px,92vw);background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden">
-        <header style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #eee">
+      <div class="ws-card">
+        <header>
           <h3 style="margin:0">Edit Order</h3>
           <button id="orderCancelBtn" class="btn btn-secondary" type="button">Close</button>
         </header>
 
         <div style="padding:12px 16px">
-          <div style="display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;margin:8px 0">
+          <div class="ws-grid">
             <label>Order ID</label><input id="orderEditId" disabled>
           </div>
-          <div style="display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;margin:8px 0">
+          <div class="ws-grid">
             <label>Status</label>
-            <select id="orderEditStatus">
-              <option>Pending</option><option>Processing</option>
-              <option>Shipped</option><option>Delivered</option>
-              <option>Cancelled</option>
-            </select>
+            <select id="orderEditStatus"></select>
           </div>
-          <div style="display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;margin:8px 0">
-            <label>Driver ID</label><input id="orderEditDriver" placeholder="e.g. 12">
+
+          <!-- Driver search & select -->
+          <div class="ws-grid">
+            <label>Driver</label>
+            <div id="orderEditDriverWrap">
+              <input type="hidden" id="orderEditDriverId">
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input id="orderEditDriverInput" placeholder="Type to search drivers (name, email)…">
+                <button id="orderEditDriverClear" class="btn btn-secondary" type="button">Clear</button>
+              </div>
+              <ul id="orderEditDriverList" role="listbox" aria-label="Drivers"></ul>
+            </div>
           </div>
-          <div style="display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:start;margin:8px 0">
-            <label>Notes</label><textarea id="orderEditNotes" rows="3"></textarea>
+
+          <div class="ws-grid" style="align-items:start;">
+            <label>Notes</label>
+            <textarea id="orderEditNotes" rows="3"></textarea>
           </div>
         </div>
 
-        <footer style="display:flex;justify-content:flex-end;gap:10px;padding:12px 16px;border-top:1px solid #eee">
+        <footer>
           <button id="orderSaveBtn" class="btn btn-primary" type="button">Save</button>
         </footer>
       </div>
