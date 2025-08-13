@@ -181,6 +181,18 @@
         window.dispatchEvent(new CustomEvent("orders:view", { detail: { id } }));
       }
     });
+// --- Edit handler (re-add)
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".btn-edit");
+  if (!b) return;
+  const id = b.getAttribute("data-oid");
+  const o = State.raw.find((x) => String(x.id) === String(id));
+  if (o && typeof window.openEditOrder === "function") {
+    window.openEditOrder(o);
+  } else {
+    console.warn("[Orders] openEditOrder not available or order not found", { id, o });
+  }
+});
 
     // --- Edit handler (re-added)
     document.addEventListener("click", (e) => {
