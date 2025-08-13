@@ -2,7 +2,6 @@
 // Stable build: same-origin API, GET→POST fallback, locked to session phone.
 // NOW also passes user email silently so the backend can fall back if phone finds 0.
 // Links send ?order=<id>&status=Pending to /myaccount/track.html
-// Step 6.4: auto-refresh on admin save via focus/message/storage and preserve filters & pagination.
 
 (function () {
   const PAGE_SIZE = 5;
@@ -117,7 +116,7 @@
       } catch {}
     }
 
-    const list = Array.isArray(data) ? data : (data && Array.isArray(data.orders)) ? data.orders : [];
+    const list = Array.isArray(data) ? data : (data && data.orders) ? data.orders : [];
     all = list.map((o, i) => norm(o, i));
 
     // (Re)build order type dropdown
@@ -216,55 +215,6 @@
     });
   }
 
-  // --- Step 6.4: Preserve UI state across auto-refreshes ---
-  function captureUI() {
-    return {
-      q: els.query?.value || '',
-      type: els.type?.value || '',
-      from: els.from?.value || '',
-      to: els.to?.value || '',
-      page,
-    };
-  }
-  function restoreUI(s) {
-    if (!s) return;
-    if (els.query) els.query.value = s.q || '';
-    if (els.type)  els.type.value  = s.type || '';
-    if (els.from)  els.from.value  = s.from || '';
-    if (els.to)    els.to.value    = s.to || '';
-    page = s.page || 1;
-  }
-
-  async function reloadOrdersPreservingUI() {
-    const snap = captureUI();
-    await fetchOrders();
-    // Re-apply filters based on restored UI
-    restoreUI(snap);
-    applyFilters();
-    // applyFilters resets to page 1; restore page and re-render
-    page = snap.page || 1;
-    render();
-  }
-
-  function setupOrdersAutoRefresh(refetchFn) {
-    let pending = false;
-    const kick = () => {
-      if (pending) return;
-      pending = true;
-      queueMicrotask(async () => {
-        try { await refetchFn(); } finally { pending = false; }
-      });
-    };
-
-    window.addEventListener('focus', kick);
-    window.addEventListener('message', (e) => {
-      if (e?.data?.type === 'orders-updated') kick();
-    });
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'ordersUpdatedAt') kick();
-    });
-  }
-
   // Public entry
   window.initMyOrders = async function initMyOrders() {
     // Rebind (partial injection safety)
@@ -286,9 +236,6 @@
     try { await fetchOrders(); } catch (e) { console.error('[myorders] fetch failed', e); all = []; }
     applyFilters();
     render();
-
-    // Step 6.4: set up auto-refresh after initial render
-    setupOrdersAutoRefresh(reloadOrdersPreservingUI);
   };
 
   // Standalone safety for myorders.html direct load
@@ -298,4 +245,41 @@
       window.initMyOrders();
     }
   });
+})();
+
+// ---- Step 6.4 live harness (append-only; preserves filters & pagination) ----
+(function(){
+  async function __wsRefetchPreservingUI(){
+    try{
+      const prev = { page: (typeof page!=='undefined'?page:1) };
+      if (typeof els!=='undefined'){
+        prev.type = els.type?els.type.value:'';
+        prev.from = els.from?els.from.value:'';
+        prev.to   = els.to  ?els.to.value  :'';
+        prev.query= els.query?els.query.value:'';
+      }
+      if (typeof fetchOrders==='function') await fetchOrders();
+      if (typeof els!=='undefined'){
+        if (els.type) els.type.value = prev.type || '';
+        if (els.from) els.from.value = prev.from || '';
+        if (els.to)   els.to.value   = prev.to   || '';
+        if (els.query) els.query.value = prev.query || '';
+      }
+      if (typeof applyFilters==='function') applyFilters();
+      if (typeof filtered!=='undefined' && typeof PAGE_SIZE!=='undefined' && typeof page!=='undefined'){
+        const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+        page = Math.max(1, Math.min(prev.page || 1, totalPages));
+      }
+      if (typeof render==='function') render();
+    }catch(e){ console.warn('myorders live refresh failed', e); }
+  }
+  function __wsSetupLiveListeners(){
+    let pending=false;
+    const kick=()=>{ if(pending) return; pending=true; queueMicrotask(async()=>{ try{ await __wsRefetchPreservingUI(); } finally{ pending=false; } }); };
+    window.addEventListener('focus', kick);
+    window.addEventListener('storage', (e)=>{ if(e.key==='ordersUpdatedAt') kick(); });
+    window.addEventListener('message', (e)=>{ if(e?.data?.type==='orders-updated') kick(); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', __wsSetupLiveListeners);
+  else __wsSetupLiveListeners();
 })();
