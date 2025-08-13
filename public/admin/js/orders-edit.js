@@ -1,194 +1,225 @@
-/* public/admin/js/orders-edit.js — full drop‑in (6.4 drawer restored + 6.5 hardening)
-   - Exposes window.openEditOrder(order)
-   - GET /api/admin/users?type=Driver&q=...  (credentials: include)
-   - PATCH /api/admin/orders/:id             (credentials: include)
-   - After save: dispatch 'orders:updated' + optional inline row refresh
-*/
+// public/admin/js/orders-edit.js
+// Phase 6.5 — polish: driver live filter, status guard, emit reflection signals
+
 (() => {
-  const ALLOWED = ["Pending","Confirmed","Dispatched","Delivered","Closed","Cancelled"];
+  // ---- Constants ----
+  const ALLOWED_STATUSES = [
+    "Pending",
+    "Confirmed",
+    "Dispatched",
+    "Delivered",
+    "Closed",
+    "Cancelled",
+  ]; // from ADR-001. 
 
-  // --- Drawer DOM (auto-create if missing) ---
-  let drawer, frm, selStatus, inpDriver, hidDriverId, taNotes, btnSave, btnCancel, listBox;
-  function ensureDrawer() {
-    if (drawer) return;
+  // ---- State (scoped to the Edit Drawer/Modal) ----
+  const EditState = {
+    orderId: null,
+    currentStatus: null,
+    selectedDriver: null, // { id, name, email, phone } or null
+    driversCache: [],     // last results
+    debounceTimer: null,
+  };
 
-    const html = `
-      <div id="ws-edit-drawer" class="ws-edit fixed inset-0 z-50 hidden">
-        <div class="ws-edit__backdrop absolute inset-0" style="background:rgba(0,0,0,0.45)"></div>
-        <div class="ws-edit__panel absolute right-0 top-0 h-full w-[420px] bg-white shadow-xl p-4 overflow-y-auto">
-          <h3 class="text-lg font-semibold mb-3">Edit Order</h3>
-          <form class="space-y-3" autocomplete="off">
-            <div>
-              <label class="block text-sm mb-1">Status</label>
-              <select class="w-full border rounded px-2 py-1" name="status"></select>
-            </div>
-            <div>
-              <label class="block text-sm mb-1">Driver</label>
-              <input class="w-full border rounded px-2 py-1" name="driverName" placeholder="Type to search driver…" />
-              <input type="hidden" name="driverId" />
-              <div class="mt-1 border rounded hidden" data-driver-list></div>
-            </div>
-            <div>
-              <label class="block text-sm mb-1">Notes</label>
-              <textarea class="w-full border rounded px-2 py-1" name="notes" rows="3" placeholder="Optional"></textarea>
-            </div>
-            <div class="flex gap-2 pt-2">
-              <button type="button" class="btn-cancel border px-3 py-1 rounded">Cancel</button>
-              <button type="submit" class="btn-save bg-black text-white px-3 py-1 rounded disabled:opacity-50" disabled>Save</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    `;
-    const wrap = document.createElement("div");
-    wrap.innerHTML = html;
-    document.body.appendChild(wrap);
+  // ---- Elements ----
+  const el = {
+    drawer: document.getElementById("editOrderDrawer") || document.getElementById("editOrderModal"),
+    form: document.getElementById("editOrderForm"),
+    status: document.getElementById("editStatus"),
+    driverInput: document.getElementById("editDriverInput"),    // <input type="text">
+    driverList: document.getElementById("editDriverList"),      // <ul> or <div> suggestions
+    notes: document.getElementById("editNotes"),
+    saveBtn: document.getElementById("editSaveBtn"),
+    closeBtns: document.querySelectorAll("[data-edit-close]"),
+  };
 
-    drawer     = document.getElementById("ws-edit-drawer");
-    frm        = drawer.querySelector("form");
-    selStatus  = frm.querySelector('select[name="status"]');
-    inpDriver  = frm.querySelector('input[name="driverName"]');
-    hidDriverId= frm.querySelector('input[name="driverId"]');
-    taNotes    = frm.querySelector('textarea[name="notes"]');
-    btnSave    = frm.querySelector(".btn-save");
-    btnCancel  = frm.querySelector(".btn-cancel");
-    listBox    = frm.querySelector('[data-driver-list]');
+  // Guard if edit UI isn’t present on this page
+  if (!el.form || !el.status || !el.saveBtn) return;
 
-    // Build statuses
-    selStatus.innerHTML = ALLOWED.map(s => `<option value="${s}">${s}</option>`).join("");
+  // Ensure status options are normalized to ALLOWED_STATUSES/ should see the change
+  function ensureStatusOptions() {
+    const existing = new Set([...el.status.options].map(o => o.value));
+    let changed = false;
+    // Add missing
+    ALLOWED_STATUSES.forEach(s => {
+      if (!existing.has(s)) {
+        const opt = document.createElement("option");
+        opt.value = s;
+        opt.textContent = s;
+        el.status.appendChild(opt);
+        changed = true;
+      }
+    });
+    // Remove unknowns (keep current if unknown to avoid blocking legacy)
+    [...el.status.options].forEach(o => {
+      if (!ALLOWED_STATUSES.includes(o.value)) {
+        // If the current selected value is invalid, we’ll warn user instead of removing silently
+        if (o.selected) return;
+        o.remove();
+        changed = true;
+      }
+    });
+    return changed;
+  }
+  ensureStatusOptions();
 
-    // Events
-    drawer.querySelector(".ws-edit__backdrop").addEventListener("click", close);
-    btnCancel.addEventListener("click", (e) => { e.preventDefault(); close(); });
-    frm.addEventListener("submit", onSave);
-
-    // Driver live search
-    let t = null, lastQ = "";
-    inpDriver.addEventListener("input", () => {
-      const q = (inpDriver.value || "").trim();
-      if (q === lastQ) return;
-      lastQ = q;
-      hidDriverId.value = "";      // clear id if user started typing again
-      btnSave.disabled = false;    // allow save even without driver
-      if (t) clearTimeout(t);
-      if (!q) { listBox.classList.add("hidden"); listBox.innerHTML = ""; return; }
-      t = setTimeout(() => searchDrivers(q), 220);
+  function showDriverSuggestions(list) {
+    if (!el.driverList) return;
+    el.driverList.innerHTML = "";
+    if (!list || !list.length) {
+      const li = document.createElement("div");
+      li.className = "muted";
+      li.textContent = "No drivers found";
+      el.driverList.appendChild(li);
+      return;
+    }
+    list.forEach(u => {
+      const li = document.createElement("div");
+      li.className = "driver-suggestion";
+      li.setAttribute("data-driver-id", u.id);
+      li.setAttribute("tabindex", "0");
+      li.textContent = `${u.name || u.fullName || "Driver"} • ${u.phone || ""}`.trim();
+      li.addEventListener("click", () => {
+        EditState.selectedDriver = { id: u.id, name: u.name || u.fullName || "Driver", phone: u.phone || "" };
+        el.driverInput.value = `${EditState.selectedDriver.name} (${EditState.selectedDriver.phone})`;
+        // collapse list
+        if (el.driverList) el.driverList.innerHTML = "";
+      });
+      el.driverList.appendChild(li);
     });
   }
 
-  function open()  { ensureDrawer(); drawer.classList.remove("hidden"); }
-  function close() { drawer.classList.add("hidden"); listBox.classList.add("hidden"); listBox.innerHTML = ""; }
-
-  // --- State for edit session ---
-  const EditState = { orderId: null };
-
-  // Public API
-  window.openEditOrder = function(order) {
-    ensureDrawer();
-    EditState.orderId = order.id ?? order.orderNumber ?? String(order._id || "");
-    // Prefill
-    selStatus.value = ALLOWED.includes(order.status) ? order.status : "Pending";
-    taNotes.value = order.notes || "";
-    // Driver fields (fallbacks)
-    const dn = order.driverName || order.driver || "";
-    const did = order.driverId || order.driver_id || "";
-    inpDriver.value = dn;
-    hidDriverId.value = did;
-    btnSave.disabled = false;
-    open();
-  };
-
-  // --- Driver live query ---
-  async function searchDrivers(q) {
-    try {
-      listBox.innerHTML = `<div class="px-2 py-1 text-sm opacity-70">Searching…</div>`;
-      listBox.classList.remove("hidden");
-      const res = await fetch(`/api/admin/users?type=Driver&q=${encodeURIComponent(q)}`, {
-        credentials: "include"
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      const rows = (json.users || json.data || json || []).slice(0, 10);
-
-      if (!rows.length) {
-        listBox.innerHTML = `<div class="px-2 py-1 text-sm opacity-70">No drivers found</div>`;
-        return;
-      }
-
-      listBox.innerHTML = rows.map(u => `
-        <button type="button" data-id="${u.id}" data-name="${u.name || u.fullName || u.email || u.phone || "Driver"}"
-          class="w-full text-left px-2 py-1 hover:bg-gray-100">
-          ${(u.name || u.fullName || "Driver")} <span class="opacity-60 text-xs">${u.email || ""} ${u.phone || ""}</span>
-        </button>
-      `).join("");
-
-      // pick
-      listBox.querySelectorAll("button").forEach(b => {
-        b.addEventListener("click", () => {
-          hidDriverId.value = b.getAttribute("data-id");
-          inpDriver.value = b.getAttribute("data-name");
-          listBox.classList.add("hidden");
-          listBox.innerHTML = "";
-        });
-      });
-    } catch (err) {
-      listBox.innerHTML = `<div class="px-2 py-1 text-sm text-red-600">Driver lookup failed</div>`;
-      console.warn("[orders-edit] driver search error", err);
-    }
+  async function fetchDrivers(q) {
+    const url = new URL("/api/admin/users", location.origin);
+    url.searchParams.set("type", "Driver"); // API contract. 
+    if (q) url.searchParams.set("q", q);
+    const res = await fetch(url.toString(), { credentials: "same-origin" });
+    const data = await res.json().catch(() => ({}));
+    // Accept either {success:true, users:[...]} or a list directly (defensive)
+    const users = Array.isArray(data?.users) ? data.users : (Array.isArray(data) ? data : []);
+    EditState.driversCache = users.map(u => ({
+      id: u.id || u.userId || u._id,
+      name: u.name || u.fullName || u.email || "Driver",
+      phone: u.phone || "",
+      email: u.email || "",
+      type: u.type || u.role || "",
+    })).filter(u => u.id);
+    showDriverSuggestions(EditState.driversCache);
   }
 
-  // --- Save ---
-  async function onSave(e) {
-    e.preventDefault();
+  // Debounced live filter
+  function debouncedFetch() {
+    clearTimeout(EditState.debounceTimer);
+    EditState.debounceTimer = setTimeout(() => {
+      const q = (el.driverInput.value || "").trim();
+      fetchDrivers(q).catch(() => showDriverSuggestions([]));
+    }, 180);
+  }
+
+  el.driverInput?.addEventListener("input", () => {
+    EditState.selectedDriver = null; // typing invalidates previous pick
+    debouncedFetch();
+  });
+  el.driverInput?.addEventListener("focus", () => {
+    // On focus, if empty, fetch baseline list; else refilter
+    const q = (el.driverInput.value || "").trim();
+    fetchDrivers(q).catch(() => showDriverSuggestions([]));
+  });
+
+  // Exposed entry point: populate the edit drawer with an order row’s data
+  window.openEditOrder = function openEditOrder(order) {
+    // order: normalized shape from controller with .id, .status, .driverName, .driverId, .notes
+    EditState.orderId = order.id || order.orderNumber || null;
+    EditState.currentStatus = order.status || "Pending";
+    EditState.selectedDriver = order.driverId ? { id: order.driverId, name: order.driverName || "Driver" } : null;
+
+    ensureStatusOptions();
+    // Set current values
+    if (el.status) {
+      // If current status not allowed, keep value but show a warning
+      if (!ALLOWED_STATUSES.includes(EditState.currentStatus)) {
+        // append a temporary option so it remains visible, but block save later
+        let opt = [...el.status.options].find(o => o.value === EditState.currentStatus);
+        if (!opt) {
+          opt = document.createElement("option");
+          opt.value = EditState.currentStatus;
+          opt.textContent = `${EditState.currentStatus} (invalid)`;
+          el.status.appendChild(opt);
+        }
+      }
+      el.status.value = EditState.currentStatus;
+    }
+    if (el.notes) el.notes.value = order.notes || "";
+
+    if (el.driverInput) {
+      if (EditState.selectedDriver) {
+        el.driverInput.value = order.driverName ? `${order.driverName} (${order.driverPhone || ""})` : `Driver #${order.driverId}`;
+      } else {
+        el.driverInput.value = "";
+      }
+    }
+    if (el.driverList) el.driverList.innerHTML = "";
+
+    // show drawer/modal (CSS hook)
+    el.drawer?.classList.add("open");
+  };
+
+  // Save handler
+  el.form?.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
     if (!EditState.orderId) return;
 
-    const out = {
-      status: selStatus.value,
-      driverId: hidDriverId.value || null,
-      notes: (taNotes.value || "").trim()
-    };
+    const nextStatus = el.status.value;
+    const notes = (el.notes?.value || "").trim();
+    const driverId = EditState.selectedDriver?.id || null;
 
-    // Basic validation: block invalid statuses
-    if (!ALLOWED.includes(out.status)) {
-      alert("Invalid status");
+    // Block invalid status transitions client-side
+    if (!ALLOWED_STATUSES.includes(nextStatus)) {
+      alert(`Status "${nextStatus}" is not allowed. Allowed: ${ALLOWED_STATUSES.join(", ")}`);
       return;
     }
 
-    btnSave.disabled = true;
-
+    el.saveBtn.disabled = true;
     try {
+      // Unify single PATCH surface (controller adapts if server also supports PUT subpaths). 
       const res = await fetch(`/api/admin/orders/${encodeURIComponent(EditState.orderId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(out)
+        credentials: "same-origin",
+        body: JSON.stringify({ status: nextStatus, driverId, notes }),
       });
-
-      if (res.status === 403) {
-        alert("Admin only");
-        btnSave.disabled = false;
-        return;
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok || out?.success === false) {
+        throw new Error(out?.error?.message || out?.message || `Save failed (${res.status})`);
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      // Notify other modules + tabs
-      window.dispatchEvent(new CustomEvent("orders:updated", {
-        detail: { id: EditState.orderId, patch: out }
-      }));
-      try { localStorage.setItem("ordersUpdatedAt", String(Date.now())); } catch {}
+      // Update inline row in the table (delegate to controller if exposed)
+      if (window.AdminOrders && typeof window.AdminOrders.updateRowInline === "function") {
+        window.AdminOrders.updateRowInline(EditState.orderId, {
+          status: nextStatus,
+          driverId,
+          driverName: EditState.selectedDriver?.name || null,
+          notes,
+        });
+      }
 
-      // Inline row refresh if helper exists
+      // Step 6.4 customer reflection signals (already agreed in 6.4) 
       try {
-        if (window.AdminOrders?.updateRowInline) {
-          window.AdminOrders.updateRowInline(EditState.orderId, out);
-        }
-      } catch (err) { console.warn("updateRowInline failed:", err); }
+        localStorage.setItem("ordersUpdatedAt", String(Date.now()));
+        window.postMessage({ type: "orders-updated" }, "*");
+      } catch {}
 
-      close();
-    } catch (err) {
-      console.error("[orders-edit] save error:", err);
-      alert("Save failed");
-      btnSave.disabled = false;
+      // close drawer
+      el.drawer?.classList.remove("open");
+    } catch (e) {
+      alert(e.message || "Failed to save changes");
+    } finally {
+      el.saveBtn.disabled = false;
     }
-  }
+  });
+
+  // Close buttons
+  el.closeBtns.forEach(btn => btn.addEventListener("click", () => {
+    el.drawer?.classList.remove("open");
+  }));
 })();
