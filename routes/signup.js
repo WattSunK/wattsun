@@ -34,7 +34,7 @@ function getUserSchema(db, cb) {
   });
 }
 
-router.post("/signup", express.json(), (req, res) => {
+function handleSignup(req, res) {
   const { name, email, password, phone } = req.body || {};
   if (!name || !email || !password) {
     return res.status(400).json({ ok: false, error: "Missing name, email or password" });
@@ -76,9 +76,11 @@ router.post("/signup", express.json(), (req, res) => {
           if (schema.hasStatus){ fields.push("status"); marks.push("?"); vals.push("Active"); }
 
           if (schema.hasPasswordHash) {
-            fields.push("password_hash"); marks.push("?"); vals.push(hash ?? password); // last resort
+            fields.push("password_hash"); marks.push("?"); vals.push(hash ?? password);
           } else if (schema.hasPasswordPlain) {
             fields.push("password"); marks.push("?"); vals.push(password);
+          } else {
+            return res.status(400).json({ ok: false, error: "No password column in schema" });
           }
 
           if (schema.hasCreatedAt) {
@@ -102,6 +104,12 @@ router.post("/signup", express.json(), (req, res) => {
       );
     });
   });
-});
+}
+
+// Support BOTH mounts:
+//   app.use("/api/signup", require("./routes/signup"))
+//   app.use("/api",          require("./routes/signup"))
+router.post("/", express.json(), handleSignup);
+router.post("/signup", express.json(), handleSignup);
 
 module.exports = router;
