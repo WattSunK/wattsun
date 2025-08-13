@@ -1,4 +1,4 @@
-/* public/css/track.css — scoped styles for MyAccount Track */
+/* public/css/track.css — final smoke-test styling */
 main.account-section {
   max-width: 980px;
   margin: 18px auto;
@@ -9,7 +9,7 @@ main.account-section {
 }
 
 .account-section h1, .account-section h2 {
-  margin: 8px 0 14px;
+  margin: 8px 0 8px;
   font-weight: 700;
 }
 
@@ -18,39 +18,60 @@ main.account-section {
   font-size: 13px;
 }
 
+/* Breadcrumb / nav */
+.track-nav {
+  display: flex;
+  gap: 14px;
+  margin: 6px 0 10px;
+}
+.track-link {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  text-decoration: none;
+  color: #0f172a;
+  font-weight: 600;
+}
+.track-link:hover { background: #eef2f7; }
+
 /* Filters row */
 .track-filters {
   display: grid;
-  grid-template-columns: 1fr 180px auto;
+  grid-template-columns: 1fr 200px 140px;
   gap: 10px;
   align-items: end;
   margin-top: 10px;
 }
 
-.track-filters label {
-  font-weight: 600;
-  font-size: 14px;
-  margin-bottom: 6px;
-  display: block;
-}
-
-.track-filters input,
-.track-filters select {
+.track-input,
+.track-select {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid #d1d5db;
   border-radius: 10px;
+  background: #fff;
+  outline: none;
+}
+.track-input:focus,
+.track-select:focus {
+  border-color: #00b050;
+  box-shadow: 0 0 0 3px rgba(0,176,80,.15);
 }
 
-.track-filters button {
+.track-btn {
   padding: 10px 14px;
   border-radius: 10px;
   border: 1px solid #0f5132;
   background: #00b050;
   color: #fff;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
+  transition: transform .02s ease-in-out, opacity .2s ease-in-out;
 }
+.track-btn:hover { opacity: .95; }
+.track-btn:active { transform: translateY(1px); }
 
 /* Result card */
 #track-result {
@@ -76,7 +97,7 @@ main.account-section {
   font-size: 12px;
 }
 
-/* Help card gets same panel styling */
+/* Help card */
 .account-section.track-help {
   margin-top: 16px;
   background: #fff;
@@ -87,7 +108,6 @@ main.account-section {
 
 /* Mobile */
 @media (max-width: 720px) {
-  .track-filters {
-    grid-template-columns: 1fr;
-  }
+  .track-filters { grid-template-columns: 1fr; }
+  .track-nav { flex-wrap: wrap; gap: 8px; }
 }

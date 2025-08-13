@@ -1,9 +1,5 @@
-// public/admin/js/orders-edit.js
-// Enables Edit buttons, opens the modal, PATCHes changes, and emits Step 6.4 signals.
-// Tailored to /public/partials/orders.html which uses <tbody id="ordersTbody">.
-
+// public/admin/js/orders-edit.js — final (Step 6.4 + view/edit enable)
 (() => {
-  // --- Elements (required IDs) ---
   const modal     = document.getElementById('orderEditModal');
   const saveBtn   = document.getElementById('orderSaveBtn');
   const cancelBtn = document.getElementById('orderCancelBtn');
@@ -12,23 +8,20 @@
   const driverSel = document.getElementById('orderEditDriver');
   const notesEl   = document.getElementById('orderEditNotes');
 
-  const tbody     = document.getElementById('ordersTbody'); // ← matches orders.html
+  const tbody     = document.getElementById('ordersTbody');
 
-  // --- Helpers ---
   const loading = (on) => {
     if (!saveBtn) return;
     saveBtn.disabled = !!on;
     saveBtn.textContent = on ? 'Saving…' : 'Save';
   };
 
-  // 🔔 Step 6.4: broadcast to customers after admin saves
   function emitOrdersUpdated(orderId) {
     const ts = Date.now();
-    try { localStorage.setItem('ordersUpdatedAt', String(ts)); } catch (e) { /* ignore quota */ }
-    try { window.postMessage({ type: 'orders-updated', ts, orderId }, '*'); } catch (e) {}
+    try { localStorage.setItem('ordersUpdatedAt', String(ts)); } catch {}
+    try { window.postMessage({ type: 'orders-updated', ts, orderId }, '*'); } catch {}
   }
 
-  // Try to get an order from controller caches (varies by version)
   const getOrderFromCache = (id) => {
     if (window.ORDERS_BY_ID && window.ORDERS_BY_ID[id]) return window.ORDERS_BY_ID[id];
     if (Array.isArray(window.ORDERS)) {
@@ -49,47 +42,29 @@
     } catch { return null; }
   };
 
-  // --- Modal state ---
   let current = null;
-
   function openModalFor(order) {
     current = order || null;
     if (!current) return;
-
     if (statusSel) statusSel.value = current.status || 'Pending';
     if (driverSel) driverSel.value = current.driver_id ? String(current.driver_id) : '';
     if (notesEl)   notesEl.value   = current.notes || '';
-
-    if (modal) {
-      modal.style.display = 'block';
-      modal.removeAttribute('aria-hidden');
-    }
+    if (modal) { modal.style.display = 'block'; modal.removeAttribute('aria-hidden'); }
   }
-
   function closeModal() {
-    if (modal) {
-      modal.style.display = 'none';
-      modal.setAttribute('aria-hidden', 'true');
-    }
+    if (modal) { modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); }
     current = null;
   }
+  cancelBtn?.addEventListener('click', (e) => { e.preventDefault(); closeModal(); });
 
-  cancelBtn?.addEventListener('click', (e) => {
-    e.preventDefault();
-    closeModal();
-  });
-
-  // Save → PATCH
   saveBtn?.addEventListener('click', async (e) => {
     e.preventDefault();
     if (!current) return;
-
     const payload = {
       status:    statusSel?.value || 'Pending',
       driver_id: driverSel?.value ? Number(driverSel.value) : null,
       notes:     (notesEl?.value || '').trim()
     };
-
     try {
       loading(true);
       const res = await fetch(`/api/admin/orders/${encodeURIComponent(current.id)}`, {
@@ -102,15 +77,11 @@
         alert(`Failed to save order changes.\n${t || res.status}`);
         return;
       }
-
-      // Step 6.4 broadcast for customer reflection
       emitOrdersUpdated(current.id);
 
-      // Inline row refresh
       if (typeof window.refreshOrderRow === 'function') {
         window.refreshOrderRow(current.id, payload);
       } else {
-        // Fallback: update visible cells by common selectors
         const row = (
           tbody?.querySelector(`tr[data-oid="${String(current.id)}"]`) ||
           tbody?.querySelector(`button[data-oid="${String(current.id)}"]`)?.closest('tr') ||
@@ -120,7 +91,6 @@
           const statusCell = row.querySelector('[data-col="status"], .col-status');
           const driverCell = row.querySelector('[data-col="driver"], .col-driver');
           const notesCell  = row.querySelector('[data-col="notes"], .col-notes');
-
           if (statusCell) statusCell.textContent = payload.status;
           if (driverCell) {
             const driverName = payload.driver_id ? (driverSel?.selectedOptions?.[0]?.textContent || '') : '';
@@ -129,7 +99,6 @@
           if (notesCell)  notesCell.textContent = payload.notes || '';
         }
       }
-
       closeModal();
     } catch (err) {
       console.error(err);
@@ -139,34 +108,26 @@
     }
   });
 
-  // --- Enable Edit buttons + delegate clicks inside #ordersTbody ---
   document.addEventListener('DOMContentLoaded', () => {
     if (!tbody) return;
 
-    // 1) Re-enable any disabled Edit buttons (leftover from earlier state)
+    // Re-enable both View and Edit buttons just in case they were disabled server-side
     tbody
-      .querySelectorAll(
-        '.js-order-edit-btn[disabled], .order-edit-btn[disabled], [data-action="edit"][disabled]'
-      )
+      .querySelectorAll('.js-order-edit-btn[disabled], .order-edit-btn[disabled], [data-action="edit"][disabled], [data-action="view"][disabled], .js-order-view-btn[disabled], .order-view-btn[disabled]')
       .forEach(btn => btn.removeAttribute('disabled'));
 
-    // 2) Click delegation
+    // Delegate clicks for View and Edit
     tbody.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.js-order-edit-btn, .order-edit-btn, [data-action="edit"]');
+      const btn = e.target.closest('.js-order-edit-btn, .order-edit-btn, [data-action="edit"], .js-order-view-btn, .order-view-btn, [data-action="view"]');
       if (!btn) return;
 
-      // Get order id from button or row
       const row = btn.closest('tr');
       const oid =
         btn.dataset.oid ||
         btn.getAttribute('data-id') ||
         row?.dataset?.oid ||
-        ''; // we strongly prefer a data-oid
-
-      if (!oid) {
-        alert('Could not determine order id for editing. Please ensure rows/buttons include data-oid.');
-        return;
-      }
+        '';
+      if (!oid) { alert('Could not determine order id for this row.'); return; }
 
       let order = getOrderFromCache(oid);
       if (!order) order = await fetchOrderById(oid);
@@ -174,10 +135,8 @@
     });
   });
 
-  // Programmatic hook
   window.openOrderEdit = (order) => openModalFor(order);
 
-  // Provide a fallback refresh hook if controller didn’t define one
   if (typeof window.refreshOrderRow !== 'function') {
     window.refreshOrderRow = (id, patch = {}) => {
       const row = (
@@ -192,9 +151,7 @@
       }
       if ('driver_id' in patch) {
         const c = row.querySelector('[data-col="driver"], .col-driver');
-        if (c) {
-          c.textContent = patch.driver_id ? (driverSel?.selectedOptions?.[0]?.textContent || '') : '';
-        }
+        if (c) c.textContent = patch.driver_id ? (driverSel?.selectedOptions?.[0]?.textContent || '') : '';
       }
       if ('notes' in patch) {
         const c = row.querySelector('[data-col="notes"], .col-notes');

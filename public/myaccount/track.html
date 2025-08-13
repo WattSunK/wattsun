@@ -35,17 +35,22 @@
 
 <div class="account-section">
   <h2>Track Your WattSun Order</h2>
-  <p class="muted" id="lockNote" style="display:none;">Using your account phone number. To change it, update your profile.</p>
+  
+    <div class="track-nav">
+      <a class="track-link" href="/myaccount/myorders.html">← Back to My Orders</a>
+      <a class="track-link" href="/index.html">Home</a>
+    </div>
+    <p class="muted" id="lockNote" style="display:none;">Using your account phone number. To change it, update your profile.</p>
 
   <div class="track-filters" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-    <input id="track-phone" type="tel" placeholder="+254 7XX XXX XXX" style="flex:1;" pattern="^\\+\\d{10,15}$">
-    <select id="track-status" style="flex:1;min-width:200px;">
+    <input id="track-phone" type="tel" placeholder="+254 7XX XXX XXX" style="flex:1;" pattern="^\\+\\d{10,15}$" class="track-input">>
+    <select id="track-status" style="flex:1;min-width:200px;" class="track-select">>
       <option value="Pending">Pending</option>
       <option value="Processing">Processing</option>
       <option value="Delivered">Delivered</option>
       <option value="Cancelled">Cancelled</option>
     </select>
-    <button id="track-btn">Check Status</button>
+    <button id="track-btn" class="track-btn">>Check Status</button>
   </div>
 
   <div class="muted" id="orderBadge" style="margin-top:8px;display:none;">
@@ -56,7 +61,7 @@
   <div id="track-result" class="result-box" style="display:none;"></div>
 </div>
 
-<div class="account-section track-help">
+<div class="account-section">
   <h2>Need Help?</h2>
   <p><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></p>
   <p><a href="/contact.html">Contact Page</a></p>
@@ -69,98 +74,6 @@
   <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('nav').classList.toggle('nav-open')">☰</a>
 </footer>
 
-<script>
-/* tiny cart badge refresh */
-function updateCartCountBadge(){
-  let c=0; try{const cart=JSON.parse(localStorage.getItem("cart"))||[];c=cart.reduce((s,i)=>s+(i.quantity||1),0);}catch(e){}
-  const b=document.getElementById('cart-count'); if(b) b.textContent=c;
-}
-document.addEventListener('DOMContentLoaded', updateCartCountBadge);
-window.addEventListener('storage', updateCartCountBadge);
-
-/* ----- enhanced tracking logic (legacy look preserved) ----- */
-function getSession(){
-  try{
-    const raw=localStorage.getItem('wattsunUser')||localStorage.getItem('ws_user');
-    if(!raw) return {};
-    const o=JSON.parse(raw);
-    return o.user ? o.user : o;
-  }catch{ return {}; }
-}
-function qs(){ return new URLSearchParams(location.search); }
-
-async function runTrack({ phone, status, order, email }){
-  const box=document.getElementById('track-result');
-  box.style.display='none'; box.innerHTML='';
-  try{
-    const body={ phone, status };
-    if(order) body.order = order;
-    if(email) body.email = email; // background email for server fallback
-
-    const res=await fetch('/api/track',{
-      method:'POST',
-      headers:{'Content-Type':'application/json', 'X-WS-Email': email || ''},
-      body:JSON.stringify(body)
-    });
-
-    let data; try{ data=await res.json(); } catch{ data=[]; }
-    const list = Array.isArray(data) ? data : (data && Array.isArray(data.orders) ? data.orders : []);
-
-    if(!list.length){
-      box.innerHTML='<p>No orders found for this phone'+(status?' and status':'')+'.</p>';
-    }else{
-      box.innerHTML = list.map(o=>`
-        <p><strong>Order Number:</strong> ${o.orderNumber}</p>
-        <p><strong>Status:</strong> ${o.status||'Pending'}</p>
-        <p><strong>Last Updated:</strong> ${o.updatedAt?new Date(o.updatedAt).toLocaleString():'—'}</p>
-        <p><strong>Customer:</strong> ${o.fullName||'—'}</p>
-        <p><strong>Delivery Address:</strong> ${o.deliveryAddress||'—'}</p>
-        <p><strong>Payment Type:</strong> ${o.paymentType||'—'}</p>
-        <p><strong>Net Value:</strong> ${typeof o.total==='number' ? ('KSh '+o.total.toLocaleString('en-KE',{minimumFractionDigits:2})) : (o.total||'—')}</p>
-        <p><strong>Items:</strong><br>${(o.cart_summary||'').replaceAll('\\n','<br>')}</p>
-        <hr>`).join('');
-    }
-    box.style.display='block';
-  }catch(e){
-    box.innerHTML='<p>Something went wrong. Please try again.</p>'; box.style.display='block';
-  }
-}
-
-document.getElementById('track-btn').addEventListener('click', ()=>{
-  const phone = document.getElementById('track-phone').value.trim();
-  const status= document.getElementById('track-status').value;
-  const order = qs().get('order') || '';
-  const email = getSession().email || '';
-  if(!phone) return alert('Please enter your phone number.');
-  runTrack({ phone, status, order, email });
-});
-
-document.getElementById('clearOrder').addEventListener('click', ()=>{
-  const p=qs(); p.delete('order'); location.search=p.toString();
-});
-
-document.addEventListener('DOMContentLoaded', ()=>{
-  const sess = getSession();
-  const phone = sess.phone || '';
-  const email = sess.email || '';
-  const input = document.getElementById('track-phone');
-  const note  = document.getElementById('lockNote');
-
-  if(phone){ input.value=phone; input.readOnly=true; input.style.background='#fffbe6'; note.style.display='block'; }
-
-  const p=qs();
-  const status=p.get('status')||'Pending';
-  const order =p.get('order')||'';
-  document.getElementById('track-status').value=status;
-
-  if(order){
-    document.getElementById('orderPill').textContent=order;
-    document.getElementById('orderBadge').style.display='block';
-  }
-  if(phone && (order || true)){ // auto-run even without order if you want
-    runTrack({ phone, status, order, email });
-  }
-});
-</script>
+<script src="/public/js/track.js"></script>
 </body>
 </html>
