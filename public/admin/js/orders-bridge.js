@@ -1,44 +1,80 @@
-// public/admin/js/orders-bridge.js — strategy reset bridge for dashboard.html?css=v2#orders
-// Purpose: Work even if dashboard dynamically injects the orders table and disables buttons.
-(function(){
-  function enableAndBind(root){
-    if (!root) return;
-    // Re-enable any disabled view/edit buttons by common patterns
-    root.querySelectorAll(
-      '.js-order-edit-btn[disabled], .order-edit-btn[disabled], [data-action="edit"][disabled], ' +
-      '.js-order-view-btn[disabled], .order-view-btn[disabled], [data-action="view"][disabled]'
-    ).forEach(el => el.removeAttribute('disabled'));
+// public/admin/js/orders-bridge.js — ID-agnostic bridge
+(function () {
+  // Heuristic match for view/edit controls
+  const BTN_SEL = [
+    '[data-action="view"]',
+    '[data-action="edit"]',
+    '.order-view-btn',
+    '.order-edit-btn',
+    '.js-order-view-btn',
+    '.js-order-edit-btn',
+    'button[title*="View" i]',
+    'button[title*="Edit" i]',
+    'a[title*="View" i]',
+    'a[title*="Edit" i]'
+  ].join(',');
 
-    // Attach one delegated handler to the container, open modal via existing global (if present)
-    const sel = '.js-order-edit-btn, .order-edit-btn, [data-action="edit"], .js-order-view-btn, .order-view-btn, [data-action="view"]';
-    if (!root.__wsOrdersBound){
-      root.addEventListener('click', (e)=>{
-        const btn = e.target.closest(sel);
-        if (!btn) return;
-        const row = btn.closest('tr');
-        const oid = btn.dataset.oid || btn.getAttribute('data-id') || row?.dataset?.oid || row?.dataset?.id || '';
-        if (!oid) return alert('Could not find order id.');
-        if (typeof window.openOrderEdit === 'function'){
-          // Admin editor we ship
-          window.openOrderEdit({ id: oid });
-        } else if (typeof window.AdminOrders?.open === 'function'){
-          // If the dashboard exposes a handler
-          window.AdminOrders.open(oid);
-        } else {
-          // Fallback: try to simulate a click on any hidden modal trigger
-          const trigger = document.querySelector(`[data-open="order-edit"][data-oid="${oid}"]`);
-          if (trigger) trigger.click();
-        }
-      });
-      root.__wsOrdersBound = true;
+  // Try to extract an order id from attributes or visible text (e.g., WATT..., long numbers)
+  function getOrderIdFrom(btn) {
+    const row = btn.closest('tr');
+    const tryAttrs = (el) =>
+      el?.dataset?.oid || el?.dataset?.id || el?.getAttribute?.('data-oid') || el?.getAttribute?.('data-id') || '';
+
+    let oid = tryAttrs(btn) || tryAttrs(row) ||
+              row?.querySelector('[data-oid],[data-id]')?.dataset?.oid ||
+              row?.querySelector('[data-oid],[data-id]')?.dataset?.id || '';
+
+    if (!oid && row) {
+      const text = row.innerText || '';
+      const watt = text.match(/WATT[\w-]{6,}/i);
+      const longNum = text.match(/\b\d{8,}\b/);
+      oid = (watt && watt[0]) || (longNum && longNum[0]) || '';
     }
+    return String(oid).trim();
   }
 
-  function observe(){
-    const container = document.getElementById('ordersTbody')?.parentElement || document.getElementById('ordersTable') || document.body;
-    enableAndBind(container);
-    const mo = new MutationObserver(()=> enableAndBind(container));
-    mo.observe(container, { childList: true, subtree: true });
+  function enableButtons(root) {
+    root.querySelectorAll(`${BTN_SEL}[disabled]`).forEach(el => el.removeAttribute('disabled'));
   }
-  document.addEventListener('DOMContentLoaded', observe);
+
+  function bindClicks(root) {
+    if (root.__wsOrdersBridgeBound) return;
+    root.addEventListener('click', async (e) => {
+      const btn = e.target.closest(BTN_SEL);
+      if (!btn) return;
+
+      const oid = getOrderIdFrom(btn);
+      if (!oid) return alert('Could not determine order id for this row.');
+
+      // Prefer your existing editor if present
+      if (typeof window.openOrderEdit === 'function') {
+        window.openOrderEdit({ id: oid });
+        return;
+      }
+      if (window.AdminOrders?.open) {
+        window.AdminOrders.open(oid);
+        return;
+      }
+
+      // Last resort: try a hidden trigger or just show the id
+      const trigger = document.querySelector(`[data-open="order-edit"][data-oid="${oid}"]`);
+      if (trigger) trigger.click();
+      else alert(`Order ID: ${oid}`);
+    });
+    root.__wsOrdersBridgeBound = true;
+  }
+
+  function watch() {
+    const target = document.body; // ID-agnostic: observe the whole page
+    enableButtons(target);
+    bindClicks(target);
+
+    const mo = new MutationObserver(() => {
+      enableButtons(target);
+      // No rebind needed; we use a single delegated handler on body
+    });
+    mo.observe(target, { childList: true, subtree: true });
+  }
+
+  document.addEventListener('DOMContentLoaded', watch);
 })();
