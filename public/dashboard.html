@@ -152,15 +152,19 @@
     })();
   </script>
 
-  <!-- Admin Order Edit Modal (with Driver search+select) -->
+  <!-- Admin Order Edit Modal (Driver search+select + money + items) -->
   <style>
-    /* scoped to the modal to avoid global impact */
+    /* scope UI to the modal to avoid global CSS clashes */
     #orderEditModal .ws-grid { display:grid; grid-template-columns:140px 1fr; gap:10px; align-items:center; margin:8px 0; }
-    #orderEditModal .ws-card { width:min(720px,92vw); background:#fff; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.25); overflow:hidden; }
+    #orderEditModal .ws-card { width:min(820px,92vw); background:#fff; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.25); overflow:hidden; }
     #orderEditModal header, #orderEditModal footer { padding:12px 16px; }
     #orderEditModal header { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; }
     #orderEditModal footer { display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #eee; }
     #orderEditModal input, #orderEditModal select, #orderEditModal textarea { width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:10px; }
+    #orderEditModal .ws-money { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:12px 0; }
+    #orderEditModal .ws-money .box { background:#fafafa; border:1px solid #eee; border-radius:10px; padding:10px 12px; }
+    #orderEditModal table { width:100%; border-collapse:collapse; }
+    #orderEditModal th, #orderEditModal td { padding:8px 10px; border-bottom:1px solid #eee; text-align:left; }
     /* driver combobox */
     #orderEditDriverWrap { position:relative; }
     #orderEditDriverList { position:absolute; z-index:10000; top:100%; left:0; right:0; display:none; background:#fff; border:1px solid #e5e7eb; border-radius:10px; margin-top:6px; max-height:220px; overflow:auto; padding:6px 0; box-shadow:0 10px 20px rgba(0,0,0,.12); }
@@ -183,12 +187,12 @@
           <div class="ws-grid">
             <label>Order ID</label><input id="orderEditId" disabled>
           </div>
+
           <div class="ws-grid">
             <label>Status</label>
             <select id="orderEditStatus"></select>
           </div>
 
-          <!-- Driver search & select -->
           <div class="ws-grid">
             <label>Driver</label>
             <div id="orderEditDriverWrap">
@@ -204,6 +208,26 @@
           <div class="ws-grid" style="align-items:start;">
             <label>Notes</label>
             <textarea id="orderEditNotes" rows="3"></textarea>
+          </div>
+
+          <!-- Money summary -->
+          <div class="ws-money">
+            <div class="box"><div style="color:#6b7280">Total</div><div id="orderEditTotal">—</div></div>
+            <div class="box"><div style="color:#6b7280">Deposit</div><div id="orderEditDeposit">—</div></div>
+            <div class="box"><div style="color:#6b7280">Currency</div><div id="orderEditCurrency">KES</div></div>
+          </div>
+
+          <!-- Items -->
+          <div>
+            <div style="margin:6px 0 4px; font-weight:600;">Items</div>
+            <table>
+              <thead>
+                <tr><th>SKU</th><th>Name</th><th>Qty</th><th>Price</th></tr>
+              </thead>
+              <tbody id="orderEditItemsBody">
+                <tr><td colspan="4" style="text-align:center;color:#6b7280">Loading…</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
