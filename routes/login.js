@@ -3,19 +3,22 @@ const express = require("express");
 const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 
-let bcrypt;
-try { bcrypt = require("bcryptjs"); } catch { bcrypt = null; }
+let bcrypt; try { bcrypt = require("bcryptjs"); } catch { bcrypt = null; }
 
 const router = express.Router();
+router.use(express.json());
+router.use(express.urlencoded({ extended: true }));
 
-// Users DB (same for login/signup/reset)
 const DB_PATH =
   process.env.DB_PATH_USERS ||
   process.env.SQLITE_DB ||
   path.join(__dirname, "../data/dev/wattsun.dev.db");
 
-router.post("/login", express.json(), (req, res) => {
-  const { email, password } = req.body || {};
+router.post("/login", (req, res) => {
+  const body = req.body || {};
+  const email = (body.email ?? "").toString().trim().toLowerCase();
+  const password = (body.password ?? "").toString();
+
   if (!email || !password) return res.status(400).json({ ok:false, error:"Missing credentials" });
 
   const db = new sqlite3.Database(DB_PATH);
@@ -24,7 +27,7 @@ router.post("/login", express.json(), (req, res) => {
        FROM users
       WHERE LOWER(email)=LOWER(?)
       LIMIT 1`,
-    [String(email).trim()],
+    [email],
     (err, row) => {
       if (err) {
         console.error("[login] query error:", err);
@@ -32,14 +35,9 @@ router.post("/login", express.json(), (req, res) => {
       }
       if (!row) return res.status(401).json({ ok:false, error:"Invalid credentials" });
 
-      const hash = row.password_hash || null;
-
       let ok = false;
-      if (hash && bcrypt) {
-        try { ok = bcrypt.compareSync(password, hash); } catch { ok = false; }
-      } else {
-        // fallback only if your DB ever stored plain text (not present in your schema)
-        ok = false;
+      if (row.password_hash && bcrypt) {
+        try { ok = bcrypt.compareSync(password, row.password_hash); } catch { ok = false; }
       }
       if (!ok) return res.status(401).json({ ok:false, error:"Invalid credentials" });
 
