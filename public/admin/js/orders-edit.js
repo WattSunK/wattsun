@@ -36,7 +36,7 @@
   // Guard if edit UI isn’t present on this page
   if (!el.form || !el.status || !el.saveBtn) return;
 
-  // Ensure status options are normalized to ALLOWED_STATUSES
+  // Ensure status options are normalized to ALLOWED_STATUSES/ should see the change
   function ensureStatusOptions() {
     const existing = new Set([...el.status.options].map(o => o.value));
     let changed = false;
