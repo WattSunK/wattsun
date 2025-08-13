@@ -61,14 +61,13 @@
     </div>
   </div>
 
-   <!-- Adapter + controllers + loader (RELATIVE paths) -->
+  <!-- Adapter + controllers + loader (RELATIVE paths) -->
   <script src="./admin/js/data-adapter.js?v=3"></script>
   <script src="./admin/js/orders-controller.js?v=3" defer></script>
   <script src="./admin/js/orders-edit.js?v=3" defer></script>
   <script src="./admin/js/dashboard.js?v=3" defer></script>
 
-  
-<!-- Home / Logout -->
+  <!-- Home / Logout + initial partial loading -->
   <script>
     document.addEventListener('DOMContentLoaded', function(){
       var home = document.getElementById('adminHomeBtn');
@@ -80,14 +79,126 @@
         window.location.href = './index.html';
       });
 
-      // Load initial partial from hash; fall back to ORDERS so you see results immediately
-      if (!location.hash) {
-        const link = document.querySelector('a[data-partial="orders"]') || document.querySelector('a[data-partial="system-status"]');
+      // Load from hash if present; else default to Orders
+      var hash = (location.hash || '').replace('#','');
+      if (hash) {
+        var link = document.querySelector('a[data-partial="'+hash+'"]');
         if (link) link.click();
+      } else {
+        var link2 = document.querySelector('a[data-partial="orders"]') || document.querySelector('a[data-partial="system-status"]');
+        if (link2) link2.click();
       }
     });
   </script>
-  <script src="./admin/js/orders-bridge.js?v=1" defer></script>
 
+  <!-- Minimal binder: make "View"/"Edit" buttons open the existing modal -->
+  <script>
+    (function(){
+      const HOST = document.getElementById('adminContent') || document.body;
+      const COMPLEX_SEL = [
+        '[data-action="view"]','[data-action="edit"]',
+        '.order-view-btn','.order-edit-btn',
+        '.js-order-view-btn','.js-order-edit-btn',
+        'button[title*="View" i]','button[title*="Edit" i]',
+        'a[title*="View" i]','a[title*="Edit" i]'
+      ].join(',');
+
+      function isActionText(el){
+        const t = (el.textContent || '').trim().toLowerCase();
+        return t === 'view' || t === 'edit';
+      }
+      function getRowId(row){
+        if (!row) return '';
+        const dataId = row.dataset?.oid || row.dataset?.id;
+        if (dataId) return dataId;
+        const cell = row.querySelector('[data-col="order"], .col-order');
+        const textFromCell = (cell?.textContent || '').trim();
+        if (textFromCell) return textFromCell;
+        const txt = row.innerText || '';
+        const m1 = txt.match(/WATT[\w-]{6,}/i);
+        if (m1) return m1[0];
+        const m2 = txt.match(/\b\d{8,}\b/);
+        return m2 ? m2[0] : '';
+      }
+      function normalizeButtons(root){
+        root.querySelectorAll('a,button').forEach(el=>{
+          const t=(el.textContent||'').trim().toLowerCase();
+          if (t==='view' || t==='edit') {
+            el.removeAttribute('disabled');
+            el.removeAttribute('aria-disabled');
+            el.classList.remove('disabled','is-disabled');
+          }
+        });
+        root.querySelectorAll(COMPLEX_SEL).forEach(el=>{
+          el.removeAttribute('disabled'); el.removeAttribute('aria-disabled'); el.classList.remove('disabled','is-disabled');
+        });
+      }
+
+      function bind(){
+        if (HOST.__wsBound) return;
+        HOST.addEventListener('click', function(e){
+          const el = e.target.closest('a,button');
+          if (!el) return;
+          const matches = el.matches(COMPLEX_SEL) || isActionText(el);
+          if (!matches) return;
+          const row = el.closest('tr');
+          const id = getRowId(row);
+          if (!id) return;
+          if (typeof window.openOrderEdit === 'function') {
+            e.preventDefault();
+            window.openOrderEdit({ id });
+          }
+        }, true);
+
+        const mo = new MutationObserver(()=> normalizeButtons(HOST));
+        mo.observe(HOST, { childList:true, subtree:true });
+        normalizeButtons(HOST);
+        HOST.__wsBound = true;
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bind);
+      } else {
+        bind();
+      }
+    })();
+  </script>
+
+  <!-- Admin Order Edit Modal markup (used by orders-edit.js) -->
+  <div id="orderEditModal" style="display:none" aria-hidden="true" role="dialog" aria-modal="true">
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,.35);"></div>
+    <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;">
+      <div style="width:min(680px,92vw);background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden">
+        <header style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #eee">
+          <h3 style="margin:0">Edit Order</h3>
+          <button id="orderCancelBtn" class="btn btn-secondary" type="button">Close</button>
+        </header>
+
+        <div style="padding:12px 16px">
+          <div style="display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;margin:8px 0">
+            <label>Order ID</label><input id="orderEditId" disabled>
+          </div>
+          <div style="display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;margin:8px 0">
+            <label>Status</label>
+            <select id="orderEditStatus">
+              <option>Pending</option><option>Processing</option>
+              <option>Shipped</option><option>Delivered</option>
+              <option>Cancelled</option>
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;margin:8px 0">
+            <label>Driver ID</label><input id="orderEditDriver" placeholder="e.g. 12">
+          </div>
+          <div style="display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:start;margin:8px 0">
+            <label>Notes</label><textarea id="orderEditNotes" rows="3"></textarea>
+          </div>
+        </div>
+
+        <footer style="display:flex;justify-content:flex-end;gap:10px;padding:12px 16px;border-top:1px solid #eee">
+          <button id="orderSaveBtn" class="btn btn-primary" type="button">Save</button>
+        </footer>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
