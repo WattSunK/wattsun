@@ -1,17 +1,17 @@
 // public/admin/js/orders-controller.js
-// Admin Orders: client-side search, status filter & pagination.
-// View button shows a lightweight dialog (items if provided by API).
-// Edit button opens the edit drawer defined in orders-edit.js.
+// Admin Orders (rollback version): list/search/filter/pager + View + built-in Edit modal (no orders-edit.js required)
 
 (function () {
   "use strict";
 
+  // Data adapter must be present (set by your data adapter script)
   if (!window.WattSunAdminData) {
     console.warn("[OrdersController] WattSunAdminData missing");
     return;
   }
   const Data = window.WattSunAdminData;
 
+  // ---- Selectors ----
   const SEL = {
     table: "#ordersTable",
     tbody: "#ordersTbody",
@@ -21,18 +21,18 @@
     pager: "#ordersPager",
   };
 
+  // ---- tiny helpers ----
   const $ = (s, r = document) => r.querySelector(s);
   const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
   const debounce = (fn, ms) => {
     let t;
-    return (...a) => {
-      clearTimeout(t);
-      t = setTimeout(() => fn(...a), ms);
-    };
+    return (...a) => (clearTimeout(t), (t = setTimeout(() => fn(...a), ms)));
   };
 
+  // ---- State ----
   const State = { raw: [], view: [], page: 1, per: 10, q: "", status: "" };
 
+  // ---- Filters ----
   function applyFilters() {
     const q = (State.q || "").toLowerCase();
     const st = (State.status || "").toLowerCase();
@@ -40,12 +40,14 @@
 
     if (q) {
       arr = arr.filter((o) =>
-        [o.id, o.fullName, o.email, o.phone]
-          .some((v) => (v || "").toString().toLowerCase().includes(q))
+        [o.id, o.orderNumber, o.fullName, o.email, o.phone]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q))
       );
     }
-    if (st) arr = arr.filter((o) => (o.status || "").toLowerCase() === st);
+    if (st) arr = arr.filter((o) => String(o.status || "").toLowerCase() === st);
 
+    // newest first
     arr.sort(
       (a, b) =>
         (b.createdAt ? +new Date(b.createdAt) : 0) -
@@ -53,8 +55,8 @@
     );
 
     State.view = arr;
-    const maxPage = Math.max(1, Math.ceil(arr.length / State.per));
-    if (State.page > maxPage) State.page = 1;
+    const max = Math.max(1, Math.ceil(arr.length / State.per));
+    if (State.page > max) State.page = 1;
   }
 
   function fmtKES(n) {
@@ -65,10 +67,11 @@
         maximumFractionDigits: 0,
       }).format(n || 0);
     } catch {
-      return "KSH " + (n || 0).toLocaleString();
+      return "KSh " + (n || 0).toLocaleString();
     }
   }
 
+  // ---- Render ----
   function renderRows() {
     const tbody = $(SEL.tbody);
     if (!tbody) return;
@@ -77,9 +80,9 @@
     const end = start + State.per;
 
     const rows = State.view.slice(start, end).map((o) => {
-      const placed = o.createdAt ? new Date(o.createdAt).toLocaleString() : "";
-      const total = fmtKES(o.total || 0);
-      const id = o.id || "";
+      const id = o.id ?? o.orderNumber ?? "";
+      const placed = o.createdAt ? new Date(o.createdAt).toLocaleString() : "—";
+      const total = fmtKES(o.totalCents ? o.totalCents / 100 : o.total || 0);
       return `
         <tr data-oid="${id}">
           <td data-col="order">${id || "—"}</td>
@@ -98,8 +101,7 @@
     }).join("");
 
     tbody.innerHTML =
-      rows ||
-      `<tr><td colspan="8" style="text-align:center;padding:12px;">No orders found</td></tr>`;
+      rows || `<tr><td colspan="8" style="text-align:center;padding:12px;">No orders found</td></tr>`;
   }
 
   function renderPager() {
@@ -110,10 +112,10 @@
     const cur = Math.min(State.page, pages);
     State.page = cur;
 
-    const B = (n, l, d = false, a = false) =>
+    const B = (n, l, dis = false, curr = false) =>
       `<button type="button" class="pg-btn" data-page="${n}" ${
-        d ? "disabled" : ""
-      } ${a ? 'aria-current="page"' : ""}>${l}</button>`;
+        dis ? "disabled" : ""
+      } ${curr ? 'aria-current="page"' : ""}>${l}</button>`;
 
     let html = "";
     html += B(1, "«", cur === 1);
@@ -133,6 +135,106 @@
     el.innerHTML = html;
   }
 
+  // ---- Built-in Edit modal (rollback, no dependency on orders-edit.js) ----
+  const ALLOWED_STATUSES = ["Pending", "Processing", "Delivered", "Cancelled"]; // server 6.4 contract
+
+  function ensureEditModal() {
+    let dlg = document.getElementById("orderEditDialog");
+    if (dlg) return dlg;
+    dlg = document.createElement("dialog");
+    dlg.id = "orderEditDialog";
+    dlg.innerHTML = `
+      <form method="dialog" class="ws-order-edit" style="min-width:min(520px,95vw);border:none;padding:0;">
+        <div style="padding:16px 16px 0;">
+          <h3 style="margin:0 0 10px;">Edit Order</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label>Status</label>
+              <select id="oeStatus" required></select>
+            </div>
+            <div>
+              <label>Notes</label>
+              <textarea id="oeNotes" rows="2" placeholder="Optional"></textarea>
+            </div>
+          </div>
+        </div>
+        <div style="padding:12px 16px;display:flex;gap:8px;justify-content:flex-end;">
+          <button type="button" id="oeCancel" class="btn">Cancel</button>
+          <button type="submit" id="oeSave" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    `;
+    document.body.appendChild(dlg);
+    return dlg;
+  }
+
+  function openEdit(order) {
+    const dlg = ensureEditModal();
+    const statusSel = dlg.querySelector("#oeStatus");
+    const notesEl = dlg.querySelector("#oeNotes");
+    const btnCancel = dlg.querySelector("#oeCancel");
+    const form = dlg.querySelector("form");
+
+    // populate status options (server-accepted set from 6.4)
+    statusSel.innerHTML = ALLOWED_STATUSES.map(s => `<option value="${s}">${s}</option>`).join("");
+    statusSel.value = ALLOWED_STATUSES.includes(order.status) ? order.status : "Pending";
+    notesEl.value = order.notes || "";
+
+    const close = () => {
+      try { dlg.close(); } catch { dlg.removeAttribute("open"); }
+    };
+    btnCancel.onclick = (e) => { e.preventDefault(); close(); };
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const status = statusSel.value;
+      const notes = (notesEl.value || "").trim();
+
+      if (!ALLOWED_STATUSES.includes(status)) {
+        alert(`Invalid status "${status}". Allowed: ${ALLOWED_STATUSES.join(", ")}`);
+        return;
+      }
+
+      const btn = dlg.querySelector("#oeSave");
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/admin/orders/${encodeURIComponent(order.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ status, notes }),
+        });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok || out?.success === false) {
+          throw new Error(out?.error?.message || out?.message || `Save failed (${res.status})`);
+        }
+
+        // Inline update: status cell
+        const row = document.querySelector(`#ordersTbody tr[data-oid="${CSS.escape(String(order.id))}"]`);
+        const cell = row && row.querySelector('[data-col="status"]');
+        if (cell) cell.textContent = status;
+
+        // Notify controller data + reflection (6.4)
+        if (typeof window.refreshOrderRow === "function") {
+          window.refreshOrderRow(order.id, { status, notes });
+        }
+        try {
+          localStorage.setItem("ordersUpdatedAt", String(Date.now()));
+          window.postMessage({ type: "orders-updated" }, "*");
+        } catch {}
+
+        close();
+      } catch (err) {
+        alert(err.message || "Failed to save");
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    try { dlg.showModal(); } catch { dlg.setAttribute("open", "true"); }
+  }
+
+  // ---- Wire UI ----
   function wire() {
     const s = $(SEL.search),
       sa = $(SEL.statusA),
@@ -148,10 +250,10 @@
         applyFilters();
         renderRows();
         renderPager();
-      }, 200)
+      }, 180)
     );
 
-    const w = (el) =>
+    const bindStatus = (el) =>
       el &&
       on(el, "change", () => {
         State.status = (el.value || "").trim();
@@ -160,8 +262,8 @@
         renderRows();
         renderPager();
       });
-    w(sa);
-    w(sb);
+    bindStatus(sa);
+    bindStatus(sb);
 
     on(p, "click", (e) => {
       const b = e.target.closest("button.pg-btn");
@@ -181,22 +283,17 @@
       window.dispatchEvent(new CustomEvent("orders:view", { detail: { id } }));
     });
 
-    // Edit (single binding)
+    // Edit (rollback: open built-in modal)
     document.addEventListener("click", (e) => {
       const b = e.target.closest(".btn-edit");
       if (!b) return;
       const id = b.getAttribute("data-oid");
-      const o = State.raw.find((x) => String(x.id) === String(id));
-      if (o && typeof window.openEditOrder === "function") {
-        window.openEditOrder(o);
-      } else {
-        console.warn("[Orders] openEditOrder not available or order not found", { id, o });
-      }
+      const o = State.raw.find((x) => String(x.id ?? x.orderNumber) === String(id));
+      if (o) openEdit(o);
     });
   }
 
   async function fetchOnce() {
-    // Fetch many and paginate client-side for now
     const { orders } = await Data.orders.get({ page: 1, per: 10000 });
     State.raw = Array.isArray(orders) ? orders : [];
     State.page = 1;
@@ -220,7 +317,7 @@
     if (e?.detail?.name === "orders") auto();
   });
 
-  // -------- View dialog --------
+  // -------- View dialog (kept) --------
   function ensureViewModal() {
     let dlg = document.getElementById("orderViewDialog");
     if (dlg) return dlg;
@@ -243,12 +340,12 @@
         maximumFractionDigits: 0,
       }).format(n || 0);
     } catch {
-      return "KSH " + (n || 0).toLocaleString();
+      return "KSh " + (n || 0).toLocaleString();
     }
   }
   window.addEventListener("orders:view", (e) => {
     const id = e.detail?.id;
-    const o = State.raw.find((x) => String(x.id) === String(id));
+    const o = State.raw.find((x) => String(x.id ?? x.orderNumber) === String(id));
     if (!o) return;
     const dlg = ensureViewModal();
     const c = dlg.querySelector(".content");
@@ -262,7 +359,7 @@
       .join("");
     c.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-      <div><strong>Order #</strong><div>${o.id || "—"}</div></div>
+      <div><strong>Order #</strong><div>${o.id || o.orderNumber || "—"}</div></div>
       <div><strong>Status</strong><div>${o.status || "Pending"}</div></div>
       <div><strong>Customer</strong><div>${o.fullName || "—"}</div></div>
       <div><strong>Phone</strong><div>${o.phone || "—"}</div></div>
@@ -270,101 +367,25 @@
       <div><strong>Placed</strong><div>${
         o.createdAt ? new Date(o.createdAt).toLocaleString() : "—"
       }</div></div>
-      <div><strong>Total</strong><div>${fmtKESdlg(o.total || 0)}</div></div>
+      <div><strong>Total</strong><div>${fmtKESdlg(
+        o.totalCents ? o.totalCents / 100 : o.total || 0
+      )}</div></div>
     </div>
     <h4 style="margin:14px 0 6px;">Items</h4>
     <table style="width:100%;border-collapse:collapse;">
       <thead><tr><th>SKU</th><th>Name</th><th>Qty</th><th>Price</th></tr></thead>
       <tbody>${items || `<tr><td colspan="4">No items</td></tr>`}</tbody>
     </table>`;
-    try {
-      dlg.showModal();
-    } catch {
-      dlg.setAttribute("open", "true");
-    }
+    try { dlg.showModal(); } catch { dlg.setAttribute("open", "true"); }
   });
 
-  // Expose tiny hook so the edit dialog can update a row and re-render
+  // Legacy hook: used to keep State in sync if other scripts update an order
   window.refreshOrderRow = function (id, patch = {}) {
-    const idx = State.raw.findIndex((o) => String(o.id) === String(id));
+    const idx = State.raw.findIndex((o) => String(o.id ?? o.orderNumber) === String(id));
     if (idx === -1) return;
     State.raw[idx] = { ...State.raw[idx], ...patch };
     applyFilters();
     renderRows();
     renderPager();
   };
-})(); // end controller IIFE
-
-/* === Phase 6.5 append-only patch (safe at EOF) === */
-
-/* Admin client guard — only on /dashboard.html and only when we KNOW role != Admin */
-(() => {
-  if (!/\/dashboard\.html$/i.test(location.pathname)) return;
-
-  let sess = null;
-  try { sess = JSON.parse(localStorage.getItem("wattsunUser") || "null"); } catch {}
-
-  const role =
-    (sess && (sess.role || (sess.user && sess.user.role) || sess.type)) || "";
-  const norm = String(role).trim().toLowerCase();
-
-  // Redirect ONLY if we positively know the user is not an admin.
-  if (norm && norm !== "admin") {
-    location.replace("/myaccount/myorders.html");
-    return;
-  }
-  // If role missing/unknown, do nothing. Server still protects /api/admin/*.
-})();
-
-/* Unified statuses + badge renderer (only define if not already present) */
-const __ALLOWED_STATUSES__ = [
-  "Pending",
-  "Confirmed",
-  "Dispatched",
-  "Delivered",
-  "Closed",
-  "Cancelled",
-];
-
-if (typeof window.__orders_statusBadge !== "function") {
-  window.__orders_statusBadge = function statusBadge(s) {
-    const v = (s || "").trim();
-    const safe = __ALLOWED_STATUSES__.includes(v) ? v : "Pending";
-    const cls =
-      safe === "Pending"    ? "badge pending"    :
-      safe === "Confirmed"  ? "badge confirmed"  :
-      safe === "Dispatched" ? "badge dispatched" :
-      safe === "Delivered"  ? "badge delivered"  :
-      safe === "Closed"     ? "badge closed"     :
-      safe === "Cancelled"  ? "badge cancelled"  : "badge";
-    return `<span class="${cls}" data-status="${safe}">${safe}</span>`;
-  };
-}
-
-/* Inline row updater (used by orders-edit.js after PATCH) */
-window.AdminOrders = window.AdminOrders || {};
-if (typeof window.AdminOrders.updateRowInline !== "function") {
-  window.AdminOrders.updateRowInline = function updateRowInline(orderId, patch = {}) {
-    const tbody = document.getElementById("ordersTbody");
-    if (!tbody || !orderId) return;
-
-    const row = tbody.querySelector(`tr[data-oid="${CSS.escape(String(orderId))}"]`);
-    if (!row) return;
-
-    // Status cell
-    if (patch.status) {
-      const cell = row.querySelector('[data-col="status"]');
-      if (cell) {
-        const renderBadge = window.statusBadge || window.__orders_statusBadge;
-        cell.innerHTML =
-          typeof renderBadge === "function" ? renderBadge(patch.status) : (patch.status || "");
-      }
-    }
-
-    // Driver column (optional — if table adds data-col="driver")
-    if (Object.prototype.hasOwnProperty.call(patch, "driverName") || patch.driverId === null) {
-      const driverCell = row.querySelector('[data-col="driver"]');
-      if (driverCell) driverCell.textContent = patch.driverName ? patch.driverName : "—";
-    }
-  };
-}
+})(); // end main controller IIFE
