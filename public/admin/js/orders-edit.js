@@ -1,15 +1,14 @@
 // public/admin/js/orders-edit.js
-// Edit Order modal — surgical fix:
-// - Status options = backend-allowed (no "All").
-// - Hydrate amounts/items via GET /api/track?phone=&order= (if data exists).
-// - Driver combobox resets per open and queries admin users (type=Driver).
-// - Save = PATCH /api/admin/orders/:id with {status, driverId, notes} only.
-// - Inline row refresh + Step 6.4 broadcast.
+// Edit Order modal — surgical update for Phase 6.4:
+// - Status defaults to the clicked row’s real value (no “sticky” carry-over).
+// - Hydrate via GET /api/track?phone=&order= with safe phone variants.
+// - Driver combobox resets per open and queries /api/admin/users?type=Driver&q=.
+// - Save PATCHes {status, driverId, notes}; inline row refresh + Step 6.4 broadcast.
 
 (() => {
   "use strict";
 
-  // ---------- Elements in the existing modal ----------
+  // ---------- Modal elements ----------
   const modal       = document.getElementById("orderEditModal");
   const saveBtn     = document.getElementById("orderSaveBtn");
   const cancelBtn   = document.getElementById("orderCancelBtn");
@@ -33,9 +32,21 @@
   // Orders table (for reading row data + inline refresh)
   const ordersTbody = document.getElementById("ordersTbody");
 
-  // ---------- Constants ----------
-  const ALLOWED = ["Pending", "Processing", "Delivered", "Cancelled"]; // from backend route
-  // parse "KES 12,345" → 12345
+  // ---------- Constants / helpers ----------
+  const ALLOWED = ["Pending", "Processing", "Delivered", "Cancelled"]; // backend enum
+
+  const debounce = (fn, ms = 200) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+
+  function setSaving(on) {
+    if (!saveBtn) return;
+    saveBtn.disabled = !!on;
+    saveBtn.textContent = on ? "Saving…" : "Save";
+  }
+
+  function rowById(id) {
+    return ordersTbody?.querySelector(`tr[data-oid="${CSS.escape(String(id))}"]`);
+  }
+
   function parseKES(s) {
     if (typeof s === "number") return s;
     if (!s) return 0;
@@ -43,27 +54,19 @@
     const f = parseFloat(n);
     return Number.isFinite(f) ? f : 0;
   }
-  const debounce = (fn, ms = 200) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-  // ---------- Small helpers ----------
-  function setSaving(on) {
-    if (!saveBtn) return;
-    saveBtn.disabled = !!on;
-    saveBtn.textContent = on ? "Saving…" : "Save";
-  }
-  function rowById(id) {
-    return ordersTbody?.querySelector(`tr[data-oid="${CSS.escape(String(id))}"]`);
-  }
   function readRowFields(id) {
     const row = rowById(id);
     if (!row) return {};
-    const phone = row.querySelector('[data-col="phone"]')?.textContent?.trim() || "";
-    const email = row.querySelector('[data-col="email"]')?.textContent?.trim() || "";
+    const phone  = row.querySelector('[data-col="phone"]')?.textContent?.trim()  || "";
+    const email  = row.querySelector('[data-col="email"]')?.textContent?.trim()  || "";
     const status = row.querySelector('[data-col="status"]')?.textContent?.trim() || "Pending";
-    const totalCell = row.children?.[5]?.textContent || ""; // 6th column in orders-controller.js
+    const totalCell = row.children?.[5]?.textContent || ""; // matches orders table layout
     const total = parseKES(totalCell);
-    return { phone, email, status, total };
+    const driverName = row.querySelector('[data-col="driver"], .col-driver')?.textContent?.trim() || "";
+    return { phone, email, status, total, driverName };
   }
+
   function fillItemsTable(list, currency) {
     if (!itemsBody) return;
     itemsBody.innerHTML = "";
@@ -73,7 +76,7 @@
       return;
     }
     const fmt = (n) => {
-      try { return new Intl.NumberFormat(undefined, { style:"currency", currency: currency || "KES" }).format(Number(n||0)); }
+      try { return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "KES" }).format(Number(n||0)); }
       catch { return `${currency || "KES"} ${(Number(n||0)).toLocaleString()}`; }
     };
     for (const it of items) {
@@ -87,22 +90,38 @@
     }
   }
 
-  // ---------- Hydrate via Track (GET) ----------
+  // ---------- Track hydration (GET with phone variants) ----------
   async function hydrateFromTrack(orderId, phone, email) {
-    try {
-      const qs = new URLSearchParams();
-      if (phone) qs.set("phone", phone);
-      if (orderId) qs.set("order", String(orderId));
-      qs.set("page", "1"); qs.set("per", "5");
-      const res = await fetch(`/api/track?${qs.toString()}`, {
-        headers: email ? { "X-WS-Email": email } : undefined
-      });
-      const data = await res.json().catch(() => ({}));
-      const list = Array.isArray(data?.orders) ? data.orders : [];
-      if (!list.length) return null;
-      const hit = list.find(o => String(o.orderNumber || o.id) === String(orderId)) || list[0];
-      return hit || null;
-    } catch { return null; }
+    const variants = [];
+    if (phone) {
+      const p = String(phone).trim();
+      variants.push(p);                             // "+254722…"
+      variants.push(p.replace(/^\+/, ""));          // "254722…"
+      variants.push(p.replace(/^\+?254/, "0"));     // "07…"
+    }
+    const attempts = [];
+    for (const ph of variants) attempts.push({ ph, ord: orderId }); // exact order
+    for (const ph of variants) attempts.push({ ph, ord: null });    // phone-only
+    if (!variants.length) attempts.push({ ph: "", ord: orderId });  // last resort
+
+    for (const at of attempts) {
+      try {
+        const qs = new URLSearchParams();
+        if (at.ph)  qs.set("phone", at.ph);
+        if (at.ord) qs.set("order", String(at.ord));
+        qs.set("page", "1"); qs.set("per", "5");
+        const res = await fetch(`/api/track?${qs.toString()}`, {
+          headers: email ? { "X-WS-Email": email } : undefined
+        });
+        if (!res.ok) continue;
+        const data = await res.json().catch(() => ({}));
+        const list = Array.isArray(data?.orders) ? data.orders : [];
+        if (!list.length) continue;
+        const hit = list.find(o => String(o.orderNumber || o.id) === String(orderId)) || list[0];
+        if (hit) return hit;
+      } catch { /* try next */ }
+    }
+    return null;
   }
 
   // ---------- Drivers ----------
@@ -114,11 +133,13 @@
       return Array.isArray(data?.users) ? data.users : [];
     } catch { return []; }
   }
+
   function resetDriver(id = "", name = "") {
     if (driverIdH) driverIdH.value = id ? String(id) : "";
     if (driverInp) driverInp.value = name || "";
     if (driverList) driverList.innerHTML = "";
   }
+
   function wireDriverCombo() {
     if (!driverInp || !driverList) return;
     const render = (arr) => {
@@ -148,42 +169,43 @@
     });
     driverClear?.addEventListener("click", (e) => { e.preventDefault(); resetDriver(); driverList.style.display = "none"; });
   }
+  wireDriverCombo(); // one-time wire
 
-  // ---------- Modal open/close ----------
+  // ---------- Modal lifecycle ----------
   let currentId = null;
 
   function buildStatusOptions(current) {
     if (!statusSel) return;
-    const prev = statusSel.value;
     statusSel.innerHTML = "";
     for (const s of ALLOWED) {
       const opt = document.createElement("option");
       opt.value = s; opt.textContent = s;
       statusSel.appendChild(opt);
     }
-    // pick a valid status
-    const toSelect = ALLOWED.includes(current) ? current : (ALLOWED.includes(prev) ? prev : "Pending");
+    const toSelect = ALLOWED.includes(current) ? current : "Pending";
     statusSel.value = toSelect;
   }
 
-  async function openModal({ id }) {
+  async function openModal(orderLike) {
+    const id = orderLike?.id || orderLike?.orderNumber;
     if (!id) return alert("Missing order id");
     currentId = id;
+
     if (idInput) idInput.value = id;
 
-    // read phone/email/status/total from the row
-    const row = readRowFields(id);
-    buildStatusOptions(row.status);            // exclude "All"
-    resetDriver();                             // clear any previous driver selection
-    if (notesEl) notesEl.value = "";           // start fresh
+    // Seed from the row (real values for this order)
+    buildStatusOptions(orderLike.status);           // <-- fixes sticky status
+    resetDriver("", orderLike.driverName || "");    // clear/reset driver each open
 
-    // seed money fields from the row (display-only; backend doesn't persist money yet)
+    const row = readRowFields(id);
+
+    // Money fields are display-only in this phase
     if (totalInp)   totalInp.value   = String(row.total || 0);
     if (depositInp) depositInp.value = String(depositInp.value || 0);
     if (currInp)    currInp.value    = currInp.value || "KES";
 
-    // try to hydrate items + better totals from Track
-    const fromTrack = await hydrateFromTrack(id, row.phone, row.email);
+    // Try to hydrate better totals/items via Track
+    const fromTrack = await hydrateFromTrack(id, orderLike.phone || row.phone, orderLike.email || row.email);
     if (fromTrack) {
       if (typeof fromTrack.total === "number" && totalInp) totalInp.value = String(fromTrack.total);
       if (fromTrack.currency && currInp) currInp.value = fromTrack.currency;
@@ -223,19 +245,15 @@
         throw new Error(msg);
       }
 
-      // inline table refresh via controller hook
+      // inline table refresh via controller hook when available
       if (typeof window.refreshOrderRow === "function") {
-        window.refreshOrderRow(currentId, {
-          status,
-          // note: the list doesn’t show notes/driver by default, but keep for future columns
-        });
+        window.refreshOrderRow(currentId, { status });
       } else {
-        // fallback: update the visible cell
         const row = rowById(currentId);
         row?.querySelector('[data-col="status"]')?.replaceChildren(document.createTextNode(status));
       }
 
-      // Step 6.4 broadcast (customer reflection)
+      // Step 6.4 broadcast
       try {
         localStorage.setItem("ordersUpdatedAt", String(Date.now()));
         window.postMessage({ type: "orders-updated", orderId: currentId }, "*");
@@ -252,8 +270,41 @@
 
   saveBtn?.addEventListener("click", (e) => { e.preventDefault(); doSave(); });
 
-  // ---------- Binder (hooked by orders-bridge.js) ----------
+  // ---------- Click binder (status comes from the clicked row) ----------
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest('[data-action="edit-order"]');
+    if (!btn) return;
+
+    e.preventDefault();
+
+    const oid   = btn.getAttribute("data-oid")   || "";
+    const phone = btn.getAttribute("data-phone") || "";
+    const email = btn.getAttribute("data-email") || "";
+
+    const tr = btn.closest("tr");
+    const statusText =
+      tr?.querySelector('[data-col="status"], .col-status')?.textContent?.trim() || "";
+    const driverName =
+      tr?.querySelector('[data-col="driver"], .col-driver')?.textContent?.trim() || "";
+
+    const orderLike = {
+      id: oid,
+      orderNumber: oid,
+      phone,
+      email,
+      status: statusText,   // <-- pass real row status
+      driverName           // (display only)
+    };
+
+    if (typeof window.openOrderEdit === "function") {
+      window.openOrderEdit(orderLike);
+    } else {
+      openModal(orderLike);
+    }
+  });
+
+  // expose programmatic hook if needed
   if (typeof window.openOrderEdit !== "function") {
-    window.openOrderEdit = (orderLike) => openModal(orderLike || {});
+    window.openOrderEdit = (order) => openModal(order || {});
   }
 })();
