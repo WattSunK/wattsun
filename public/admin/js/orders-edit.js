@@ -1,4 +1,4 @@
-// public/admin/js/orders-edit.js — final (Step 6.4 + view/edit enable)
+// public/admin/js/orders-edit.js — hotfix with MutationObserver (Step 6.4 + robust view/edit)
 (() => {
   const modal     = document.getElementById('orderEditModal');
   const saveBtn   = document.getElementById('orderSaveBtn');
@@ -8,13 +8,9 @@
   const driverSel = document.getElementById('orderEditDriver');
   const notesEl   = document.getElementById('orderEditNotes');
 
-  const tbody     = document.getElementById('ordersTbody');
+  const tbody     = document.getElementById('ordersTbody') || document.querySelector('tbody#ordersTbody') || document.querySelector('#ordersTable tbody');
 
-  const loading = (on) => {
-    if (!saveBtn) return;
-    saveBtn.disabled = !!on;
-    saveBtn.textContent = on ? 'Saving…' : 'Save';
-  };
+  const loading = (on) => { if (saveBtn) { saveBtn.disabled = !!on; saveBtn.textContent = on ? 'Saving…' : 'Save'; } };
 
   function emitOrdersUpdated(orderId) {
     const ts = Date.now();
@@ -81,23 +77,6 @@
 
       if (typeof window.refreshOrderRow === 'function') {
         window.refreshOrderRow(current.id, payload);
-      } else {
-        const row = (
-          tbody?.querySelector(`tr[data-oid="${String(current.id)}"]`) ||
-          tbody?.querySelector(`button[data-oid="${String(current.id)}"]`)?.closest('tr') ||
-          null
-        );
-        if (row) {
-          const statusCell = row.querySelector('[data-col="status"], .col-status');
-          const driverCell = row.querySelector('[data-col="driver"], .col-driver');
-          const notesCell  = row.querySelector('[data-col="notes"], .col-notes');
-          if (statusCell) statusCell.textContent = payload.status;
-          if (driverCell) {
-            const driverName = payload.driver_id ? (driverSel?.selectedOptions?.[0]?.textContent || '') : '';
-            driverCell.textContent = driverName;
-          }
-          if (notesCell)  notesCell.textContent = payload.notes || '';
-        }
       }
       closeModal();
     } catch (err) {
@@ -108,55 +87,40 @@
     }
   });
 
-  document.addEventListener('DOMContentLoaded', () => {
-    if (!tbody) return;
+  function enableButtonsAndBind(root){
+    if (!root) return;
+    // Re-enable buttons (view + edit)
+    root.querySelectorAll(
+      '.js-order-edit-btn[disabled], .order-edit-btn[disabled], [data-action="edit"][disabled], ' +
+      '.js-order-view-btn[disabled], .order-view-btn[disabled], [data-action="view"][disabled]'
+    ).forEach(btn => btn.removeAttribute('disabled'));
 
-    // Re-enable both View and Edit buttons just in case they were disabled server-side
-    tbody
-      .querySelectorAll('.js-order-edit-btn[disabled], .order-edit-btn[disabled], [data-action="edit"][disabled], [data-action="view"][disabled], .js-order-view-btn[disabled], .order-view-btn[disabled]')
-      .forEach(btn => btn.removeAttribute('disabled'));
-
-    // Delegate clicks for View and Edit
-    tbody.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.js-order-edit-btn, .order-edit-btn, [data-action="edit"], .js-order-view-btn, .order-view-btn, [data-action="view"]');
+    // Delegate clicks
+    root.addEventListener?.('click', async (e) => {
+      const sel = '.js-order-edit-btn, .order-edit-btn, [data-action="edit"], .js-order-view-btn, .order-view-btn, [data-action="view"]';
+      const btn = e.target.closest?.(sel);
       if (!btn) return;
-
       const row = btn.closest('tr');
-      const oid =
-        btn.dataset.oid ||
-        btn.getAttribute('data-id') ||
-        row?.dataset?.oid ||
-        '';
+      const oid = btn.dataset.oid || btn.getAttribute('data-id') || row?.dataset?.oid || '';
       if (!oid) { alert('Could not determine order id for this row.'); return; }
-
       let order = getOrderFromCache(oid);
       if (!order) order = await fetchOrderById(oid);
       openModalFor(order || { id: oid });
     });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Initial enable/bind
+    if (tbody) enableButtonsAndBind(tbody);
+
+    // MutationObserver to catch table redraws
+    const table = document.getElementById('ordersTable') || tbody?.closest('table') || document.getElementById('orders');
+    const target = table || tbody || document.body;
+    const mo = new MutationObserver(() => {
+      enableButtonsAndBind(target);
+    });
+    mo.observe(target, { childList: true, subtree: true });
   });
 
   window.openOrderEdit = (order) => openModalFor(order);
-
-  if (typeof window.refreshOrderRow !== 'function') {
-    window.refreshOrderRow = (id, patch = {}) => {
-      const row = (
-        tbody?.querySelector(`tr[data-oid="${String(id)}"]`) ||
-        tbody?.querySelector(`button[data-oid="${String(id)}"]`)?.closest('tr') ||
-        null
-      );
-      if (!row) return;
-      if (patch.status) {
-        const c = row.querySelector('[data-col="status"], .col-status');
-        if (c) c.textContent = patch.status;
-      }
-      if ('driver_id' in patch) {
-        const c = row.querySelector('[data-col="driver"], .col-driver');
-        if (c) c.textContent = patch.driver_id ? (driverSel?.selectedOptions?.[0]?.textContent || '') : '';
-      }
-      if ('notes' in patch) {
-        const c = row.querySelector('[data-col="notes"], .col-notes');
-        if (c) c.textContent = patch.notes || '';
-      }
-    };
-  }
 })();
