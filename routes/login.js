@@ -1,104 +1,58 @@
-// routes/login.js (debug-enhanced)
+// routes/login.js
 const express = require("express");
 const path = require("path");
-const bcrypt = require("bcrypt");
 const sqlite3 = require("sqlite3").verbose();
 
+let bcrypt;
+try { bcrypt = require("bcryptjs"); } catch { bcrypt = null; }
+
 const router = express.Router();
-const dbPath = process.env.DB_PATH_USERS || path.resolve(__dirname, "../inventory.db");
-console.log("[DEBUG] Using DB file:", dbPath);  // startup DB path
-const db = new sqlite3.Database(dbPath);
 
-const AUTH_DEBUG = process.env.WS_AUTH_DEBUG === "1";
+// Users DB (same for login/signup/reset)
+const DB_PATH =
+  process.env.DB_PATH_USERS ||
+  process.env.SQLITE_DB ||
+  path.join(__dirname, "../data/dev/wattsun.dev.db");
 
-// Normalize phone consistently
-function normalizePhone(phone) {
-  if (!phone) return "";
-  let p = String(phone).trim().replace(/\s+/g, "");
-  if (p.startsWith("0")) p = p.slice(1);
-  if (!p.startsWith("+254")) p = p.startsWith("254") ? ("+" + p) : ("+254" + p);
-  return p;
-}
+router.post("/login", express.json(), (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) return res.status(400).json({ ok:false, error:"Missing credentials" });
 
-// POST /api/login
-router.post("/login", (req, res) => {
-  console.log("[DEBUG] Login attempt DB file:", dbPath);
-  const b = req.body || {};
-  console.log("[DEBUG] Incoming email from frontend:", b.email);
-
-  // Accept lots of possible field names from the client
-  const candidates = [
-    b.email, b.phone, b.identity, b.username, b.login, b.loginEmail, b.user
-  ].filter(v => v != null && String(v).trim() !== "");
-
-  if (candidates.length === 0 || !b.password) {
-    return res.status(400).json({ error: "Email/phone and password required" });
-  }
-
-  // Prefer the first non-empty value as "identity"
-  const identityRaw = String(candidates[0]).trim();
-  const looksLikeEmail = identityRaw.includes("@");
-  const normEmail = identityRaw.toLowerCase();
-  const normPhone = normalizePhone(identityRaw);
-
-  if (AUTH_DEBUG) {
-    console.log("[login] identityRaw=", identityRaw,
-      "looksLikeEmail=", looksLikeEmail,
-      "normEmail=", normEmail,
-      "normPhone=", normPhone);
-  }
-
-  // We’ll try a robust lookup that covers both
-  const sql = `
-    SELECT id, name, email, phone, type, password_hash, status
-    FROM users
-    WHERE lower(email) = lower(?)
-       OR phone = ?
-    LIMIT 1
-  `;
-
-  db.get(sql, [normEmail, normPhone], async (err, row) => {
-    if (err) {
-      console.error("[DEBUG] DB error:", err);
-      if (AUTH_DEBUG) console.error("[login] DB error:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
-
-    console.log("[DEBUG] DB returned user:", row);
-
-    if (!row) {
-      if (AUTH_DEBUG) console.log("[login] no user found");
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    try {
-      // Log the hash we are comparing (shortened)
-      const shortHash = String(row.password_hash || "").slice(0, 40);
-      console.log("[DEBUG] Comparing password against hash prefix:", shortHash + (String(row.password_hash || "").length > 40 ? '...' : ''));
-
-      const ok = await bcrypt.compare(String(b.password), row.password_hash || "");
-      console.log("[DEBUG] Password compare result:", ok);
-
-      if (!ok) {
-        if (AUTH_DEBUG) console.log("[login] password mismatch for user id", row.id);
-        return res.status(401).json({ error: "Invalid credentials" });
+  const db = new sqlite3.Database(DB_PATH);
+  db.get(
+    `SELECT id,name,email,phone,type,status,password_hash
+       FROM users
+      WHERE LOWER(email)=LOWER(?)
+      LIMIT 1`,
+    [String(email).trim()],
+    (err, row) => {
+      if (err) {
+        console.error("[login] query error:", err);
+        return res.status(500).json({ ok:false, error:"Database error" });
       }
+      if (!row) return res.status(401).json({ ok:false, error:"Invalid credentials" });
 
-      // Optional: extra status checks (log them)
-      if (row.status && String(row.status).toLowerCase() !== 'active') {
-        console.log('[DEBUG] User status blocks login:', row.status);
-        return res.status(403).json({ error: 'Account not active' });
+      const hash = row.password_hash || null;
+
+      let ok = false;
+      if (hash && bcrypt) {
+        try { ok = bcrypt.compareSync(password, hash); } catch { ok = false; }
+      } else {
+        // fallback only if your DB ever stored plain text (not present in your schema)
+        ok = false;
       }
+      if (!ok) return res.status(401).json({ ok:false, error:"Invalid credentials" });
 
-      const { password_hash, ...user } = row;
-      if (AUTH_DEBUG) console.log("[login] success user id", row.id);
-      return res.json({ success: true, user });
-    } catch (e) {
-      if (AUTH_DEBUG) console.error("[login] bcrypt error:", e);
-      console.error('[DEBUG] Auth error during bcrypt compare', e);
-      return res.status(500).json({ error: "Auth error" });
+      try {
+        req.session.user = {
+          id: row.id, name: row.name, email: row.email,
+          phone: row.phone, type: row.type, status: row.status
+        };
+      } catch (e) { console.warn("[login] session set failed:", e); }
+
+      return res.json({ ok:true, user: req.session.user || null });
     }
-  });
+  );
 });
 
 module.exports = router;
