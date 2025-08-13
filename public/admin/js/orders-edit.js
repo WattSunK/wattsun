@@ -1,225 +1,310 @@
 // public/admin/js/orders-edit.js
-// Phase 6.5 — polish: driver live filter, status guard, emit reflection signals
+// Edit Order modal — surgical update for Phase 6.4:
+// - Status defaults to the clicked row’s real value (no “sticky” carry-over).
+// - Hydrate via GET /api/track?phone=&order= with safe phone variants.
+// - Driver combobox resets per open and queries /api/admin/users?type=Driver&q=.
+// - Save PATCHes {status, driverId, notes}; inline row refresh + Step 6.4 broadcast.
 
 (() => {
-  // ---- Constants ----
-  const ALLOWED_STATUSES = [
-    "Pending",
-    "Confirmed",
-    "Dispatched",
-    "Delivered",
-    "Closed",
-    "Cancelled",
-  ]; // from ADR-001. 
+  "use strict";
 
-  // ---- State (scoped to the Edit Drawer/Modal) ----
-  const EditState = {
-    orderId: null,
-    currentStatus: null,
-    selectedDriver: null, // { id, name, email, phone } or null
-    driversCache: [],     // last results
-    debounceTimer: null,
-  };
+  // ---------- Modal elements ----------
+  const modal       = document.getElementById("orderEditModal");
+  const saveBtn     = document.getElementById("orderSaveBtn");
+  const cancelBtn   = document.getElementById("orderCancelBtn");
 
-  // ---- Elements ----
-  const el = {
-    drawer: document.getElementById("editOrderDrawer") || document.getElementById("editOrderModal"),
-    form: document.getElementById("editOrderForm"),
-    status: document.getElementById("editStatus"),
-    driverInput: document.getElementById("editDriverInput"),    // <input type="text">
-    driverList: document.getElementById("editDriverList"),      // <ul> or <div> suggestions
-    notes: document.getElementById("editNotes"),
-    saveBtn: document.getElementById("editSaveBtn"),
-    closeBtns: document.querySelectorAll("[data-edit-close]"),
-  };
+  const idInput     = document.getElementById("orderEditId");
+  const statusSel   = document.getElementById("orderEditStatus");
 
-  // Guard if edit UI isn’t present on this page
-  if (!el.form || !el.status || !el.saveBtn) return;
+  const driverIdH   = document.getElementById("orderEditDriverId");
+  const driverInp   = document.getElementById("orderEditDriverInput");
+  const driverList  = document.getElementById("orderEditDriverList");
+  const driverClear = document.getElementById("orderEditDriverClear");
 
-  // Ensure status options are normalized to ALLOWED_STATUSES/ should see the change
-  function ensureStatusOptions() {
-    const existing = new Set([...el.status.options].map(o => o.value));
-    let changed = false;
-    // Add missing
-    ALLOWED_STATUSES.forEach(s => {
-      if (!existing.has(s)) {
-        const opt = document.createElement("option");
-        opt.value = s;
-        opt.textContent = s;
-        el.status.appendChild(opt);
-        changed = true;
-      }
-    });
-    // Remove unknowns (keep current if unknown to avoid blocking legacy)
-    [...el.status.options].forEach(o => {
-      if (!ALLOWED_STATUSES.includes(o.value)) {
-        // If the current selected value is invalid, we’ll warn user instead of removing silently
-        if (o.selected) return;
-        o.remove();
-        changed = true;
-      }
-    });
-    return changed;
+  const notesEl     = document.getElementById("orderEditNotes");
+
+  const totalInp    = document.getElementById("orderEditTotalInput");
+  const depositInp  = document.getElementById("orderEditDepositInput");
+  const currInp     = document.getElementById("orderEditCurrencyInput");
+
+  const itemsBody   = document.getElementById("orderEditItemsBody");
+
+  // Orders table (for reading row data + inline refresh)
+  const ordersTbody = document.getElementById("ordersTbody");
+
+  // ---------- Constants / helpers ----------
+  const ALLOWED = ["Pending", "Processing", "Delivered", "Cancelled"]; // backend enum
+
+  const debounce = (fn, ms = 200) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+
+  function setSaving(on) {
+    if (!saveBtn) return;
+    saveBtn.disabled = !!on;
+    saveBtn.textContent = on ? "Saving…" : "Save";
   }
-  ensureStatusOptions();
 
-  function showDriverSuggestions(list) {
-    if (!el.driverList) return;
-    el.driverList.innerHTML = "";
-    if (!list || !list.length) {
-      const li = document.createElement("div");
-      li.className = "muted";
-      li.textContent = "No drivers found";
-      el.driverList.appendChild(li);
+  function rowById(id) {
+    return ordersTbody?.querySelector(`tr[data-oid="${CSS.escape(String(id))}"]`);
+  }
+
+  function parseKES(s) {
+    if (typeof s === "number") return s;
+    if (!s) return 0;
+    const n = String(s).replace(/[^\d.,-]/g, "").replace(/,/g, "");
+    const f = parseFloat(n);
+    return Number.isFinite(f) ? f : 0;
+  }
+
+  function readRowFields(id) {
+    const row = rowById(id);
+    if (!row) return {};
+    const phone  = row.querySelector('[data-col="phone"]')?.textContent?.trim()  || "";
+    const email  = row.querySelector('[data-col="email"]')?.textContent?.trim()  || "";
+    const status = row.querySelector('[data-col="status"]')?.textContent?.trim() || "Pending";
+    const totalCell = row.children?.[5]?.textContent || ""; // matches orders table layout
+    const total = parseKES(totalCell);
+    const driverName = row.querySelector('[data-col="driver"], .col-driver')?.textContent?.trim() || "";
+    return { phone, email, status, total, driverName };
+  }
+
+  function fillItemsTable(list, currency) {
+    if (!itemsBody) return;
+    itemsBody.innerHTML = "";
+    const items = Array.isArray(list) ? list : [];
+    if (!items.length) {
+      itemsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#6b7280">No items</td></tr>`;
       return;
     }
-    list.forEach(u => {
-      const li = document.createElement("div");
-      li.className = "driver-suggestion";
-      li.setAttribute("data-driver-id", u.id);
-      li.setAttribute("tabindex", "0");
-      li.textContent = `${u.name || u.fullName || "Driver"} • ${u.phone || ""}`.trim();
-      li.addEventListener("click", () => {
-        EditState.selectedDriver = { id: u.id, name: u.name || u.fullName || "Driver", phone: u.phone || "" };
-        el.driverInput.value = `${EditState.selectedDriver.name} (${EditState.selectedDriver.phone})`;
-        // collapse list
-        if (el.driverList) el.driverList.innerHTML = "";
-      });
-      el.driverList.appendChild(li);
-    });
+    const fmt = (n) => {
+      try { return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "KES" }).format(Number(n||0)); }
+      catch { return `${currency || "KES"} ${(Number(n||0)).toLocaleString()}`; }
+    };
+    for (const it of items) {
+      const sku   = it.sku ?? it.code ?? it.id ?? "—";
+      const name  = it.name ?? it.title ?? it.productName ?? "—";
+      const qty   = it.qty ?? it.quantity ?? 1;
+      const price = it.price ?? it.unitPrice ?? 0;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${sku}</td><td>${name}</td><td>${qty}</td><td>${fmt(price)}</td>`;
+      itemsBody.appendChild(tr);
+    }
   }
 
-  async function fetchDrivers(q) {
-    const url = new URL("/api/admin/users", location.origin);
-    url.searchParams.set("type", "Driver"); // API contract. 
-    if (q) url.searchParams.set("q", q);
-    const res = await fetch(url.toString(), { credentials: "same-origin" });
-    const data = await res.json().catch(() => ({}));
-    // Accept either {success:true, users:[...]} or a list directly (defensive)
-    const users = Array.isArray(data?.users) ? data.users : (Array.isArray(data) ? data : []);
-    EditState.driversCache = users.map(u => ({
-      id: u.id || u.userId || u._id,
-      name: u.name || u.fullName || u.email || "Driver",
-      phone: u.phone || "",
-      email: u.email || "",
-      type: u.type || u.role || "",
-    })).filter(u => u.id);
-    showDriverSuggestions(EditState.driversCache);
+  // ---------- Track hydration (GET with phone variants) ----------
+  async function hydrateFromTrack(orderId, phone, email) {
+    const variants = [];
+    if (phone) {
+      const p = String(phone).trim();
+      variants.push(p);                             // "+254722…"
+      variants.push(p.replace(/^\+/, ""));          // "254722…"
+      variants.push(p.replace(/^\+?254/, "0"));     // "07…"
+    }
+    const attempts = [];
+    for (const ph of variants) attempts.push({ ph, ord: orderId }); // exact order
+    for (const ph of variants) attempts.push({ ph, ord: null });    // phone-only
+    if (!variants.length) attempts.push({ ph: "", ord: orderId });  // last resort
+
+    for (const at of attempts) {
+      try {
+        const qs = new URLSearchParams();
+        if (at.ph)  qs.set("phone", at.ph);
+        if (at.ord) qs.set("order", String(at.ord));
+        qs.set("page", "1"); qs.set("per", "5");
+        const res = await fetch(`/api/track?${qs.toString()}`, {
+          headers: email ? { "X-WS-Email": email } : undefined
+        });
+        if (!res.ok) continue;
+        const data = await res.json().catch(() => ({}));
+        const list = Array.isArray(data?.orders) ? data.orders : [];
+        if (!list.length) continue;
+        const hit = list.find(o => String(o.orderNumber || o.id) === String(orderId)) || list[0];
+        if (hit) return hit;
+      } catch { /* try next */ }
+    }
+    return null;
   }
 
-  // Debounced live filter
-  function debouncedFetch() {
-    clearTimeout(EditState.debounceTimer);
-    EditState.debounceTimer = setTimeout(() => {
-      const q = (el.driverInput.value || "").trim();
-      fetchDrivers(q).catch(() => showDriverSuggestions([]));
-    }, 180);
-  }
-
-  el.driverInput?.addEventListener("input", () => {
-    EditState.selectedDriver = null; // typing invalidates previous pick
-    debouncedFetch();
-  });
-  el.driverInput?.addEventListener("focus", () => {
-    // On focus, if empty, fetch baseline list; else refilter
-    const q = (el.driverInput.value || "").trim();
-    fetchDrivers(q).catch(() => showDriverSuggestions([]));
-  });
-
-  // Exposed entry point: populate the edit drawer with an order row’s data
-  window.openEditOrder = function openEditOrder(order) {
-    // order: normalized shape from controller with .id, .status, .driverName, .driverId, .notes
-    EditState.orderId = order.id || order.orderNumber || null;
-    EditState.currentStatus = order.status || "Pending";
-    EditState.selectedDriver = order.driverId ? { id: order.driverId, name: order.driverName || "Driver" } : null;
-
-    ensureStatusOptions();
-    // Set current values
-    if (el.status) {
-      // If current status not allowed, keep value but show a warning
-      if (!ALLOWED_STATUSES.includes(EditState.currentStatus)) {
-        // append a temporary option so it remains visible, but block save later
-        let opt = [...el.status.options].find(o => o.value === EditState.currentStatus);
-        if (!opt) {
-          opt = document.createElement("option");
-          opt.value = EditState.currentStatus;
-          opt.textContent = `${EditState.currentStatus} (invalid)`;
-          el.status.appendChild(opt);
-        }
-      }
-      el.status.value = EditState.currentStatus;
-    }
-    if (el.notes) el.notes.value = order.notes || "";
-
-    if (el.driverInput) {
-      if (EditState.selectedDriver) {
-        el.driverInput.value = order.driverName ? `${order.driverName} (${order.driverPhone || ""})` : `Driver #${order.driverId}`;
-      } else {
-        el.driverInput.value = "";
-      }
-    }
-    if (el.driverList) el.driverList.innerHTML = "";
-
-    // show drawer/modal (CSS hook)
-    el.drawer?.classList.add("open");
-  };
-
-  // Save handler
-  el.form?.addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    if (!EditState.orderId) return;
-
-    const nextStatus = el.status.value;
-    const notes = (el.notes?.value || "").trim();
-    const driverId = EditState.selectedDriver?.id || null;
-
-    // Block invalid status transitions client-side
-    if (!ALLOWED_STATUSES.includes(nextStatus)) {
-      alert(`Status "${nextStatus}" is not allowed. Allowed: ${ALLOWED_STATUSES.join(", ")}`);
-      return;
-    }
-
-    el.saveBtn.disabled = true;
+  // ---------- Drivers ----------
+  async function queryDrivers(q) {
+    const url = `/api/admin/users?type=Driver${q ? `&q=${encodeURIComponent(q)}` : ""}`;
     try {
-      // Unify single PATCH surface (controller adapts if server also supports PUT subpaths). 
-      const res = await fetch(`/api/admin/orders/${encodeURIComponent(EditState.orderId)}`, {
+      const r = await fetch(url);
+      const data = await r.json().catch(() => ({}));
+      return Array.isArray(data?.users) ? data.users : [];
+    } catch { return []; }
+  }
+
+  function resetDriver(id = "", name = "") {
+    if (driverIdH) driverIdH.value = id ? String(id) : "";
+    if (driverInp) driverInp.value = name || "";
+    if (driverList) driverList.innerHTML = "";
+  }
+
+  function wireDriverCombo() {
+    if (!driverInp || !driverList) return;
+    const render = (arr) => {
+      driverList.innerHTML = "";
+      if (!arr.length) { driverList.innerHTML = `<li class="empty">No drivers</li>`; return; }
+      for (const u of arr) {
+        const li = document.createElement("li");
+        const name = u.name || u.fullName || "";
+        li.textContent = `${name}${u.phone ? ` — ${u.phone}` : ""}`;
+        li.tabIndex = 0;
+        li.addEventListener("click", () => {
+          resetDriver(u.id, name);
+          driverList.style.display = "none";
+        });
+        driverList.appendChild(li);
+      }
+      driverList.style.display = "block";
+    };
+    const onType = debounce(async () => {
+      const q = (driverInp.value || "").trim();
+      render(await queryDrivers(q));
+    }, 200);
+    driverInp.addEventListener("input", onType);
+    driverInp.addEventListener("focus", onType);
+    document.addEventListener("click", (e) => {
+      if (!driverList.contains(e.target) && e.target !== driverInp) driverList.style.display = "none";
+    });
+    driverClear?.addEventListener("click", (e) => { e.preventDefault(); resetDriver(); driverList.style.display = "none"; });
+  }
+  wireDriverCombo(); // one-time wire
+
+  // ---------- Modal lifecycle ----------
+  let currentId = null;
+
+  function buildStatusOptions(current) {
+    if (!statusSel) return;
+    statusSel.innerHTML = "";
+    for (const s of ALLOWED) {
+      const opt = document.createElement("option");
+      opt.value = s; opt.textContent = s;
+      statusSel.appendChild(opt);
+    }
+    const toSelect = ALLOWED.includes(current) ? current : "Pending";
+    statusSel.value = toSelect;
+  }
+
+  async function openModal(orderLike) {
+    const id = orderLike?.id || orderLike?.orderNumber;
+    if (!id) return alert("Missing order id");
+    currentId = id;
+
+    if (idInput) idInput.value = id;
+
+    // Seed from the row (real values for this order)
+    buildStatusOptions(orderLike.status);           // <-- fixes sticky status
+    resetDriver("", orderLike.driverName || "");    // clear/reset driver each open
+
+    const row = readRowFields(id);
+
+    // Money fields are display-only in this phase
+    if (totalInp)   totalInp.value   = String(row.total || 0);
+    if (depositInp) depositInp.value = String(depositInp.value || 0);
+    if (currInp)    currInp.value    = currInp.value || "KES";
+
+    // Try to hydrate better totals/items via Track
+    const fromTrack = await hydrateFromTrack(id, orderLike.phone || row.phone, orderLike.email || row.email);
+    if (fromTrack) {
+      if (typeof fromTrack.total === "number" && totalInp) totalInp.value = String(fromTrack.total);
+      if (fromTrack.currency && currInp) currInp.value = fromTrack.currency;
+      fillItemsTable(fromTrack.items || fromTrack.cart || [], currInp?.value || "KES");
+    } else {
+      fillItemsTable([], currInp?.value || "KES");
+    }
+
+    if (modal) { modal.style.display = "block"; modal.setAttribute("aria-hidden", "false"); }
+  }
+
+  function closeModal() {
+    if (modal) { modal.style.display = "none"; modal.setAttribute("aria-hidden", "true"); }
+  }
+
+  cancelBtn?.addEventListener("click", (e) => { e.preventDefault(); closeModal(); });
+
+  // ---------- Save (PATCH /api/admin/orders/:id) ----------
+  async function doSave() {
+    if (!currentId) return;
+    const status = statusSel?.value || "Pending";
+    if (!ALLOWED.includes(status)) { alert("Please choose a valid status."); return; }
+
+    const driverId = driverIdH?.value ? parseInt(driverIdH.value, 10) : null;
+    const notes = notesEl?.value?.trim() || "";
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${encodeURIComponent(currentId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ status: nextStatus, driverId, notes }),
+        body: JSON.stringify({ status, driverId, notes })
       });
-      const out = await res.json().catch(() => ({}));
-      if (!res.ok || out?.success === false) {
-        throw new Error(out?.error?.message || out?.message || `Save failed (${res.status})`);
+      const txt = await res.text(); let json; try { json = JSON.parse(txt); } catch {}
+      if (!res.ok || (json && json.success === false)) {
+        const msg = (json && (json.error?.message || json.error || json.message)) || txt || `HTTP ${res.status}`;
+        throw new Error(msg);
       }
 
-      // Update inline row in the table (delegate to controller if exposed)
-      if (window.AdminOrders && typeof window.AdminOrders.updateRowInline === "function") {
-        window.AdminOrders.updateRowInline(EditState.orderId, {
-          status: nextStatus,
-          driverId,
-          driverName: EditState.selectedDriver?.name || null,
-          notes,
-        });
+      // inline table refresh via controller hook when available
+      if (typeof window.refreshOrderRow === "function") {
+        window.refreshOrderRow(currentId, { status });
+      } else {
+        const row = rowById(currentId);
+        row?.querySelector('[data-col="status"]')?.replaceChildren(document.createTextNode(status));
       }
 
-      // Step 6.4 customer reflection signals (already agreed in 6.4) 
+      // Step 6.4 broadcast
       try {
         localStorage.setItem("ordersUpdatedAt", String(Date.now()));
-        window.postMessage({ type: "orders-updated" }, "*");
+        window.postMessage({ type: "orders-updated", orderId: currentId }, "*");
       } catch {}
 
-      // close drawer
-      el.drawer?.classList.remove("open");
+      closeModal();
     } catch (e) {
-      alert(e.message || "Failed to save changes");
+      console.error("[orders-edit] save failed:", e);
+      alert(`Failed to save order changes.\n\n${e.message || ""}`);
     } finally {
-      el.saveBtn.disabled = false;
+      setSaving(false);
+    }
+  }
+
+  saveBtn?.addEventListener("click", (e) => { e.preventDefault(); doSave(); });
+
+  // ---------- Click binder (status comes from the clicked row) ----------
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest('[data-action="edit-order"]');
+    if (!btn) return;
+
+    e.preventDefault();
+
+    const oid   = btn.getAttribute("data-oid")   || "";
+    const phone = btn.getAttribute("data-phone") || "";
+    const email = btn.getAttribute("data-email") || "";
+
+    const tr = btn.closest("tr");
+    const statusText =
+      tr?.querySelector('[data-col="status"], .col-status')?.textContent?.trim() || "";
+    const driverName =
+      tr?.querySelector('[data-col="driver"], .col-driver')?.textContent?.trim() || "";
+
+    const orderLike = {
+      id: oid,
+      orderNumber: oid,
+      phone,
+      email,
+      status: statusText,   // <-- pass real row status
+      driverName           // (display only)
+    };
+
+    if (typeof window.openOrderEdit === "function") {
+      window.openOrderEdit(orderLike);
+    } else {
+      openModal(orderLike);
     }
   });
 
-  // Close buttons
-  el.closeBtns.forEach(btn => btn.addEventListener("click", () => {
-    el.drawer?.classList.remove("open");
-  }));
+  // expose programmatic hook if needed
+  if (typeof window.openOrderEdit !== "function") {
+    window.openOrderEdit = (order) => openModal(order || {});
+  }
 })();
