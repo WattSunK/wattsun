@@ -272,71 +272,76 @@
   
 })();
 /* === Phase 6.5 append-only patch (safe to paste at EOF) === */
-(() => {
-  // 0) Admin client guard for /dashboard.html (redirect non-admins)
-  try {
-    const sess = JSON.parse(localStorage.getItem("wattsunUser") || "null");
-    const role = (sess && (sess.role || sess.user?.role || sess.type)) || "";
-    if (String(role).toLowerCase() !== "admin") {
-      location.replace("/myaccount/myorders.html");
-      return;
-    }
-  } catch {
-    location.replace("/myaccount/myorders.html");
 
+/* Admin client guard — only on /dashboard.html and only when we KNOW role != Admin */
+(() => {
+  // run only on the admin dashboard file
+  if (!/\/dashboard\.html$/i.test(location.pathname)) return;
+
+  let sess = null;
+  try {
+    sess = JSON.parse(localStorage.getItem("wattsunUser") || "null");
+  } catch {}
+
+  const role = (sess && (sess.role || sess.user?.role || sess.type)) || "";
+
+  // Redirect ONLY if we have a role and it's not Admin.
+  if (role && String(role).toLowerCase() !== "admin") {
+    location.replace("/myaccount/myorders.html");
     return;
   }
-
-  // 1) Unified statuses + badge renderer (only define if not already present)
-  const __ALLOWED_STATUSES__ = [
-    "Pending",
-    "Confirmed",
-    "Dispatched",
-    "Delivered",
-    "Closed",
-    "Cancelled",
-  ]; // ADR-001. 
-
-  if (typeof window.__orders_statusBadge !== "function") {
-    window.__orders_statusBadge = function statusBadge(s) {
-      const v = (s || "").trim();
-      const safe = __ALLOWED_STATUSES__.includes(v) ? v : "Pending";
-      const cls =
-        safe === "Pending"    ? "badge pending"    :
-        safe === "Confirmed"  ? "badge confirmed"  :
-        safe === "Dispatched" ? "badge dispatched" :
-        safe === "Delivered"  ? "badge delivered"  :
-        safe === "Closed"     ? "badge closed"     :
-        safe === "Cancelled"  ? "badge cancelled"  : "badge";
-      return `<span class="${cls}" data-status="${safe}">${safe}</span>`;
-    };
-  }
-
-  // 2) Inline row updater (used by orders-edit.js after PATCH)
-  window.AdminOrders = window.AdminOrders || {};
-  if (typeof window.AdminOrders.updateRowInline !== "function") {
-    window.AdminOrders.updateRowInline = function updateRowInline(orderId, patch = {}) {
-      const tbody = document.getElementById("ordersTbody");
-      if (!tbody || !orderId) return;
-      const row = tbody.querySelector(`tr[data-id="${CSS.escape(String(orderId))}"]`);
-      if (!row) return;
-
-      // Update status cell → prefer known .status-cell; else fall back to a 5th column heuristic
-      if (patch.status) {
-        const cell = row.querySelector(".status-cell") || row.children[4];
-        if (cell) {
-          const renderBadge = window.statusBadge || window.__orders_statusBadge;
-          cell.innerHTML = typeof renderBadge === "function" ? renderBadge(patch.status) : (patch.status || "");
-        }
-      }
-
-      // Update driver column if provided (or clear when null)
-      if (Object.prototype.hasOwnProperty.call(patch, "driverName") || patch.driverId === null) {
-        const driverCell =
-          row.querySelector('[data-col="driver"]') ||
-          row.children[6]; // adjust if your table index differs
-        if (driverCell) driverCell.textContent = patch.driverName ? patch.driverName : "—";
-      }
-    };
-  }
+  // If role is missing/unknown, do nothing (no redirect). Server still protects /api/admin/*.
 })();
+
+/* 1) Unified statuses + badge renderer (only define if not already present) */
+const __ALLOWED_STATUSES__ = [
+  "Pending",
+  "Confirmed",
+  "Dispatched",
+  "Delivered",
+  "Closed",
+  "Cancelled",
+];
+
+if (typeof window.__orders_statusBadge !== "function") {
+  window.__orders_statusBadge = function statusBadge(s) {
+    const v = (s || "").trim();
+    const safe = __ALLOWED_STATUSES__.includes(v) ? v : "Pending";
+    const cls =
+      safe === "Pending"    ? "badge pending"    :
+      safe === "Confirmed"  ? "badge confirmed"  :
+      safe === "Dispatched" ? "badge dispatched" :
+      safe === "Delivered"  ? "badge delivered"  :
+      safe === "Closed"     ? "badge closed"     :
+      safe === "Cancelled"  ? "badge cancelled"  : "badge";
+    return `<span class="${cls}" data-status="${safe}">${safe}</span>`;
+  };
+}
+
+/* 2) Inline row updater (used by orders-edit.js after PATCH) */
+window.AdminOrders = window.AdminOrders || {};
+if (typeof window.AdminOrders.updateRowInline !== "function") {
+  window.AdminOrders.updateRowInline = function updateRowInline(orderId, patch = {}) {
+    // Your table uses <tr data-oid="..."> (not data-id)
+    const tbody = document.getElementById("ordersTbody");
+    if (!tbody || !orderId) return;
+    const row = tbody.querySelector(`tr[data-oid="${CSS.escape(String(orderId))}"]`);
+    if (!row) return;
+
+    // Update status cell → your renderer uses data-col="status"
+    if (patch.status) {
+      const cell = row.querySelector('[data-col="status"]');
+      if (cell) {
+        const renderBadge = window.statusBadge || window.__orders_statusBadge;
+        cell.innerHTML =
+          typeof renderBadge === "function" ? renderBadge(patch.status) : (patch.status || "");
+      }
+    }
+
+    // Driver column isn’t in this controller’s table. If you later add it, this will work:
+    if (Object.prototype.hasOwnProperty.call(patch, "driverName") || patch.driverId === null) {
+      const driverCell = row.querySelector('[data-col="driver"]');
+      if (driverCell) driverCell.textContent = patch.driverName ? patch.driverName : "—";
+    }
+  };
+}
