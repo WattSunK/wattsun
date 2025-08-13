@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Track Order • WattSun</title>
   <link rel="stylesheet" href="/main.css"/>
-  <style>
+  <link rel="stylesheet" href="/public/css/track.css">
+<style>
     /* keep legacy styling */
     .account-section{max-width:980px;margin:18px auto;background:#fff;border:1px solid #eee;border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(0,0,0,.06);}
     .result-box{margin-top:12px;background:#fffdf3;border:1px solid #f0e6bf;border-radius:10px;padding:12px;}
@@ -36,7 +37,7 @@
   <h2>Track Your WattSun Order</h2>
   <p class="muted" id="lockNote" style="display:none;">Using your account phone number. To change it, update your profile.</p>
 
-  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+  <div class="track-filters" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
     <input id="track-phone" type="tel" placeholder="+254 7XX XXX XXX" style="flex:1;" pattern="^\\+\\d{10,15}$">
     <select id="track-status" style="flex:1;min-width:200px;">
       <option value="Pending">Pending</option>
@@ -55,7 +56,7 @@
   <div id="track-result" class="result-box" style="display:none;"></div>
 </div>
 
-<div class="account-section">
+<div class="account-section track-help">
   <h2>Need Help?</h2>
   <p><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></p>
   <p><a href="/contact.html">Contact Page</a></p>

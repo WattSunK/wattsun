@@ -1,0 +1,93 @@
+/* public/css/track.css — scoped styles for MyAccount Track */
+main.account-section {
+  max-width: 980px;
+  margin: 18px auto;
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+}
+
+.account-section h1, .account-section h2 {
+  margin: 8px 0 14px;
+  font-weight: 700;
+}
+
+.account-section .muted {
+  color: #6c757d;
+  font-size: 13px;
+}
+
+/* Filters row */
+.track-filters {
+  display: grid;
+  grid-template-columns: 1fr 180px auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 10px;
+}
+
+.track-filters label {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.track-filters input,
+.track-filters select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+}
+
+.track-filters button {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #0f5132;
+  background: #00b050;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* Result card */
+#track-result {
+  margin-top: 12px;
+  background: #fffdf3;
+  border: 1px solid #f0e6bf;
+  border-radius: 10px;
+  padding: 16px;
+  display: none; /* shown by JS */
+}
+
+#track-result .order-card {
+  padding: 2px 0 8px;
+}
+
+.pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #fadb14;
+  background: #fffbe6;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+/* Help card gets same panel styling */
+.account-section.track-help {
+  margin-top: 16px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+}
+
+/* Mobile */
+@media (max-width: 720px) {
+  .track-filters {
+    grid-template-columns: 1fr;
+  }
+}

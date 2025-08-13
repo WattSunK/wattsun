@@ -1,5 +1,5 @@
 // public/admin/js/orders-edit.js
-// Enables Edit buttons, opens the modal, and PATCHes changes.
+// Enables Edit buttons, opens the modal, PATCHes changes, and emits Step 6.4 signals.
 // Tailored to /public/partials/orders.html which uses <tbody id="ordersTbody">.
 
 (() => {
@@ -20,6 +20,13 @@
     saveBtn.disabled = !!on;
     saveBtn.textContent = on ? 'Saving…' : 'Save';
   };
+
+  // 🔔 Step 6.4: broadcast to customers after admin saves
+  function emitOrdersUpdated(orderId) {
+    const ts = Date.now();
+    try { localStorage.setItem('ordersUpdatedAt', String(ts)); } catch (e) { /* ignore quota */ }
+    try { window.postMessage({ type: 'orders-updated', ts, orderId }, '*'); } catch (e) {}
+  }
 
   // Try to get an order from controller caches (varies by version)
   const getOrderFromCache = (id) => {
@@ -96,11 +103,8 @@
         return;
       }
 
-      // Broadcast for customer reflection (6.4)
-      try {
-        localStorage.setItem('ws:orders:rev', String(Date.now()));
-        window.postMessage({ type: 'orders-updated', orderId: current.id }, '*');
-      } catch {}
+      // Step 6.4 broadcast for customer reflection
+      emitOrdersUpdated(current.id);
 
       // Inline row refresh
       if (typeof window.refreshOrderRow === 'function') {
