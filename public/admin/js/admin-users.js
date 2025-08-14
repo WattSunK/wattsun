@@ -1,4 +1,4 @@
-/* Admin Users — controller (observer init + adapter aware) */
+/* Admin Users — controller (observer init + adapter aware + namespaced actions) */
 (function () {
   const State = {
     all: [],
@@ -10,10 +10,10 @@
   };
 
   // --------- Utilities
-  function $(sel, root = document) { return root.querySelector(sel); }
-  function $all(sel, root = document) { return Array.from(root.querySelectorAll(sel)); }
-  function text(v) { return (v === null || v === undefined) ? "" : String(v); }
-  function escapeHtml(s) { return text(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  const $  = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const T  = (v) => (v == null ? "" : String(v));
+  const esc = (s) => T(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
   // robust adapter call (accepts array or {success, users})
   async function fetchUsersViaAdapter(type = "") {
@@ -33,7 +33,6 @@
   }
 
   function normalizeUser(u) {
-    // tolerant mapping
     const created = u.createdAt || u.created_at || u.lastActive || null;
     return {
       id: u.id ?? u.userId ?? u._id ?? "",
@@ -53,30 +52,8 @@
     const start = (page - 1) * per;
     const rows = filtered.slice(start, start + per);
 
-    // tbody
-    els.tbody.innerHTML = rows.length ? rows.map((u, idx) => `
-      <tr data-id="${escapeHtml(u.id)}">
-        <td>${start + idx + 1}</td>
-        <td><a href="#" class="user-view-link">${escapeHtml(u.name || "(no name)")}</a></td>
-        <td>${escapeHtml(u.email)}</td>
-        <td>${escapeHtml(u.phone)}</td>
-        <td>${escapeHtml(u.type)}</td>
-        <td>${escapeHtml(u.orders)}</td>
-        <td>
-          <label class="ws-badge ${u.status === "Active" ? "ws-badge-success" : "ws-badge-muted"}">
-            ${escapeHtml(u.status || "Active")}
-          </label>
-        </td>
-        <td>${u.createdAt ? escapeHtml(u.createdAt) : ""}</td>
-        <td>
-          <button class="ws-btn ws-btn-xs user-view">View</button>
-          <button class="ws-btn ws-btn-xs user-edit">Edit</button>
-          <button class="ws-btn ws-btn-xs ws-btn-ghost user-delete">Delete</button>
-        </td>
-      </tr>
-    `).join("") : `
-      <tr class="ws-empty"><td colspan="9">No users found</td></tr>
-    `;
+    els.tbody.innerHTML = rows.length ? rows.map((u, idx) => rowHtml(u, start + idx + 1)).join("") :
+      `<tr class="ws-empty"><td colspan="9">No users found</td></tr>`;
 
     // info
     const total = filtered.length;
@@ -87,22 +64,43 @@
     renderPager(total);
   }
 
+  function rowHtml(u, slno) {
+    const statusClass = (u.status === "Active") ? "ws-badge-success" : "ws-badge-muted";
+    return `
+      <tr data-user-id="${esc(u.id)}">
+        <td>${slno}</td>
+        <td><a href="#" class="ws-link user-link" data-action="open-profile" data-id="${esc(u.id)}">${esc(u.name || "(no name)")}</a></td>
+        <td>${esc(u.email)}</td>
+        <td>${esc(u.phone)}</td>
+        <td>${esc(u.type)}</td>
+        <td>${esc(u.orders)}</td>
+        <td><span class="ws-badge ${statusClass}">${esc(u.status || "Active")}</span></td>
+        <td>${u.createdAt ? esc(u.createdAt) : ""}</td>
+        <td class="ws-actions">
+          <button class="ws-btn ws-btn-xs" data-action="view-user" data-id="${esc(u.id)}">View</button>
+          <button class="ws-btn ws-btn-xs ws-btn-primary" data-action="edit-user" data-id="${esc(u.id)}">Edit</button>
+          <button class="ws-btn ws-btn-xs ws-btn-ghost" data-action="delete-user" data-id="${esc(u.id)}">Delete</button>
+        </td>
+      </tr>
+    `;
+  }
+
   function renderPager(total) {
     const { page, per, els } = State;
     const pages = Math.max(1, Math.ceil(total / per));
-    if (page > pages) State.page = pages;
+    if (State.page > pages) State.page = pages;
 
     let html = "";
-    function btn(p, label, disabled = false, active = false) {
+    const btn = (p, label, disabled = false, active = false) => {
       const cls = ["ws-page-btn", active ? "is-active" : "", disabled ? "is-disabled" : ""].join(" ");
       return `<button class="${cls}" data-page="${p}" ${disabled ? "disabled" : ""}>${label}</button>`;
-    }
+    };
     html += btn(1, "«", page === 1);
     html += btn(Math.max(1, page - 1), "‹", page === 1);
-    const windowSize = 5;
-    const start = Math.max(1, page - Math.floor(windowSize / 2));
-    const end = Math.min(pages, start + windowSize - 1);
-    for (let p = start; p <= end; p++) html += btn(p, p, false, p === page);
+    const win = 5;
+    const s = Math.max(1, page - Math.floor(win / 2));
+    const e = Math.min(pages, s + win - 1);
+    for (let p = s; p <= e; p++) html += btn(p, p, false, p === page);
     html += btn(Math.min(pages, page + 1), "›", page === pages);
     html += btn(pages, "»", page === pages);
 
@@ -115,7 +113,7 @@
     const type = State.els.type.value.trim();
     const status = State.els.status.value.trim();
 
-    const f = State.all.filter(u => {
+    State.filtered = State.all.filter(u => {
       if (type && u.type !== type) return false;
       if (status && (u.status || "Active") !== status) return false;
       if (q) {
@@ -125,14 +123,77 @@
       return true;
     });
 
-    State.filtered = f;
     State.page = 1;
     render();
+  }
+
+  // --------- Actions (namespaced + safe)
+  async function onAction(e) {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+
+    // prevent any global listeners (e.g., orders modal) from catching this
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    const action = btn.getAttribute("data-action");
+    const id = btn.getAttribute("data-id") || btn.closest("tr")?.dataset?.userId;
+
+    switch (action) {
+      case "open-profile":
+      case "view-user": {
+        // Route to Profile tab and pass the selected user id
+        try {
+          localStorage.setItem("adminSelectedUserId", id);
+        } catch(_) {}
+        // switch tab
+        location.hash = "#profile";
+        // optional: lightweight ping for profile.js to refetch
+        window.postMessage({ type: "admin-user-open", userId: id }, "*");
+        break;
+      }
+      case "edit-user": {
+        // Placeholder: open profile for edit; later we can load a dedicated modal
+        try { localStorage.setItem("adminSelectedUserId", id); } catch(_) {}
+        location.hash = "#profile";
+        window.postMessage({ type: "admin-user-edit", userId: id }, "*");
+        break;
+      }
+      case "delete-user": {
+        const tr = btn.closest("tr");
+        if (!id || !confirm("Deactivate this user? (You can re-activate later)")) return;
+        try {
+          // Soft delete → set status=Inactive (non-destructive)
+          const r = await fetch(`/api/users/${encodeURIComponent(id)}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "Inactive" }),
+            credentials: "same-origin",
+          });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          // reflect immediately
+          const row = State.all.find(u => String(u.id) === String(id));
+          if (row) row.status = "Inactive";
+          applyFilters();
+        } catch (err) {
+          alert("Could not deactivate user (endpoint missing). We’ll wire this later.");
+          console.warn("[Users] delete-user failed:", err);
+        }
+        break;
+      }
+      default:
+        // no-op
+        break;
+    }
   }
 
   // --------- Event wiring (delegated)
   function wireEvents() {
     const { root, els } = State;
+
+    // Actions (namespaced to users-root to avoid Orders modal handlers)
+    root.addEventListener("click", onAction, true);
 
     // Search + filters
     els.searchBtn.addEventListener("click", applyFilters);
@@ -143,9 +204,7 @@
       State.page = 1;
       applyFilters();
     });
-    els.search.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") applyFilters();
-    });
+    els.search.addEventListener("keydown", (e) => { if (e.key === "Enter") applyFilters(); });
     els.type.addEventListener("change", applyFilters);
     els.status.addEventListener("change", applyFilters);
     els.per.addEventListener("change", () => {
@@ -164,23 +223,13 @@
       render();
     });
 
-    // Row actions (future: hook to real modals/endpoints)
-    root.addEventListener("click", (e) => {
-      if (e.target.closest(".user-view")) {
-        e.preventDefault();
-        const tr = e.target.closest("tr[data-id]");
-        console.log("View user", tr?.dataset.id);
-      }
-      if (e.target.closest(".user-edit")) {
-        e.preventDefault();
-        const tr = e.target.closest("tr[data-id]");
-        console.log("Edit user", tr?.dataset.id);
-      }
-      if (e.target.closest(".user-delete")) {
-        e.preventDefault();
-        const tr = e.target.closest("tr[data-id]");
-        console.log("Delete user", tr?.dataset.id);
-      }
+    // Add user (placeholder → go to Profile new-user mode)
+    $("#add-user-btn", root)?.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      try { localStorage.removeItem("adminSelectedUserId"); } catch(_) {}
+      location.hash = "#profile";
+      window.postMessage({ type: "admin-user-create" }, "*");
     });
   }
 
@@ -188,9 +237,11 @@
   async function initUsersController() {
     const root = document.getElementById("users-root");
     if (!root) return;
-    root.dataset.wsInit = "1"; // idempotency guard
 
-    // cache elements
+    // idempotency (important when swapping partials)
+    if (root.dataset.wsInit === "1") return;
+    root.dataset.wsInit = "1";
+
     State.root = root;
     State.els = {
       tbody: $("#users-table-body", root),
@@ -204,10 +255,8 @@
       per: $("#users-per-page", root),
     };
 
-    // per-page default
     State.per = parseInt(State.els.per?.value || "10", 10);
 
-    // fetch users
     const typeParam = State.els.type?.value || "";
     State.all = await fetchUsersViaAdapter(typeParam);
     State.filtered = State.all.slice();
@@ -216,31 +265,25 @@
     render();
   }
 
-  // auto-init via MutationObserver (survives partial swaps)
-    // auto-init via MutationObserver (survives partial swaps)
+  // keep observing to re-init every time users partial is inserted
   function autoInitWhenReady() {
-    function tryInitOnce() {
+    const tryInitOnce = () => {
       const root = document.getElementById("users-root");
-      if (root && !root.dataset.wsInit) {
-        root.dataset.wsInit = "1";
+      if (root && root.dataset.wsInit !== "1") {
         initUsersController();
       }
-    }
+    };
 
-    // Try immediately in case the partial is already present
     tryInitOnce();
-
-    // Keep observing forever; do NOT disconnect after the first hit
-    const mo = new MutationObserver(() => { tryInitOnce(); });
+    const mo = new MutationObserver(tryInitOnce);
     mo.observe(document.body, { childList: true, subtree: true });
   }
 
-  // Expose globals (compat with older loader)
+  // Expose globals (loader/shim compatibility)
   window.AdminUsers = { init: initUsersController };
-  window.initAdminUsers = initUsersController; // name used in some pages
-  window.fetchUsers = initUsersController;     // legacy shim if dashboard expects fetchUsers()
+  window.initAdminUsers = initUsersController;
+  window.fetchUsers = initUsersController;
 
-  // kick
   document.readyState === "loading"
     ? document.addEventListener("DOMContentLoaded", autoInitWhenReady)
     : autoInitWhenReady();
