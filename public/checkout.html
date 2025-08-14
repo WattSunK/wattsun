@@ -343,7 +343,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // On logout, clear session and update UI
   window.logoutUser = function() {
-    localStorage.removeItem('wattsun_user');
+    localStorage.removeItem('wattsunUser');
     renderAuthSection();
     // Optionally clear form fields
     document.getElementById('fullName').value = "";

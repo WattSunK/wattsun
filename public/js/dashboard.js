@@ -1,6 +1,6 @@
 // /public/js/dashboard.js
 document.addEventListener("DOMContentLoaded", () => {
-  const content  = document.getElementById("adminContent") || document.getElementById("admin-content");
+  const content  = document.getElementById("admin-content");
   const sidebar  = document.querySelector(".sidebar nav");
   const hdrSearch= document.querySelector(".header-search");
 
@@ -54,11 +54,155 @@ document.addEventListener("DOMContentLoaded", () => {
     if (modal) modal.style.display = "none";
   }
 
-  // ---- Orders helpers (existing) ----
+  function ensureOrdersTableShell() {
+    let table = content.querySelector("#ordersTable") || content.querySelector("table");
+    if (table) {
+      let tbody = table.querySelector("#ordersTbody") || table.querySelector("tbody");
+      if (!tbody) {
+        tbody = document.createElement("tbody");
+        tbody.id = "ordersTbody";
+        table.appendChild(tbody);
+      }
+      return { table, tbody };
+    }
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="card-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border-bottom:1px solid #f0f0f0">
+        <h2 style="margin:0;font-size:18px;font-weight:600">Orders</h2>
+      </div>
+      <div class="card-body" style="padding:0 12px 12px">
+        <div class="table-responsive">
+          <table class="table" id="ordersTable" style="width:100%">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Customer</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th>Created</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ordersTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    content.appendChild(card);
+    const tableEl = card.querySelector("#ordersTable");
+    const tbodyEl = card.querySelector("#ordersTbody");
+    return { table: tableEl, tbody: tbodyEl };
+  }
+
+  function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+
+  function openOrderModal(order) {
+    const id = String(order.orderNumber || order.id || "");
+    setText("modal-order-id", id);
+    setText("modal-customer-name", order.fullName || order.name || "—");
+    setText("modal-phone", order.phone || "—");
+    setText("modal-email", order.email || "—");
+    setText("modal-payment-method", order.paymentType || order.paymentMethod || "—");
+    setText("modal-amount", (typeof order.total === "number") ? ("KES " + order.total.toLocaleString()) : "—");
+    setText("modal-deposit", order.deposit == null ? "—" : String(order.deposit));
+
+    const sel = document.getElementById("modal-status");
+    if (sel) sel.value = order.status || order.orderType || "Pending";
+
+    const list = document.getElementById("modal-items-list");
+    if (list) {
+      list.innerHTML = "";
+      const items = Array.isArray(order.cart) ? order.cart : (order.items || []);
+      items.forEach(it => {
+        const li = document.createElement("li");
+        const qty = (it.quantity != null && it.quantity !== "") ? ` x ${it.quantity}` : "";
+        li.textContent = `${it.name || ""}${qty}`;
+        list.appendChild(li);
+      });
+    }
+
+    const modal = document.getElementById("orderDetailsModal");
+    if (modal) modal.style.display = "block";
+
+    const close = () => { if (modal) modal.style.display = "none"; };
+    const c1 = document.getElementById("closeOrderModal");
+    const c2 = document.getElementById("closeOrderModalBtn");
+    if (c1 && !c1._bound) { c1._bound = 1; c1.addEventListener("click", close); }
+    if (c2 && !c2._bound) { c2._bound = 1; c2.addEventListener("click", close); }
+
+    const save = document.getElementById("updateOrderStatusBtn");
+    if (save && !save._bound) {
+      save._bound = 1;
+      save.addEventListener("click", async () => {
+        const newStatus = (document.getElementById("modal-status")?.value || "").trim();
+        const newNotes  = (document.getElementById("modal-notes")?.value || "").trim();
+        try {
+          const r = await fetch(`/api/admin/orders/${encodeURIComponent(order.id || order.orderNumber)}`, {
+            method: "PATCH",
+            headers: { "Content-Type":"application/json" },
+            body: JSON.stringify({ status:newStatus, notes:newNotes })
+          });
+          if (r.ok) {
+            close();
+            localStorage.setItem("ordersUpdatedAt", String(Date.now()));
+            window.postMessage({ type:"orders-updated" }, "*");
+          }
+        } catch {}
+      });
+    }
+  }
+
+  // ---- Orders population ----
   async function populateOrders() {
     await ensureOrdersModal();
-    // (… your existing Orders JS remains here unchanged …)
-    // This file intentionally leaves all pre-existing logic intact.
+    const { tbody } = ensureOrdersTableShell();
+    if (!tbody) return;
+
+    let data = null;
+    try {
+      const r = await fetch(`/api/orders?page=1&per=10000`);
+      if (r.ok) data = await r.json();
+    } catch { data = null; }
+
+    const arr = Array.isArray(data?.orders) ? data.orders : (Array.isArray(data) ? data : []);
+    tbody.innerHTML = "";
+    if (!arr.length) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 8;
+      td.textContent = "No orders found.";
+      td.style.textAlign = "center";
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+    arr.forEach(o => {
+      const tr = document.createElement("tr");
+      const id = String(o.orderNumber || o.id || "");
+      const total = (typeof o.total === "number") ? ("KES " + o.total.toLocaleString()) : (o.totalCents != null ? ("KES " + (o.totalCents/100).toLocaleString()) : "—");
+      tr.innerHTML = `
+        <td>${id}</td>
+        <td>${o.fullName || o.name || "—"}</td>
+        <td>${o.phone || "—"}</td>
+        <td>${o.email || "—"}</td>
+        <td>${o.status || o.orderType || "Pending"}</td>
+        <td>${total}</td>
+        <td>${o.createdAt ? new Date(o.createdAt).toLocaleString() : "—"}</td>
+        <td><button class="btn btn-sm btn-outline-primary" data-order-id="${id}">View</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("button[data-order-id]");
+      if (!btn) return;
+      const id = btn.getAttribute("data-order-id");
+      const order = arr.find(o => String(o.orderNumber || o.id || "") === id);
+      if (order) openOrderModal(order);
+    });
   }
 
   // ---- Section loader ----
@@ -84,57 +228,30 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch {
         content.innerHTML = `<div class="p-3"></div>`;
       }
-      // Try to use DB as source of truth; fall back to session
-      async function fetchMe() {
-        try {
-          const sessRaw = localStorage.getItem("wattsunUser");
-          const sess = sessRaw ? JSON.parse(sessRaw) : null;
-          const id = sess?.user?.id || sess?.id;
-          if (id) {
-            const r = await fetch(`/api/users/${encodeURIComponent(id)}`, { credentials: 'include' });
-            if (r.ok) {
-              const u = await r.json();
-              return { success: true, user: {
-                id: u.id,
-                name: u.name || u.fullName || '',
-                email: u.email || '',
-                phone: u.phone || u.msisdn || '',
-                type: u.type || u.role || 'Customer',
-                status: u.status || 'Active',
-                createdAt: u.createdAt || u.created_at,
-                lastLogin: u.lastLogin || u.last_login
-              }};
-            }
-          }
-        } catch(e) {}
-        try { return JSON.parse(localStorage.getItem("wattsunUser")||"null"); } catch { return null; }
-      }
-      // Prefer profile.js if present (keeps logic isolated); else use local hydrator
-      try {
-        if (!window.initAdminProfile) {
-          await import('./profile.js?v=1').catch(() => {});
-        }
-      } catch(_) {}
 
-      const me = await fetchMe();
-      if (window.initAdminProfile) {
+      // --- NEW: Try to hydrate from server session/DB, then fall back to local session ---
+      (async () => {
         try {
-          window.initAdminProfile({
-            source: me,
-            onLocalSave(u){
-              try{ localStorage.setItem("wattsunUser", JSON.stringify(u)); }catch{}
-              try{ window.dispatchEvent(new CustomEvent("ws:user", { detail:u })); }catch{}
-            }
-          });
-        } catch {
-          if (typeof hydrateProfile === "function") hydrateProfile(me);
+          // Prefer a canonical "me" endpoint if available; otherwise ignore failure
+          const resp = await fetch("/api/users/me", { credentials: "include" });
+          if (resp.ok) {
+            const body = await resp.json();
+            const normalized = body && body.user ? body : { success: true, user: body };
+            // Save to local session for the rest of the UI and future loads
+            setUserCtx(normalized);
+            // Update header immediately
+            updateHeaderUser(normalized);
+            // Note: the existing code below will call hydrateProfile(getUser())
+            // which now contains the normalized user.
+          }
+        } catch (e) {
+          // Silently fall back to existing localStorage-based flow
         }
-      } else {
-        if (typeof hydrateProfile === "function") hydrateProfile(me);
-      }
-      window.addEventListener("ws:user", ev => {
-        if (typeof hydrateProfile === "function") hydrateProfile(ev.detail);
-      });
+      })();
+
+      const u = getUser();
+      hydrateProfile(u);
+      window.addEventListener("ws:user", ev => hydrateProfile(ev.detail));
       return;
     }
 
@@ -146,63 +263,20 @@ document.addEventListener("DOMContentLoaded", () => {
         content.innerHTML = `<div class="p-3"></div>`;
         return;
       }
-      if (typeof fetchAndRenderUsers !== "function") {
-        if (!document.querySelector('script[src="/admin/js/admin-users.js"]')) {
+      if (typeof fetchUsers !== "function") {
+        if (!document.querySelector('script[src="/admin/js/users.js"]')) {
           const script = document.createElement("script");
-          script.src = "/admin/js/admin-users.js";
-          script.onload = () => {
-            if (typeof fetchAndRenderUsers === "function") {
-              fetchAndRenderUsers();
-            }
-          };
-          script.onerror = () => console.error("Failed to load admin-users.js");
+          script.src = "/admin/js/users.js";
+          script.onload = () => { if (typeof fetchUsers === "function") fetchUsers(); };
+          script.onerror = () => console.error("Failed to load users.js");
           document.body.appendChild(script);
         }
       } else {
-        fetchAndRenderUsers();
+        fetchUsers();
       }
       return;
     }
 
-    // --- NEW: Items section ---
-    if (section === "items") {
-      try {
-        const res = await fetch(`/partials/items.html?v=${Date.now()}`);
-        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-      } catch {
-        content.innerHTML = `<div class="p-3"></div>`;
-      }
-      if (typeof fetchAndRenderItems !== "function") {
-        if (!document.querySelector('script[src="/admin/js/admin-items.js"]')) {
-          const script = document.createElement("script");
-          script.src = "/admin/js/admin-items.js";
-          script.onload = () => {
-            if (typeof fetchAndRenderItems === "function") {
-              fetchAndRenderItems();
-            }
-          };
-          script.onerror = () => console.error("Failed to load admin-items.js");
-          document.body.appendChild(script);
-        }
-      } else {
-        fetchAndRenderItems();
-      }
-      return;
-    }
-
-    // System status
-    if (section === "system-status") {
-      try {
-        const res = await fetch(`/partials/system-status.html?v=${Date.now()}`);
-        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-      } catch {
-        content.innerHTML = `<div class="p-3"></div>`;
-      }
-      // (system-status JS handles its own checks)
-      return;
-    }
-
-    // Generic loader for other sections
     try {
       const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
       content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
@@ -211,18 +285,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ---- Profile mapping (existing fallback; left intact) ----
+  // ---- Profile hydration (existing) ----
   function hydrateProfile(u) {
     const info = u?.user || u || {};
-    const name = info.name || "User";
-    const email= info.email || "";
-    const role = info.type || "Customer";
-    const phone= info.phone || info.msisdn || "";
-    const last = info.lastLogin || info.updatedAt || info.createdAt || "—";
+    const name  = info.name || "User Name";
+    const email = info.email || "";
+    const phone = info.phone || "";
+    const role  = info.role || info.type || "Customer";
+    const last  = info.lastLogin || "—";
+
     const elName  = content.querySelector("#userName");
     const elEmail = content.querySelector("#userEmail");
     const elRole  = content.querySelector("#userRole");
-    const elLast  = content.querySelector("#lastLogin");
+    const elLast  = content.querySelector("#userLastLogin");
     const elAvatar= content.querySelector("#userAvatar");
     if (elName)  elName.textContent  = name;
     if (elEmail) elEmail.textContent = email || (phone ? `${phone}@` : "—");
@@ -251,10 +326,9 @@ document.addEventListener("DOMContentLoaded", () => {
             status: u?.user?.status || "Active"
           }
         };
-        try { localStorage.setItem("wattsunUser", JSON.stringify(nu)); } catch {}
+        setUserCtx(nu);
         hydrateProfile(nu);
-        updateHeaderUser(nu);
-        alert("Profile saved locally.");
+        alert("Saved locally. (Server save coming soon)");
       });
     }
     if (btnCancel && !btnCancel.dataset.bound) {
@@ -263,16 +337,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ---- Router ----
-  if (sidebar) {
+  // ---- Sidebar routing (existing) ----
+  if (sidebar && !sidebar.dataset.bound) {
+    sidebar.dataset.bound = "1";
     sidebar.addEventListener("click", (e) => {
-      const a = e.target.closest("a[data-partial],a[data-section]");
+      const a = e.target.closest("a[data-section]");
       if (!a) return;
       e.preventDefault();
-      const section = a.getAttribute("data-partial") || a.getAttribute("data-section");
       sidebar.querySelectorAll("a").forEach(x => x.classList.remove("active"));
       a.classList.add("active");
-      loadSection(section);
+      loadSection(a.getAttribute("data-section"));
     });
   }
 
