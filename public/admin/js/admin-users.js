@@ -188,6 +188,7 @@
   async function initUsersController() {
     const root = document.getElementById("users-root");
     if (!root) return;
+    root.dataset.wsInit = "1"; // idempotency guard
 
     // cache elements
     State.root = root;
@@ -216,16 +217,21 @@
   }
 
   // auto-init via MutationObserver (survives partial swaps)
+    // auto-init via MutationObserver (survives partial swaps)
   function autoInitWhenReady() {
-    const tryInit = () => {
-      if (document.getElementById("users-root")) {
+    function tryInitOnce() {
+      const root = document.getElementById("users-root");
+      if (root && !root.dataset.wsInit) {
+        root.dataset.wsInit = "1";
         initUsersController();
-        return true;
       }
-      return false;
-    };
-    if (tryInit()) return;
-    const mo = new MutationObserver(() => { if (tryInit()) mo.disconnect(); });
+    }
+
+    // Try immediately in case the partial is already present
+    tryInitOnce();
+
+    // Keep observing forever; do NOT disconnect after the first hit
+    const mo = new MutationObserver(() => { tryInitOnce(); });
     mo.observe(document.body, { childList: true, subtree: true });
   }
 
