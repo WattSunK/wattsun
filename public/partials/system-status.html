@@ -76,14 +76,20 @@
   }
 
   async function tunnelStatus() {
-    try {
-      const r = await fetchWithTimeout('/api/tunnel', {}, 8000);
-      if (r.ok) return '🟢 Connected';
-      if (r.status && r.status !== 404) return '🔴 Disconnected (HTTP ' + r.status + ')';
-      // 404 → fall back
-    } catch (_) {
-      // network error → fall back
-    }
+try {
+  // Use the known-good status page as the source of truth for the tunnel
+  const s = await fetchWithTimeout('/status.html', {}, 8000);
+  if (!s.ok) {
+    tunnel = '🔴 Disconnected (fallback HTTP ' + s.status + ')';
+  } else {
+    const html = await s.text();
+    const ok = /Cloudflare\s*Tunnel[^]*?(Connected|OK)/i.test(html);
+    tunnel = ok ? '🟢 Connected' : '🔴 Disconnected (fallback parse)';
+  }
+  // 404 → fall back
+} catch (_) {
+  // network error → fall back
+}
     try {
       const s = await fetchWithTimeout('/status.html', {}, 8000);
       if (!s.ok) return '🔴 Disconnected (fallback HTTP ' + s.status + ')';
