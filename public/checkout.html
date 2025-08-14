@@ -508,7 +508,7 @@ document.addEventListener("DOMContentLoaded", function () {
           writeWattsunUser(user);      /* normalized write */
         }
         sessionStorage.setItem("orderNumber", data.orderNumber);
-        sessionStorage.setItem("customerName", data.fullName);
+        sessionStorage.setItem("customerName", orderData.fullName);
         localStorage.removeItem("cart");
         window.location.href = "thankyou.html"; // REDIRECT on success!
       } else {

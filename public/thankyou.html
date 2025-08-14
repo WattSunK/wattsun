@@ -6,11 +6,7 @@
   <title>Thank You – WattSun Solar</title>
   <link href="main.css" rel="stylesheet"/>
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-    }
+    html, body { height: 100%; margin: 0; padding: 0; }
     body {
       min-height: 100vh;
       display: flex;
@@ -109,6 +105,7 @@
 <!-- Cart Icon END -->
 </nav>
 </header>
+
 <div class="page-content">
   <div class="container">
     <h1>Thank You!</h1>
@@ -123,20 +120,33 @@
     <a class="button" href="index.html">Return to Home</a>
   </div>
 </div>
+
 <script>
 function toggleNav() {
   var nav = document.getElementById("mainNav");
   nav.classList.toggle("active");
 }
 window.addEventListener('resize', function() {
-    if(window.innerWidth > 800) {
-        document.getElementById("mainNav").classList.remove("active");
-    }
+  if (window.innerWidth > 800) {
+    document.getElementById("mainNav").classList.remove("active");
+  }
 });
+
+// NEW: tolerant reader for wattsunUser (works with {success:true,user:{...}} or plain user)
+function readWattsunUser() {
+  try {
+    const raw = localStorage.getItem('wattsunUser');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed.success ? parsed.user : parsed) : null;
+  } catch { return null; }
+}
+
 document.addEventListener("DOMContentLoaded", function () {
-  // Only show dynamic info if it exists in sessionStorage
   const orderNumber = sessionStorage.getItem("orderNumber");
-  const customerName = sessionStorage.getItem("customerName");
+  // Fallback to logged-in user name if session key is missing
+  const customerName = sessionStorage.getItem("customerName") || (readWattsunUser()?.name ?? null);
+
   if (orderNumber || customerName) {
     document.getElementById("order-info").style.display = "block";
     document.getElementById("orderNum").textContent = orderNumber || "-";
@@ -144,9 +154,12 @@ document.addEventListener("DOMContentLoaded", function () {
     sessionStorage.removeItem("orderNumber");
     sessionStorage.removeItem("customerName");
   }
+
+  // Clear cart after successful order
   localStorage.removeItem("cart");
 });
 </script>
+
 <footer>
   © 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
 </footer>
