@@ -1,250 +1,241 @@
-// admin/js/admin-users.js
-
-// Full logic with modal, profile link, filters, status toggle, and actions
-
-function initAdminUsers() {
-  loadFilterState();
-  fetchAndRenderUsers();
-
-  document.getElementById('add-user-btn')?.addEventListener('click', openAddUserModal);
-  document.getElementById('user-search-input')?.addEventListener('input', handleLiveSearch);
-  document.getElementById('user-search-btn')?.addEventListener('click', fetchAndRenderUsers);
-  document.getElementById('user-clear-btn')?.addEventListener('click', clearUserSearch);
-  document.getElementById('user-type-filter')?.addEventListener('change', fetchAndRenderUsers);
-  document.getElementById('user-status-filter')?.addEventListener('change', fetchAndRenderUsers);
-
-  document.getElementById('users-table-body')?.addEventListener('click', async function (e) {
-    const btn = e.target.closest('button');
-    const toggle = e.target.closest('.inline-status-toggle');
-    const id = btn?.dataset.id || toggle?.dataset.id;
-    if (!id) return;
-
-    if (btn?.classList.contains('view-user-btn')) return openViewUserModal(id);
-    if (btn?.classList.contains('edit-user-btn')) return openEditUserModal(id);
-    if (btn?.classList.contains('delete-user-btn')) return confirmDeleteUser(id);
-
-    if (toggle) {
-      const newStatus = toggle.checked ? 'Active' : 'Inactive';
-      await fetch(`/api/users/${id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-      toggle.closest('td').querySelector('[data-status-label]').textContent = newStatus;
-    }
-  });
-}
-
-function handleLiveSearch() {
-  localStorage.setItem('user_search_text', document.getElementById('user-search-input').value);
-  fetchAndRenderUsers();
-}
-
-function loadFilterState() {
-  const saved = localStorage.getItem('user_search_text');
-  if (saved) document.getElementById('user-search-input').value = saved;
-}
-
-function clearUserSearch() {
-  document.getElementById('user-search-input').value = '';
-  localStorage.removeItem('user_search_text');
-  fetchAndRenderUsers();
-}
-
-async function fetchAndRenderUsers() {
-  const tbody = document.getElementById('users-table-body');
-  tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">Loading...</td></tr>`;
-  let search = document.getElementById('user-search-input').value.toLowerCase();
-  let type = document.getElementById('user-type-filter').value;
-  let status = document.getElementById('user-status-filter').value;
-
-  try {
-    let users = await fetch('/api/users').then(r => r.json());
-    users = users.filter(u =>
-      (!search || [u.name, u.email, u.phone].some(v => v?.toLowerCase().includes(search))) &&
-      (type === 'All' || u.type === type) &&
-      (status === 'All' || u.status === status)
-    );
-    renderUsersTable(users);
-  } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:red;">Error loading users</td></tr>`;
-  }
-}
-
-function renderUsersTable(users) {
-  const tbody = document.getElementById('users-table-body');
-  tbody.innerHTML = users.length ? '' : `<tr><td colspan="9" style="text-align:center;">No users found</td></tr>`;
-  users.forEach((user, idx) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${idx + 1}</td>
-      <td><a href="#myaccount/profile?id=${user.id}" class="table-link">${user.name}</a></td>
-      <td>${user.email || '-'}</td>
-      <td>${user.phone || '-'}</td>
-      <td>${user.type || '-'}</td>
-      <td>${user.orders || 0}</td>
-      <td>
-        <label class="switch">
-          <input type="checkbox" class="inline-status-toggle" data-id="${user.id}" ${user.status === 'Active' ? 'checked' : ''}>
-          <span class="slider"></span>
-        </label>
-        <span class="status-label" data-status-label>${user.status}</span>
-      </td>
-      <td>${user.last_active || '-'}</td>
-      <td>
-        <button class="action-btn view-btn view-user-btn" data-id="${user.id}">View</button>
-        <button class="action-btn edit-btn edit-user-btn" data-id="${user.id}">Edit</button>
-        <button class="action-btn delete-btn delete-user-btn" data-id="${user.id}">Delete</button>
-      </td>`;
-    tbody.appendChild(tr);
-  });
-}
-
-async function openViewUserModal(userId) {
-  try {
-    const resp = await fetch(`/api/users/${encodeURIComponent(userId)}`);
-    if (!resp.ok) throw new Error('User not found');
-    const user = await resp.json();
-
-    const modal = document.getElementById('user-modal');
-    const modalBg = document.getElementById('user-modal-bg');
-    modal.querySelector('#user-modal-title').innerText = 'View User';
-    modal.querySelector('#user-modal-form').style.display = 'none';
-    const view = modal.querySelector('#user-modal-view');
-    view.innerHTML = `
-      <div><b>Name:</b> ${user.name || '-'}</div>
-      <div><b>Email:</b> ${user.email || '-'}</div>
-      <div><b>Phone:</b> ${user.phone || '-'}</div>
-      <div><b>Type:</b> ${user.type || '-'}</div>
-      <div><b>Status:</b> ${user.status || '-'}</div>
-      <div><b>Last Active:</b> ${user.last_active || '-'}</div>
-      <div class="modal-actions"><button type="button" id="user-modal-close-view" class="action-btn button">Close</button></div>
-    `;
-    view.style.display = 'block';
-    modalBg.style.display = 'block';
-    modal.style.display = 'block';
-    view.querySelector('#user-modal-close-view').onclick = closeUserModal;
-  } catch (e) {
-    alert('Could not load user');
-  }
-}
-
-async function openEditUserModal(userId) {
-  try {
-    const resp = await fetch(`/api/users/${encodeURIComponent(userId)}`);
-    if (!resp.ok) throw new Error('User not found');
-    const user = await resp.json();
-
-    const modal = document.getElementById('user-modal');
-    const modalBg = document.getElementById('user-modal-bg');
-    const form = modal.querySelector('#user-modal-form');
-    form['user-modal-name'].value = user.name || '';
-    form['user-modal-email'].value = user.email || '';
-    form['user-modal-phone'].value = user.phone || '';
-    form['user-modal-type'].value = user.type || 'Customer';
-    form['user-modal-status'].value = user.status || 'Active';
-
-    ['user-modal-save', 'user-modal-cancel', 'user-modal-close'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.replaceWith(el.cloneNode(true));
-    });
-
-    document.getElementById('user-modal-save').onclick = async function (e) {
-      e.preventDefault();
-      const updatedUser = {
-        name: form['user-modal-name'].value,
-        email: form['user-modal-email'].value,
-        phone: form['user-modal-phone'].value,
-        type: form['user-modal-type'].value,
-        status: form['user-modal-status'].value
-      };
-      try {
-        const updateResp = await fetch(`/api/users/${encodeURIComponent(userId)}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedUser)
-        });
-        if (!updateResp.ok) throw new Error('Failed to update');
-        closeUserModal();
-        fetchAndRenderUsers();
-      } catch (err) {
-        modal.querySelector('#user-modal-message').innerText = "Error: Could not update user.";
-      }
-    };
-
-    document.getElementById('user-modal-cancel').onclick = closeUserModal;
-    document.getElementById('user-modal-close').onclick = closeUserModal;
-
-    modal.querySelector('#user-modal-form').style.display = 'block';
-    modal.querySelector('#user-modal-view').style.display = 'none';
-    modalBg.style.display = 'block';
-    modal.style.display = 'block';
-  } catch (e) {
-    alert('Could not load user');
-  }
-}
-
-function openAddUserModal() {
-  const modal = document.getElementById('user-modal');
-  const modalBg = document.getElementById('user-modal-bg');
-  const form = modal.querySelector('#user-modal-form');
-  form.reset();
-
-  ['user-modal-save', 'user-modal-cancel', 'user-modal-close'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.replaceWith(el.cloneNode(true));
-  });
-
-  document.getElementById('user-modal-save').onclick = async function (e) {
-    e.preventDefault();
-    const newUser = {
-      name: form['user-modal-name'].value,
-      email: form['user-modal-email'].value,
-      phone: form['user-modal-phone'].value,
-      type: form['user-modal-type'].value,
-      status: form['user-modal-status'].value,
-      password: 'changeme'
-    };
-    try {
-      const resp = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUser)
-      });
-      if (!resp.ok) throw new Error('Failed to add');
-      closeUserModal();
-      fetchAndRenderUsers();
-    } catch (err) {
-      modal.querySelector('#user-modal-message').innerText = "Error: Could not add user.";
-    }
+/* Admin Users — controller (observer init + adapter aware) */
+(function () {
+  const State = {
+    all: [],
+    filtered: [],
+    page: 1,
+    per: 10,
+    root: null,
+    els: {},
   };
 
-  document.getElementById('user-modal-cancel').onclick = closeUserModal;
-  document.getElementById('user-modal-close').onclick = closeUserModal;
+  // --------- Utilities
+  function $(sel, root = document) { return root.querySelector(sel); }
+  function $all(sel, root = document) { return Array.from(root.querySelectorAll(sel)); }
+  function text(v) { return (v === null || v === undefined) ? "" : String(v); }
+  function escapeHtml(s) { return text(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-  modal.querySelector('#user-modal-title').innerText = 'Add User';
-  modal.querySelector('#user-modal-form').style.display = 'block';
-  modal.querySelector('#user-modal-view').style.display = 'none';
-  modalBg.style.display = 'block';
-  modal.style.display = 'block';
-}
-
-function confirmDeleteUser(userId) {
-  if (!confirm('Are you sure you want to delete this user?')) return;
-  deleteUser(userId);
-}
-
-async function deleteUser(userId) {
-  try {
-    const resp = await fetch(`/api/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
-    if (!resp.ok) throw new Error('Failed to delete');
-    fetchAndRenderUsers();
-  } catch (err) {
-    alert('Could not delete user.');
+  // robust adapter call (accepts array or {success, users})
+  async function fetchUsersViaAdapter(type = "") {
+    try {
+      if (window.WattSunAdminData?.users?.get) {
+        const res = await window.WattSunAdminData.users.get({ type });
+        const list = Array.isArray(res) ? res : Array.isArray(res?.users) ? res.users : [];
+        return list.map(normalizeUser);
+      }
+    } catch (_) {}
+    // Fallbacks
+    const url = type ? `/api/users?type=${encodeURIComponent(type)}` : `/api/users`;
+    const r = await fetch(url, { credentials: "same-origin" });
+    const j = await r.json();
+    const list = Array.isArray(j) ? j : Array.isArray(j?.users) ? j.users : [];
+    return list.map(normalizeUser);
   }
-}
 
-function closeUserModal() {
-  document.getElementById('user-modal-bg').style.display = 'none';
-  document.getElementById('user-modal').style.display = 'none';
-}
+  function normalizeUser(u) {
+    // tolerant mapping
+    const created = u.createdAt || u.created_at || u.lastActive || null;
+    return {
+      id: u.id ?? u.userId ?? u._id ?? "",
+      name: u.name ?? u.fullName ?? "",
+      email: u.email ?? "",
+      phone: u.phone ?? "",
+      type: u.type ?? u.role ?? "",
+      status: u.status ?? "Active",
+      createdAt: created,
+      orders: Number.isFinite(u.orders) ? u.orders : (u.orderCount ?? 0)
+    };
+  }
+
+  // --------- Rendering
+  function render() {
+    const { page, per, filtered, els } = State;
+    const start = (page - 1) * per;
+    const rows = filtered.slice(start, start + per);
+
+    // tbody
+    els.tbody.innerHTML = rows.length ? rows.map((u, idx) => `
+      <tr data-id="${escapeHtml(u.id)}">
+        <td>${start + idx + 1}</td>
+        <td><a href="#" class="user-view-link">${escapeHtml(u.name || "(no name)")}</a></td>
+        <td>${escapeHtml(u.email)}</td>
+        <td>${escapeHtml(u.phone)}</td>
+        <td>${escapeHtml(u.type)}</td>
+        <td>${escapeHtml(u.orders)}</td>
+        <td>
+          <label class="ws-badge ${u.status === "Active" ? "ws-badge-success" : "ws-badge-muted"}">
+            ${escapeHtml(u.status || "Active")}
+          </label>
+        </td>
+        <td>${u.createdAt ? escapeHtml(u.createdAt) : ""}</td>
+        <td>
+          <button class="ws-btn ws-btn-xs user-view">View</button>
+          <button class="ws-btn ws-btn-xs user-edit">Edit</button>
+          <button class="ws-btn ws-btn-xs ws-btn-ghost user-delete">Delete</button>
+        </td>
+      </tr>
+    `).join("") : `
+      <tr class="ws-empty"><td colspan="9">No users found</td></tr>
+    `;
+
+    // info
+    const total = filtered.length;
+    const end = Math.min(start + rows.length, total);
+    els.info.textContent = total ? `${start + 1}–${end} of ${total}` : "0–0 of 0";
+
+    // pager
+    renderPager(total);
+  }
+
+  function renderPager(total) {
+    const { page, per, els } = State;
+    const pages = Math.max(1, Math.ceil(total / per));
+    if (page > pages) State.page = pages;
+
+    let html = "";
+    function btn(p, label, disabled = false, active = false) {
+      const cls = ["ws-page-btn", active ? "is-active" : "", disabled ? "is-disabled" : ""].join(" ");
+      return `<button class="${cls}" data-page="${p}" ${disabled ? "disabled" : ""}>${label}</button>`;
+    }
+    html += btn(1, "«", page === 1);
+    html += btn(Math.max(1, page - 1), "‹", page === 1);
+    const windowSize = 5;
+    const start = Math.max(1, page - Math.floor(windowSize / 2));
+    const end = Math.min(pages, start + windowSize - 1);
+    for (let p = start; p <= end; p++) html += btn(p, p, false, p === page);
+    html += btn(Math.min(pages, page + 1), "›", page === pages);
+    html += btn(pages, "»", page === pages);
+
+    els.pager.innerHTML = html;
+  }
+
+  // --------- Filtering
+  function applyFilters() {
+    const q = State.els.search.value.trim().toLowerCase();
+    const type = State.els.type.value.trim();
+    const status = State.els.status.value.trim();
+
+    const f = State.all.filter(u => {
+      if (type && u.type !== type) return false;
+      if (status && (u.status || "Active") !== status) return false;
+      if (q) {
+        const hay = `${u.name} ${u.email} ${u.phone}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    State.filtered = f;
+    State.page = 1;
+    render();
+  }
+
+  // --------- Event wiring (delegated)
+  function wireEvents() {
+    const { root, els } = State;
+
+    // Search + filters
+    els.searchBtn.addEventListener("click", applyFilters);
+    els.clearBtn.addEventListener("click", () => {
+      els.search.value = "";
+      els.type.value = "";
+      els.status.value = "";
+      State.page = 1;
+      applyFilters();
+    });
+    els.search.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") applyFilters();
+    });
+    els.type.addEventListener("change", applyFilters);
+    els.status.addEventListener("change", applyFilters);
+    els.per.addEventListener("change", () => {
+      State.per = parseInt(els.per.value, 10) || 10;
+      State.page = 1;
+      render();
+    });
+
+    // Pager
+    els.pager.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-page]");
+      if (!b) return;
+      const p = parseInt(b.getAttribute("data-page"), 10);
+      if (!Number.isFinite(p)) return;
+      State.page = p;
+      render();
+    });
+
+    // Row actions (future: hook to real modals/endpoints)
+    root.addEventListener("click", (e) => {
+      if (e.target.closest(".user-view")) {
+        e.preventDefault();
+        const tr = e.target.closest("tr[data-id]");
+        console.log("View user", tr?.dataset.id);
+      }
+      if (e.target.closest(".user-edit")) {
+        e.preventDefault();
+        const tr = e.target.closest("tr[data-id]");
+        console.log("Edit user", tr?.dataset.id);
+      }
+      if (e.target.closest(".user-delete")) {
+        e.preventDefault();
+        const tr = e.target.closest("tr[data-id]");
+        console.log("Delete user", tr?.dataset.id);
+      }
+    });
+  }
+
+  // --------- Init
+  async function initUsersController() {
+    const root = document.getElementById("users-root");
+    if (!root) return;
+
+    // cache elements
+    State.root = root;
+    State.els = {
+      tbody: $("#users-table-body", root),
+      info: $("#users-table-info", root),
+      pager: $("#users-pagination", root),
+      search: $("#user-search-input", root),
+      searchBtn: $("#user-search-btn", root),
+      clearBtn: $("#user-clear-btn", root),
+      type: $("#user-type-filter", root),
+      status: $("#user-status-filter", root),
+      per: $("#users-per-page", root),
+    };
+
+    // per-page default
+    State.per = parseInt(State.els.per?.value || "10", 10);
+
+    // fetch users
+    const typeParam = State.els.type?.value || "";
+    State.all = await fetchUsersViaAdapter(typeParam);
+    State.filtered = State.all.slice();
+
+    wireEvents();
+    render();
+  }
+
+  // auto-init via MutationObserver (survives partial swaps)
+  function autoInitWhenReady() {
+    const tryInit = () => {
+      if (document.getElementById("users-root")) {
+        initUsersController();
+        return true;
+      }
+      return false;
+    };
+    if (tryInit()) return;
+    const mo = new MutationObserver(() => { if (tryInit()) mo.disconnect(); });
+    mo.observe(document.body, { childList: true, subtree: true });
+  }
+
+  // Expose globals (compat with older loader)
+  window.AdminUsers = { init: initUsersController };
+  window.initAdminUsers = initUsersController; // name used in some pages
+  window.fetchUsers = initUsersController;     // legacy shim if dashboard expects fetchUsers()
+
+  // kick
+  document.readyState === "loading"
+    ? document.addEventListener("DOMContentLoaded", autoInitWhenReady)
+    : autoInitWhenReady();
+})();

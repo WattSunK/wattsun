@@ -1,25 +1,78 @@
-<section class="ws-admin-section">
+<!-- Users — Admin Partial (no inline <script>) -->
+<section id="users-root" class="ws-admin-section">
   <h2 class="ws-admin-title">Users</h2>
-  <div class="ws-admin-filters">
-    <div class="ws-admin-filter-left"></div>
-    <div class="ws-admin-filter-right"><input class="ws-admin-input" type="search" placeholder="Search" /></div>
+
+  <!-- Toolbar -->
+  <div class="ws-admin-toolbar">
+    <button class="ws-btn ws-btn-primary" id="add-user-btn">
+      <span>+ Add User</span>
+    </button>
+
+    <select id="user-type-filter" class="ws-select" aria-label="Filter by type">
+      <option value="">All Types</option>
+      <option value="Admin">Admin</option>
+      <option value="Driver">Driver</option>
+      <option value="Customer">Customer</option>
+      <option value="Installer">Installer</option>
+      <option value="Manufacturer">Manufacturer</option>
+    </select>
+
+    <select id="user-status-filter" class="ws-select" aria-label="Filter by status">
+      <option value="">All Status</option>
+      <option value="Active">Active</option>
+      <option value="Inactive">Inactive</option>
+    </select>
+
+    <input
+      id="user-search-input"
+      class="ws-input"
+      type="search"
+      placeholder="Search by name/email/phone"
+      autocomplete="off"
+    />
+
+    <button class="ws-btn" id="user-search-btn">🔎 Search</button>
+    <button class="ws-btn" id="user-clear-btn">✖ Clear</button>
+
+    <div class="ws-spacer"></div>
+
+    <label class="ws-inline">
+      <span>Per page:</span>
+      <select id="users-per-page" class="ws-select">
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+      </select>
+    </label>
   </div>
-  <div class="ws-admin-card">
-    <table class="ws-admin-table">
-      <thead><tr><th>SL NO.</th><th>USER ID</th><th>NAME</th><th>EMAIL</th><th>PHONE</th><th>TYPE</th><th>STATUS</th><th>ACTION</th></tr></thead>
-      <tbody>
-        <tr><td colspan="8">No data available.</td></tr>
+
+  <!-- Table -->
+  <div class="ws-table-wrap">
+    <table id="users-table" class="ws-table">
+      <thead>
+        <tr>
+          <th>SL NO.</th>
+          <th>NAME</th>
+          <th>EMAIL</th>
+          <th>PHONE</th>
+          <th>TYPE</th>
+          <th>ORDERS</th>
+          <th>STATUS</th>
+          <th>LAST ACTIVE</th>
+          <th>ACTION</th>
+        </tr>
+      </thead>
+      <tbody id="users-table-body">
+        <tr class="ws-empty">
+          <td colspan="9">No users found</td>
+        </tr>
       </tbody>
     </table>
-    <div class="ws-admin-table-meta">
-      <div>Showing 0 of 0 entries</div>
-      <div class="ws-admin-pager">
-        <button class="ws-admin-page">First</button>
-        <button class="ws-admin-page">Previous</button>
-        <span class="ws-admin-page-num">1</span>
-        <button class="ws-admin-page">Next</button>
-        <button class="ws-admin-page">Last</button>
-      </div>
-    </div>
+  </div>
+
+  <!-- Pager -->
+  <div class="ws-pager">
+    <div id="users-table-info" class="ws-pager-info">0–0 of 0</div>
+    <div id="users-pagination" class="ws-pager-controls"></div>
   </div>
 </section>
