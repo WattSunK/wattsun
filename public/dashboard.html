@@ -5,17 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WattSun Dashboard</title>
 
-  <!-- Admin CSS (toggle v2 with ?css=v2) -->
-  <link id="adminCSS" rel="stylesheet" href="./admin/admin.css" />
-  <script>
-    (function () {
-      const p = new URLSearchParams(location.search);
-      if (p.get("css") === "v2") {
-        const link = document.getElementById("adminCSS");
-        if (link) link.href = "./admin/admin.v2.css";
-      }
-    })();
-  </script>
+ <link rel="stylesheet" href="./admin/admin.css" />
+
 </head>
 <body>
   <div class="admin-layout">
