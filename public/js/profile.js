@@ -72,14 +72,17 @@ export async function initAdminProfile() {
       // API-first attempt (optional; harmless if endpoint doesn’t exist)
       let updated = { ...me, name: nextName };
       try {
-        const resp = await fetch(`/api/users/${me.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ name: nextName })
-        });
+ // Use canonical endpoint; backend may alias, but this is the contract
+    const resp = await fetch(`/api/users/me`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name: nextName })
+    });
         if (resp.ok) {
-          updated = await resp.json();
+          const data = await resp.json();
+         // Accept either wrapped or plain user shapes
+         updated = (data && (data.user || (data.success && data.user))) ? data.user : data;
         }
       } catch(_) {
         // ignore; fall back to local-only update

@@ -74,7 +74,14 @@
         try { localStorage.removeItem('ws_user'); } catch(e){}
         window.location.href = './index.html';
       });
-
+        try {
+        const raw = localStorage.getItem('wattsunUser');
+        const parsed = raw ? JSON.parse(raw) : null;
+        const u = parsed && parsed.success ? parsed.user : null;
+        if (u && document.querySelector('.header-user')) {
+          document.querySelector('.header-user').textContent = `👤 ${u.name} (${u.type || 'User'})`;
+        }
+      } catch {}
       // Load from hash if present; else default to Orders
       var hash = (location.hash || '').replace('#','');
       if (hash) {
