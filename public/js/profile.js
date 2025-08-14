@@ -82,7 +82,7 @@ export async function initAdminProfile() {
         if (resp.ok) {
           const data = await resp.json();
          // Accept either wrapped or plain user shapes
-         updated = (data && (data.user || (data.success && data.user))) ? data.user : data;
+         updated = (data && data.user) ? data.user : data; // unwrap to plain user
         }
       } catch(_) {
         // ignore; fall back to local-only update
