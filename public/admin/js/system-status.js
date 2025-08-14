@@ -1,11 +1,5 @@
 // public/admin/js/system-status.js
 
-function fetchWithTimeout(url, opts = {}, ms = 8000) {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), ms);
-  return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(id));
-}
-
 async function checkSystemStatus() {
   const box = document.getElementById('statusContainer');
   const ts = document.getElementById('timestamp');
@@ -14,7 +8,9 @@ async function checkSystemStatus() {
   box.innerHTML = '<div>Loading…</div>';
 
   try {
-    const r = await fetchWithTimeout('/api/health', {}, 8000);
+    const r = await fetch('/api/health');
+    if (!r.ok) throw new Error("Health check failed");
+
     const data = await r.json();
 
     const backend = data.backend || "❌ Unknown";
