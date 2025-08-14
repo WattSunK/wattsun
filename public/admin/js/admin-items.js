@@ -1,407 +1,334 @@
-// admin-items.js — Items list: fetch, search, per‑page, paginate, status toggle, edit/delete
+// admin-items.js — Items list: fetch, search, per-page, pagination, status toggle, Add/Edit/Delete, categories modal
 (function () {
-  // Page size (bound to #items-per-page if present)
   let PAGE_SIZE = 15;
-
-  // State
-  let allItemsCache = [];
-  let filteredItems = [];
+  let allItems = [];
+  let filtered = [];
   let currentPage = 1;
   let totalPages = 1;
 
-  // Helpers
-  const $ = (id) => document.getElementById(id);
-  function qsel(...ids) {
-    for (const id of ids) {
-      const el = document.getElementById(id);
-      if (el) return el;
-    }
-    return null;
-  }
-  function fmtKSH(v) {
-    const n = Number(v || 0);
-    return 'KSH ' + n.toLocaleString('en-KE');
+  const $  = (id) => document.getElementById(id);
+  const qs = (sel, root=document) => root.querySelector(sel);
+
+  function fmtKSH(v){ const n = Number(v||0); return 'KSH ' + n.toLocaleString('en-KE'); }
+  function esc(s){ return String(s ?? '').replace(/[&"'<>\n]/g, c => ({'&':'&amp;','"':'&quot;',"'":'&#39;','<':'&lt;','>':'&gt;','\n':'<br>'}[c])); }
+
+  async function fetchJSON(url, opts){
+    const r = await fetch(url, opts);
+    if(!r.ok) throw new Error(`${opts?.method||'GET'} ${url} → ${r.status}`);
+    return r.json();
   }
 
-  // Load categories into the filter
-  async function loadCategories() {
-    const sel = $('category-filter') || $('item-category-filter');
-    if (!sel) return;
+  // --- Data loads
+  async function loadItems(){
+    $('items-table-body').innerHTML = `<tr><td colspan="9" class="text-center">Loading...</td></tr>`;
     try {
-      const r = await fetch('/api/categories');
-      const j = await r.json();
-      const list = Array.isArray(j) ? j : (j.categories || []);
-      sel.innerHTML =
-        '<option value="">All Categories</option>' +
-        list.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
-    } catch (_) {
-      /* keep default option */
+      // /api/items returns an array per your routes/items.js
+      allItems = await fetchJSON('/api/items');
+    } catch(e){
+      console.error(e);
+      allItems = [];
+    }
+    applyFilters(1);
+  }
+
+  async function loadCategoriesIntoSelects(){
+    try {
+      const cats = await fetchJSON('/api/categories'); // array [{id,name}]
+      const names = Array.isArray(cats) ? cats.map(c=>c.name) : (cats.categories||[]).map(c=>c.name);
+      // filter select
+      const filterSel = $('category-filter');
+      if (filterSel){
+        filterSel.innerHTML = `<option value="">All Categories</option>` + names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+      }
+      // add/edit selects
+      const addSel = $('add-category');
+      const editSel = $('edit-category');
+      if (addSel){
+        addSel.innerHTML = `<option value="">Select...</option>` + names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+      }
+      if (editSel){
+        editSel.innerHTML = `<option value="">(unchanged)</option>` + names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+      }
+      // categories modal list
+      const ul = $('categories-list');
+      if (ul){
+        ul.innerHTML = names.length ? names.map(n=>`<li class="list-group-item d-flex justify-content-between align-items-center">${esc(n)}<span class="badge bg-warning text-dark">Active</span></li>`).join('') : '<li class="list-group-item">No categories</li>';
+      }
+    } catch(e){
+      console.warn('Categories load failed', e);
     }
   }
 
-  // --- API fetch + cache ---
-  async function fetchItemsFromApi() {
-    const tbody = $('items-table-body');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">Loading...</td></tr>`;
-    try {
-      const resp = await fetch('/api/items');
-      if (!resp.ok) throw new Error('Network response not ok');
-      const json = await resp.json();
-      allItemsCache = Array.isArray(json) ? json : [];
-    } catch (err) {
-      console.error('Error fetching items:', err);
-      allItemsCache = [];
-    }
-    applyFiltersAndRender(1);
-  }
+  // --- Filters + pagination
+  function applyFilters(page=1){
+    const q = ($('search-text')?.value || '').trim().toLowerCase();
+    const cat = ($('category-filter')?.value || '').trim();
 
-  // --- Filter + paginate ---
-  function applyFiltersAndRender(page = 1) {
-    const searchEl = qsel('item-search-input', 'search-text', 'search-input');
-    const categoryEl = qsel('item-category-filter', 'category-filter');
-
-    const query = (searchEl?.value || '').trim().toLowerCase();
-    const cat = (categoryEl?.value || '').trim();
-
-    try {
-      localStorage.setItem('itemSearchQuery', query);
-      localStorage.setItem('itemCategory', cat);
-    } catch (_) {}
-
-    filteredItems = allItemsCache.filter(item => {
-      const qMatch =
-        !query ||
-        (item.name && item.name.toLowerCase().includes(query)) ||
-        (item.sku && item.sku.toLowerCase().includes(query));
-      const cMatch = !cat || cat === 'All' || item.category === cat;
-      return qMatch && cMatch;
+    filtered = allItems.filter(it => {
+      const qmatch = !q || (it.name && it.name.toLowerCase().includes(q)) || (it.sku && it.sku.toLowerCase().includes(q));
+      const cmatch = !cat || it.category === cat;
+      return qmatch && cmatch;
     });
 
-    totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+    totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     currentPage = Math.min(Math.max(1, page), totalPages);
     renderPage(currentPage);
   }
 
-  function renderPage(page) {
-    const startIndex = (page - 1) * PAGE_SIZE;
-    const pageItems = filteredItems.slice(startIndex, startIndex + PAGE_SIZE);
-    renderItemsTable(pageItems, startIndex);
-    renderPaginationControls(page, totalPages, filteredItems.length);
+  function renderPage(page){
+    const start = (page-1)*PAGE_SIZE;
+    const pageItems = filtered.slice(start, start + PAGE_SIZE);
+    renderTable(pageItems, start);
+    renderPager(page, filtered.length);
   }
 
-  // --- Table rows ---
-  function renderItemsTable(items, startIndex = 0) {
-    const tbody = $('items-table-body');
-    if (!tbody) return;
-    if (!Array.isArray(items) || items.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">No items found</td></tr>`;
+  function renderTable(items, startIndex){
+    const tb = $('items-table-body');
+    if(!tb) return;
+    if(!items.length){
+      tb.innerHTML = `<tr><td colspan="9" class="text-center">No items found</td></tr>`;
       return;
     }
-    tbody.innerHTML = '';
-    items.forEach((item, idx) => {
-      const tr = document.createElement('tr');
-      const sr = startIndex + idx + 1;
-      const imgSrc = item.image ? `/images/products/${item.image}` : '/images/products/placeholder.jpg';
-      tr.innerHTML = `
-        <td>${sr}</td>
-        <td>
-          <img src="${imgSrc}"
-               class="item-thumb"
-               alt="Item"
-               onerror="this.onerror=null;this.src='/images/products/placeholder.jpg';"
-               style="max-width:60px;max-height:60px;object-fit:contain">
-        </td>
-        <td>${item.name || '-'}</td>
-        <td>${item.sku || '-'}</td>
-        <td>${item.category || '-'}</td>
-        <td>${item.stock ?? 0}</td>
-        <td>${item.price == null ? '-' : fmtKSH(item.price)}</td>
-        <td>
-          <label class="switch">
-            <input type="checkbox" class="inline-status-toggle" data-sku="${escapeHtml(item.sku)}" ${item.active ? 'checked' : ''}>
-            <span class="slider"></span>
-          </label>
-          <span class="status-label" data-status-label>${item.active ? 'Active' : 'Inactive'}</span>
-        </td>
-        <td>
-          <button class="items-action-btn edit-item-btn" data-sku="${escapeHtml(item.sku)}">Edit</button>
-          <button class="items-action-btn delete-item-btn" data-sku="${escapeHtml(item.sku)}">Delete</button>
-        </td>
-      `.trim();
-      tbody.appendChild(tr);
-    });
+    tb.innerHTML = items.map((it, i) => {
+      const img = it.image ? `/images/products/${esc(it.image)}` : '/images/products/placeholder.jpg';
+      const checked = it.active ? 'checked' : '';
+      return `
+        <tr>
+          <td>${startIndex + i + 1}</td>
+          <td><img src="${img}" alt="Item" onerror="this.onerror=null;this.src='/images/products/placeholder.jpg';" style="max-width:60px;max-height:60px;object-fit:contain"></td>
+          <td>${esc(it.name)}</td>
+          <td>${esc(it.sku)}</td>
+          <td>${esc(it.category || '')}</td>
+          <td>${it.stock ?? 0}</td>
+          <td>${it.price==null?'-':fmtKSH(it.price)}</td>
+          <td>
+            <label class="switch" style="display:inline-flex;align-items:center;gap:.5rem;">
+              <input type="checkbox" class="inline-status-toggle" data-sku="${esc(it.sku)}" ${checked}>
+              <span class="status-label">${it.active ? 'Active' : 'Inactive'}</span>
+            </label>
+          </td>
+          <td>
+            <button class="items-action-btn btn btn-sm btn-outline-secondary edit-item-btn" data-sku="${esc(it.sku)}">Edit</button>
+            <button class="items-action-btn btn btn-sm btn-outline-danger ms-1 delete-item-btn" data-sku="${esc(it.sku)}">Delete</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
   }
 
-  function escapeHtml(s) {
-    if (s === null || s === undefined) return '';
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
+  function renderPager(page, totalItems){
+    const info = $('items-table-info');
+    const ctrls = $('items-pagination');
+    if (!info || !ctrls) return;
 
-  // --- Pagination UI ---
-  function ensurePaginationContainer() {
-    // Respect existing containers in items.html; if absent, create our own.
-    if ($('items-pagination')) return;
-    const table = $('items-table');
-    if (!table) return;
-    const wrapper = document.createElement('div');
-    wrapper.id = 'items-pagination';
-    wrapper.className = 'items-pagination';
-    wrapper.style.display = 'flex';
-    wrapper.style.justifyContent = 'space-between';
-    wrapper.style.alignItems = 'center';
-    wrapper.style.marginTop = '10px';
-    wrapper.innerHTML = `
-      <div id="items-pagination-info">Showing 0 to 0 of 0 entries</div>
-      <div id="items-pagination-controls"></div>
-    `;
-    table.parentElement.appendChild(wrapper);
-
-    wrapper.querySelector('#items-pagination-controls').addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-page]');
-      if (!btn) return;
-      const p = parseInt(btn.dataset.page, 10);
-      if (!isNaN(p)) gotoPage(p);
-    });
-  }
-
-  function renderPaginationControls(page, total, totalItems) {
-    // Prefer containers already present in items.html
-    const info =
-      document.getElementById('items-table-info') ||
-      document.getElementById('items-pagination-info');
-    const controls =
-      document.getElementById('items-pagination') ||
-      document.getElementById('items-pagination-controls');
-    if (!info || !controls) return;
-
-    if (totalItems === 0) {
+    if (totalItems === 0){
       info.textContent = 'Showing 0 to 0 of 0 entries';
-      controls.innerHTML = '';
+      ctrls.innerHTML = '';
       return;
     }
-
-    const start = (page - 1) * PAGE_SIZE + 1;
-    const end = Math.min(totalItems, page * PAGE_SIZE);
+    const start = (page-1)*PAGE_SIZE + 1;
+    const end = Math.min(totalItems, page*PAGE_SIZE);
     info.textContent = `Showing ${start} to ${end} of ${totalItems} entries`;
 
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
     let html = '';
-    html += `<button data-page="1" class="items-page-btn" ${page === 1 ? 'disabled' : ''}>First</button>`;
-    html += `<button data-page="${Math.max(1, page - 1)}" class="items-page-btn" ${page === 1 ? 'disabled' : ''}>Prev</button>`;
-
-    const maxButtons = 7;
-    let startPage = Math.max(1, page - Math.floor(maxButtons / 2));
-    let endPage = Math.min(total, startPage + maxButtons - 1);
-    if (endPage - startPage + 1 < maxButtons) startPage = Math.max(1, endPage - maxButtons + 1);
-
-    for (let p = startPage; p <= endPage; p++) {
-      html += `<button data-page="${p}" class="items-page-btn" ${p === page ? 'disabled' : ''}>${p}</button>`;
+    html += btn(1, 'First', page===1);
+    html += btn(Math.max(1, page-1), 'Prev', page===1);
+    const windowSize = 7;
+    let sp = Math.max(1, page - Math.floor(windowSize/2));
+    let ep = Math.min(totalPages, sp + windowSize - 1);
+    if (ep - sp + 1 < windowSize) sp = Math.max(1, ep - windowSize + 1);
+    for(let p=sp; p<=ep; p++){
+      html += `<button data-page="${p}" class="btn btn-sm ${p===page?'btn-warning':'btn-outline-warning'} mx-1">${p}</button>`;
     }
+    html += btn(Math.min(totalPages, page+1), 'Next', page===totalPages);
+    html += btn(totalPages, 'Last', page===totalPages);
+    ctrls.innerHTML = html;
 
-    html += `<button data-page="${Math.min(total, page + 1)}" class="items-page-btn" ${page === total ? 'disabled' : ''}>Next</button>`;
-    html += `<button data-page="${total}" class="items-page-btn" ${page === total ? 'disabled' : ''}>Last</button>`;
-
-    controls.innerHTML = html;
-
-    // Delegate clicks for both container variants
-    controls.onclick = (e) => {
-      const btn = e.target.closest('button[data-page]');
-      if (!btn) return;
-      const p = parseInt(btn.dataset.page, 10);
+    ctrls.onclick = (e)=>{
+      const b = e.target.closest('button[data-page]');
+      if (!b) return;
+      const p = parseInt(b.dataset.page, 10);
       if (!isNaN(p)) gotoPage(p);
     };
+
+    function btn(p,label,disabled){ return `<button data-page="${p}" class="btn btn-sm btn-outline-warning mx-1" ${disabled?'disabled':''}>${label}</button>`; }
   }
 
-  function gotoPage(p) {
-    if (!p || isNaN(p)) return;
-    p = Math.max(1, Math.min(totalPages, p));
-    currentPage = p;
-    renderPage(p);
-    const table = $('items-table');
-    if (table) table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  function gotoPage(p){
+    const tp = Math.max(1, Math.min(totalPages, p));
+    currentPage = tp;
+    renderPage(tp);
+    $('items-table')?.scrollIntoView({behavior:'smooth', block:'start'});
   }
 
-  // --- Inline actions ---
-  async function toggleItemStatusDirect(sku, active) {
-    try {
-      const resp = await fetch(`/api/items/${encodeURIComponent(sku)}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+  // --- Inline actions
+  $('items-table')?.addEventListener('change', async (e)=>{
+    const box = e.target.closest('input.inline-status-toggle');
+    if (!box) return;
+    const sku = box.dataset.sku;
+    const active = !!box.checked;
+    try{
+      await fetchJSON(`/api/items/${encodeURIComponent(sku)}/status`, {
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ active })
       });
-      if (!resp.ok) throw new Error('Failed to update');
-      await fetchItemsFromApi(); // refresh
-    } catch (_) {
-      alert('Could not update status.');
+      const lbl = box.closest('td')?.querySelector('.status-label');
+      if (lbl) lbl.textContent = active ? 'Active' : 'Inactive';
+      // refresh row from server for safety
+      await loadItems();
+    }catch(err){
+      alert('Failed to update status'); box.checked = !active;
     }
-  }
+  });
 
-  function confirmDeleteItem(sku) {
-    if (!confirm('Are you sure you want to delete this item?')) return;
-    deleteItem(sku);
-  }
+  $('items-table')?.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button.items-action-btn');
+    if (!btn) return;
+    const sku = btn.dataset.sku;
+    if (btn.classList.contains('edit-item-btn')) openEdit(sku);
+    if (btn.classList.contains('delete-item-btn')) delItem(sku);
+  });
 
-  async function deleteItem(sku) {
-    try {
-      const resp = await fetch(`/api/items/${encodeURIComponent(sku)}`, { method: 'DELETE' });
-      if (!resp.ok) throw new Error('Failed to delete');
-      await fetchItemsFromApi();
-    } catch (_) {
-      alert('Could not delete item.');
+  // --- Search / Filter / Per-page
+  $('search-button')?.addEventListener('click', ()=>applyFilters(1));
+  $('clear-button')?.addEventListener('click', ()=>{
+    $('search-text').value = '';
+    $('category-filter').value = '';
+    applyFilters(1);
+  });
+  $('search-text')?.addEventListener('input', ()=>applyFilters(1));
+  $('category-filter')?.addEventListener('change', ()=>applyFilters(1));
+  $('items-per-page')?.addEventListener('change', ()=>{
+    PAGE_SIZE = parseInt($('items-per-page').value, 10) || 15;
+    applyFilters(1);
+  });
+
+  // --- Add
+  $('btn-add-item')?.addEventListener('click', ()=>{
+    $('add-item-form')?.reset();
+    $('add-active').checked = true;
+    $('add-item-modal-bg').style.display = 'block';
+  });
+
+  $('add-item-form')?.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const sku = $('add-sku').value.trim();
+    const name = $('add-name').value.trim();
+    const description = $('add-description').value.trim();
+    const price = Number($('add-price').value);
+    const category = $('add-category').value.trim();
+    const image = $('add-image').value.trim() || null;
+    const warranty = $('add-warranty').value ? Number($('add-warranty').value) : null;
+    const stock = $('add-stock').value ? Number($('add-stock').value) : 0;
+    const active = !!$('add-active').checked;
+
+    if (!sku || !name || !description || !category || isNaN(price)){
+      alert('Please fill all required fields'); return;
     }
-  }
 
-  async function openEditItemModal(sku) {
-    try {
-      const resp = await fetch(`/api/items/${encodeURIComponent(sku)}`);
-      if (!resp.ok) throw new Error('Item not found');
-      const item = await resp.json();
-
-      const modalBg = qsel('item-modal-bg', 'modal-bg');
-      const modal = qsel('item-modal', 'edit-item-modal', 'add-item-modal', 'modal');
-      const form =
-        modal?.querySelector('form') ||
-        $('edit-item-form') ||
-        $('item-modal-form');
-
-      if (form) {
-        const setVal = (q, v) => {
-          const el = form.querySelector(q) || $(q);
-          if (el) el.type === 'checkbox' ? (el.checked = !!v) : (el.value = v ?? '');
-        };
-        setVal('#item-modal-sku', item.sku || '');
-        setVal('#edit-sku', item.sku || '');
-        setVal('#item-modal-name', item.name || '');
-        setVal('#edit-name', item.name || '');
-        setVal('#item-modal-description', item.description || '');
-        setVal('#edit-description', item.description || '');
-        setVal('#item-modal-price', item.price || '');
-        setVal('#edit-price', item.price || '');
-        setVal('#item-modal-warranty', item.warranty || '');
-        setVal('#edit-warranty', item.warranty || '');
-        setVal('#item-modal-stock', item.stock || 0);
-        setVal('#edit-stock', item.stock || 0);
-        setVal('#item-modal-image', item.image || '');
-        setVal('#edit-image', item.image || '');
-        setVal('#item-modal-category', item.category || '');
-        setVal('#edit-category', item.category || '');
-        setVal('#item-modal-active', !!item.active);
-        setVal('#edit-status', !!item.active);
-      }
-
-      if (modalBg) modalBg.style.display = 'block';
-      if (modal) modal.style.display = 'block';
-    } catch (e) {
-      console.error('Failed to load item:', e);
-      alert('Could not load item');
-    }
-  }
-
-  function openAddItemModal() {
-    const modalBg = qsel('item-modal-bg', 'modal-bg');
-    const modal = qsel('item-modal', 'add-item-modal', 'modal');
-    const form =
-      modal?.querySelector('form') ||
-      $('add-item-form') ||
-      $('item-modal-form');
-    if (form) form.reset();
-    if (modalBg) modalBg.style.display = 'block';
-    if (modal) modal.style.display = 'block';
-  }
-
-  async function afterItemSaved() {
-    await fetchItemsFromApi();
-  }
-
-  // --- Init ---
-  window.initAdminItems = function () {
-    loadCategories();
-    ensurePaginationContainer();
-
-    // Bind page size selector
-    const perSelect = $('items-per-page');
-    if (perSelect) {
-      PAGE_SIZE = parseInt(perSelect.value, 10) || 15;
-      perSelect.addEventListener('change', () => {
-        PAGE_SIZE = parseInt(perSelect.value, 10) || 15;
-        applyFiltersAndRender(1);
+    try{
+      await fetchJSON('/api/items', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ sku, name, description, price, category, image, warranty, stock, active })
       });
+      $('add-item-modal-bg').style.display = 'none';
+      await loadItems();
+    }catch(err){
+      alert('Failed to create item: ' + err.message);
     }
+  });
 
-    // Search / filter wiring
-    const searchInput = qsel('item-search-input', 'search-text', 'search-input', 'ws-admin-input');
-    const categoryFilter = qsel('item-category-filter', 'category-filter');
+  // --- Edit
+  async function openEdit(sku){
+    try{
+      const item = await fetchJSON(`/api/items/${encodeURIComponent(sku)}`);
+      $('edit-sku').value = item.sku || '';
+      $('edit-name').value = item.name || '';
+      $('edit-description').value = item.description || '';
+      $('edit-price').value = item.price ?? '';
+      $('edit-warranty').value = item.warranty ?? '';
+      $('edit-stock').value = item.stock ?? '';
+      $('edit-image').value = item.image ?? '';
+      $('edit-category').value = item.category || '';
+      $('edit-status').checked = !!item.active;
+      $('edit-item-modal-bg').style.display = 'block';
+    }catch(err){
+      alert('Failed to load item: ' + err.message);
+    }
+  }
 
-    try {
-      const savedQuery = localStorage.getItem('itemSearchQuery');
-      const savedCategory = localStorage.getItem('itemCategory');
-      if (savedQuery && searchInput) searchInput.value = savedQuery;
-      if (savedCategory && categoryFilter) categoryFilter.value = savedCategory;
-    } catch (_) {}
+  $('edit-item-form')?.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const sku = $('edit-sku').value.trim();
+    const body = {
+      name:        $('edit-name').value || undefined,
+      description: $('edit-description').value || undefined,
+      price:       $('edit-price').value === '' ? undefined : Number($('edit-price').value),
+      warranty:    $('edit-warranty').value === '' ? undefined : Number($('edit-warranty').value),
+      stock:       $('edit-stock').value === '' ? undefined : Number($('edit-stock').value),
+      image:       $('edit-image').value || undefined,
+      category:    $('edit-category').value || undefined,
+      active:      $('edit-status').checked // note: status saved via /status endpoint below if needed
+    };
 
-    if (searchInput) searchInput.addEventListener('input', () => applyFiltersAndRender(1));
-    if (categoryFilter) categoryFilter.addEventListener('change', () => applyFiltersAndRender(1));
+    try{
+      // First save fields (PATCH /api/items/:sku)
+      await fetchJSON(`/api/items/${encodeURIComponent(sku)}`, {
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      });
 
-    const btnSearch = qsel('search-btn', 'item-search-btn', 'search-button');
-    const btnClear  = qsel('clear-btn',  'item-clear-btn',  'clear-button');
-    if (btnSearch) btnSearch.addEventListener('click', () => applyFiltersAndRender(1));
-    if (btnClear)  btnClear.addEventListener('click', () => {
-      if (searchInput) searchInput.value = '';
-      if (categoryFilter) categoryFilter.selectedIndex = 0;
-      try {
-        localStorage.removeItem('itemSearchQuery');
-        localStorage.removeItem('itemCategory');
-      } catch (_) {}
-      applyFiltersAndRender(1);
-    });
+      // If active flag changed, ensure status endpoint reflects it (safe to call every time)
+      await fetchJSON(`/api/items/${encodeURIComponent(sku)}/status`, {
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ active: !!$('edit-status').checked })
+      });
 
-    // Delegated table handlers
-    const itemsTable = $('items-table');
-    itemsTable?.addEventListener('change', (e) => {
-      const checkbox = e.target.closest('input.inline-status-toggle');
-      if (!checkbox) return;
-      const sku = checkbox.getAttribute('data-sku');
-      const active = checkbox.checked;
-      toggleItemStatusDirect(sku, active);
-      const label = checkbox.closest('td')?.querySelector('[data-status-label]');
-      if (label) label.innerText = active ? 'Active' : 'Inactive';
-    });
+      $('edit-item-modal-bg').style.display = 'none';
+      await loadItems();
+    }catch(err){
+      alert('Failed to update item: ' + err.message);
+    }
+  });
 
-    itemsTable?.addEventListener('click', (e) => {
-      const btn = e.target.closest('button');
-      if (!btn) return;
-      const sku = btn.getAttribute('data-sku');
-      if (btn.classList.contains('edit-item-btn')) openEditItemModal(sku);
-      else if (btn.classList.contains('delete-item-btn')) confirmDeleteItem(sku);
-    });
+  // --- Delete
+  async function delItem(sku){
+    if (!confirm(`Delete item ${sku}?`)) return;
+    try{
+      await fetchJSON(`/api/items/${encodeURIComponent(sku)}`, { method:'DELETE' });
+      await loadItems();
+    }catch(err){
+      alert('Failed to delete: ' + err.message);
+    }
+  }
 
-    // Add / Manage Categories
-    const addBtn = qsel('add-item-btn', 'btn-add-item');
-    if (addBtn) addBtn.addEventListener('click', openAddItemModal);
-    const manageBtn = qsel('manage-categories-btn', 'btn-manage-categories');
-    if (manageBtn) manageBtn.addEventListener('click', () => {
-      const modal = qsel('manage-categories-modal', 'categoriesModal', 'categories-modal');
-      if (modal) modal.style.display = 'block';
-    });
+  // --- Manage Categories
+  $('btn-manage-categories')?.addEventListener('click', async ()=>{
+    await loadCategoriesIntoSelects();
+    $('manage-categories-modal').style.display = 'block';
+  });
 
-    // Close modals on backdrop click or .modal-close
-    document.body.addEventListener('click', (e) => {
-      const modalBg = qsel('item-modal-bg', 'manage-categories-modal', 'modal-bg');
-      if (modalBg && modalBg.style.display !== 'none' && e.target === modalBg) modalBg.style.display = 'none';
-      if (e.target.classList.contains('modal-close')) {
-        const m = e.target.closest('.modal-bg') || e.target.closest('.modal');
-        if (m) m.style.display = 'none';
-      }
-    });
+  // --- Close modals
+  document.addEventListener('click', (e)=>{
+    if (e.target.classList.contains('modal-close')){
+      e.target.closest('.modal-bg').style.display = 'none';
+    }
+    // click outside modal to close
+    if (e.target.classList.contains('modal-bg')){
+      e.target.style.display = 'none';
+    }
+  });
 
-    // Initial load
-    fetchItemsFromApi();
-  };
-
-  // Public hooks (optional)
-  window.adminItems = { refresh: fetchItemsFromApi, afterItemSaved };
+  // --- Init
+  document.addEventListener('DOMContentLoaded', async ()=>{
+    // initial page size
+    if ($('items-per-page')) PAGE_SIZE = parseInt($('items-per-page').value,10) || 15;
+    await loadCategoriesIntoSelects();
+    await loadItems();
+  });
 })();
