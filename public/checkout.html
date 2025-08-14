@@ -311,9 +311,27 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   renderCart();
 
+  /* --------- (1) ADD HELPERS: tolerant read/write for wattsunUser --------- */
+  function readWattsunUser() {
+    try {
+      const raw = localStorage.getItem('wattsunUser');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object'
+        ? (parsed.success ? parsed.user : parsed)
+        : null;
+    } catch { return null; }
+  }
+  function writeWattsunUser(user) {
+    if (!user) { localStorage.removeItem('wattsunUser'); return; }
+    localStorage.setItem('wattsunUser', JSON.stringify({ success: true, user }));
+  }
+  /* ----------------------------------------------------------------------- */
+
   // Prefill logic for checkout form
   function prefillCheckoutFields() {
-    const user = JSON.parse(localStorage.getItem('wattsunUser') || 'null');
+    /* (2) REPLACE: parse → readWattsunUser() */
+    const user = readWattsunUser();
     if (user) {
       document.getElementById('fullName').value = user.name || "";
       document.getElementById('email').value = user.email || "";
@@ -329,7 +347,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Auth Section in Heading
   function renderAuthSection() {
-    const user = JSON.parse(localStorage.getItem('wattsunUser') || 'null');
+    /* (3) REPLACE: parse → readWattsunUser() */
+    const user = readWattsunUser();
     const section = document.getElementById('authSection');
     if (user) {
       section.innerHTML = `<span class="welcome-msg">Welcome, ${user.name || ''}</span>
@@ -343,7 +362,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // On logout, clear session and update UI
   window.logoutUser = function() {
-    localStorage.removeItem('wattsunUser');
+    /* (4) REPLACE: removeItem → writeWattsunUser(null) */
+    writeWattsunUser(null);
     renderAuthSection();
     // Optionally clear form fields
     document.getElementById('fullName').value = "";
@@ -353,8 +373,10 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // After login/signup success: update UI & prefill
-  function handleLoginSignupSuccess(userObj) {
-    localStorage.setItem('wattsunUser', JSON.stringify(userObj));
+  function handleLoginSignupSuccess(payload) {
+    /* (5) REPLACE: setItem(payload) → normalize then writeWattsunUser(user) */
+    const user = payload && payload.user ? payload.user : payload;
+    writeWattsunUser(user);
     renderAuthSection();
     prefillCheckoutFields();
     closeAuthModal();
@@ -479,11 +501,11 @@ document.addEventListener("DOMContentLoaded", function () {
       const data = await response.json();
       if (response.ok && data.status === "success") {
         // If logged in, update their delivery address in localStorage for future
-        const user = JSON.parse(localStorage.getItem('wattsunUser') || 'null');
+        const user = readWattsunUser(); /* tolerant read */
         if (user) {
           user.address = orderData.address;
           user.phone = orderData.phone;
-          localStorage.setItem('wattsunUser', JSON.stringify(user));
+          writeWattsunUser(user);      /* normalized write */
         }
         sessionStorage.setItem("orderNumber", data.orderNumber);
         sessionStorage.setItem("customerName", data.fullName);
