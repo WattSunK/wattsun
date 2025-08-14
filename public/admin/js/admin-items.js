@@ -1,4 +1,5 @@
-// admin-items.js — Items list: fetch, search, per-page, pagination, status toggle, Add/Edit/Delete, categories modal
+// public/admin/js/admin-items.js
+// Items list: fetch, search, per-page, pagination, status toggle, Add/Edit/Delete, categories modal
 (function () {
   let PAGE_SIZE = 15;
   let allItems = [];
@@ -18,14 +19,17 @@
     return r.json();
   }
 
-  // --- Data loads
-  async function loadItems(){
-    $('items-table-body').innerHTML = `<tr><td colspan="9" class="text-center">Loading...</td></tr>`;
+  // ---------- Data loads
+  async function loadItems() {
+    const tbody = $('items-table-body');
+    if (!tbody) return; // partial not mounted
+    tbody.innerHTML = `<tr><td colspan="9" class="text-center">Loading...</td></tr>`;
     try {
-      // /api/items returns an array per your routes/items.js
-      allItems = await fetchJSON('/api/items');
+      const res = await fetchJSON('/api/items');
+      // backend might return an array or {items:[...]}
+      allItems = Array.isArray(res) ? res : (res.items || []);
     } catch(e){
-      console.error(e);
+      console.error('loadItems failed:', e);
       allItems = [];
     }
     applyFilters(1);
@@ -33,33 +37,34 @@
 
   async function loadCategoriesIntoSelects(){
     try {
-      const cats = await fetchJSON('/api/categories'); // array [{id,name}]
-      const names = Array.isArray(cats) ? cats.map(c=>c.name) : (cats.categories||[]).map(c=>c.name);
-      // filter select
+      const res = await fetchJSON('/api/categories');
+      const cats = Array.isArray(res) ? res : (res.categories || []);
+      const names = cats.map(c=>c.name);
+
       const filterSel = $('category-filter');
       if (filterSel){
         filterSel.innerHTML = `<option value="">All Categories</option>` + names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
       }
-      // add/edit selects
       const addSel = $('add-category');
-      const editSel = $('edit-category');
       if (addSel){
         addSel.innerHTML = `<option value="">Select...</option>` + names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
       }
+      const editSel = $('edit-category');
       if (editSel){
         editSel.innerHTML = `<option value="">(unchanged)</option>` + names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
       }
-      // categories modal list
       const ul = $('categories-list');
       if (ul){
-        ul.innerHTML = names.length ? names.map(n=>`<li class="list-group-item d-flex justify-content-between align-items-center">${esc(n)}<span class="badge bg-warning text-dark">Active</span></li>`).join('') : '<li class="list-group-item">No categories</li>';
+        ul.innerHTML = names.length
+          ? names.map(n=>`<li class="list-group-item d-flex justify-content-between align-items-center">${esc(n)}<span class="badge bg-warning text-dark">Active</span></li>`).join('')
+          : '<li class="list-group-item">No categories</li>';
       }
     } catch(e){
       console.warn('Categories load failed', e);
     }
   }
 
-  // --- Filters + pagination
+  // ---------- Filters + pagination
   function applyFilters(page=1){
     const q = ($('search-text')?.value || '').trim().toLowerCase();
     const cat = ($('category-filter')?.value || '').trim();
@@ -162,8 +167,8 @@
     $('items-table')?.scrollIntoView({behavior:'smooth', block:'start'});
   }
 
-  // --- Inline actions
-  $('items-table')?.addEventListener('change', async (e)=>{
+  // ---------- Delegated inline actions (survive DOM swaps)
+  document.addEventListener('change', async (e)=>{
     const box = e.target.closest('input.inline-status-toggle');
     if (!box) return;
     const sku = box.dataset.sku;
@@ -176,14 +181,13 @@
       });
       const lbl = box.closest('td')?.querySelector('.status-label');
       if (lbl) lbl.textContent = active ? 'Active' : 'Inactive';
-      // refresh row from server for safety
       await loadItems();
     }catch(err){
       alert('Failed to update status'); box.checked = !active;
     }
   });
 
-  $('items-table')?.addEventListener('click', (e)=>{
+  document.addEventListener('click', (e)=>{
     const btn = e.target.closest('button.items-action-btn');
     if (!btn) return;
     const sku = btn.dataset.sku;
@@ -191,28 +195,44 @@
     if (btn.classList.contains('delete-item-btn')) delItem(sku);
   });
 
-  // --- Search / Filter / Per-page
-  $('search-button')?.addEventListener('click', ()=>applyFilters(1));
-  $('clear-button')?.addEventListener('click', ()=>{
-    $('search-text').value = '';
-    $('category-filter').value = '';
-    applyFilters(1);
-  });
-  $('search-text')?.addEventListener('input', ()=>applyFilters(1));
-  $('category-filter')?.addEventListener('change', ()=>applyFilters(1));
-  $('items-per-page')?.addEventListener('change', ()=>{
-    PAGE_SIZE = parseInt($('items-per-page').value, 10) || 15;
-    applyFilters(1);
+  // ---------- Search / Filter / Per-page (delegated)
+  document.addEventListener('click', (e)=>{
+    if (e.target?.id === 'search-button') applyFilters(1);
+    if (e.target?.id === 'clear-button'){
+      const s = $('search-text'); const c = $('category-filter');
+      if (s) s.value = ''; if (c) c.value = '';
+      applyFilters(1);
+    }
+    if (e.target?.id === 'btn-add-item'){
+      $('add-item-form')?.reset();
+      const a = $('add-active'); if (a) a.checked = true;
+      const bg = $('add-item-modal-bg'); if (bg) bg.style.display = 'block';
+    }
+    if (e.target?.id === 'btn-manage-categories'){
+      loadCategoriesIntoSelects().finally(()=>{
+        const m = $('manage-categories-modal'); if (m) m.style.display = 'block';
+      });
+    }
+    if (e.target.classList?.contains('modal-close')){
+      e.target.closest('.modal-bg').style.display = 'none';
+    }
   });
 
-  // --- Add
-  $('btn-add-item')?.addEventListener('click', ()=>{
-    $('add-item-form')?.reset();
-    $('add-active').checked = true;
-    $('add-item-modal-bg').style.display = 'block';
+  document.addEventListener('input', (e)=>{
+    if (e.target?.id === 'search-text') applyFilters(1);
+  });
+  document.addEventListener('change', (e)=>{
+    if (e.target?.id === 'category-filter') applyFilters(1);
+    if (e.target?.id === 'items-per-page'){
+      PAGE_SIZE = parseInt(e.target.value, 10) || 15;
+      applyFilters(1);
+    }
   });
 
-  $('add-item-form')?.addEventListener('submit', async (e)=>{
+  // ---------- Add
+  document.addEventListener('submit', async (e)=>{
+    const form = e.target.closest('#add-item-form');
+    if (!form) return;
     e.preventDefault();
     const sku = $('add-sku').value.trim();
     const name = $('add-name').value.trim();
@@ -241,7 +261,7 @@
     }
   });
 
-  // --- Edit
+  // ---------- Edit
   async function openEdit(sku){
     try{
       const item = await fetchJSON(`/api/items/${encodeURIComponent(sku)}`);
@@ -260,7 +280,9 @@
     }
   }
 
-  $('edit-item-form')?.addEventListener('submit', async (e)=>{
+  document.addEventListener('submit', async (e)=>{
+    const form = e.target.closest('#edit-item-form');
+    if (!form) return;
     e.preventDefault();
     const sku = $('edit-sku').value.trim();
     const body = {
@@ -271,24 +293,20 @@
       stock:       $('edit-stock').value === '' ? undefined : Number($('edit-stock').value),
       image:       $('edit-image').value || undefined,
       category:    $('edit-category').value || undefined,
-      active:      $('edit-status').checked // note: status saved via /status endpoint below if needed
+      active:      $('edit-status').checked
     };
 
     try{
-      // First save fields (PATCH /api/items/:sku)
       await fetchJSON(`/api/items/${encodeURIComponent(sku)}`, {
         method:'PATCH',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify(body)
       });
-
-      // If active flag changed, ensure status endpoint reflects it (safe to call every time)
       await fetchJSON(`/api/items/${encodeURIComponent(sku)}/status`, {
         method:'PATCH',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ active: !!$('edit-status').checked })
       });
-
       $('edit-item-modal-bg').style.display = 'none';
       await loadItems();
     }catch(err){
@@ -296,7 +314,7 @@
     }
   });
 
-  // --- Delete
+  // ---------- Delete
   async function delItem(sku){
     if (!confirm(`Delete item ${sku}?`)) return;
     try{
@@ -307,28 +325,27 @@
     }
   }
 
-  // --- Manage Categories
-  $('btn-manage-categories')?.addEventListener('click', async ()=>{
-    await loadCategoriesIntoSelects();
-    $('manage-categories-modal').style.display = 'block';
-  });
+  // ---------- Mount / re‑mount
+  async function init(){
+    const root = $('items-root');
+    if (!root || root.dataset.inited === '1') return;
+    root.dataset.inited = '1';
 
-  // --- Close modals
-  document.addEventListener('click', (e)=>{
-    if (e.target.classList.contains('modal-close')){
-      e.target.closest('.modal-bg').style.display = 'none';
-    }
-    // click outside modal to close
-    if (e.target.classList.contains('modal-bg')){
-      e.target.style.display = 'none';
-    }
-  });
-
-  // --- Init
-  document.addEventListener('DOMContentLoaded', async ()=>{
-    // initial page size
+    // initial page size if select exists
     if ($('items-per-page')) PAGE_SIZE = parseInt($('items-per-page').value,10) || 15;
+
     await loadCategoriesIntoSelects();
     await loadItems();
+  }
+
+  // Auto‑init when the partial appears
+  const mo = new MutationObserver(() => {
+    if ($('items-root') && $('items-table-body')) init();
   });
+  mo.observe(document.documentElement, { childList:true, subtree:true });
+
+  // Also expose a manual hook for the dashboard loader (optional)
+  window.AdminItems = window.AdminItems || {};
+  window.AdminItems.init = init;
+
 })();
