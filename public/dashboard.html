@@ -65,7 +65,7 @@
 <script type="module">
   async function bootProfile() {
     // If your file lives at /public/admin/js/profile.js use this:
-    const mod = await import('./admin/js/profile.js?v=1');
+    const mod = await import('./js/profile.js?v=1');   // or: import('/js/profile.js?v=1')
     if (mod?.initAdminProfile) mod.initAdminProfile();
   }
 
