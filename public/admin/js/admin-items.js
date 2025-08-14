@@ -1,25 +1,42 @@
-// admin-items.js — UPDATED: client-side pagination (15 items per page)
-// Keeps most of original behavior (add/edit/delete/status) and adds pagination.
-// Drop-in replacement for existing admin-items.js
-
+// admin-items.js — Items list: fetch, search, per‑page, paginate, status toggle, edit/delete
 (function () {
-  // Config
-  const PAGE_SIZE = 15;
+  // Page size (bound to #items-per-page if present)
+  let PAGE_SIZE = 15;
 
   // State
-  let allItemsCache = [];      // full array returned from /api/items
-  let filteredItems = [];      // after applying search/category
+  let allItemsCache = [];
+  let filteredItems = [];
   let currentPage = 1;
   let totalPages = 1;
 
-  // Utility: safe selectors with fallbacks
-  const $ = id => document.getElementById(id);
+  // Helpers
+  const $ = (id) => document.getElementById(id);
   function qsel(...ids) {
     for (const id of ids) {
       const el = document.getElementById(id);
       if (el) return el;
     }
     return null;
+  }
+  function fmtKSH(v) {
+    const n = Number(v || 0);
+    return 'KSH ' + n.toLocaleString('en-KE');
+  }
+
+  // Load categories into the filter
+  async function loadCategories() {
+    const sel = $('category-filter') || $('item-category-filter');
+    if (!sel) return;
+    try {
+      const r = await fetch('/api/categories');
+      const j = await r.json();
+      const list = Array.isArray(j) ? j : (j.categories || []);
+      sel.innerHTML =
+        '<option value="">All Categories</option>' +
+        list.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+    } catch (_) {
+      /* keep default option */
+    }
   }
 
   // --- API fetch + cache ---
@@ -35,11 +52,10 @@
       console.error('Error fetching items:', err);
       allItemsCache = [];
     }
-    // apply existing filters and render page 1
     applyFiltersAndRender(1);
   }
 
-  // --- Filtering & pagination logic ---
+  // --- Filter + paginate ---
   function applyFiltersAndRender(page = 1) {
     const searchEl = qsel('item-search-input', 'search-text', 'search-input');
     const categoryEl = qsel('item-category-filter', 'category-filter');
@@ -50,10 +66,13 @@
     try {
       localStorage.setItem('itemSearchQuery', query);
       localStorage.setItem('itemCategory', cat);
-    } catch (e) {}
+    } catch (_) {}
 
     filteredItems = allItemsCache.filter(item => {
-      const qMatch = !query || (item.name && item.name.toLowerCase().includes(query)) || (item.sku && item.sku.toLowerCase().includes(query));
+      const qMatch =
+        !query ||
+        (item.name && item.name.toLowerCase().includes(query)) ||
+        (item.sku && item.sku.toLowerCase().includes(query));
       const cMatch = !cat || cat === 'All' || item.category === cat;
       return qMatch && cMatch;
     });
@@ -70,7 +89,7 @@
     renderPaginationControls(page, totalPages, filteredItems.length);
   }
 
-  // --- Rendering table rows (keeps original cell layout / classes) ---
+  // --- Table rows ---
   function renderItemsTable(items, startIndex = 0) {
     const tbody = $('items-table-body');
     if (!tbody) return;
@@ -81,11 +100,8 @@
     tbody.innerHTML = '';
     items.forEach((item, idx) => {
       const tr = document.createElement('tr');
-
       const sr = startIndex + idx + 1;
       const imgSrc = item.image ? `/images/products/${item.image}` : '/images/products/placeholder.jpg';
-
-      // keep same row structure that your original admin-items.js expects
       tr.innerHTML = `
         <td>${sr}</td>
         <td>
@@ -99,7 +115,7 @@
         <td>${item.sku || '-'}</td>
         <td>${item.category || '-'}</td>
         <td>${item.stock ?? 0}</td>
-        <td>${item.price || '-'}</td>
+        <td>${item.price == null ? '-' : fmtKSH(item.price)}</td>
         <td>
           <label class="switch">
             <input type="checkbox" class="inline-status-toggle" data-sku="${escapeHtml(item.sku)}" ${item.active ? 'checked' : ''}>
@@ -112,19 +128,23 @@
           <button class="items-action-btn delete-item-btn" data-sku="${escapeHtml(item.sku)}">Delete</button>
         </td>
       `.trim();
-
       tbody.appendChild(tr);
     });
   }
 
-  // Basic escape for attribute insertion
   function escapeHtml(s) {
     if (s === null || s === undefined) return '';
-    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   // --- Pagination UI ---
   function ensurePaginationContainer() {
+    // Respect existing containers in items.html; if absent, create our own.
     if ($('items-pagination')) return;
     const table = $('items-table');
     if (!table) return;
@@ -141,7 +161,6 @@
     `;
     table.parentElement.appendChild(wrapper);
 
-    // delegate clicks on pagination controls
     wrapper.querySelector('#items-pagination-controls').addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-page]');
       if (!btn) return;
@@ -151,9 +170,13 @@
   }
 
   function renderPaginationControls(page, total, totalItems) {
-    ensurePaginationContainer();
-    const info = $('items-pagination-info');
-    const controls = $('items-pagination-controls');
+    // Prefer containers already present in items.html
+    const info =
+      document.getElementById('items-table-info') ||
+      document.getElementById('items-pagination-info');
+    const controls =
+      document.getElementById('items-pagination') ||
+      document.getElementById('items-pagination-controls');
     if (!info || !controls) return;
 
     if (totalItems === 0) {
@@ -166,12 +189,10 @@
     const end = Math.min(totalItems, page * PAGE_SIZE);
     info.textContent = `Showing ${start} to ${end} of ${totalItems} entries`;
 
-    // construct controls: First Prev [pages] Next Last
     let html = '';
     html += `<button data-page="1" class="items-page-btn" ${page === 1 ? 'disabled' : ''}>First</button>`;
     html += `<button data-page="${Math.max(1, page - 1)}" class="items-page-btn" ${page === 1 ? 'disabled' : ''}>Prev</button>`;
 
-    // numeric pages window (max 7)
     const maxButtons = 7;
     let startPage = Math.max(1, page - Math.floor(maxButtons / 2));
     let endPage = Math.min(total, startPage + maxButtons - 1);
@@ -185,6 +206,14 @@
     html += `<button data-page="${total}" class="items-page-btn" ${page === total ? 'disabled' : ''}>Last</button>`;
 
     controls.innerHTML = html;
+
+    // Delegate clicks for both container variants
+    controls.onclick = (e) => {
+      const btn = e.target.closest('button[data-page]');
+      if (!btn) return;
+      const p = parseInt(btn.dataset.page, 10);
+      if (!isNaN(p)) gotoPage(p);
+    };
   }
 
   function gotoPage(p) {
@@ -192,12 +221,11 @@
     p = Math.max(1, Math.min(totalPages, p));
     currentPage = p;
     renderPage(p);
-    // scroll a bit to table top for better UX
     const table = $('items-table');
     if (table) table.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  // --- Existing admin action helpers (kept lean) ---
+  // --- Inline actions ---
   async function toggleItemStatusDirect(sku, active) {
     try {
       const resp = await fetch(`/api/items/${encodeURIComponent(sku)}/status`, {
@@ -206,9 +234,8 @@
         body: JSON.stringify({ active })
       });
       if (!resp.ok) throw new Error('Failed to update');
-      // refresh cache from server for consistency
-      await fetchItemsFromApi();
-    } catch (err) {
+      await fetchItemsFromApi(); // refresh
+    } catch (_) {
       alert('Could not update status.');
     }
   }
@@ -223,38 +250,29 @@
       const resp = await fetch(`/api/items/${encodeURIComponent(sku)}`, { method: 'DELETE' });
       if (!resp.ok) throw new Error('Failed to delete');
       await fetchItemsFromApi();
-    } catch (err) {
+    } catch (_) {
       alert('Could not delete item.');
     }
   }
 
-  // --- Modal open/edit/delete functions — keep existing behaviour but ensure cache refresh ---
-  // NOTE: These functions assume the modal markup & IDs expected by your original JS are present.
-  // If your modal IDs differ, the openEditItemModal / openAddItemModal functions may not find them.
   async function openEditItemModal(sku) {
     try {
       const resp = await fetch(`/api/items/${encodeURIComponent(sku)}`);
       if (!resp.ok) throw new Error('Item not found');
       const item = await resp.json();
 
-      // Modal elements - trying to be compatible with multiple naming variants
-      const modalBg = qsel('item-modal-bg', 'item-modal-bg', 'modal-bg');
+      const modalBg = qsel('item-modal-bg', 'modal-bg');
       const modal = qsel('item-modal', 'edit-item-modal', 'add-item-modal', 'modal');
-
-      // If your modal element structure uses the "item-modal" naming, this will populate it.
-      // We attempt to find a form and set values adaptively (fallbacks included).
-      const form = modal?.querySelector('form') || document.getElementById('edit-item-form') || document.getElementById('item-modal-form');
+      const form =
+        modal?.querySelector('form') ||
+        $('edit-item-form') ||
+        $('item-modal-form');
 
       if (form) {
-        // try a bunch of common input namings
         const setVal = (q, v) => {
-          const el = form.querySelector(q) || document.getElementById(q);
-          if (el) {
-            if (el.type === 'checkbox') el.checked = !!v;
-            else el.value = v ?? '';
-          }
+          const el = form.querySelector(q) || $(q);
+          if (el) el.type === 'checkbox' ? (el.checked = !!v) : (el.value = v ?? '');
         };
-
         setVal('#item-modal-sku', item.sku || '');
         setVal('#edit-sku', item.sku || '');
         setVal('#item-modal-name', item.name || '');
@@ -284,59 +302,64 @@
   }
 
   function openAddItemModal() {
-    // attempt to find add modal and show it.
-    const modalBg = qsel('item-modal-bg', 'add-item-modal', 'modal-bg');
+    const modalBg = qsel('item-modal-bg', 'modal-bg');
     const modal = qsel('item-modal', 'add-item-modal', 'modal');
-    const form = modal?.querySelector('form') || document.getElementById('add-item-form') || document.getElementById('item-modal-form');
+    const form =
+      modal?.querySelector('form') ||
+      $('add-item-form') ||
+      $('item-modal-form');
     if (form) form.reset();
     if (modalBg) modalBg.style.display = 'block';
     if (modal) modal.style.display = 'block';
   }
 
-  // Called by external code that wires Save/Cancel inside modal.
-  // But ensure that after saving we refresh cache:
   async function afterItemSaved() {
     await fetchItemsFromApi();
   }
 
-  // --- Initialization entrypoint (wired from dashboard loader) ---
+  // --- Init ---
   window.initAdminItems = function () {
-    // Wire search/filter controls
+    loadCategories();
+    ensurePaginationContainer();
+
+    // Bind page size selector
+    const perSelect = $('items-per-page');
+    if (perSelect) {
+      PAGE_SIZE = parseInt(perSelect.value, 10) || 15;
+      perSelect.addEventListener('change', () => {
+        PAGE_SIZE = parseInt(perSelect.value, 10) || 15;
+        applyFiltersAndRender(1);
+      });
+    }
+
+    // Search / filter wiring
     const searchInput = qsel('item-search-input', 'search-text', 'search-input', 'ws-admin-input');
     const categoryFilter = qsel('item-category-filter', 'category-filter');
 
-    // Fallback for saved values
     try {
       const savedQuery = localStorage.getItem('itemSearchQuery');
       const savedCategory = localStorage.getItem('itemCategory');
       if (savedQuery && searchInput) searchInput.value = savedQuery;
       if (savedCategory && categoryFilter) categoryFilter.value = savedCategory;
-    } catch (e) {}
+    } catch (_) {}
 
-    // Apply filters on input/change
-    if (searchInput) {
-      searchInput.addEventListener('input', () => applyFiltersAndRender(1));
-    }
-    if (categoryFilter) {
-      categoryFilter.addEventListener('change', () => applyFiltersAndRender(1));
-    }
+    if (searchInput) searchInput.addEventListener('input', () => applyFiltersAndRender(1));
+    if (categoryFilter) categoryFilter.addEventListener('change', () => applyFiltersAndRender(1));
 
-    // Search/Clear buttons (support both names)
-    const btnSearch = qsel('search-btn', 'item-search-btn', 'search-button', 'search-button');
-    const btnClear = qsel('clear-btn', 'item-clear-btn', 'clear-button', 'clear-btn');
-
+    const btnSearch = qsel('search-btn', 'item-search-btn', 'search-button');
+    const btnClear  = qsel('clear-btn',  'item-clear-btn',  'clear-button');
     if (btnSearch) btnSearch.addEventListener('click', () => applyFiltersAndRender(1));
-    if (btnClear) btnClear.addEventListener('click', () => {
+    if (btnClear)  btnClear.addEventListener('click', () => {
       if (searchInput) searchInput.value = '';
       if (categoryFilter) categoryFilter.selectedIndex = 0;
       try {
         localStorage.removeItem('itemSearchQuery');
         localStorage.removeItem('itemCategory');
-      } catch (e) {}
+      } catch (_) {}
       applyFiltersAndRender(1);
     });
 
-    // Table delegated handlers for inline toggle and action buttons
+    // Delegated table handlers
     const itemsTable = $('items-table');
     itemsTable?.addEventListener('change', (e) => {
       const checkbox = e.target.closest('input.inline-status-toggle');
@@ -344,7 +367,6 @@
       const sku = checkbox.getAttribute('data-sku');
       const active = checkbox.checked;
       toggleItemStatusDirect(sku, active);
-      // optimistic label update
       const label = checkbox.closest('td')?.querySelector('[data-status-label]');
       if (label) label.innerText = active ? 'Active' : 'Inactive';
     });
@@ -353,14 +375,11 @@
       const btn = e.target.closest('button');
       if (!btn) return;
       const sku = btn.getAttribute('data-sku');
-      if (btn.classList.contains('edit-item-btn')) {
-        openEditItemModal(sku);
-      } else if (btn.classList.contains('delete-item-btn')) {
-        confirmDeleteItem(sku);
-      }
+      if (btn.classList.contains('edit-item-btn')) openEditItemModal(sku);
+      else if (btn.classList.contains('delete-item-btn')) confirmDeleteItem(sku);
     });
 
-    // Add / Manage Categories buttons
+    // Add / Manage Categories
     const addBtn = qsel('add-item-btn', 'btn-add-item');
     if (addBtn) addBtn.addEventListener('click', openAddItemModal);
     const manageBtn = qsel('manage-categories-btn', 'btn-manage-categories');
@@ -369,25 +388,20 @@
       if (modal) modal.style.display = 'block';
     });
 
-    // Close modals when clicking the modal-bg (if present)
+    // Close modals on backdrop click or .modal-close
     document.body.addEventListener('click', (e) => {
-      const modalBg = qsel('item-modal-bg', 'add-item-modal', 'manage-categories-modal', 'modal-bg');
-      if (modalBg && modalBg.style.display !== 'none' && e.target === modalBg) {
-        modalBg.style.display = 'none';
-      }
+      const modalBg = qsel('item-modal-bg', 'manage-categories-modal', 'modal-bg');
+      if (modalBg && modalBg.style.display !== 'none' && e.target === modalBg) modalBg.style.display = 'none';
       if (e.target.classList.contains('modal-close')) {
         const m = e.target.closest('.modal-bg') || e.target.closest('.modal');
         if (m) m.style.display = 'none';
       }
     });
 
-    // initial load
+    // Initial load
     fetchItemsFromApi();
   };
 
-  // Expose helper for other modules if needed
-  window.adminItems = {
-    refresh: fetchItemsFromApi,
-    afterItemSaved
-  };
+  // Public hooks (optional)
+  window.adminItems = { refresh: fetchItemsFromApi, afterItemSaved };
 })();

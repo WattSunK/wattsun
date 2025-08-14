@@ -28,7 +28,7 @@
 
   <!-- Items Table -->
   <div class="table-responsive">
-    <table class="table table-bordered table-striped align-middle">
+    <table id="items-table" class="table table-bordered table-striped align-middle">
       <thead class="table-warning">
         <tr>
           <th>SL. NO</th>
@@ -42,121 +42,122 @@
           <th>ACTION</th>
         </tr>
       </thead>
-      <tbody id="items-table-body">
-        <!-- Filled dynamically by admin-items.js -->
-      </tbody>
+      <tbody id="items-table-body"><!-- filled by admin-items.js --></tbody>
     </table>
   </div>
 
   <!-- Pagination info & controls -->
   <div class="d-flex justify-content-between align-items-center mt-2">
-    <div id="items-table-info" class="small text-muted">
-      Showing 0 to 0 of 0 entries
-    </div>
+    <div id="items-table-info" class="small text-muted">Showing 0 to 0 of 0 entries</div>
     <div class="pagination" id="items-pagination"></div>
   </div>
 </div>
 
+<!-- Inline script kept for fallback only; guarded to avoid clashing with admin-items.js -->
 <script>
-  
-document.addEventListener("DOMContentLoaded", function() {
-  const tableBody = document.getElementById("items-table-body");
-  const pagination = document.getElementById("items-pagination");
-  const info = document.getElementById("items-table-info");
-  const perPageSelect = document.getElementById("items-per-page");
-  const searchInput = document.getElementById("search-text");
-  const categoryFilter = document.getElementById("category-filter");
+/* If admin-items.js is present, skip this fallback script. */
+if (window.adminItems || window.initAdminItems) {
+  // dashboard JS will manage the table; do nothing here
+} else {
+  document.addEventListener("DOMContentLoaded", function() {
+    const tableBody = document.getElementById("items-table-body");
+    const pagination = document.getElementById("items-pagination");
+    const info = document.getElementById("items-table-info");
+    const perPageSelect = document.getElementById("items-per-page");
+    const searchInput = document.getElementById("search-text");
+    const categoryFilter = document.getElementById("category-filter");
 
-  let allRows = [];
-  let filteredRows = [];
-  let currentPage = 1;
-  let perPage = parseInt(perPageSelect.value);
+    let allRows = [];
+    let filteredRows = [];
+    let currentPage = 1;
+    let perPage = parseInt(perPageSelect.value);
 
-  function initRows() {
-    allRows = Array.from(tableBody.querySelectorAll("tr"));
-    applyFilters();
-  }
-
-  function applyFilters() {
-    const searchTerm = searchInput.value.toLowerCase();
-    const selectedCategory = categoryFilter.value;
-
-    filteredRows = allRows.filter(row => {
-      const cells = row.querySelectorAll("td");
-      const name = cells[2]?.textContent.toLowerCase() || "";
-      const sku = cells[3]?.textContent.toLowerCase() || "";
-      const category = cells[4]?.textContent || "";
-      const matchesSearch = !searchTerm || name.includes(searchTerm) || sku.includes(searchTerm);
-      const matchesCategory = !selectedCategory || category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    });
-
-    currentPage = 1;
-    renderTable();
-  }
-
-  function renderTable() {
-    tableBody.innerHTML = "";
-    const start = (currentPage - 1) * perPage;
-    const end = start + perPage;
-    const pageRows = filteredRows.slice(start, end);
-    pageRows.forEach(row => tableBody.appendChild(row));
-
-    const total = filteredRows.length;
-    const showingStart = total === 0 ? 0 : start + 1;
-    const showingEnd = Math.min(end, total);
-    info.textContent = `Showing ${showingStart} to ${showingEnd} of ${total} entries`;
-
-    renderPagination(total);
-  }
-
-  function renderPagination(total) {
-    pagination.innerHTML = "";
-    const totalPages = Math.ceil(total / perPage);
-    if (totalPages <= 1) return;
-
-    const createButton = (label, disabled, onClick) => {
-      const btn = document.createElement("button");
-      btn.textContent = label;
-      btn.className = "btn btn-outline-warning btn-sm mx-1";
-      btn.disabled = disabled;
-      btn.addEventListener("click", onClick);
-      pagination.appendChild(btn);
-    };
-
-    createButton("First", currentPage === 1, () => { currentPage = 1; renderTable(); });
-    createButton("Prev", currentPage === 1, () => { currentPage--; renderTable(); });
-
-    const pageWindow = 2;
-    const startPage = Math.max(1, currentPage - pageWindow);
-    const endPage = Math.min(totalPages, currentPage + pageWindow);
-
-    for (let i = startPage; i <= endPage; i++) {
-      const btn = document.createElement("button");
-      btn.textContent = i;
-      btn.className = `btn ${i === currentPage ? "btn-warning" : "btn-outline-warning"} btn-sm mx-1`;
-      btn.addEventListener("click", () => { currentPage = i; renderTable(); });
-      pagination.appendChild(btn);
+    function initRows() {
+      allRows = Array.from(tableBody.querySelectorAll("tr"));
+      applyFilters();
     }
 
-    createButton("Next", currentPage === totalPages, () => { currentPage++; renderTable(); });
-    createButton("Last", currentPage === totalPages, () => { currentPage = totalPages; renderTable(); });
-  }
+    function applyFilters() {
+      const searchTerm = searchInput.value.toLowerCase();
+      const selectedCategory = categoryFilter.value;
 
-  perPageSelect.addEventListener("change", () => {
-    perPage = parseInt(perPageSelect.value);
-    currentPage = 1;
-    renderTable();
+      filteredRows = allRows.filter(row => {
+        const cells = row.querySelectorAll("td");
+        const name = cells[2]?.textContent.toLowerCase() || "";
+        const sku = cells[3]?.textContent.toLowerCase() || "";
+        const category = cells[4]?.textContent || "";
+        const matchesSearch = !searchTerm || name.includes(searchTerm) || sku.includes(searchTerm);
+        const matchesCategory = !selectedCategory || category === selectedCategory;
+        return matchesSearch && matchesCategory;
+      });
+
+      currentPage = 1;
+      renderTable();
+    }
+
+    function renderTable() {
+      tableBody.innerHTML = "";
+      const start = (currentPage - 1) * perPage;
+      const end = start + perPage;
+      const pageRows = filteredRows.slice(start, end);
+      pageRows.forEach(row => tableBody.appendChild(row));
+
+      const total = filteredRows.length;
+      const showingStart = total === 0 ? 0 : start + 1;
+      const showingEnd = Math.min(end, total);
+      info.textContent = `Showing ${showingStart} to ${showingEnd} of ${total} entries`;
+
+      renderPagination(total);
+    }
+
+    function renderPagination(total) {
+      pagination.innerHTML = "";
+      const totalPages = Math.ceil(total / perPage);
+      if (totalPages <= 1) return;
+
+      const createButton = (label, disabled, onClick) => {
+        const btn = document.createElement("button");
+        btn.textContent = label;
+        btn.className = "btn btn-outline-warning btn-sm mx-1";
+        btn.disabled = disabled;
+        btn.addEventListener("click", onClick);
+        pagination.appendChild(btn);
+      };
+
+      createButton("First", currentPage === 1, () => { currentPage = 1; renderTable(); });
+      createButton("Prev", currentPage === 1, () => { currentPage--; renderTable(); });
+
+      const pageWindow = 2;
+      const startPage = Math.max(1, currentPage - pageWindow);
+      const endPage = Math.min(totalPages, currentPage + pageWindow);
+
+      for (let i = startPage; i <= endPage; i++) {
+        const btn = document.createElement("button");
+        btn.textContent = i;
+        btn.className = `btn ${i === currentPage ? "btn-warning" : "btn-outline-warning"} btn-sm mx-1`;
+        btn.addEventListener("click", () => { currentPage = i; renderTable(); });
+        pagination.appendChild(btn);
+      }
+
+      createButton("Next", currentPage === totalPages, () => { currentPage++; renderTable(); });
+      createButton("Last", currentPage === totalPages, () => { currentPage = totalPages; renderTable(); });
+    }
+
+    perPageSelect.addEventListener("change", () => {
+      perPage = parseInt(perPageSelect.value);
+      currentPage = 1;
+      renderTable();
+    });
+
+    document.getElementById("search-button").addEventListener("click", applyFilters);
+    document.getElementById("clear-button").addEventListener("click", () => {
+      searchInput.value = "";
+      categoryFilter.value = "";
+      applyFilters();
+    });
+    categoryFilter.addEventListener("change", applyFilters);
+
+    setTimeout(initRows, 500); // delay to allow rows to exist when used standalone
   });
-
-  document.getElementById("search-button").addEventListener("click", applyFilters);
-  document.getElementById("clear-button").addEventListener("click", () => {
-    searchInput.value = "";
-    categoryFilter.value = "";
-    applyFilters();
-  });
-  categoryFilter.addEventListener("change", applyFilters);
-
-  setTimeout(initRows, 500); // delay to allow admin-items.js to populate table
-});
+}
 </script>
