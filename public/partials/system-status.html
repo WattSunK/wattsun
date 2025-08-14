@@ -1,4 +1,5 @@
-<!-- system-status.html -->
+
+<!-- Row 1: System Status — first column only -->
 <section class="ws-admin-section">
   <h2 class="ws-admin-title">System Status</h2>
   <div class="sys3-grid">
@@ -14,6 +15,7 @@
   </div>
 </section>
 
+<!-- Row 2: Three existing cards -->
 <section class="ws-admin-section">
   <div class="sys3-grid">
     <div class="sys-card">
@@ -58,10 +60,38 @@
 </section>
 
 <style>
-  .sys-card.sys-card--ghost {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    min-height: 0 !important;
+  /* keep layout but hide ghost cards so the first row doesn't span full width */
+  .sys-card.sys-card--ghost{
+    background: transparent!important;
+    border: none!important;
+    box-shadow: none!important;
+    min-height: 0!important;
   }
 </style>
+
+<script>
+  function fetchWithTimeout(url, opts = {}, ms = 8000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), ms);
+    return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(id));
+  }
+  async function checkStatus() {
+    const box = document.getElementById('statusContainer');
+    const ts = document.getElementById('timestamp');
+    if (!box) return;
+    box.innerHTML = '';
+    let backend = 'Checking…', tunnel = 'Checking…';
+    try {
+      const r = await fetchWithTimeout('/api/health', {}, 8000);
+      backend = r.ok ? '🟢 OK' : '🔴 DOWN (HTTP ' + r.status + ')';
+    } catch(e) { backend = '🔴 DOWN (network error)'; }
+    try {
+      const r2 = await fetchWithTimeout('/api/tunnel', {}, 8000);
+      tunnel = r2.ok ? '🟢 Connected' : '🔴 Disconnected (HTTP ' + r2.status + ')';
+    } catch(e) { tunnel = '🔴 Disconnected (network error)'; }
+    box.innerHTML += '<div class="status-card ' + (backend.includes('🔴')?'red':'') + '"><span class="status-label">Backend API:</span> ' + backend + '</div>';
+    box.innerHTML += '<div class="status-card ' + (tunnel.includes('🔴')?'red':'') + '"><span class="status-label">Cloudflare Tunnel:</span> ' + tunnel + '</div>';
+    if (ts) ts.textContent = 'Last checked: ' + new Date().toLocaleTimeString() + ' – auto-refreshes every 30s';
+  }
+  checkStatus(); setInterval(checkStatus, 30000);
+</script>
