@@ -290,72 +290,52 @@
     : autoInitWhenReady();
 })();
 
-
-// ===== Users surgical skin (moved into admin-users.js so it actually loads) =====
+// === Users surgical skin — runs from admin-users.js (safe, non-breaking) v4 ===
 (function(){
-  const $ = (s, r=document)=>r.querySelector(s);
-  const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
+  const $ = (s,r=document)=>r.querySelector(s);
+  const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
   function badge(text){
-    const t=(text||'').trim().toLowerCase();
-    if(!t) return '';
-    const cls = (t==='active' || t==='enabled') ? 'ws-badge ws-badge-success' : 'ws-badge ws-badge-muted';
-    return `<span class="${cls}">${text}</span>`;
+    const ok=/^(active|enabled|verified|driver|admin|staff)$/i.test(text||'');
+    return `<span class="ws-badge ${ok?'ws-badge-success':'ws-badge-muted'}">${text||''}</span>`;
   }
-  function skinShell(){
-    const section = $('#usersSection') || $('#usersTable')?.closest('section');
-    if(section) section.classList.add('ws-admin-section');
-    const h2 = section ? section.querySelector('h2') : document.querySelector('#usersSection h2, h2.users-title');
-    if(h2) h2.classList.add('ws-admin-title');
-    const search = $('#usersSearch'); if(search) search.classList.add('ws-admin-input');
-    const status = $('#usersStatus'); if(status) status.classList.add('ws-admin-input');
-    const table = $('#usersTable'); if(table) table.classList.add('ws-admin-table');
-    const wrap = table ? table.closest('div') : null; if(wrap) wrap.classList.add('ws-admin-card');
-    const pager = $('#usersPager'); if(pager) pager.classList.add('ws-admin-pager');
+  function shell(){
+    $('#usersTable')?.classList.add('ws-admin-table');
+    $('#usersPager')?.classList.add('ws-admin-pager');
+    $('#usersSearch')?.classList.add('ws-admin-input');
+    $('#usersStatus')?.classList.add('ws-admin-input');
+    $('#usersTable')?.closest('div')?.classList.add('ws-admin-card');
   }
-  function skinRows(){
-    const tbody = $('#usersTbody'); if(!tbody) return;
+  function rows(){
+    const tb=$('#usersTbody'); if(!tb) return;
     $$('#usersTbody tr').forEach(tr=>{
-      // Try a data-col hook first
-      let statusCell = tr.querySelector('[data-col="status"], .col-status');
-      if(!statusCell && tr.children.length >= 5) statusCell = tr.children[4];
+      const statusCell = tr.querySelector('[data-col="status"], .col-status') || tr.children[4];
       if(statusCell && !statusCell.dataset.wsBadged){
-        const raw = statusCell.textContent.trim();
-        const html = badge(raw);
-        if(html) statusCell.innerHTML = html;
-        statusCell.dataset.wsBadged = '1';
+        const raw=statusCell.textContent.trim();
+        statusCell.innerHTML = badge(raw);
+        statusCell.dataset.wsBadged='1';
       }
-      const actions = tr.querySelector('.actions');
-      if(actions && !actions.dataset.wsSkinned){
-        Array.from(actions.querySelectorAll('button')).forEach(b=>{
+      const act = tr.querySelector('.actions');
+      if(act && !act.dataset.wsSkinned){
+        $$('button', act).forEach(b=>{
           if(!b.classList.contains('ws-btn')){
-            if(/view/i.test(b.textContent)) b.classList.add('ws-btn','ws-btn-ghost','ws-btn-xs');
-            else b.classList.add('ws-btn','ws-btn-xs');
+            /view|show/i.test(b.textContent)? b.classList.add('ws-btn','ws-btn-ghost','ws-btn-xs') : b.classList.add('ws-btn','ws-btn-xs');
           }
         });
-        actions.dataset.wsSkinned = '1';
+        act.dataset.wsSkinned='1';
       }
     });
   }
   function observe(){
-    const tbody = document.querySelector('#usersTbody');
-    if(!tbody) return;
-    const mo = new MutationObserver(()=> skinRows());
-    mo.observe(tbody, { childList: true });
+    const tb=$('#usersTbody'); if(!tb) return;
+    new MutationObserver(()=>rows()).observe(tb,{childList:true});
   }
   function init(){
-    // run only when Users section is present
-    if (!document.querySelector('#usersTable')) return;
-    skinShell();
-    skinRows();
-    observe();
+    if(!$('#usersTable')) return;
+    shell(); rows(); observe();
   }
-  // Run after DOM load and also when the dashboard navigates via hash
   document.addEventListener('DOMContentLoaded', init);
-  window.addEventListener('hashchange', ()=>{
-    if (location.hash.includes('users')) setTimeout(init, 50);
-  });
-  // Some dashboards inject partials dynamically; also poll briefly after nav
-  setTimeout(init, 200);
-  setTimeout(init, 600);
+  window.addEventListener('hashchange', ()=>{ if(location.hash.includes('users')) setTimeout(init, 25); });
+  window.addEventListener('users:rendered', init);
+  window.addEventListener('admin:partial-loaded', e=>{ if((e.detail||'')==='users') setTimeout(init, 10); });
+  setTimeout(init, 50);
 })();
-
