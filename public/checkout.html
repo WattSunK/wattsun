@@ -491,8 +491,7 @@
         if (isLoggedIn) {
           window.location.href = "checkout.html";
         } else {
-          localStorage.setItem("checkoutRedirect", "true");
-          window.location.href = "index.html";
+          
         }
       });
     });
@@ -526,7 +525,8 @@
 document.addEventListener('DOMContentLoaded', function () { if (window.__checkoutInit) return; window.__checkoutInit = true;
     // Login enforcement
     var loggedInUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-    if (!loggedInUser) {
+    if (!loggedInUser) {    localStorage.removeItem("checkoutRedirect");
+
         localStorage.setItem('redirectAfterLogin', 'checkout.html');
         window.location.href = 'index.html';
         return;
