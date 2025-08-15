@@ -1,45 +1,47 @@
-<!-- /public/partials/orders.html (Step 3 – corrected) -->
-<section class="ws-admin-orders">
-  <!-- NOTE: Inline <script> removed (controller handles data/pagination). -->
-  <div class="card">
-    <div class="card-h">
-      <h2>Orders</h2>
-      <div class="toolbar">
-        <label for="ordersSearch">Search</label>
-        <input id="ordersSearch" class="inp" type="search" placeholder="Search by name, phone, email, order #" />
-        <label for="ordersStatus">Status</label>
-        <select id="ordersStatus" class="sel">
-          <option value="">All</option>
-          <option value="Pending">Pending</option>
-          <option value="Processing">Processing</option>
-          <option value="Delivered">Delivered</option>
-          <option value="Cancelled">Cancelled</option>
-        </select>
-      </div>
+<!-- Orders — styled like Items -->
+<section class="ws-section">
+  <header class="ws-header">
+    <h2 class="ws-title">Orders</h2>
+    <div class="ws-actions">
+      <input id="ordersSearch" class="ws-input" type="search" placeholder="Search orders (name, phone, email, order #)" />
+      <select id="ordersStatus" class="ws-select" title="Filter by status">
+        <option value="">All statuses</option>
+        <option>Pending</option>
+        <option>Confirmed</option>
+        <option>Dispatched</option>
+        <option>Delivered</option>
+        <option>Closed</option>
+        <option>Cancelled</option>
+      </select>
+      <button id="ordersRefresh" class="ws-btn">Refresh</button>
     </div>
+  </header>
 
-    <div class="card-b">
-      <div class="table-wrap">
-        <table id="ordersTable">
-          <thead>
-            <tr>
-              <th>Order #</th>
-              <th>Customer</th>
-              <th>Phone</th>
-              <th>Email</th>
-              <th>Status</th>
-              <th>Total</th>
-              <th>Placed</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="ordersTbody">
-            <!-- Populated by orders-controller.js -->
-          </tbody>
-        </table>
-      </div>
-
-      <div id="ordersPager" class="pager"></div>
+  <div class="ws-card">
+    <div class="ws-table-wrap">
+      <table id="ordersTable" class="ws-table">
+        <thead>
+          <tr>
+            <th>Order #</th>
+            <th>Customer</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Status</th>
+            <th class="num">Total</th>
+            <th>Created</th>
+            <th class="actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ordersTbody">
+          <!-- rows injected by orders-controller.js -->
+        </tbody>
+      </table>
     </div>
+    <footer class="ws-pager" id="ordersPager">
+      <!-- pagination injected -->
+    </footer>
   </div>
 </section>
+
+<!-- Modal host (orders-edit.js will mount content here) -->
+<div id="ordersModalHost"></div>

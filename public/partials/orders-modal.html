@@ -1,33 +1,59 @@
-<!-- public/partials/orders-modal.html -->
-<dialog id="orderEditDialog">
-  <form method="dialog" class="ws-order-dialog" style="min-width:min(680px,95vw);border:none;">
-    <h3 style="margin:0 0 10px;">Edit Order</h3>
+<!-- Orders Modal — styled like Items modal -->
+<div class="ws-modal" data-modal="order">
+  <div class="ws-modal__overlay" data-action="close"></div>
+  <div class="ws-modal__panel" role="dialog" aria-modal="true" aria-labelledby="orderModalTitle">
+    <header class="ws-modal__header">
+      <h3 id="orderModalTitle">Edit Order</h3>
+      <button class="ws-modal__close" data-action="close" aria-label="Close">&times;</button>
+    </header>
 
-    <div class="grid" style="grid-template-columns:1fr 1fr; gap:12px;">
-      <div>
-        <label>Status</label>
-        <select id="editStatus" required>
-          <option value="Pending">Pending</option>
-          <option value="Processing">Processing</option>
-          <option value="Delivered">Delivered</option>
-          <option value="Cancelled">Cancelled</option>
-        </select>
+    <section class="ws-modal__body">
+      <div class="ws-form-grid">
+        <div class="ws-field">
+          <label>Order #</label>
+          <input id="omOrderNumber" class="ws-input" type="text" readonly>
+        </div>
+        <div class="ws-field">
+          <label>Status</label>
+          <select id="omStatus" class="ws-select">
+            <option>Pending</option>
+            <option>Confirmed</option>
+            <option>Dispatched</option>
+            <option>Delivered</option>
+            <option>Closed</option>
+            <option>Cancelled</option>
+          </select>
+        </div>
+        <div class="ws-field">
+          <label>Driver</label>
+          <input id="omDriver" class="ws-input" list="omDriverList" placeholder="Search or select driver">
+          <datalist id="omDriverList"></datalist>
+        </div>
+        <div class="ws-field">
+          <label>Total (KES)</label>
+          <input id="omTotal" class="ws-input num" type="number" step="1" min="0">
+        </div>
+        <div class="ws-field">
+          <label>Deposit (KES)</label>
+          <input id="omDeposit" class="ws-input num" type="number" step="1" min="0">
+        </div>
+        <div class="ws-field ws-field--full">
+          <label>Notes</label>
+          <textarea id="omNotes" class="ws-textarea" rows="3" placeholder="Internal notes for this order..."></textarea>
+        </div>
       </div>
-      <div>
-        <label>Driver</label>
-        <select id="editDriver">
-          <option value="">— None —</option>
-        </select>
-      </div>
-      <div class="grid" style="grid-column:1/-1;">
-        <label>Internal Notes</label>
-        <textarea id="editNotes" rows="4" placeholder="Optional notes for internal use..."></textarea>
-      </div>
-    </div>
 
-    <div class="actions" style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
-      <button value="cancel" class="btn">Cancel</button>
-      <button id="editSaveBtn" class="btn btn-primary" type="button">Save</button>
-    </div>
-  </form>
-</dialog>
+      <div class="ws-meta">
+        <div><span class="label">Customer:</span> <span id="omCustomer"></span></div>
+        <div><span class="label">Phone:</span> <span id="omPhone"></span></div>
+        <div><span class="label">Email:</span> <span id="omEmail"></span></div>
+        <div><span class="label">Created:</span> <span id="omCreated"></span></div>
+      </div>
+    </section>
+
+    <footer class="ws-modal__footer">
+      <button class="ws-btn ws-btn--subtle" data-action="close">Cancel</button>
+      <button id="omSave" class="ws-btn">Save changes</button>
+    </footer>
+  </div>
+</div>
