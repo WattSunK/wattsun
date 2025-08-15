@@ -486,28 +486,63 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   function formatKES(n){ try { return Number(n||0).toLocaleString(); } catch { return String(n||0); } }
 
-  async function postCheckout(payload){
-    // Try ADR-001 preferred path first
+  async function postCheckout(payload, rawCart, customerAddress){
+    // Attempt 1: ADR-001 preferred path
     let res = await fetch("/api/cart/checkout", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Accept":"application/json" },
       body: JSON.stringify(payload)
     });
 
-    // Fallback to legacy route if missing
+    // If 404, try legacy endpoint with same body
     if (res.status === 404) {
       res = await fetch("/api/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Accept":"application/json" },
         body: JSON.stringify(payload)
       });
     }
 
-    const ct = res.headers.get("content-type") || "";
-    if (!ct.includes("application/json")) {
+    // Parse JSON if possible
+    let ct = res.headers.get("content-type") || "";
+    let data = null;
+    if (ct.includes("application/json")) {
+      try { data = await res.json(); } catch { data = null; }
+    }
+
+    // Second-chance legacy shape if backend says required fields/cart missing
+    const msg = (data && (data.message || data.error?.message || "")) || "";
+    if ((res.status === 400 && /required|cart/i.test(msg)) || (res.status === 400 && !data)) {
+      const legacyCart = (rawCart||[]).map(it => ({
+        id: it.productId || it.id || it.sku || it.name,
+        sku: it.sku,
+        name: it.name || it.sku || it.id || "",
+        price: Number(it.price)||0,
+        deposit: Number(it.deposit)||0,
+        quantity: Number(it.quantity)||1,
+        image: it.image || it.img || it.picture || ""
+      }));
+      const legacyBody = {
+        name: payload.customer?.fullName || "",
+        email: payload.customer?.email || "",
+        phone: payload.customer?.phone || "",
+        address: customerAddress || "",
+        cart: legacyCart,
+        notes: payload.notes || ""
+      };
+      res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept":"application/json" },
+        body: JSON.stringify(legacyBody)
+      });
+      ct = res.headers.get("content-type") || "";
+      data = ct.includes("application/json") ? await res.json() : null;
+    }
+
+    if (!ct.includes("application/json") && !data) {
       throw new Error(`Checkout failed (${res.status}). Server did not return JSON.`);
     }
-    const data = await res.json();
+
     return { res, data };
   }
 
@@ -600,7 +635,7 @@ document.addEventListener("DOMContentLoaded", function () {
     };
 
     try {
-      const { res, data } = await postCheckout(payload);
+      const { res, data } = await postCheckout(payload, cart, address);
       if (!res.ok || !data?.success) {
         console.error("Checkout failed:", data);
         alert(data?.error?.message || data?.message || "Checkout failed. Please try again.");
