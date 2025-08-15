@@ -1317,32 +1317,5 @@ body {
 .ws-page-btn.is-disabled { opacity: 0.5; pointer-events: none; }
 
 
-
-/* === Orders: map view/edit buttons to existing look (non-breaking) === */
-.btn-view, .btn-edit {
-  background: #fffbe7;
-  border: 1.2px solid #FFD23F;
-  border-radius: 4px;
-  padding: 4px 10px;
-  font-size: 0.96em;
-  color: #222;
-  cursor: pointer;
-}
-.btn-view:hover, .btn-edit:hover { background: #FFD23F; }
-
-/* Ensure pager buttons inside #ordersPager look consistent */
-#ordersPager .pg-btn {
-  background: #fffbe7;
-  border: 1px solid #FFD23F;
-  border-radius: 4px;
-  margin-left: 3px;
-  padding: 2px 9px;
-  font-size: 0.96em;
-  color: #222;
-  cursor: pointer;
-}
-#ordersPager .pg-btn[aria-current="page"] {
-  background: #FFD23F;
-  font-weight: 600;
-}
-#ordersPager .pg-ellipsis { padding: 0 6px; color: #888; }
+/* Users table compact action buttons (surgical) */
+.users-action .ws-btn.ws-btn-xs{font-size:12px;line-height:1.2;padding:6px 10px;border-radius:8px}

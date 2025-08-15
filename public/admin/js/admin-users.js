@@ -289,3 +289,23 @@
     ? document.addEventListener('DOMContentLoaded', autoInitWhenReady)
     : autoInitWhenReady();
 })();
+
+
+
+// ===== Users edit hook (non-breaking) =====
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-action="edit-user"], .btn-edit');
+  if(!btn) return;
+  const uid = btn.getAttribute('data-uid') || btn.dataset.uid || '';
+  // Keep your existing open function name if present
+  if(typeof window.openUserEdit === 'function'){
+    window.openUserEdit({ id: uid });
+  } else {
+    // Fallback: open a modal/dialog if present
+    const dlg = document.getElementById('userEditDialog') || document.getElementById('userEditModal');
+    if(dlg){
+      try { dlg.showModal?.(); } catch { dlg.setAttribute('open','true'); }
+    }
+  }
+});
+
