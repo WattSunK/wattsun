@@ -513,6 +513,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Second-chance legacy shape if backend says required fields/cart missing
     const msg = (data && (data.message || data.error?.message || "")) || "";
     if ((res.status === 400 && /required|cart/i.test(msg)) || (res.status === 400 && !data)) {
+      // --- Second attempt: legacy JSON body { name,email,phone,address,cart } ---
       const legacyCart = (rawCart||[]).map(it => ({
         id: it.productId || it.id || it.sku || it.name,
         sku: it.sku,
@@ -537,6 +538,28 @@ document.addEventListener("DOMContentLoaded", function () {
       });
       ct = res.headers.get("content-type") || "";
       data = ct.includes("application/json") ? await res.json() : null;
+
+      // --- Third attempt: urlencoded form (server may only parse urlencoded) ---
+      const stillMissing = (res.status === 400) && (
+        !data || /required|cart/i.test((data.message || data.error?.message || ""))
+      );
+      if (stillMissing) {
+        const form = new URLSearchParams();
+        form.append("name", legacyBody.name);
+        form.append("fullName", legacyBody.name); // in case server expects this key
+        form.append("email", legacyBody.email);
+        form.append("phone", legacyBody.phone);
+        form.append("address", legacyBody.address);
+        form.append("cart", JSON.stringify(legacyBody.cart));
+        form.append("notes", legacyBody.notes || "");
+        res = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept":"application/json" },
+          body: form.toString()
+        });
+        ct = res.headers.get("content-type") || "";
+        data = ct.includes("application/json") ? await res.json() : null;
+      }
     }
 
     if (!ct.includes("application/json") && !data) {
