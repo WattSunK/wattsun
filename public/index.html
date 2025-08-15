@@ -319,6 +319,14 @@
     }
   });
 </script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (localStorage.getItem("checkoutRedirect") === "true") {
+    localStorage.removeItem("checkoutRedirect");
+    openLogin(); // This calls your existing login modal
+  }
+});
+</script>
 
 </body>
 </html>

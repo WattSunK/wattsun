@@ -392,7 +392,8 @@
 </div>
 <div class="total" id="totalAmount">Total Deposit: KES 0</div>
 <div class="actions">
-<a class="btn" href="checkout.html">Proceed to Checkout</a>
+<!-- 🔹 Changed href to # and added id -->
+<a class="btn" href="#" id="proceedCheckoutBtn">Proceed to Checkout</a>
 <button class="btn btn-clear" id="clearCartBtn" style="display:none;" type="button">Clear Cart</button>
 </div>
 </div>
@@ -462,6 +463,19 @@
       clearCartBtn.addEventListener("click", clearCart);
       loadCart();
       updateCartCountBadge();
+
+      // 🔹 New login check for Proceed to Checkout
+      document.getElementById("proceedCheckoutBtn").addEventListener("click", function (e) {
+        e.preventDefault();
+        const userObj = JSON.parse(localStorage.getItem("wattsunUser") || "null");
+        const isLoggedIn = userObj && (userObj.user || userObj.success);
+        if (isLoggedIn) {
+          window.location.href = "checkout.html";
+        } else {
+          localStorage.setItem("checkoutRedirect", "true");
+          window.location.href = "index.html";
+        }
+      });
     });
 
     // --- CART BADGE LOGIC ---
