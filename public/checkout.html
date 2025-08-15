@@ -394,19 +394,19 @@
     <h2>Checkout Details</h2>
     <form id="checkout-form">
         
-<div class="user-details-card" style="border:1px solid #ddd; border-radius:8px; padding:15px; margin-top:20px; background:#fafafa;">
+<div class="user-details-card" style="border:1px solid #ddd; border-radius:8px; padding:15px; margin-top:20px; background:#fafafa;; padding:20px; max-width:900px; margin:20px auto">
   <h3 style="margin-top:0;">Your Details</h3>
   <label for="fullName">Full Name</label>
-  <input type="text" id="fullName" name="fullName" readonly style="width:100%; padding:8px; margin-bottom:10px;">
+  <input type="text" id="fullName" name="fullName" readonly style="width:100%; padding:8px; margin-bottom:10px;" readonly>
 
   <label for="email">Email Address</label>
-  <input type="email" id="email" name="email" readonly style="width:100%; padding:8px; margin-bottom:10px;">
+  <input type="email" id="email" name="email" readonly style="width:100%; padding:8px; margin-bottom:10px;" readonly>
 
   <label for="phone">Phone Number</label>
-  <input type="tel" id="phone" name="phone" readonly style="width:100%; padding:8px; margin-bottom:10px;">
+  <input type="tel" id="phone" name="phone" readonly style="width:100%; padding:8px; margin-bottom:10px;" readonly>
 
   <label for="address">Delivery Address</label>
-  <textarea id="address" name="address" required style="width:100%; padding:8px;"></textarea>
+  <textarea id="address" name="address" required style="width:100%; padding:8px;" required></textarea>
 </div>
 
 
@@ -610,6 +610,47 @@ document.addEventListener("DOMContentLoaded", function () {
   if (fullNameInput) fullNameInput.value = user.name || "";
   if (emailInput) emailInput.value = user.email || "";
   if (phoneInput) phoneInput.value = user.phone || "";
+});
+</script>
+
+<script>
+document.getElementById("checkout-form").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    let valid = true;
+    this.querySelectorAll('input[required], textarea[required]').forEach(input => {
+      if (!input.value.trim() || input.value.trim() === "0") {
+        input.style.borderColor = "red";
+        valid = false;
+      } else {
+        input.style.borderColor = "";
+      }
+    });
+    if (!valid) return;
+    // You can add further submit logic here if needed
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  function getCurrentUser() {
+    try {
+      const raw = localStorage.getItem('wattsunUser');
+      const parsed = JSON.parse(raw);
+      return parsed?.success ? parsed.user : null;
+    } catch { return null; }
+  }
+
+  const placeOrderBtn = document.getElementById("placeOrder");
+  if (placeOrderBtn) {
+    placeOrderBtn.addEventListener("click", function (e) {
+      const user = getCurrentUser();
+      if (!user) {
+        e.preventDefault();
+        localStorage.setItem("checkoutRedirect", "true");
+        window.location.href = "index.html";
+      }
+    });
+  }
 });
 </script>
 
