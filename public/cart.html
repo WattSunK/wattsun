@@ -502,5 +502,52 @@
     document.addEventListener('DOMContentLoaded', updateCartCountBadge);
     window.addEventListener('storage', updateCartCountBadge);
   </script>
+
+<!-- 🔹 New script to handle redirect after CONFIRMED login or signup -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // If user came from cart.html without being logged in
+  if (localStorage.getItem("checkoutRedirect") === "true") {
+    localStorage.setItem("redirectAfterLogin", "checkout.html");
+    openLogin(); // Your existing function to show the login modal
+  }
+
+  function handleAuthRedirect() {
+    localStorage.removeItem("checkoutRedirect");
+    const redirect = localStorage.getItem("redirectAfterLogin");
+    if (redirect) {
+      localStorage.removeItem("redirectAfterLogin");
+      window.location.href = redirect;
+    }
+  }
+
+  // Detect when login modal closes (success is handled in auth.js)
+  const loginModal = document.getElementById("loginModal");
+  if (loginModal) {
+    const observerLogin = new MutationObserver(() => {
+      if (loginModal.style.display === "none") {
+        handleAuthRedirect();
+        observerLogin.disconnect();
+      }
+    });
+    observerLogin.observe(loginModal, { attributes: true, attributeFilter: ["style"] });
+  }
+
+  // Watch for signup success message becoming visible
+  const signupSuccessEl = document.getElementById("signupSuccess");
+  if (signupSuccessEl) {
+    const observerSignup = new MutationObserver(() => {
+      if (signupSuccessEl.style.display === "block") {
+        handleAuthRedirect();
+        observerSignup.disconnect();
+      }
+    });
+    observerSignup.observe(signupSuccessEl, { attributes: true, attributeFilter: ["style"] });
+  }
+});
+</script>
+
+
+
 </body>
 </html>
