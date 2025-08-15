@@ -434,210 +434,6 @@
   <a aria-label="Cart" href="cart.html">🛒<span id="cart-count">0</span></a>
   <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
 </footer>
-<script>
-    // Hamburger menu logic
-    function toggleNav() {
-      var nav = document.getElementById("mainNav");
-      nav.classList.toggle("active");
-    }
-    window.addEventListener('resize', function() {
-      if (window.innerWidth > 800) {
-        document.getElementById("mainNav").classList.remove("active");
-      }
-    });
-
-    document.addEventListener("DOMContentLoaded", function () {
-      const cartTable = document.querySelector("#cartTable tbody");
-      const totalDisplay = document.getElementById("totalAmount");
-      const clearCartBtn = document.getElementById("clearCartBtn");
-
-      function loadCart() {
-        const cart = JSON.parse(localStorage.getItem("cart")) || [];
-        cartTable.innerHTML = "";
-        let totalDeposit = 0;
-        let totalCount = 0;
-
-        cart.forEach(item => {
-          const qty = item.quantity || 1;
-          totalCount += qty;
-          const deposit = item.deposit;
-          const totalPrice = item.price * qty;
-          const totalItemDeposit = deposit * qty;
-          totalDeposit += totalItemDeposit;
-
-          const row = document.createElement("tr");
-          row.innerHTML = `
-            <td class="product-col">${item.name}</td>
-            <td class="product-col">${item.description || ''}</td>
-            <td class="compact-col">${qty}</td>
-            <td class="compact-col">${item.price.toLocaleString()}</td>
-            <td class="compact-col">${deposit.toLocaleString()}</td>
-            <td class="compact-col">${totalPrice.toLocaleString()}</td>
-          `;
-          cartTable.appendChild(row);
-        });
-
-        totalDisplay.innerText = "Total Deposit: KES " + totalDeposit.toLocaleString();
-        clearCartBtn.style.display = cart.length > 0 ? "inline-block" : "none";
-      }
-
-      function clearCart() {
-        localStorage.removeItem("cart");
-        loadCart();
-        updateCartCountBadge();
-      }
-
-      clearCartBtn.addEventListener("click", clearCart);
-      loadCart();
-      updateCartCountBadge();
-
-      // 🔹 New login check for Place Order
-      document.getElementById("proceedCheckoutBtn").addEventListener("click", function (e) {
-        e.preventDefault();
-        const userObj = JSON.parse(localStorage.getItem("wattsunUser") || "null");
-        const isLoggedIn = userObj && (userObj.user || userObj.success);
-        if (isLoggedIn) {
-          window.location.href = "checkout.html";
-        } else {
-          localStorage.setItem("checkoutRedirect", "true");
-          window.location.href = "index.html";
-        }
-      });
-    });
-
-    // --- CART BADGE LOGIC ---
-    function updateCartCountBadge() {
-      let count = 0;
-      try {
-        const cart = JSON.parse(localStorage.getItem("cart")) || [];
-        count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-      } catch(e){}
-      const badge = document.getElementById('cart-count-badge');
-      const mobileCount = document.getElementById('cart-count');
-      if (badge) {
-        if (count > 0) {
-          badge.textContent = count;
-          badge.style.display = 'flex';
-        } else {
-          badge.style.display = 'none';
-        }
-      }
-      if (mobileCount) {
-        mobileCount.textContent = count;
-      }
-    }
-    document.addEventListener('DOMContentLoaded', updateCartCountBadge);
-    window.addEventListener('storage', updateCartCountBadge);
-  </script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () { if (window.__checkoutInit) return; window.__checkoutInit = true;
-    // Login enforcement
-    var loggedInUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-    
-
-    // Prefill form fields
-    document.getElementById('fullName').value = loggedInUser.fullName || '';
-    document.getElementById('email').value = loggedInUser.email || '';
-    document.getElementById('phone').value = loggedInUser.phone || '';
-
-    // Render cart items (reuse cart logic)
-    var cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    var totalDeposit = 0;
-    cart.forEach(item => {
-        totalDeposit += (item.deposit || 0) * (item.quantity || 1);
-    });
-    document.getElementById('total-deposit-amount').textContent = 'KES ' + totalDeposit.toLocaleString();
-    var bottomBtn = document.getElementById('placeOrderBottom'); if(bottomBtn){ bottomBtn.addEventListener('click', function(){ performOrder(); }); }
-
-    // Place Order handler
-    function performOrder(){
-        var address = document.getElementById('address').value.trim();
-        if (!address) { alert('Please enter your delivery address.'); return; }
-        var order = { user: loggedInUser, address: address, cart: cart, totalDeposit: totalDeposit, date: new Date().toISOString() };
-        console.log('Order placed:', order);
-        localStorage.removeItem('cart');
-        window.location.href = 'order-success.html';
-    }
-    document.getElementById('checkout-form').addEventListener('submit', function (e) {
-        e.preventDefault();
-        performOrder();
-        e.preventDefault();
-        var address = document.getElementById('address').value.trim();
-        if (!address) {
-            alert('Please enter your delivery address.');
-            return;
-        }
-        var order = {
-            user: loggedInUser,
-            address: address,
-            cart: cart,
-            totalDeposit: totalDeposit,
-            date: new Date().toISOString()
-        };
-        console.log('Order placed:', order);
-        localStorage.removeItem('cart');
-        window.location.href = 'order-success.html';
-    });
-});
-</script>
-
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  function getCurrentUser() {
-    try {
-      const raw = localStorage.getItem('wattsunUser');
-      const parsed = JSON.parse(raw);
-      return parsed?.success ? parsed.user : null;
-    } catch {
-      return null;
-    }
-  }
-
-  const user = getCurrentUser();
-  if (!user) {
-    localStorage.setItem("checkoutRedirect", "true");
-    window.location.href = "index.html";
-    return;
-  }
-
-  // Populate readonly fields
-  const fullNameInput = document.getElementById("fullName");
-  const emailInput = document.getElementById("email");
-  const phoneInput = document.getElementById("phone");
-
-  if (fullNameInput) fullNameInput.value = user.name || "";
-  if (emailInput) emailInput.value = user.email || "";
-  if (phoneInput) phoneInput.value = user.phone || "";
-});
-</script>
-
-
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  function getCurrentUser() {
-    try {
-      const raw = localStorage.getItem('wattsunUser');
-      const parsed = JSON.parse(raw);
-      return parsed?.success ? parsed.user : null;
-    } catch { return null; }
-  }
-
-  const placeOrderBtn = document.getElementById("placeOrder");
-  if (placeOrderBtn) {
-    placeOrderBtn.addEventListener("click", function (e) {
-      const user = getCurrentUser();
-      if (!user) {
-        e.preventDefault();
-        localStorage.setItem("checkoutRedirect", "true");
-        window.location.href = "index.html";
-      }
-    });
-  }
-});
-</script>
 
 <script>
 document.getElementById("checkoutForm").addEventListener("submit", async function(e) {
@@ -651,6 +447,36 @@ document.getElementById("checkoutForm").addEventListener("submit", async functio
         input.style.borderColor = "";
       }
     });
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  function getCurrentUser() {
+    try {
+      const raw = localStorage.getItem('wattsunUser');
+      const parsed = JSON.parse(raw);
+      return parsed?.success ? parsed.user : null;
+    } catch { return null; }
+  }
+  const btn = document.getElementById("proceedCheckoutBtn");
+  if (btn) {
+    btn.addEventListener("click", function (e) {
+      const user = getCurrentUser();
+      if (!user) {
+        e.preventDefault();
+        localStorage.setItem("checkoutRedirect", "true");
+        window.location.href = "index.html";
+      } else {
+        const form = document.getElementById("checkoutForm");
+        if (form) {
+          if (form.requestSubmit) form.requestSubmit();
+          else form.submit();
+        }
+      }
+    });
+  }
+});
 </script>
 
 </body>
