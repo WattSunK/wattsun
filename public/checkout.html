@@ -11,7 +11,6 @@
       background: #f9f8ec;
       margin: 0;
       font-family: 'Segoe UI', 'Arial', sans-serif;
-    }
     .container {
       max-width: 880px;
       margin: 32px auto 0 auto;
@@ -19,7 +18,6 @@
       border-radius: 18px;
       box-shadow: 0 6px 24px #e5c75e33;
       padding: 28px 24px 34px 24px;
-    }
     h2 {
       text-align: left;
       color: #ad890b;
@@ -280,14 +278,12 @@
         top: 18px;
         right: 20px;
       }
-      #mainNav.active {
         width: 80vw;
         border-radius: 0 0 0 20px;
         box-shadow: 0 10px 32px #ccc;
         padding: 30px 0;
         z-index: 1000;
       }
-      #mainNav.active a {
         width: 100%;
         display: block;
         text-align: left;
@@ -342,14 +338,11 @@
         max-width: 96vw !important;
         min-width: 0 !important;
       }
-    }
     @media (max-width: 900px) {
       .container { padding: 18px 5vw; }
       table th, table td { font-size: 0.98em; }
       .btn, .btn-clear { width: 100%; margin: 10px 0; }
     }
-    /* The following styles seem misplaced, so let's move them outside media queries */
-    .site-logo {
       max-width: 48px;
       object-fit: contain;
       vertical-align: middle;
@@ -358,23 +351,87 @@
       header {
         height: 56px;
       }
-      body {
-        width: 100vw;
-        background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
-        color: #6b5100;
-        text-align: center;
-        font-size: 1.08em;
-        padding: 18px 0 5px 0;
-        letter-spacing: 0.01em;
-        font-family: inherit;
-        flex-shrink: 0;
-        display: block;
-      }
+      width: 100vw;
+      background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
+      color: #6b5100;
+      text-align: center;
+      font-size: 1.08em;
+          padding: 18px 0 5px 0;
+          letter-spacing: 0.01em;
+          font-family: inherit;
+          flex-shrink: 0;
+          display: block;
+        }
+        /* Add missing closing brace for previous selector */
     }
-    @media (max-width: 700px) {
-      footer:not(.mobile-nav) { display: none !important; }
-      footer.mobile-nav { display: flex !important; }
-    }
+    /* End of missing closing brace */
+    
+        @media (max-width: 700px) {
+          footer:not(.mobile-nav) { display: none !important; }
+          footer.mobile-nav { display: flex !important; }
+        }
+
+
+/* Cart count badge styling aligned with cart.html */
+#cart-count-badge, #cart-count {
+    background-color: red;
+    color: white;
+    font-size: 0.8rem;
+    border-radius: 50%;
+    padding: 0.2rem 0.4rem;
+    position: relative;
+    top: -10px;
+    left: 5px;
+}
+
+
+/* Align total deposit to the right with spacing */
+.total-deposit {
+    text-align: right;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    color: green;
+}
+
+
+/* Style checkout form fields */
+.checkout-form label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+.checkout-form input[type="text"],
+.checkout-form input[type="email"],
+.checkout-form input[type="tel"],
+.checkout-form textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+.checkout-form textarea {
+    resize: vertical;
+}
+
+
+/* Match place order button style to back to shop */
+.place-order-btn {
+    background-color: #ffcc00;
+    border: none;
+    border-radius: 50px;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.place-order-btn:hover {
+    background-color: #ffdb4d;
+}
+
 </style>
 </head>
 <body>
@@ -428,7 +485,7 @@
   </table>
   </div>
   <div class="total" id="totalAmount">Total Deposit: KES 0</div>
-  <form autocomplete="on" class="checkout-form" id="checkoutForm" name="order">
+  <form class="checkout-form" <form autocomplete="on" class="checkout-form" id="checkoutForm" name="order">
     <label for="fullName">Full Name</label>
     <input id="fullName" name="fullName" placeholder="Your full name" required type="text"/ readonly>
     <label for="email">Email Address</label>
@@ -439,7 +496,7 @@
     <textarea id="address" name="address" placeholder="Enter delivery location" required rows="3"></textarea>
     <div class="checkout-actions">
       <a class="loan-btn secondary" href="shop.html">← Back to Shop</a>
-      <button class="btn" type="submit">Place Order →</button>
+      <button class="place-order-btn"><button class="btn" type="submit">Place Order →</button>
     </div>
   </form>
 </div>
