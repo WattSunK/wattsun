@@ -491,7 +491,8 @@
         if (isLoggedIn) {
           window.location.href = "checkout.html";
         } else {
-          
+          localStorage.setItem("checkoutRedirect", "true");
+          window.location.href = "index.html";
         }
       });
     });
@@ -525,12 +526,7 @@
 document.addEventListener('DOMContentLoaded', function () { if (window.__checkoutInit) return; window.__checkoutInit = true;
     // Login enforcement
     var loggedInUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-    if (!loggedInUser) {    localStorage.removeItem("checkoutRedirect");
-
-        localStorage.setItem('redirectAfterLogin', 'checkout.html');
-        window.location.href = 'index.html';
-        return;
-    }
+    
 
     // Prefill form fields
     document.getElementById('fullName').value = loggedInUser.fullName || '';
@@ -575,6 +571,37 @@ document.addEventListener('DOMContentLoaded', function () { if (window.__checkou
         localStorage.removeItem('cart');
         window.location.href = 'order-success.html';
     });
+});
+</script>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  function getCurrentUser() {
+    try {
+      const raw = localStorage.getItem('wattsunUser');
+      const parsed = JSON.parse(raw);
+      return parsed?.success ? parsed.user : null;
+    } catch {
+      return null;
+    }
+  }
+
+  const user = getCurrentUser();
+  if (!user) {
+    localStorage.setItem("checkoutRedirect", "true");
+    window.location.href = "index.html";
+    return;
+  }
+
+  // Populate readonly fields
+  const fullNameInput = document.getElementById("fullName");
+  const emailInput = document.getElementById("email");
+  const phoneInput = document.getElementById("phone");
+
+  if (fullNameInput) fullNameInput.value = user.name || "";
+  if (emailInput) emailInput.value = user.email || "";
+  if (phoneInput) phoneInput.value = user.phone || "";
 });
 </script>
 
