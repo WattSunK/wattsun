@@ -1,1 +1,1 @@
-# public/images/products — placeholder
+# public/images/original — placeholder
