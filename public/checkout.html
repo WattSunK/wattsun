@@ -339,6 +339,47 @@
       footer:not(.mobile-nav) { display: none !important; }
       footer.mobile-nav { display: flex !important; }
     }
+  /* --- Cart icon badge (match cart.html style) --- */
+    .cart-icon { position: relative; display: inline-block; }
+    .cart-count-badge {
+      position: absolute;
+      top: -6px;
+      right: -10px;
+      min-width: 18px;
+      height: 18px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #e53935;
+      color: #fff;
+      font-size: 12px;
+      line-height: 14px;
+      display: none; /* shown via JS when count > 0 */
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 0 2px #fff; /* halo like in cart.html */
+    }
+
+    /* --- Subtle input polish --- */
+    .user-details-card input,
+    .user-details-card textarea {
+      border: 1px solid #e6d8a3;
+      border-radius: 8px;
+      background: #fff;
+      outline: none;
+      transition: box-shadow .15s ease, border-color .15s ease;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+      font-size: 0.98em;
+    }
+    .user-details-card input[readonly] {
+      background: #fcfbf3; /* hint readonly */
+      color: #555;
+    }
+    .user-details-card input:focus,
+    .user-details-card textarea:focus {
+      border-color: #f7b733;
+      box-shadow: 0 0 0 3px rgba(247,183,51,0.25);
+    }
+    .user-details-card label { font-weight: 600; color:#3d3d3d; }
 </style>
 </head>
 <body>
@@ -414,15 +455,14 @@
             Total Deposit: <span id="total-deposit-amount">KES 0</span>
         </div>
 
+        <div class="actions">
+          <button class="btn" type="submit" id="placeOrderBtn">Place Order</button>
+          <button class="btn btn-clear" id="clearCartBtn" style="display:none;" type="button">Back to Shop</button>
+        </div>
         </form>
 </div>
 
 <div class="total" id="totalAmount">Total Deposit: KES 0</div>
-<div class="actions">
-<!-- 🔹 Changed href to # and added id -->
-<a class="btn" href="#" id="proceedCheckoutBtn">Place Order</a>
-<button class="btn btn-clear" id="clearCartBtn" style="display:none;" type="button">Clear Cart</button>
-</div>
 </div>
 </div>
 <footer>
@@ -446,70 +486,11 @@
       }
     });
 
-    document.addEventListener("DOMContentLoaded", function () {
-      const cartTable = document.querySelector("#cartTable tbody");
-      const totalDisplay = document.getElementById("totalAmount");
-      const clearCartBtn = document.getElementById("clearCartBtn");
-
-      function loadCart() {
-        const cart = JSON.parse(localStorage.getItem("cart")) || [];
-        cartTable.innerHTML = "";
-        let totalDeposit = 0;
-        let totalCount = 0;
-
-        cart.forEach(item => {
-          const qty = item.quantity || 1;
-          totalCount += qty;
-          const deposit = item.deposit;
-          const totalPrice = item.price * qty;
-          const totalItemDeposit = deposit * qty;
-          totalDeposit += totalItemDeposit;
-
-          const row = document.createElement("tr");
-          row.innerHTML = `
-            <td class="product-col">${item.name}</td>
-            <td class="product-col">${item.description || ''}</td>
-            <td class="compact-col">${qty}</td>
-            <td class="compact-col">${item.price.toLocaleString()}</td>
-            <td class="compact-col">${deposit.toLocaleString()}</td>
-            <td class="compact-col">${totalPrice.toLocaleString()}</td>
-          `;
-          cartTable.appendChild(row);
-        });
-
-        totalDisplay.innerText = "Total Deposit: KES " + totalDeposit.toLocaleString();
-        clearCartBtn.style.display = cart.length > 0 ? "inline-block" : "none";
-      }
-
-      function clearCart() {
-        localStorage.removeItem("cart");
-        loadCart();
-        updateCartCountBadge();
-      }
-
-      clearCartBtn.addEventListener("click", clearCart);
-      loadCart();
-      updateCartCountBadge();
-
-      // 🔹 New login check for Place Order
-      document.getElementById("proceedCheckoutBtn").addEventListener("click", function (e) {
-        e.preventDefault();
-        const userObj = JSON.parse(localStorage.getItem("wattsunUser") || "null");
-        const isLoggedIn = userObj && (userObj.user || userObj.success);
-        if (isLoggedIn) {
-          window.location.href = "checkout.html";
-        } else {
-          localStorage.setItem("checkoutRedirect", "true");
-          window.location.href = "index.html";
-        }
-      });
-    });
-
     // --- CART BADGE LOGIC ---
     function updateCartCountBadge() {
       let count = 0;
       try {
-        const cart = JSON.parse(localStorage.getItem("cart")) || [];
+        const cart = JSON.parse(localStorage.getItem("cart") || "[]");
         count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
       } catch(e){}
       const badge = document.getElementById('cart-count-badge');
@@ -528,73 +509,108 @@
     }
     document.addEventListener('DOMContentLoaded', updateCartCountBadge);
     window.addEventListener('storage', updateCartCountBadge);
-  </script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () { if (window.__checkoutInit) return; window.__checkoutInit = true;
-    // Login enforcement
-    var loggedInUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-    
-
-    // Prefill form fields
-    document.getElementById('fullName').value = loggedInUser.fullName || '';
-    document.getElementById('email').value = loggedInUser.email || '';
-    document.getElementById('phone').value = loggedInUser.phone || '';
-
-    // Render cart items (reuse cart logic)
-    var cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    var totalDeposit = 0;
-    cart.forEach(item => {
-        totalDeposit += (item.deposit || 0) * (item.quantity || 1);
-    });
-    document.getElementById('total-deposit-amount').textContent = 'KES ' + totalDeposit.toLocaleString();
-    var bottomBtn = document.getElementById('placeOrderBottom'); if(bottomBtn){ bottomBtn.addEventListener('click', function(){ performOrder(); }); }
-
-    // Place Order handler
-    function performOrder(){
-        var address = document.getElementById('address').value.trim();
-        if (!address) { alert('Please enter your delivery address.'); return; }
-        var order = { user: loggedInUser, address: address, cart: cart, totalDeposit: totalDeposit, date: new Date().toISOString() };
-        console.log('Order placed:', order);
-        localStorage.removeItem('cart');
-        window.location.href = 'order-success.html';
-    }
-    document.getElementById('checkout-form').addEventListener('submit', function (e) {
-        e.preventDefault();
-        performOrder();
-        e.preventDefault();
-        var address = document.getElementById('address').value.trim();
-        if (!address) {
-            alert('Please enter your delivery address.');
-            return;
-        }
-        var order = {
-            user: loggedInUser,
-            address: address,
-            cart: cart,
-            totalDeposit: totalDeposit,
-            date: new Date().toISOString()
-        };
-        console.log('Order placed:', order);
-        localStorage.removeItem('cart');
-        window.location.href = 'order-success.html';
-    });
-});
 </script>
-
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+  // ---------- Helpers ----------
   function getCurrentUser() {
     try {
       const raw = localStorage.getItem('wattsunUser');
-      const parsed = JSON.parse(raw);
-      return parsed?.success ? parsed.user : null;
-    } catch {
-      return null;
+      const parsed = JSON.parse(raw || "null");
+      return parsed && parsed.success ? parsed.user : null;
+    } catch { return null; }
+  }
+  function getCart() {
+    try { return JSON.parse(localStorage.getItem("cart") || "[]"); }
+    catch { return []; }
+  }
+  function formatKES(n){ try { return Number(n||0).toLocaleString(); } catch { return String(n||0); } }
+
+  async function postCheckout(payload, rawCart, customerAddress){
+    // Attempt 1: ADR-001 preferred path
+    let res = await fetch("/api/cart/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept":"application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    // If 404, try legacy endpoint with same body
+    if (res.status === 404) {
+      res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept":"application/json" },
+        body: JSON.stringify(payload)
+      });
     }
+
+    // Parse JSON if possible
+    let ct = res.headers.get("content-type") || "";
+    let data = null;
+    if (ct.includes("application/json")) {
+      try { data = await res.json(); } catch { data = null; }
+    }
+
+    // Second-chance legacy shape if backend says required fields/cart missing
+    const msg = (data && (data.message || data.error?.message || "")) || "";
+    if ((res.status === 400 && /required|cart/i.test(msg)) || (res.status === 400 && !data)) {
+      // --- Second attempt: legacy JSON body { name,email,phone,address,cart } ---
+      const legacyCart = (rawCart||[]).map(it => ({
+        id: it.productId || it.id || it.sku || it.name,
+        sku: it.sku,
+        name: it.name || it.sku || it.id || "",
+        price: Number(it.price)||0,
+        deposit: Number(it.deposit)||0,
+        quantity: Number(it.quantity)||1,
+        image: it.image || it.img || it.picture || ""
+      }));
+      const legacyBody = {
+        name: payload.customer?.fullName || "",
+        email: payload.customer?.email || "",
+        phone: payload.customer?.phone || "",
+        address: customerAddress || "",
+        cart: legacyCart,
+        notes: payload.notes || ""
+      };
+      res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept":"application/json" },
+        body: JSON.stringify(legacyBody)
+      });
+      ct = res.headers.get("content-type") || "";
+      data = ct.includes("application/json") ? await res.json() : null;
+
+      // --- Third attempt: urlencoded form (server may only parse urlencoded) ---
+      const stillMissing = (res.status === 400) && (
+        !data || /required|cart/i.test((data.message || data.error?.message || ""))
+      );
+      if (stillMissing) {
+        const form = new URLSearchParams();
+        form.append("name", legacyBody.name);
+        form.append("fullName", legacyBody.name); // in case server expects this key
+        form.append("email", legacyBody.email);
+        form.append("phone", legacyBody.phone);
+        form.append("address", legacyBody.address);
+        form.append("cart", JSON.stringify(legacyBody.cart));
+        form.append("notes", legacyBody.notes || "");
+        res = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept":"application/json" },
+          body: form.toString()
+        });
+        ct = res.headers.get("content-type") || "";
+        data = ct.includes("application/json") ? await res.json() : null;
+      }
+    }
+
+    if (!ct.includes("application/json") && !data) {
+      throw new Error(`Checkout failed (${res.status}). Server did not return JSON.`);
+    }
+
+    return { res, data };
   }
 
+  // ---------- Gate: must be logged in ----------
   const user = getCurrentUser();
   if (!user) {
     localStorage.setItem("checkoutRedirect", "true");
@@ -602,57 +618,143 @@ document.addEventListener("DOMContentLoaded", function () {
     return;
   }
 
-  // Populate readonly fields
+  // ---------- Prefill readonly fields ----------
   const fullNameInput = document.getElementById("fullName");
-  const emailInput = document.getElementById("email");
-  const phoneInput = document.getElementById("phone");
+  const emailInput    = document.getElementById("email");
+  const phoneInput    = document.getElementById("phone");
+  if (fullNameInput) fullNameInput.value = user.name || user.fullName || "";
+  if (emailInput)    emailInput.value    = user.email || "";
+  if (phoneInput)    phoneInput.value    = user.phone || "";
 
-  if (fullNameInput) fullNameInput.value = user.name || "";
-  if (emailInput) emailInput.value = user.email || "";
-  if (phoneInput) phoneInput.value = user.phone || "";
-});
-</script>
+  // ---------- Render cart table + totals ----------
+  const cartTableBody = document.querySelector("#cartTable tbody");
+  const totalDisplay  = document.getElementById("totalAmount");
+  const totalTopEl    = document.getElementById("total-deposit-amount");
+  const clearCartBtn  = document.getElementById("clearCartBtn");
 
+  function renderCart() {
+    const cart = getCart();
+    cartTableBody.innerHTML = "";
+    let totalDeposit = 0;
 
+    cart.forEach(item => {
+      const qty = Number(item.quantity)||1;
+      const price = Number(item.price)||0;
+      const deposit = Number(item.deposit)||0;
+      const totalPrice = price * qty;
+      const totalItemDeposit = deposit * qty;
+      totalDeposit += totalItemDeposit;
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  function getCurrentUser() {
-    try {
-      const raw = localStorage.getItem('wattsunUser');
-      const parsed = JSON.parse(raw);
-      return parsed?.success ? parsed.user : null;
-    } catch { return null; }
-  }
-
-  const placeOrderBtn = document.getElementById("placeOrder");
-  if (placeOrderBtn) {
-    placeOrderBtn.addEventListener("click", function (e) {
-      const user = getCurrentUser();
-      if (!user) {
-        e.preventDefault();
-        localStorage.setItem("checkoutRedirect", "true");
-        window.location.href = "index.html";
-      }
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="product-col">${item.name || item.sku || item.id || ""}</td>
+        <td class="product-col">${item.description || ""}</td>
+        <td class="compact-col">${qty}</td>
+        <td class="compact-col">${formatKES(price)}</td>
+        <td class="compact-col">${formatKES(deposit)}</td>
+        <td class="compact-col">${formatKES(totalPrice)}</td>
+      `;
+      cartTableBody.appendChild(tr);
     });
-  }
-});
-</script>
 
-<script>
-document.getElementById("checkoutForm").addEventListener("submit", async function(e) {
+    totalDisplay.textContent = "Total Deposit: KES " + formatKES(totalDeposit);
+    if (totalTopEl) totalTopEl.textContent = "KES " + formatKES(totalDeposit);
+    clearCartBtn.style.display = getCart().length ? "inline-block" : "none";
+  }
+
+  renderCart();
+
+  // Clear cart
+  clearCartBtn.addEventListener("click", () => { window.location.href = "shop.html"; });
+// ---------- Legacy checkout post (urlencoded first, then JSON) ----------
+  async function postLegacyCheckout(orderData) {
+    // 1) Try urlencoded first
+    const formBody = new URLSearchParams();
+    formBody.set("fullName", orderData.fullName || "");
+    formBody.set("email", orderData.email || "");
+    formBody.set("phone", (orderData.phone || "").toString());
+    formBody.set("address", orderData.address || "");
+    formBody.set("cart", JSON.stringify(orderData.cart || []));
+    formBody.set("cart_summary", orderData.cart_summary || "");
+
+    let res = await fetch("/api/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
+      body: formBody.toString()
+    });
+    let ct = res.headers.get("content-type") || "";
+    let data = ct.includes("application/json") ? await res.json() : null;
+
+    // 2) Fallback: JSON
+    if (!data || !(data.status === "success" || data.success === true)) {
+      res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept":"application/json" },
+        body: JSON.stringify(orderData)
+      });
+      ct = res.headers.get("content-type") || "";
+      data = ct.includes("application/json") ? await res.json() : null;
+    }
+
+    return { res, data };
+  }
+
+  // ---------- Submit: legacy /api/checkout payload ----------
+  const form = document.getElementById("checkout-form");
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    let valid = true;
-    this.querySelectorAll('input[required], textarea[required]').forEach(input => {
-      if (!input.value.trim() || input.value.trim() === "0") {
-        input.style.borderColor = "red";
-        valid = false;
-      } else {
-        input.style.borderColor = "";
+
+    const address = (document.getElementById("address")?.value || "").trim();
+    const cart = getCart();
+
+    if (!cart.length) { alert("Your cart is empty."); return; }
+    if (!address)     { alert("Please enter your delivery address."); return; }
+
+    // Normalize cart for legacy backend (display logic untouched)
+    const legacyCart = cart.map(it => ({
+      id: it.productId || it.id || it.sku || it.code || it.name,
+      sku: it.sku,
+      name: it.name || it.sku || it.id || "",
+      price: Number(it.price)||0,
+      deposit: Number(it.deposit)||0,
+      quantity: Number(it.quantity)||1,
+      image: it.image || it.img || it.picture || ""
+    }));
+
+    const cartSummaryArr = legacyCart.map(item =>
+      `${item.name || item.sku || item.id || "Item"} (x${Number(item.quantity)||1}): Price ${item.price}, Deposit ${item.deposit}`
+    );
+
+    const orderData = {
+      fullName: fullNameInput?.value || (user && (user.name || user.fullName)) || "",
+      email:    emailInput?.value    || (user && user.email) || "",
+      phone:    phoneInput?.value    || (user && user.phone) || "",
+      address:  address,
+      cart:     legacyCart,
+      cart_summary: cartSummaryArr.join("\\n")
+    };
+
+    try {
+      const { res, data } = await postLegacyCheckout(orderData);
+      const ok = (res.ok && (data && (data.status === "success" || data.success === true)));
+      if (!ok) {
+        console.error("Checkout failed:", data);
+        alert(data?.message || data?.error?.message || "Checkout failed. Please try again.");
+        return;
       }
-    });
+
+      const orderNumber = data.orderNumber || data.order?.orderNumber || data.order?.id || "";
+      sessionStorage.setItem("orderNumber", orderNumber);
+      sessionStorage.setItem("customerName", orderData.fullName);
+      localStorage.removeItem("cart");
+      updateCartCountBadge();
+      window.location.href = "thankyou.html";
+    } catch (err) {
+      console.error("Checkout error", err);
+      alert("Network error during checkout. Please try again.");
+    }
+  });
 });
 </script>
-
 </body>
 </html>
