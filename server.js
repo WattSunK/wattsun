@@ -60,6 +60,7 @@ app.use("/api/myorders", require("./routes/myorders"));
 app.use("/api/items", require("./routes/items")(db));
 app.use("/api/categories", require("./routes/categories")(db));
 app.use("/api/admin/orders", require("./routes/admin-orders")); // NEW (PATCH)
+const adminOrdersMeta = require('./routes/admin-orders-meta');
 app.use("/api/admin/users",  require("./routes/admin-users"));  // NEW (GET drivers)
 app.use("/api/admin/_diag", require("./routes/admin-diagnostics"));
 app.use("/api", require("./routes/calculator"));
@@ -99,6 +100,7 @@ app.use(
 // Keep existing route
 app.use("/api/track", require("./routes/track"));
 
+app.use('/api/admin/orders/meta', adminOrdersMeta);
 // Health check
 app.get("/api/health", (req, res) => {
   res.status(200).send("OK");

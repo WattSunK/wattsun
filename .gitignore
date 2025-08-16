@@ -29,3 +29,9 @@ inventory.db
 user-setup/users.db
 data/users.db
 orders.json
+
+# Local backups
+server.js.bak.*
+backups/
+# one-off patchers
+scripts/patch_*.js
