@@ -25,7 +25,7 @@
     if (!tbody) return; // partial not mounted
     tbody.innerHTML = `<tr><td colspan="9" class="text-center">Loading...</td></tr>`;
     try {
-      const res = await fetchJSON('/api/items');
+      const res = await fetchJSON('/api/items?active=all');
       // backend might return an array or {items:[...]}
       allItems = Array.isArray(res) ? res : (res.items || []);
     } catch(e){
