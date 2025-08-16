@@ -6,21 +6,27 @@ module.exports = (knex) => {
   // --- GET /api/items (all items) ---
   router.get("/", async (req, res) => {
     try {
-      const items = await knex("items")
-        .leftJoin("categories", "items.category_id", "categories.id")
-        .select(
-          "items.sku",
-          "items.name",
-          "items.description",
-          "items.price",
-          "items.warranty",
-          "items.stock",
-          "items.image",
-          "items.active",
-          "categories.name as category"
-        );
-      res.json(items);
-    } catch (err) {
+  // Default: only active items. Override with ?active=0 or ?active=false
+const activeParam = (req.query.active ?? '1').toString().toLowerCase();
+const onlyActive = !(activeParam === '0' || activeParam === 'false' || activeParam === 'all');
+
+    let q = knex("items")
+       .leftJoin("categories", "items.category_id", "categories.id")
+       .select(
+         "items.sku",
+         "items.name",
+         "items.description",
+         "items.price",
+         "items.warranty",
+         "items.stock",
+         "items.image",
+         "items.active",
+         "categories.name as category"
+      );
+    if (onlyActive) q = q.where("items.active", 1);
+    const items = await q;
+    res.json(items);
+   } catch (err) {
       console.error("❌ Failed to fetch items:", err);
       res.status(500).json({ error: "Internal server error" });
     }
