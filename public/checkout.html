@@ -486,89 +486,6 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   function formatKES(n){ try { return Number(n||0).toLocaleString(); } catch { return String(n||0); } }
 
-  async function postCheckout(payload, rawCart, customerAddress){
-    // Attempt 1: ADR-001 preferred path
-    let res = await fetch("/api/cart/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Accept":"application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    // If 404, try legacy endpoint with same body
-    if (res.status === 404) {
-      res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept":"application/json" },
-        body: JSON.stringify(payload)
-      });
-    }
-
-    // Parse JSON if possible
-    let ct = res.headers.get("content-type") || "";
-    let data = null;
-    if (ct.includes("application/json")) {
-      try { data = await res.json(); } catch { data = null; }
-    }
-
-    // Second-chance legacy shape if backend says required fields/cart missing
-    const msg = (data && (data.message || data.error?.message || "")) || "";
-    if ((res.status === 400 && /required|cart/i.test(msg)) || (res.status === 400 && !data)) {
-      // --- Second attempt: legacy JSON body { name,email,phone,address,cart } ---
-      const legacyCart = (rawCart||[]).map(it => ({
-        id: it.productId || it.id || it.sku || it.name,
-        sku: it.sku,
-        name: it.name || it.sku || it.id || "",
-        price: Number(it.price)||0,
-        deposit: Number(it.deposit)||0,
-        quantity: Number(it.quantity)||1,
-        image: it.image || it.img || it.picture || ""
-      }));
-      const legacyBody = {
-        name: payload.customer?.fullName || "",
-        email: payload.customer?.email || "",
-        phone: payload.customer?.phone || "",
-        address: customerAddress || "",
-        cart: legacyCart,
-        notes: payload.notes || ""
-      };
-      res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept":"application/json" },
-        body: JSON.stringify(legacyBody)
-      });
-      ct = res.headers.get("content-type") || "";
-      data = ct.includes("application/json") ? await res.json() : null;
-
-      // --- Third attempt: urlencoded form (server may only parse urlencoded) ---
-      const stillMissing = (res.status === 400) && (
-        !data || /required|cart/i.test((data.message || data.error?.message || ""))
-      );
-      if (stillMissing) {
-        const form = new URLSearchParams();
-        form.append("name", legacyBody.name);
-        form.append("fullName", legacyBody.name); // in case server expects this key
-        form.append("email", legacyBody.email);
-        form.append("phone", legacyBody.phone);
-        form.append("address", legacyBody.address);
-        form.append("cart", JSON.stringify(legacyBody.cart));
-        form.append("notes", legacyBody.notes || "");
-        res = await fetch("/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept":"application/json" },
-          body: form.toString()
-        });
-        ct = res.headers.get("content-type") || "";
-        data = ct.includes("application/json") ? await res.json() : null;
-      }
-    }
-
-    if (!ct.includes("application/json") && !data) {
-      throw new Error(`Checkout failed (${res.status}). Server did not return JSON.`);
-    }
-
-    return { res, data };
-  }
-
   // ---------- Gate: must be logged in ----------
   const user = getCurrentUser();
   if (!user) {
@@ -630,7 +547,7 @@ document.addEventListener("DOMContentLoaded", function () {
     updateCartCountBadge();
   });
 
-  // ---------- Submit: POST checkout with fallback ----------
+  // ---------- Submit: legacy /api/checkout payload ----------
   const form = document.getElementById("checkout-form");
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -641,42 +558,79 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!cart.length) { alert("Your cart is empty."); return; }
     if (!address)     { alert("Please enter your delivery address."); return; }
 
-    // Map cart → API shape (fallback across common keys)
-    const items = cart.map(it => ({
-      productId: it.productId || it.id || it.sku || it.code || it.name,
-      qty: Number(it.quantity) || 1
+    // Normalize cart for legacy backend
+    const legacyCart = cart.map(it => ({
+      id: it.productId || it.id || it.sku || it.code || it.name,
+      sku: it.sku,
+      name: it.name || it.sku || it.id || "",
+      price: Number(it.price)||0,
+      deposit: Number(it.deposit)||0,
+      quantity: Number(it.quantity)||1,
+      image: it.image || it.img || it.picture || ""
     }));
 
-    const payload = {
-      items,
-      customer: {
-        fullName: fullNameInput?.value || user.name || user.fullName || "",
-        email:    emailInput?.value    || user.email || "",
-        phone:    phoneInput?.value    || user.phone || ""
-      },
-      notes: `Deliver to: ${address}`
+    const cartSummaryArr = legacyCart.map(item =>
+      `${item.name || item.sku || item.id || "Item"} (x${Number(item.quantity)||1}): Price ${item.price}, Deposit ${item.deposit}`
+    );
+
+    const orderData = {
+      fullName: fullNameInput?.value || user.name || user.fullName || "",
+      email:    emailInput?.value    || user.email || "",
+      phone:    phoneInput?.value    || user.phone || "",
+      address:  address,
+      cart:     legacyCart,
+      cart_summary: cartSummaryArr.join("\n")
     };
 
     try {
-      const { res, data } = await postCheckout(payload, cart, address);
-      if (!res.ok || !data?.success) {
+      // Prefer urlencoded (legacy servers often only parse this)
+      const formBody = new URLSearchParams();
+      formBody.set("fullName", orderData.fullName);
+      formBody.set("email", orderData.email);
+      formBody.set("phone", orderData.phone);
+      formBody.set("address", orderData.address);
+      formBody.set("cart", JSON.stringify(orderData.cart));
+      formBody.set("cart_summary", orderData.cart_summary);
+      const resUE = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
+        body: formBody.toString()
+      });
+
+      let data = null;
+      let ct = resUE.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        data = await resUE.json();
+      }
+
+      // If still not OK, try JSON
+      let res = resUE;
+      if (!resUE.ok || !(data && (data.status === "success" || data.success === true))) {
+        const resJSON = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept":"application/json" },
+          body: JSON.stringify(orderData)
+        });
+        ct = resJSON.headers.get("content-type") || "";
+        data = ct.includes("application/json") ? await resJSON.json() : null;
+        res = resJSON;
+      }
+
+      const ok = (res.ok && (data && (data.status === "success" || data.success === true)));
+      if (!ok) {
         console.error("Checkout failed:", data);
-        alert(data?.error?.message || data?.message || "Checkout failed. Please try again.");
+        alert(data?.message || data?.error?.message || "Checkout failed. Please try again.");
         return;
       }
 
-      const order = data.order || {};
-      const orderNo = order.orderNumber || order.id || "";
+      // Success → legacy thank-you flow uses sessionStorage
+      const orderNumber = data.orderNumber || data.order?.orderNumber || data.order?.id || "";
+      sessionStorage.setItem("orderNumber", orderNumber);
+      sessionStorage.setItem("customerName", orderData.fullName);
 
-      // Clear cart and go to Thank You
       localStorage.removeItem("cart");
       updateCartCountBadge();
-
-      const params = new URLSearchParams();
-      if (orderNo) params.set("order", orderNo);
-      if (order.totalCents != null) params.set("total", String(order.totalCents));
-      window.location.href = "/thankyou.html" + (params.toString() ? ("?" + params.toString()) : "");
-
+      window.location.href = "thankyou.html";
     } catch (err) {
       console.error("Checkout error", err);
       alert("Network error during checkout. Please try again.");
