@@ -434,7 +434,7 @@
 <div class="checkout-container">
     <h3>Checkout Details</h3>
     <form id="checkout-form">
-        
+
 <div class="user-details-card" style="border:1px solid #ddd; border-radius:8px; padding:15px; margin-top:20px; background:#fafafa;; padding:20px; max-width:900px; margin:20px auto">
   <h3 style="margin-top:0;">Your Details</h3>
   <label for="fullName">Full Name</label>
@@ -537,56 +537,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // If 404, try legacy endpoint with same body
     if (res.status === 404) {
-      // Build legacy cart + summary and send URL-encoded first (prevents transient 400)
-      const legacyCart = (rawCart||[]).map(it => ({
-        id: it.productId || it.id || it.sku || it.name,
-        sku: it.sku,
-        name: it.name || it.sku || it.id || "",
-        price: Number(it.price)||0,
-        deposit: Number(it.deposit)||0,
-        quantity: Number(it.quantity)||1,
-        image: it.image || it.img || it.picture || ""
-      }));
-      const form = new URLSearchParams();
-      form.append("fullName", payload.customer?.fullName || "");
-      form.append("email",    payload.customer?.email || "");
-      form.append("phone",    payload.customer?.phone || "");
-      form.append("address",  customerAddress || "");
-      form.append("cart",     JSON.stringify(legacyCart));
-      form.append("cart_summary",
-        legacyCart.map(item => `${item.name || item.sku || item.id || "Item"} (x${item.quantity}): Price ${item.price}, Deposit ${item.deposit}`).join("\n")
-      );
-
-      // Try urlencoded first
-      res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept":"application/json" },
-        body: form.toString()
-      });
-      let ct = res.headers.get("content-type") || "";
-      let data = ct.includes("application/json") ? await res.json() : null;
-      if (res.ok && (data?.status === "success" || data?.success === true)) { return { res, data }; }
-
-      // Fallback to legacy JSON
-      const legacyBody = {
-        fullName: form.get("fullName"),
-        email: form.get("email"),
-        phone: form.get("phone"),
-        address: form.get("address"),
-        cart: legacyCart,
-        cart_summary: form.get("cart_summary")
-      };
       res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept":"application/json" },
-        body: JSON.stringify(legacyBody)
+        body: JSON.stringify(payload)
       });
-      ct = res.headers.get("content-type") || "";
-      data = ct.includes("application/json") ? await res.json() : null;
-      if (!ct.includes("application/json") && !data) {
-        throw new Error(`Checkout failed (${res.status}). Server did not return JSON.`);
-      }
-      return { res, data };
     }
 
     // Parse JSON if possible
@@ -744,16 +699,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
     try {
       const { res, data } = await postCheckout(payload, cart, address);
-      if (!res.ok || !data?.success) {
+      // MINIMAL PATCH: treat data.status === 'success' as success even if HTTP status is 400
+      const isSuccess = !!(data && (data.status === 'success' || data.success === true));
+      if (!isSuccess) {
         console.error("Checkout failed:", data);
         alert(data?.error?.message || data?.message || "Checkout failed. Please try again.");
         return;
       }
 
       const order = data.order || {};
-      const orderNo = order.orderNumber || order.id || "";
+      const orderNo = order.orderNumber || order.id || data.orderNumber || data.id || "";
 
-      // Clear cart and go to Thank You
+      // Keep your exact redirect logic
       localStorage.removeItem("cart");
       updateCartCountBadge();
 
