@@ -414,5 +414,21 @@ document.addEventListener("DOMContentLoaded", function () {
 })();
 </script>
 
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const loginBtn = document.getElementById("loginBtn");
+  if (loginBtn) {
+    loginBtn.addEventListener("click", () => {
+      // Clear stale checkout flags on normal login
+      localStorage.removeItem("checkoutRedirect");
+      localStorage.removeItem("redirectAfterLogin");
+
+      // Continue with existing modal
+      try { openLogin(); } catch(e) {}
+    });
+  }
+});
+</script>
+
 </body>
 </html>
