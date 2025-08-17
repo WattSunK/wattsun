@@ -310,3 +310,92 @@ http.createServer(app).listen(PORT, () => {
   console.log(`✅ WattSun backend running on HTTP port ${PORT}`);
 });
 
+/**
+ * ---- Non-breaking admin/ops enhancements (appended) ----
+ * These DO NOT modify existing routes or logic.
+ * They only add new, optional endpoints and helpers.
+ *
+ * New endpoints:
+ *   GET /api/healthz             -> plain "OK" for health checks
+ *   GET /api/orders/withTotals   -> reads cached orders and adds computed totals
+ *   POST /api/admin/orders/refresh-cache -> clears in-memory orders cache
+ *
+ * Notes:
+ * - Uses app.locals.orders if it exists (as hinted by existing code comments).
+ * - If the cached shape is { orders: [...] } we unwrap it; if it's an array, we use it directly.
+ * - Never overwrites any existing fields; adds new, clearly-named fields:
+ *      total_computed, deposit_computed, items_count
+ * - Safe for dev/prod; no DB writes.
+ */
+
+(function attachNonBreakingEnhancements(appRef){
+  if (!appRef || typeof appRef.get !== 'function') return; // defensive
+
+  // idempotency guard to avoid double-registration if this file is imported twice
+  if (appRef.locals.__enhancementsLoaded) return;
+  appRef.locals.__enhancementsLoaded = true;
+
+  // ---- helpers ----
+  function toNum(v){
+    if (typeof v === 'number') return v;
+    if (typeof v === 'string') {
+      const n = Number(v.replace(/[^0-9.\-]/g, ''));
+      return Number.isFinite(n) ? n : 0;
+    }
+    return 0;
+  }
+
+  function sumCart(cart, field){
+    return (Array.isArray(cart) ? cart : []).reduce((acc, item) => {
+      const qty = toNum(item?.quantity) || 1;
+      // allow either item[field] or item[field] present as string/number
+      const val = (item && (item[field] ?? item[field])) ?? 0;
+      return acc + (toNum(val) * qty);
+    }, 0);
+  }
+
+  function normalizeOrdersFromCache(cache){
+    // Cached shape can be {orders:[...]} or [...] or falsy
+    let list = [];
+    if (Array.isArray(cache)) list = cache;
+    else if (cache && Array.isArray(cache.orders)) list = cache.orders;
+    return list;
+  }
+
+  // ---- routes ----
+
+  // Simple health endpoint that won't collide with /api/health if it already exists
+  appRef.get('/api/healthz', (req, res) => res.status(200).type('text/plain').send('OK'));
+
+  // Enhanced orders endpoint that adds computed totals but does not change existing /api/orders
+  appRef.get('/api/orders/withTotals', (req, res) => {
+    try {
+      const cached = appRef.locals?.orders ?? [];
+      const orders = normalizeOrdersFromCache(cached);
+
+      const out = orders.map(o => ({
+        ...o,
+        items_count: Array.isArray(o?.cart) ? o.cart.length : 0,
+        total_computed: sumCart(o?.cart, 'price'),
+        deposit_computed: sumCart(o?.cart, 'deposit'),
+      }));
+
+      res.json({ orders: out });
+    } catch (err) {
+      console.error('[withTotals] failed:', err && err.message);
+      res.status(500).json({ error: 'failed_to_build_orders' });
+    }
+  });
+
+  // Admin: clear cached orders (if any) so next load repopulates
+  appRef.post('/api/admin/orders/refresh-cache', (req, res) => {
+    try {
+      delete appRef.locals.orders;
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err && err.message || err) });
+    }
+  });
+
+})(typeof app !== 'undefined' ? app : undefined);
+// ---- end non-breaking enhancements ----
