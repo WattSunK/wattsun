@@ -337,15 +337,22 @@ document.addEventListener("DOMContentLoaded", function () {
     } catch (e) { return false; }
   }
 
-  function redirectNow() {
-    localStorage.removeItem("checkoutRedirect");
+ function redirectNow() {
+  // Only use redirectAfterLogin if we are actually in a checkout-triggered flow
+  const fromCheckout = localStorage.getItem("checkoutRedirect") === "true";
+
   const dest =
-   localStorage.getItem("redirectAfterLogin") ||
-  new URLSearchParams(location.search).get('next') ||
-  "/index.html";
-    localStorage.removeItem("redirectAfterLogin");
-    window.location.href = dest;
-  }
+    (fromCheckout ? localStorage.getItem("redirectAfterLogin") : null) ||
+    new URLSearchParams(location.search).get('next') ||
+    "/index.html";
+
+  // Cleanup flags
+  localStorage.removeItem("redirectAfterLogin");
+  localStorage.removeItem("checkoutRedirect");
+
+  window.location.href = dest;
+}
+
 
   function startAuthWatch() {
     // If already logged in, go immediately
