@@ -339,7 +339,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function redirectNow() {
     localStorage.removeItem("checkoutRedirect");
-    const dest = localStorage.getItem("redirectAfterLogin") || "checkout.html";
+  const dest =
+   localStorage.getItem("redirectAfterLogin") ||
+  new URLSearchParams(location.search).get('next') ||
+  "/index.html";
     localStorage.removeItem("redirectAfterLogin");
     window.location.href = dest;
   }
