@@ -397,7 +397,7 @@ document.addEventListener("DOMContentLoaded", function () {
   document.addEventListener("DOMContentLoaded", function () {
     // If user came from cart while logged out
     if (localStorage.getItem("checkoutRedirect") === "true") {
-      localStorage.setItem("redirectAfterLogin", "index.html");
+      localStorage.setItem("redirectAfterLogin", "checkout.html");
       try { openLogin(); } catch (_) {}
       startAuthWatch();
     } else if (localStorage.getItem("redirectAfterLogin") && isLoggedIn()) {
