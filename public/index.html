@@ -5,7 +5,7 @@
 <title>WattSun Solar - Home</title>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
 <link href="main.css" rel="stylesheet"/>
-<link href="main.css" rel="stylesheet"/>
+
 <style>
 /* ...your existing styles unchanged... */
     .cta {
@@ -319,14 +319,7 @@
     }
   });
 </script>
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  if (localStorage.getItem("checkoutRedirect") === "true") {
-    localStorage.removeItem("checkoutRedirect");
-    openLogin(); // This calls your existing login modal
-  }
-});
-</script>
+
 <!-- Redirect to checkout only AFTER auth truly succeeds (no auth.js changes needed) -->
 <script>
 (function () {
@@ -338,37 +331,33 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function redirectNow() {
-    localStorage.removeItem("checkoutRedirect");
-  const dest =
-   localStorage.getItem("redirectAfterLogin") ||
-  new URLSearchParams(location.search).get('next') ||
-  "/index.html";
+    const sp = new URLSearchParams(location.search);
+    const urlNext = sp.get('next');
+    const sessNext = sessionStorage.getItem('redirectAfterLogin');
+    const localNext = localStorage.getItem("redirectAfterLogin");
+    const raw = sessNext || urlNext || localNext;
+    const dest = (raw && /^\/[A-Za-z0-9._\-\/?#=&]*$/.test(raw)) ? raw : "/index.html";
+
+    // cleanup (no stickiness)
+    try { sessionStorage.removeItem('redirectAfterLogin'); } catch(e){}
     localStorage.removeItem("redirectAfterLogin");
+    localStorage.removeItem("checkoutRedirect");
+
     window.location.href = dest;
   }
 
   function startAuthWatch() {
-    // If already logged in, go immediately
     if (isLoggedIn()) { redirectNow(); return; }
 
-    // Poll for wattsunUser being set by auth.js (ground truth)
-    let ticks = 0;
-    const maxTicks = 600; // ~150s @ 250ms
+    let ticks = 0, maxTicks = 600;
     const iv = setInterval(() => {
-      if (isLoggedIn()) {
-        clearInterval(iv);
-        redirectNow();
-      } else if (++ticks >= maxTicks) {
-        clearInterval(iv); // give up quietly
-      }
+      if (isLoggedIn()) { clearInterval(iv); redirectNow(); }
+      else if (++ticks >= maxTicks) clearInterval(iv);
     }, 250);
 
-    // Helpful extra signals (don’t rely solely on them)
     const loginModal = document.getElementById("loginModal");
     if (loginModal) {
-      // Bootstrap's event (if used)
       loginModal.addEventListener("hidden.bs.modal", () => { if (isLoggedIn()) redirectNow(); });
-      // Generic class/style change watcher
       const mo = new MutationObserver(() => {
         const hidden = window.getComputedStyle(loginModal).display === "none";
         if (hidden && isLoggedIn()) { mo.disconnect(); redirectNow(); }
@@ -376,7 +365,6 @@ document.addEventListener("DOMContentLoaded", function () {
       mo.observe(loginModal, { attributes: true, attributeFilter: ["style", "class"] });
     }
 
-    // Signup success banner (exists in your markup)
     const signupSuccess = document.getElementById("signupSuccess");
     if (signupSuccess) {
       const mos = new MutationObserver(() => {
@@ -387,24 +375,52 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
-    // If user came from cart while logged out
-    if (localStorage.getItem("checkoutRedirect") === "true") {
-      localStorage.setItem("redirectAfterLogin", "checkout.html");
-      try { openLogin(); } catch (_) {}
-      startAuthWatch();
-    } else if (localStorage.getItem("redirectAfterLogin") && isLoggedIn()) {
-      // In case auth just completed and flags remain
-      redirectNow();
-    }
+document.addEventListener("DOMContentLoaded", function () {
+  const sp = new URLSearchParams(location.search);
+  const next = sp.get("next");
+  const sessNext = sessionStorage.getItem("redirectAfterLogin");
 
-    // Kick off watcher when forms submit (in case modal stays open during async)
-    const loginForm = document.getElementById("loginForm");
-    if (loginForm) loginForm.addEventListener("submit", () => setTimeout(startAuthWatch, 0));
-    const signupForm = document.getElementById("signupForm");
-    if (signupForm) signupForm.addEventListener("submit", () => setTimeout(startAuthWatch, 0));
-  });
+  // ✅ B) Start the auth watcher if we have either ?next=... or a saved session next
+  if (next || sessNext) {
+    sessionStorage.setItem("redirectAfterLogin", next || sessNext);
+    startAuthWatch();
+  }
+
+  // If already logged in and carrying next in session, jump immediately
+  if (isLoggedIn() && sessNext) {
+    redirectNow();
+  }
+
+  const loginForm = document.getElementById("loginForm");
+  if (loginForm) loginForm.addEventListener("submit", () => setTimeout(startAuthWatch, 0));
+  const signupForm = document.getElementById("signupForm");
+  if (signupForm) signupForm.addEventListener("submit", () => setTimeout(startAuthWatch, 0));
+});
 })();
+</script>
+<script>
+  // If URL carries ?next=..., remember it for this tab and auto-open login
+  document.addEventListener("DOMContentLoaded", function () {
+    try {
+      const sp = new URLSearchParams(location.search);
+      const next = sp.get('next');
+const safeNext = (next && /^\/[A-Za-z0-9._\-\/?#=&]*$/.test(next)) ? next : null;
+if (safeNext) {
+  sessionStorage.setItem('redirectAfterLogin', safeNext);
+  if (typeof openLogin === 'function') openLogin();
+}
+    } catch (e) {}
+  });
+</script>
+<script>
+  // Also treat /login.html and /signup.html as modal entry points
+  document.addEventListener("DOMContentLoaded", function () {
+    try {
+      const p = location.pathname.toLowerCase();
+      if (p.endsWith("/login.html") && typeof openLogin === "function") openLogin();
+      if (p.endsWith("/signup.html") && typeof openSignup === "function") openSignup();
+    } catch (e) {}
+  });
 </script>
 
 </body>
