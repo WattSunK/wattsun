@@ -613,9 +613,11 @@ document.addEventListener("DOMContentLoaded", function () {
   // ---------- Gate: must be logged in ----------
   const user = getCurrentUser();
   if (!user) {
-    localStorage.setItem("checkoutRedirect", "true");
-    window.location.href = "index.html";
-    return;
+    // Remember the intended destination in this tab and go to homepage with login modal
+try { sessionStorage.setItem("redirectAfterLogin", "/checkout.html"); } catch(e) {}
+window.location.href = "/index.html?login=1&next=/checkout.html";
+return; // ensure the guarded code after this does not run
+
   }
 
   // ---------- Prefill readonly fields ----------
