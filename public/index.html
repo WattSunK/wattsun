@@ -354,6 +354,16 @@
     } catch (e) { /* no-op */ }
   });
 </script>
+<script>
+  // If the page is reached via /login.html or /signup.html, open the right modal.
+  document.addEventListener("DOMContentLoaded", function () {
+    try {
+      const p = location.pathname.toLowerCase();
+      if (p.endsWith("/login.html") && typeof openLogin === "function") openLogin();
+      if (p.endsWith("/signup.html") && typeof openSignup === "function") openSignup();
+    } catch (e) {}
+  });
+</script>
 
 </body>
 </html>

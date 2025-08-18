@@ -68,8 +68,15 @@ app.use("/api", require("./routes/users"));
 app.use("/api", require("./routes/login"));
 app.use("/api", require("./routes/reset"));
 
+const path = require("path");
+
+// Serve the homepage shell for auth pseudo-pages so ?next= stays in the URL.
+app.get(["/login.html", "/signup.html"], (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 // --- Wrap /api/orders to cache the latest list in memory ---
+
 const ordersRouter = require("./routes/orders");
 app.use(
   "/api/orders",
