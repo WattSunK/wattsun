@@ -319,50 +319,92 @@
     }
   });
 </script>
-
-<!-- Redirect to checkout only AFTER auth truly succeeds (no auth.js changes needed) -->
-
-
-
-
 <script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (localStorage.getItem("checkoutRedirect") === "true") {
+    localStorage.removeItem("checkoutRedirect");
+    openLogin(); // This calls your existing login modal
+  }
+});
+</script>
+<!-- Redirect to checkout only AFTER auth truly succeeds (no auth.js changes needed) -->
+<script>
+(function () {
+  function isLoggedIn() {
+    try {
+      const obj = JSON.parse(localStorage.getItem("wattsunUser") || "null");
+      return !!(obj && (obj.user || obj.success));
+    } catch (e) { return false; }
+  }
+
   function redirectNow() {
-    const params = new URLSearchParams(location.search);
-    const next = params.get('next');
-    const dest = (next && /^\/[A-Za-z0-9._\-\/?=&]*$/.test(next)) ? next : '/index.html';
+    localStorage.removeItem("checkoutRedirect");
+  const dest =
+   localStorage.getItem("redirectAfterLogin") ||
+  new URLSearchParams(location.search).get('next') ||
+  "/index.html";
+    localStorage.removeItem("redirectAfterLogin");
     window.location.href = dest;
   }
-</script>
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    var loginBtn = document.getElementById("loginBtn");
-    if (loginBtn) {
-      loginBtn.addEventListener("click", function () {
-        try { if (typeof openLogin === 'function') openLogin(); } catch (e) {}
-      }, { once: false });
-    }
-  });
-</script>
-<script>
-  // If the request path is /login.html, auto-open the login modal.
-  // This is stateless (URL-driven) and preserves ?next=/checkout.html.
-  document.addEventListener("DOMContentLoaded", function () {
-    try {
-      if (location.pathname.endsWith("/login.html") && typeof openLogin === "function") {
-        openLogin();
+
+  function startAuthWatch() {
+    // If already logged in, go immediately
+    if (isLoggedIn()) { redirectNow(); return; }
+
+    // Poll for wattsunUser being set by auth.js (ground truth)
+    let ticks = 0;
+    const maxTicks = 600; // ~150s @ 250ms
+    const iv = setInterval(() => {
+      if (isLoggedIn()) {
+        clearInterval(iv);
+        redirectNow();
+      } else if (++ticks >= maxTicks) {
+        clearInterval(iv); // give up quietly
       }
-    } catch (e) { /* no-op */ }
-  });
-</script>
-<script>
-  // If the page is reached via /login.html or /signup.html, open the right modal.
+    }, 250);
+
+    // Helpful extra signals (don’t rely solely on them)
+    const loginModal = document.getElementById("loginModal");
+    if (loginModal) {
+      // Bootstrap's event (if used)
+      loginModal.addEventListener("hidden.bs.modal", () => { if (isLoggedIn()) redirectNow(); });
+      // Generic class/style change watcher
+      const mo = new MutationObserver(() => {
+        const hidden = window.getComputedStyle(loginModal).display === "none";
+        if (hidden && isLoggedIn()) { mo.disconnect(); redirectNow(); }
+      });
+      mo.observe(loginModal, { attributes: true, attributeFilter: ["style", "class"] });
+    }
+
+    // Signup success banner (exists in your markup)
+    const signupSuccess = document.getElementById("signupSuccess");
+    if (signupSuccess) {
+      const mos = new MutationObserver(() => {
+        const visible = window.getComputedStyle(signupSuccess).display !== "none";
+        if (visible && isLoggedIn()) { mos.disconnect(); redirectNow(); }
+      });
+      mos.observe(signupSuccess, { attributes: true, attributeFilter: ["style", "class"] });
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
-    try {
-      const p = location.pathname.toLowerCase();
-      if (p.endsWith("/login.html") && typeof openLogin === "function") openLogin();
-      if (p.endsWith("/signup.html") && typeof openSignup === "function") openSignup();
-    } catch (e) {}
+    // If user came from cart while logged out
+    if (localStorage.getItem("checkoutRedirect") === "true") {
+      localStorage.setItem("redirectAfterLogin", "checkout.html");
+      try { openLogin(); } catch (_) {}
+      startAuthWatch();
+    } else if (localStorage.getItem("redirectAfterLogin") && isLoggedIn()) {
+      // In case auth just completed and flags remain
+      redirectNow();
+    }
+
+    // Kick off watcher when forms submit (in case modal stays open during async)
+    const loginForm = document.getElementById("loginForm");
+    if (loginForm) loginForm.addEventListener("submit", () => setTimeout(startAuthWatch, 0));
+    const signupForm = document.getElementById("signupForm");
+    if (signupForm) signupForm.addEventListener("submit", () => setTimeout(startAuthWatch, 0));
   });
+})();
 </script>
 
 </body>
