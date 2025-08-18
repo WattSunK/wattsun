@@ -322,23 +322,38 @@
 
 <!-- Redirect to checkout only AFTER auth truly succeeds (no auth.js changes needed) -->
 
+
+
+
 <script>
   function redirectNow() {
     const params = new URLSearchParams(location.search);
     const next = params.get('next');
-    const dest = (next && /^\/[A-Za-z0-9._\-\/=?&]*$/.test(next)) ? next : '/index.html';
+    const dest = (next && /^\/[A-Za-z0-9._\-\/?=&]*$/.test(next)) ? next : '/index.html';
     window.location.href = dest;
   }
+</script>
+<script>
   document.addEventListener("DOMContentLoaded", function () {
-    const loginBtn = document.getElementById("loginBtn");
+    var loginBtn = document.getElementById("loginBtn");
     if (loginBtn) {
-      loginBtn.addEventListener("click", () => { try { openLogin(); } catch(e) {} });
+      loginBtn.addEventListener("click", function () {
+        try { if (typeof openLogin === 'function') openLogin(); } catch (e) {}
+      }, { once: false });
     }
   });
 </script>
-
-
-
+<script>
+  // If the request path is /login.html, auto-open the login modal.
+  // This is stateless (URL-driven) and preserves ?next=/checkout.html.
+  document.addEventListener("DOMContentLoaded", function () {
+    try {
+      if (location.pathname.endsWith("/login.html") && typeof openLogin === "function") {
+        openLogin();
+      }
+    } catch (e) { /* no-op */ }
+  });
+</script>
 
 </body>
 </html>
