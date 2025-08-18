@@ -319,116 +319,26 @@
     }
   });
 </script>
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  if (localStorage.getItem("checkoutRedirect") === "true") {
-    localStorage.removeItem("checkoutRedirect");
-    openLogin(); // This calls your existing login modal
-  }
-});
-</script>
+
 <!-- Redirect to checkout only AFTER auth truly succeeds (no auth.js changes needed) -->
+
 <script>
-(function () {
-  function isLoggedIn() {
-    try {
-      const obj = JSON.parse(localStorage.getItem("wattsunUser") || "null");
-      return !!(obj && (obj.user || obj.success));
-    } catch (e) { return false; }
+  function redirectNow() {
+    const params = new URLSearchParams(location.search);
+    const next = params.get('next');
+    const dest = (next && /^\/[A-Za-z0-9._\-\/=?&]*$/.test(next)) ? next : '/index.html';
+    window.location.href = dest;
   }
-
- function redirectNow() {
-  // Only use redirectAfterLogin if we are actually in a checkout-triggered flow
-  const fromCheckout = localStorage.getItem("checkoutRedirect") === "true";
-
-  const dest =
-    (fromCheckout ? localStorage.getItem("redirectAfterLogin") : null) ||
-    new URLSearchParams(location.search).get('next') ||
-    "/index.html";
-
-  // Cleanup flags
-  localStorage.removeItem("redirectAfterLogin");
-  localStorage.removeItem("checkoutRedirect");
-
-  window.location.href = dest;
-}
-
-
-  function startAuthWatch() {
-    // If already logged in, go immediately
-    if (isLoggedIn()) { redirectNow(); return; }
-
-    // Poll for wattsunUser being set by auth.js (ground truth)
-    let ticks = 0;
-    const maxTicks = 600; // ~150s @ 250ms
-    const iv = setInterval(() => {
-      if (isLoggedIn()) {
-        clearInterval(iv);
-        redirectNow();
-      } else if (++ticks >= maxTicks) {
-        clearInterval(iv); // give up quietly
-      }
-    }, 250);
-
-    // Helpful extra signals (don’t rely solely on them)
-    const loginModal = document.getElementById("loginModal");
-    if (loginModal) {
-      // Bootstrap's event (if used)
-      loginModal.addEventListener("hidden.bs.modal", () => { if (isLoggedIn()) redirectNow(); });
-      // Generic class/style change watcher
-      const mo = new MutationObserver(() => {
-        const hidden = window.getComputedStyle(loginModal).display === "none";
-        if (hidden && isLoggedIn()) { mo.disconnect(); redirectNow(); }
-      });
-      mo.observe(loginModal, { attributes: true, attributeFilter: ["style", "class"] });
-    }
-
-    // Signup success banner (exists in your markup)
-    const signupSuccess = document.getElementById("signupSuccess");
-    if (signupSuccess) {
-      const mos = new MutationObserver(() => {
-        const visible = window.getComputedStyle(signupSuccess).display !== "none";
-        if (visible && isLoggedIn()) { mos.disconnect(); redirectNow(); }
-      });
-      mos.observe(signupSuccess, { attributes: true, attributeFilter: ["style", "class"] });
-    }
-  }
-
   document.addEventListener("DOMContentLoaded", function () {
-    // If user came from cart while logged out
-    if (localStorage.getItem("checkoutRedirect") === "true") {
-      localStorage.setItem("redirectAfterLogin", "checkout.html");
-      try { openLogin(); } catch (_) {}
-      startAuthWatch();
-    } else if (localStorage.getItem("redirectAfterLogin") && isLoggedIn()) {
-      // In case auth just completed and flags remain
-      redirectNow();
+    const loginBtn = document.getElementById("loginBtn");
+    if (loginBtn) {
+      loginBtn.addEventListener("click", () => { try { openLogin(); } catch(e) {} });
     }
-
-    // Kick off watcher when forms submit (in case modal stays open during async)
-    const loginForm = document.getElementById("loginForm");
-    if (loginForm) loginForm.addEventListener("submit", () => setTimeout(startAuthWatch, 0));
-    const signupForm = document.getElementById("signupForm");
-    if (signupForm) signupForm.addEventListener("submit", () => setTimeout(startAuthWatch, 0));
   });
-})();
 </script>
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  const loginBtn = document.getElementById("loginBtn");
-  if (loginBtn) {
-    loginBtn.addEventListener("click", () => {
-      // Clear stale checkout flags on normal login
-      localStorage.removeItem("checkoutRedirect");
-      localStorage.removeItem("redirectAfterLogin");
 
-      // Continue with existing modal
-      try { openLogin(); } catch(e) {}
-    });
-  }
-});
-</script>
+
 
 </body>
 </html>
