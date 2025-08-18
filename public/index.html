@@ -399,6 +399,22 @@ document.addEventListener("DOMContentLoaded", function () {
 })();
 </script>
 <script>
+/* Safe fallbacks if auth.js didn't define these globally */
+(function () {
+  function show(id) { var m = document.getElementById(id); if (m) m.style.display = 'flex'; }
+  function hide(id) { var m = document.getElementById(id); if (m) m.style.display = 'none'; }
+
+  if (typeof window.openLogin !== 'function')  window.openLogin  = function () { show('loginModal'); setTimeout(function(){ try{document.getElementById('loginEmail')?.focus();}catch(e){} }, 0); };
+  if (typeof window.closeLogin !== 'function') window.closeLogin = function () { hide('loginModal'); };
+
+  if (typeof window.openSignup !== 'function')  window.openSignup  = function () { show('signupModal'); };
+  if (typeof window.closeSignup !== 'function') window.closeSignup = function () { hide('signupModal'); };
+
+  if (typeof window.openPasswordReset !== 'function')  window.openPasswordReset  = function () { show('resetModal'); };
+  if (typeof window.closePasswordReset !== 'function') window.closePasswordReset = function () { hide('resetModal'); };
+})();
+</script>
+
   // If URL carries ?next=..., remember it for this tab and auto-open login
   document.addEventListener("DOMContentLoaded", function () {
     try {
