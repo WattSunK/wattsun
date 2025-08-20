@@ -356,16 +356,19 @@ if (section === "myorders") {
   }
 
   // ---- Sidebar nav → partial loader ----
-  if (sidebar) {
-    sidebar.addEventListener("click", (e) => {
-      const a = e.target.closest("a[data-partial]");
-      if (!a) return;
-      e.preventDefault();
-      sidebar.querySelectorAll("a").forEach(x => x.classList.remove("active"));
-      a.classList.add("active");
-      loadSection(a.getAttribute("data-partial"));
-    });
-  }
+// replace your current sidebar handler with this dual‑attr version
+if (sidebar) {
+  sidebar.addEventListener("click", (e) => {
+    const a = e.target.closest("a[data-partial], a[data-section]");
+    if (!a) return;
+    e.preventDefault();
+    sidebar.querySelectorAll("a").forEach(x => x.classList.remove("active"));
+    a.classList.add("active");
+    const sect = a.getAttribute("data-partial") || a.getAttribute("data-section");
+    loadSection(sect);
+  });
+}
+
 
   // ---- Boot ----
   const u = getUser();
