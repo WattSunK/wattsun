@@ -5,6 +5,7 @@
       <input id="dispatchSearch" placeholder="Search orders…" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;width:240px">
     </div>
   </div>
+
   <div class="card-body" style="padding:0 12px 12px">
     <div class="table-responsive">
       <table class="table" id="dispatchTable" style="width:100%">
@@ -26,15 +27,17 @@
   </div>
 </section>
 
-<!-- Items-style modal (single source) -->
-<div id="dispatchViewModal" class="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;">
-  <div class="modal-dialog" style="max-width:640px;margin:6% auto;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);overflow:hidden">
+<!-- Items-style modal (centered, single instance) -->
+<div id="dispatchViewModal"
+     class="modal"
+     style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);z-index:1000;">
+  <div class="modal-dialog" style="max-width:640px;width:92%;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);overflow:hidden">
     <div class="modal-content">
       <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #f0f0f0">
-        <h3 style="margin:0;font-size:18px;font-weight:600" id="dv-title">Order</h3>
+        <h3 id="dv-title" style="margin:0;font-size:18px;font-weight:600">Order</h3>
         <button type="button" class="close" aria-label="Close" style="font-size:22px;line-height:1;border:none;background:transparent;cursor:pointer">&times;</button>
       </div>
-      <div class="modal-body" style="padding:16px" id="dv-body">
+      <div class="modal-body" id="dv-body" style="padding:16px">
         <!-- Filled by JS -->
       </div>
       <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:12px 16px;border-top:1px solid #f0f0f0">
@@ -57,8 +60,7 @@
     return;
   }
   const Data = window.WattSunAdminData;
-
-  let rows = []; // normalized orders from adapter
+  let rows = [];
 
   function driverName(o) {
     const r = o.raw || {};
@@ -86,13 +88,63 @@
         <td>${o.status || 'Pending'}</td>
         <td>${driverName(o)}</td>
         <td>${created}</td>
-        <td><button class="btn btn-sm btn-outline" data-view-id="${o.id || ''}" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">View</button></td>
+        <td><button class="btn btn-sm btn-outline" data-order-id="${o.id || ''}" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">View</button></td>
       `;
       frag.appendChild(tr);
     });
     TBODY.innerHTML = '';
     TBODY.appendChild(frag);
   }
+
+  function currencyKES(cents) {
+    if (typeof cents !== 'number') return '—';
+    return 'KSh ' + (cents/100).toLocaleString();
+  }
+
+  function showModal(o) {
+    if (TITLE) TITLE.textContent = `Order ${o.id || o.orderNumber || ''}`;
+
+    const total = (typeof o.totalCents === 'number')
+      ? currencyKES(o.totalCents)
+      : (typeof o.total === 'number' ? ('KSh ' + o.total.toLocaleString()) : '—');
+
+    const parts = [];
+    (o.items || o.cart || []).forEach(it => {
+      const qty = (it.quantity != null && it.quantity !== '') ? ` × ${it.quantity}` : '';
+      parts.push(`<li>${(it.name || '').replace(/</g,'&lt;')}${qty}</li>`);
+    });
+    const itemsHTML = parts.length ? `<ul style="margin:6px 0 0 18px">${parts.join('')}</ul>` : '<em>No line items</em>';
+
+    BODY.innerHTML = `
+      <div style="display:grid;grid-template-columns:160px 1fr;row-gap:8px;column-gap:12px">
+        <div style="color:#6b7280">Customer</div><div>${o.fullName || '—'}<br><small>${o.phone || ''} ${o.email || ''}</small></div>
+        <div style="color:#6b7280">Status</div><div>${o.status || 'Pending'}</div>
+        <div style="color:#6b7280">Driver</div><div>${driverName(o)}</div>
+        <div style="color:#6b7280">Total</div><div>${total}</div>
+        <div style="color:#6b7280">Created</div><div>${o.createdAt ? new Date(o.createdAt).toLocaleString() : '—'}</div>
+        <div style="color:#6b7280">Items</div><div>${itemsHTML}</div>
+        <div style="color:#6b7280">Notes</div><div>${(o.notes || '').toString().replace(/</g,'&lt;') || '—'}</div>
+      </div>
+    `;
+
+    MODAL.style.display = 'flex'; // centered via flex on overlay
+  }
+
+  function closeModal(){ MODAL.style.display = 'none'; }
+
+  // Close hooks
+  (MODAL.querySelector('.close') || {}).onclick = closeModal;
+  (MODAL.querySelector('[data-close]') || {}).onclick = closeModal;
+  MODAL.addEventListener('click', (e) => { if (e.target === MODAL) closeModal(); });
+
+  // Delegate to tbody for dynamic rows (uses data-order-id)
+  TBODY.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-order-id]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-order-id');
+    const o  = rows.find(r => String(r.id) === String(id));
+    if (o) showModal(o);
+  });
 
   function onSearch() {
     const q = (SEARCH.value || '').trim().toLowerCase();
@@ -105,59 +157,6 @@
     });
     render(filtered);
   }
-
-  function currencyKES(cents) {
-    if (typeof cents !== 'number') return '—';
-    return 'KSh ' + (cents/100).toLocaleString();
-  }
-
-  function showModal(o) {
-    // Title (fix: use defined TITLE var)
-    const titleEl = TITLE || document.getElementById('dv-title');
-    if (titleEl) titleEl.textContent = `Order ${o.id || o.orderNumber || ''}`;
-
-    // Body
-    const total = (typeof o.totalCents === 'number') ? currencyKES(o.totalCents) : (o.total ? ('KSh ' + o.total.toLocaleString()) : '—');
-    const drv   = driverName(o);
-    const parts = [];
-    (o.items || o.cart || []).forEach(it => {
-      const qty = (it.quantity != null && it.quantity !== '') ? ` × ${it.quantity}` : '';
-      parts.push(`<li>${(it.name || '').replace(/</g,'&lt;')}${qty}</li>`);
-    });
-    const itemsHTML = parts.length ? `<ul style="margin:6px 0 0 18px">${parts.join('')}</ul>` : '<em>No line items</em>';
-
-    BODY.innerHTML = `
-      <div style="display:grid;grid-template-columns:160px 1fr;row-gap:8px;column-gap:12px">
-        <div style="color:#6b7280">Customer</div><div>${o.fullName || '—'}<br><small>${o.phone || ''} ${o.email || ''}</small></div>
-        <div style="color:#6b7280">Status</div><div>${o.status || 'Pending'}</div>
-        <div style="color:#6b7280">Driver</div><div>${drv}</div>
-        <div style="color:#6b7280">Total</div><div>${total}</div>
-        <div style="color:#6b7280">Created</div><div>${o.createdAt ? new Date(o.createdAt).toLocaleString() : '—'}</div>
-        <div style="color:#6b7280">Items</div><div>${itemsHTML}</div>
-        <div style="color:#6b7280">Notes</div><div>${(o.notes || '').toString().replace(/</g,'&lt;') || '—'}</div>
-      </div>
-    `;
-
-    MODAL.style.display = 'block';
-  }
-
-  function closeModal() {
-    MODAL.style.display = 'none';
-  }
-
-  // Close hooks
-  (MODAL.querySelector('.close') || {}).onclick = closeModal;
-  (MODAL.querySelector('[data-close]') || {}).onclick = closeModal;
-  MODAL.addEventListener('click', (e) => { if (e.target === MODAL) closeModal(); });
-
-  // Open (matches button's data-view-id)
-  TBODY.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-view-id]');
-    if (!btn) return;
-    const id = btn.getAttribute('data-view-id');
-    const o  = rows.find(r => String(r.id) === String(id));
-    if (o) showModal(o);
-  });
 
   async function load() {
     try {

@@ -415,16 +415,17 @@ document.addEventListener("DOMContentLoaded", function () {
 })();
 </script>
 
+<script>
   // If URL carries ?next=..., remember it for this tab and auto-open login
   document.addEventListener("DOMContentLoaded", function () {
     try {
       const sp = new URLSearchParams(location.search);
       const next = sp.get('next');
-const safeNext = (next && /^\/[A-Za-z0-9._\-\/?#=&]*$/.test(next)) ? next : null;
-if (safeNext) {
-  sessionStorage.setItem('redirectAfterLogin', safeNext);
-  if (typeof openLogin === 'function') openLogin();
-}
+      const safeNext = (next && /^\/[A-Za-z0-9._\-\/?#=&]*$/.test(next)) ? next : null;
+      if (safeNext) {
+        sessionStorage.setItem('redirectAfterLogin', safeNext);
+        if (typeof openLogin === 'function') openLogin();
+      }
     } catch (e) {}
   });
 </script>
