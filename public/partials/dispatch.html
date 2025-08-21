@@ -2,50 +2,24 @@
 <section class="ws-admin-section">
   <h2 class="ws-admin-title">Settings</h2>
 
-  <!-- Small read-only summary -->
-  <div class="settings-summary-card" style="border-left:4px solid #3b82f6;background:#f0f7ff;padding:12px 14px;margin:10px 0 18px;border-radius:8px;">
-    <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;">
-      <div><strong>Currency:</strong> <span id="ro-currency">—</span></div>
-      <div><strong>Deposit %:</strong> <span id="ro-deposit">—</span></div>
-      <div><strong>Contact Email:</strong> <span id="ro-email">—</span></div>
-      <div style="margin-left:auto;color:#6b7280;font-size:12px;">view-only panel (wired later)</div>
+  <!-- Overview (read-only, small) -->
+  <div class="settings-overview">
+    <div class="overview-card">
+      <div class="ov-title">Currency</div>
+      <div class="ov-value" id="ov-currency">KES</div>
+    </div>
+    <div class="overview-card">
+      <div class="ov-title">Deposit %</div>
+      <div class="ov-value" id="ov-deposit">20%</div>
+    </div>
+    <div class="overview-card">
+      <div class="ov-title">Contact Email</div>
+      <div class="ov-value" id="ov-contact">support@wattsun.co.ke</div>
     </div>
   </div>
 
-  <!-- Local grid to arrange cards in 3 columns -->
-  <style>
-    .settings-grid-3 {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(260px, 1fr));
-      gap: 16px;
-      align-items: start;
-    }
-    @media (max-width: 1100px) {
-      .settings-grid-3 { grid-template-columns: repeat(2, minmax(260px, 1fr)); }
-    }
-    @media (max-width: 720px) {
-      .settings-grid-3 { grid-template-columns: 1fr; }
-    }
-    /* Fallback in case .settings-card has minimal styling in admin.css */
-    .settings-card {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      padding: 14px;
-    }
-    .settings-card h3 {
-      margin: 0 0 10px 0;
-      font-size: 16px;
-      font-weight: 600;
-    }
-    .settings-input { width: 100%; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; }
-    .settings-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-    .settings-btn { padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; cursor: pointer; }
-    .danger { border-color: #fecaca; background: #fff7f7; }
-    .danger-btn { padding: 8px 12px; border: 1px solid #ef4444; color: #ef4444; border-radius: 8px; background: #fff; cursor: pointer; }
-  </style>
-
-  <div class="settings-grid-3">
+  <!-- 3-column grid of setting cards -->
+  <div class="settings-grid">
     <!-- Company Information -->
     <div class="settings-card">
       <h3>Company Information</h3>
@@ -71,9 +45,9 @@
     <div class="settings-card">
       <h3>User Management</h3>
 
-      <label style="display:flex;align-items:center;gap:10px;">
+      <label class="row">
         <input type="checkbox" id="set-strong-pw" checked>
-        Enforce strong passwords
+        <span>Enforce strong passwords</span>
       </label>
 
       <label>Session Timeout
@@ -86,9 +60,9 @@
         </select>
       </label>
 
-      <label style="display:flex;align-items:center;gap:10px;">
+      <label class="row">
         <input type="checkbox" id="set-allow-reset" checked>
-        Allow Password Reset
+        <span>Allow Password Reset</span>
       </label>
     </div>
 
@@ -96,23 +70,23 @@
     <div class="settings-card">
       <h3>Notifications</h3>
 
-      <label style="display:flex;align-items:center;gap:10px;">
+      <label class="row">
         <input type="checkbox" id="set-order-placed" checked>
-        Order Placed Email
+        <span>Order Placed Email</span>
       </label>
 
-      <label style="display:flex;align-items:center;gap:10px;">
+      <label class="row">
         <input type="checkbox" id="set-order-delivered" checked>
-        Order Delivered Email
+        <span>Order Delivered Email</span>
       </label>
 
-      <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
-        <label style="margin:0;display:flex;align-items:center;gap:10px;">
+      <div class="row">
+        <label class="row" style="margin:0;">
           <input type="checkbox" id="set-low-stock" checked>
-          Low Stock Alerts
+          <span>Low Stock Alerts</span>
         </label>
-        <input type="number" min="1" id="set-low-stock-threshold" class="settings-input" style="width:80px;" value="10">
-        <span>threshold</span>
+        <input type="number" min="1" id="set-low-stock-threshold" class="settings-input small" value="10">
+        <span class="muted">threshold</span>
       </div>
 
       <label style="margin-top:10px;">Send notifications to
@@ -194,33 +168,91 @@
   </div>
 </section>
 
-<script>
-(() => {
-  const roCurrency = document.getElementById('ro-currency');
-  const roDeposit  = document.getElementById('ro-deposit');
-  const roEmail    = document.getElementById('ro-email');
+<style>
+  /* Scoped to Settings partial */
+  .settings-overview {
+    display:grid;
+    grid-template-columns: repeat(3, minmax(160px, 1fr));
+    gap: 12px;
+    margin: 8px 0 16px 0;
+  }
+  .overview-card {
+    background:#fff;
+    border:1px solid #eee;
+    border-radius:10px;
+    padding:12px 14px;
+    display:flex;flex-direction:column;gap:4px;
+    box-shadow:0 1px 2px rgba(0,0,0,.03);
+  }
+  .ov-title { font-size:12px; color:#6b7280; }
+  .ov-value { font-weight:600; font-size:16px; }
 
-  async function loadSettings() {
-    // safe defaults for v0.1
-    let data = { currency: 'KES', deposit_percent: 20, contact_email: 'support@wattsun.co.ke' };
-    try {
-      const res = await fetch('/api/admin/settings?_=' + Date.now());
-      if (res.ok) {
-        const j = await res.json();
-        data = {
-          currency: j.currency ?? data.currency,
-          deposit_percent: j.deposit_percent ?? j.depositPercent ?? data.deposit_percent,
-          contact_email: j.contact_email ?? j.contactEmail ?? data.contact_email
-        };
-      }
-    } catch (e) {
-      // keep defaults silently
-    }
-    roCurrency.textContent = data.currency || '—';
-    roDeposit.textContent  = (data.deposit_percent != null) ? `${data.deposit_percent}%` : '—';
-    roEmail.textContent    = data.contact_email || '—';
+  .settings-grid{
+    display:grid;
+    grid-template-columns: repeat(3, minmax(280px, 1fr));
+    gap:16px;
+    align-items:stretch;  /* equal height rows */
+  }
+  @media (max-width: 1100px){
+    .settings-grid{ grid-template-columns: repeat(2, minmax(260px,1fr)); }
+    .settings-overview{ grid-template-columns: repeat(2, minmax(160px,1fr)); }
+  }
+  @media (max-width: 720px){
+    .settings-grid{ grid-template-columns: 1fr; }
+    .settings-overview{ grid-template-columns: 1fr; }
   }
 
-  loadSettings();
+  .settings-card{
+    background:#fff;
+    border:1px solid #eee;
+    border-radius:12px;
+    padding:16px;
+    display:flex; flex-direction:column; gap:10px;
+    min-height: 280px; /* keep cards visually equal */
+    box-shadow:0 1px 2px rgba(0,0,0,.03);
+  }
+
+  .settings-card h3{ margin:0 0 6px 0; font-size:16px; font-weight:600; }
+  .settings-input{ width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; }
+  .settings-input.small{ width:90px; }
+  .row{ display:flex; align-items:center; gap:10px; }
+  .muted{ color:#6b7280; }
+  .settings-actions{ display:flex; gap:10px; margin-top:auto; }
+  .settings-btn{ padding:8px 12px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer; }
+  .danger{ border-color:#fee2e2; background:#fff; }
+  .danger-btn{ padding:8px 12px; border:1px solid #fecaca; background:#fff; border-radius:8px; color:#b91c1c; cursor:pointer; }
+</style>
+
+<script>
+(function(){
+  // Tiny helper: fetch admin settings if available; otherwise show defaults.
+  const defaults = { currency: "KES", depositPercent: 20, contactEmail: "support@wattsun.co.ke" };
+
+  function setOverview({ currency, depositPercent, contactEmail }){
+    const cur = currency || defaults.currency;
+    const dep = (depositPercent != null ? depositPercent : defaults.depositPercent);
+    const em  = contactEmail || defaults.contactEmail;
+    const byId = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    byId("ov-currency", cur);
+    byId("ov-deposit", (typeof dep === "number" ? dep : parseFloat(dep) || defaults.depositPercent) + "%");
+    byId("ov-contact", em);
+  }
+
+  (async () => {
+    try {
+      const r = await fetch("/api/admin/settings?_=" + Date.now());
+      if (!r.ok) throw new Error("settings 404");
+      const j = await r.json();
+      // Expecting { success:true, settings:{ currency, depositPercent, contactEmail } }
+      const s = j?.settings || j; // tolerate plain object
+      setOverview({
+        currency: s.currency,
+        depositPercent: s.depositPercent,
+        contactEmail: s.contactEmail
+      });
+    } catch (e) {
+      setOverview(defaults);
+    }
+  })();
 })();
 </script>
