@@ -1,4 +1,4 @@
-// /public/js/dashboard.js
+// /public/admin/js/dashboard.js
 document.addEventListener("DOMContentLoaded", () => {
   const content  = document.getElementById("admin-content") || document.getElementById("adminContent");
   const sidebar  = document.querySelector(".sidebar nav");
@@ -29,7 +29,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function setUserCtx(u) {
-    document.documentElement.dataset.userRole = (u?.user?.role || u?.role || u?.user?.type || u?.type || "").toLowerCase();
+    document.documentElement.dataset.userRole =
+      (u?.user?.role || u?.role || u?.user?.type || u?.type || "").toLowerCase();
   }
 
   function updateHeaderUser(u) {
@@ -40,21 +41,27 @@ document.addEventListener("DOMContentLoaded", () => {
       const tel = info.phone || "";
       const el = document.getElementById("headerUser");
       if (!el) return;
-      el.querySelector(".user-name").textContent = name;
-      const meta = [];
-      if (email) meta.push(email);
-      if (tel) meta.push(tel);
-      el.querySelector(".user-meta").textContent = meta.join(" • ");
+      const n = el.querySelector(".user-name");
+      const m = el.querySelector(".user-meta");
+      if (n) n.textContent = name;
+      if (m) {
+        const meta = [];
+        if (email) meta.push(email);
+        if (tel) meta.push(tel);
+        m.textContent = meta.join(" • ");
+      }
     } catch {}
   }
 
   function setHeaderSearchVisible(show) { if (hdrSearch) hdrSearch.style.display = show ? "" : "none"; }
 
+  // Execute inline <script> tags that arrive with a partial
   function runInlineScripts(root) {
+    if (!root) return;
     const scripts = Array.from(root.querySelectorAll("script"));
     for (const old of scripts) {
       const s = document.createElement("script");
-      if (old.src) { s.src = old.src; } else { s.textContent = old.textContent || ""; }
+      if (old.src) s.src = old.src; else s.textContent = old.textContent || "";
       if (old.type) s.type = old.type;
       old.parentNode.replaceChild(s, old);
     }
@@ -107,11 +114,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const modal = document.getElementById("orderDetailsModal");
     if (!modal) return;
     modal.style.display = "block";
-    modal.querySelector(".modal-order-number").textContent = order.orderNumber || order.id || "";
-    modal.querySelector(".modal-customer-name").textContent = order.fullName || order.name || "";
-    modal.querySelector(".modal-status").textContent = order.status || "Pending";
-    modal.querySelector("#modal-status").value = order.status || "Pending";
-    modal.querySelector("#modal-notes").value = order.notes || "";
+    (modal.querySelector(".modal-order-number")||{}).textContent = order.orderNumber || order.id || "";
+    (modal.querySelector(".modal-customer-name")||{}).textContent = order.fullName || order.name || "";
+    (modal.querySelector(".modal-status")||{}).textContent = order.status || "Pending";
+    const sel = modal.querySelector("#modal-status"); if (sel) sel.value = order.status || "Pending";
+    const notes = modal.querySelector("#modal-notes"); if (notes) notes.value = order.notes || "";
 
     const close = () => { if (modal) modal.style.display = "none"; };
     const x = modal.querySelector(".close"); if (x && !x._bound) { x._bound = 1; x.addEventListener("click", close); }
@@ -172,13 +179,16 @@ document.addEventListener("DOMContentLoaded", () => {
     tbody.innerHTML = "";
     tbody.appendChild(frag);
 
-    content.addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-order-id]");
-      if (!btn) return;
-      const id = btn.getAttribute("data-order-id");
-      const order = arr.find(o => String(o.orderNumber || o.id || "") === id);
-      if (order) openOrderModal(order);
-    });
+    if (!content._ordersClickBound) {
+      content._ordersClickBound = true;
+      content.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-order-id]");
+        if (!btn) return;
+        const id = btn.getAttribute("data-order-id");
+        const order = arr.find(o => String(o.orderNumber || o.id || "") === id);
+        if (order) openOrderModal(order);
+      });
+    }
   }
 
   // ---- Section loader ----
@@ -186,25 +196,39 @@ document.addEventListener("DOMContentLoaded", () => {
     const hasOwnSearch = new Set(["orders", "users", "items", "myorders"]);
     setHeaderSearchVisible(!hasOwnSearch.has(section));
 
+    // My Orders → embed the exact customer dashboard page to guarantee parity
+    if (section === "myorders") {
+      const url = "/myaccount/userdash.html";
+      content.innerHTML = `
+        <div style="height:calc(100vh - 130px);">
+          <iframe id="myorders-embed"
+                  src="${url}"
+                  style="width:100%;height:100%;border:0;border-radius:8px;background:#fff;"></iframe>
+        </div>
+      `;
+      const iframe = content.querySelector("#myorders-embed");
+      // Optional: support postMessage resizes if the embedded page sends them
+      window.addEventListener("message", (e) => {
+        if (e?.data && e.data.type === "resize-embed" && typeof e.data.height === "number") {
+          iframe.style.height = Math.max(300, e.data.height) + "px";
+        }
+      });
+      // My Orders has its own search/filter UI
+      setHeaderSearchVisible(false);
+      return;
+    }
+
     if (section === "orders") {
       try {
         const res = await fetch(`/partials/orders.html?v=${Date.now()}`);
         content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-      runInlineScripts(content);
-      window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
+        runInlineScripts(content);
+        window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
       } catch {
         content.innerHTML = `<div class="p-3"></div>`;
         return;
       }
-      try {
-        if (typeof populateOrders === "function") {
-          await populateOrders();
-        } else {
-          await populateOrders(); // same-file
-        }
-      } catch (e) {
-        console.warn("populateOrders failed:", e);
-      }
+      try { await populateOrders(); } catch(e) { console.warn("populateOrders failed:", e); }
       return;
     }
 
@@ -251,9 +275,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const pfN = content.querySelector("#pf-name");  if (pfN)  pfN.value  = name;
           const pfE = content.querySelector("#pf-email"); if (pfE) pfE.value = email;
           const pfP = content.querySelector("#pf-phone"); if (pfP) pfP.value = phone;
-        } catch (e) {
-          // Silently fall back to existing localStorage-based flow
-        }
+        } catch {}
       })();
 
       const u = getUser();
@@ -264,7 +286,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (section === "users") {
       try {
-        const res = await fetch(`/partials/users.html?v=${Date.now()}`);
+        const res = await fetch(`/partials/users.html?v={{Date.now()}}`.replace("{{Date.now()}}", Date.now()));
         content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
       } catch {
         content.innerHTML = `<div class="p-3"></div>`;
@@ -283,46 +305,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return;
     }
-// --- My Orders (customer view inside admin shell)
-if (section === "myorders") {
-  try {
-    const res = await fetch(`/partials/myorders.html?v=${Date.now()}`);
-    content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-    runInlineScripts(content);
-    window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
-  } catch {
-    content.innerHTML = `<div class="p-3"></div>`;
-    return;
-  }
 
-  // Ensure /js/myorders.js is present, then try common init names.
-  function bootMyOrders() {
-    try {
-      if (window.WS?.myorders?.init) { window.WS.myorders.init(); return; }
-      if (typeof initMyOrders === "function") { initMyOrders(); return; }
-      if (typeof renderMyOrders === "function") { renderMyOrders(); return; }
-      if (typeof populateMyOrders === "function") { populateMyOrders(); return; }
-      document.dispatchEvent(new Event("myorders:mount"));
-    } catch (e) { console.warn("[myorders] init failed:", e); }
-  }
-
-  if (!document.querySelector('script[src="/js/myorders.js"]')) {
-    const s = document.createElement("script");
-    s.src = "/js/myorders.js";
-    s.onload = bootMyOrders;
-    s.onerror = () => console.error("Failed to load /js/myorders.js");
-    document.body.appendChild(s);
-  } else {
-    bootMyOrders();
-  }
-  return;
-}
-
+    // Generic partials
     try {
       const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
       content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-    runInlineScripts(content);
-    window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
+      runInlineScripts(content);
+      window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
     } catch {
       content.innerHTML = `<div class="p-3"></div>`;
     }
@@ -355,20 +344,19 @@ if (section === "myorders") {
     if (pfP) pfP.value = phone;
   }
 
-  // ---- Sidebar nav → partial loader ----
-// replace your current sidebar handler with this dual‑attr version
-if (sidebar) {
-  sidebar.addEventListener("click", (e) => {
-    const a = e.target.closest("a[data-partial], a[data-section]");
-    if (!a) return;
-    e.preventDefault();
-    sidebar.querySelectorAll("a").forEach(x => x.classList.remove("active"));
-    a.classList.add("active");
-    const sect = a.getAttribute("data-partial") || a.getAttribute("data-section");
-    loadSection(sect);
-  });
-}
-
+  // ---- Sidebar nav → partial loader (supports both attributes) ----
+  if (sidebar && !sidebar._bound) {
+    sidebar._bound = true;
+    sidebar.addEventListener("click", (e) => {
+      const a = e.target.closest("a[data-partial], a[data-section]");
+      if (!a) return;
+      e.preventDefault();
+      sidebar.querySelectorAll("a").forEach(x => x.classList.remove("active"));
+      a.classList.add("active");
+      const sect = a.getAttribute("data-partial") || a.getAttribute("data-section");
+      loadSection(sect);
+    });
+  }
 
   // ---- Boot ----
   const u = getUser();
