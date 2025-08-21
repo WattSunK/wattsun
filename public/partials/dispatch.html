@@ -10,12 +10,12 @@
       <table class="table" id="dispatchTable" style="width:100%">
         <thead>
           <tr>
-            <th style="white-space:nowrap">Order ID</th>
+            <th>Order ID</th>
             <th>Customer</th>
             <th>Status</th>
             <th>Driver</th>
             <th>Created</th>
-            <th style="width:90px"></th> <!-- Action -->
+            <th>Action</th>
           </tr>
         </thead>
         <tbody id="dispatchTbody">
@@ -26,7 +26,7 @@
   </div>
 </section>
 
-<!-- Items-style modal (simple, no frameworks) -->
+<!-- Items-style modal (single source) -->
 <div id="dispatchViewModal" class="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;">
   <div class="modal-dialog" style="max-width:640px;margin:6% auto;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);overflow:hidden">
     <div class="modal-content">
@@ -112,11 +112,11 @@
   }
 
   function showModal(o) {
-    // Title
-    TITTLE = TITTLE || document.getElementById('dv-title'); // defensive if hot-replaced
-    if (TITTLE) TITTLE.textContent = `Order ${o.id || o.orderNumber || ''}`;
+    // Title (fix: use defined TITLE var)
+    const titleEl = TITLE || document.getElementById('dv-title');
+    if (titleEl) titleEl.textContent = `Order ${o.id || o.orderNumber || ''}`;
 
-    // Body (simple, items-style layout)
+    // Body
     const total = (typeof o.totalCents === 'number') ? currencyKES(o.totalCents) : (o.total ? ('KSh ' + o.total.toLocaleString()) : '—');
     const drv   = driverName(o);
     const parts = [];
@@ -138,7 +138,6 @@
       </div>
     `;
 
-    // Open/close (items-style close behaviors)
     MODAL.style.display = 'block';
   }
 
@@ -146,11 +145,12 @@
     MODAL.style.display = 'none';
   }
 
-  // Close hooks (X and footer button)
+  // Close hooks
   (MODAL.querySelector('.close') || {}).onclick = closeModal;
   (MODAL.querySelector('[data-close]') || {}).onclick = closeModal;
   MODAL.addEventListener('click', (e) => { if (e.target === MODAL) closeModal(); });
 
+  // Open (matches button's data-view-id)
   TBODY.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-view-id]');
     if (!btn) return;
