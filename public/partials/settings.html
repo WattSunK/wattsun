@@ -1,151 +1,258 @@
-
 <!-- /public/partials/settings.html -->
 <section class="ws-admin-section">
   <h2 class="ws-admin-title">Settings</h2>
 
-  <!-- Company Information -->
-  <div class="settings-card">
-    <h3>Company Information</h3>
-
-    <label>Company Name
-      <input type="text" class="settings-input" id="set-company-name" value="WattSun Solar">
-    </label>
-
-    <label>Support Email
-      <input type="email" class="settings-input" id="set-support-email" value="support@wattsun.co.ke">
-    </label>
-
-    <label>Support Phone
-      <input type="text" class="settings-input" id="set-support-phone" value="+254700123456">
-    </label>
-
-    <label>Physical Address
-      <input type="text" class="settings-input" id="set-support-address" value="Nairobi, Kenya">
-    </label>
+  <!-- Overview (read-only, small) -->
+  <div class="settings-overview">
+    <div class="overview-card">
+      <div class="ov-title">Currency</div>
+      <div class="ov-value" id="ov-currency">KES</div>
+    </div>
+    <div class="overview-card">
+      <div class="ov-title">Deposit %</div>
+      <div class="ov-value" id="ov-deposit">20%</div>
+    </div>
+    <div class="overview-card">
+      <div class="ov-title">Contact Email</div>
+      <div class="ov-value" id="ov-contact">support@wattsun.co.ke</div>
+    </div>
   </div>
 
-  <!-- User Management -->
-  <div class="settings-card">
-    <h3>User Management</h3>
+  <!-- 3-column grid of setting cards -->
+  <div class="settings-grid">
+    <!-- Company Information -->
+    <div class="settings-card">
+      <h3>Company Information</h3>
 
-    <label style="display:flex;align-items:center;gap:10px;">
-      <input type="checkbox" id="set-strong-pw" checked>
-      Enforce strong passwords
-    </label>
-
-    <label>Session Timeout
-      <select id="set-timeout" class="settings-input">
-        <option>15 minutes</option>
-        <option>30 minutes</option>
-        <option selected>1 hour</option>
-        <option>2 hours</option>
-        <option>4 hours</option>
-      </select>
-    </label>
-
-    <label style="display:flex;align-items:center;gap:10px;">
-      <input type="checkbox" id="set-allow-reset" checked>
-      Allow Password Reset
-    </label>
-  </div>
-
-  <!-- Notifications -->
-  <div class="settings-card">
-    <h3>Notifications</h3>
-
-    <label style="display:flex;align-items:center;gap:10px;">
-      <input type="checkbox" id="set-order-placed" checked>
-      Order Placed Email
-    </label>
-
-    <label style="display:flex;align-items:center;gap:10px;">
-      <input type="checkbox" id="set-order-delivered" checked>
-      Order Delivered Email
-    </label>
-
-    <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
-      <label style="margin:0;display:flex;align-items:center;gap:10px;">
-        <input type="checkbox" id="set-low-stock" checked>
-        Low Stock Alerts
+      <label>Company Name
+        <input type="text" class="settings-input" id="set-company-name" value="WattSun Solar">
       </label>
-      <input type="number" min="1" id="set-low-stock-threshold" class="settings-input" style="width:80px;" value="10">
-      <span>threshold</span>
+
+      <label>Support Email
+        <input type="email" class="settings-input" id="set-support-email" value="support@wattsun.co.ke">
+      </label>
+
+      <label>Support Phone
+        <input type="text" class="settings-input" id="set-support-phone" value="+254700123456">
+      </label>
+
+      <label>Physical Address
+        <input type="text" class="settings-input" id="set-support-address" value="Nairobi, Kenya">
+      </label>
     </div>
 
-    <label style="margin-top:10px;">Send notifications to
-      <input type="email" class="settings-input" id="set-alerts-email" value="alerts@wattsun.co.ke">
-    </label>
-  </div>
+    <!-- User Management -->
+    <div class="settings-card">
+      <h3>User Management</h3>
 
-  <!-- Integrations -->
-  <div class="settings-card">
-    <h3>Integrations</h3>
+      <label class="row">
+        <input type="checkbox" id="set-strong-pw" checked>
+        <span>Enforce strong passwords</span>
+      </label>
 
-    <label>Paybill Number
-      <input type="text" class="settings-input" id="set-paybill" value="123456">
-    </label>
+      <label>Session Timeout
+        <select id="set-timeout" class="settings-input">
+          <option>15 minutes</option>
+          <option>30 minutes</option>
+          <option selected>1 hour</option>
+          <option>2 hours</option>
+          <option>4 hours</option>
+        </select>
+      </label>
 
-    <label>API Key
-      <input type="password" class="settings-input" id="set-api-key" value="••••••••••">
-    </label>
-
-    <label>SMS Gateway
-      <select id="set-sms-gateway" class="settings-input">
-        <option>Twilio</option>
-        <option selected>Africa's Talking</option>
-        <option>Infobip</option>
-      </select>
-    </label>
-
-    <label>Sender ID
-      <input type="text" class="settings-input" id="set-sender-id" value="WattSun">
-    </label>
-
-    <label>SMS API Key
-      <input type="password" class="settings-input" id="set-sms-api-key" value="••••••••••">
-    </label>
-  </div>
-
-  <!-- Appearance -->
-  <div class="settings-card">
-    <h3>Appearance</h3>
-
-    <label>Logo Upload
-      <input type="file" id="set-logo-file">
-    </label>
-
-    <label>Theme
-      <select id="set-theme" class="settings-input">
-        <option selected>Light</option>
-        <option>Dark</option>
-        <option>System</option>
-      </select>
-    </label>
-  </div>
-
-  <!-- System Controls -->
-  <div class="settings-card">
-    <h3>System Controls</h3>
-
-    <div class="settings-actions">
-      <button class="settings-btn" id="btn-backup">Backup Data</button>
+      <label class="row">
+        <input type="checkbox" id="set-allow-reset" checked>
+        <span>Allow Password Reset</span>
+      </label>
     </div>
 
-    <label>Restore from Backup
-      <input type="file" id="set-restore-file">
-    </label>
+    <!-- Notifications -->
+    <div class="settings-card">
+      <h3>Notifications</h3>
 
-    <div class="settings-actions">
-      <button class="settings-btn" id="btn-export">Export Data</button>
+      <label class="row">
+        <input type="checkbox" id="set-order-placed" checked>
+        <span>Order Placed Email</span>
+      </label>
+
+      <label class="row">
+        <input type="checkbox" id="set-order-delivered" checked>
+        <span>Order Delivered Email</span>
+      </label>
+
+      <div class="row">
+        <label class="row" style="margin:0;">
+          <input type="checkbox" id="set-low-stock" checked>
+          <span>Low Stock Alerts</span>
+        </label>
+        <input type="number" min="1" id="set-low-stock-threshold" class="settings-input small" value="10">
+        <span class="muted">threshold</span>
+      </div>
+
+      <label style="margin-top:10px;">Send notifications to
+        <input type="email" class="settings-input" id="set-alerts-email" value="alerts@wattsun.co.ke">
+      </label>
     </div>
-  </div>
 
-  <!-- Danger Zone -->
-  <div class="settings-card danger">
-    <h3>Danger Zone</h3>
-    <div class="settings-actions">
-      <button class="danger-btn" id="btn-delete-test">Delete All Test Data</button>
-      <button class="danger-btn" id="btn-factory-reset">Factory Reset</button>
+    <!-- Integrations -->
+    <div class="settings-card">
+      <h3>Integrations</h3>
+
+      <label>Paybill Number
+        <input type="text" class="settings-input" id="set-paybill" value="123456">
+      </label>
+
+      <label>API Key
+        <input type="password" class="settings-input" id="set-api-key" value="••••••••••">
+      </label>
+
+      <label>SMS Gateway
+        <select id="set-sms-gateway" class="settings-input">
+          <option>Twilio</option>
+          <option selected>Africa's Talking</option>
+          <option>Infobip</option>
+        </select>
+      </label>
+
+      <label>Sender ID
+        <input type="text" class="settings-input" id="set-sender-id" value="WattSun">
+      </label>
+
+      <label>SMS API Key
+        <input type="password" class="settings-input" id="set-sms-api-key" value="••••••••••">
+      </label>
+    </div>
+
+    <!-- Appearance -->
+    <div class="settings-card">
+      <h3>Appearance</h3>
+
+      <label>Logo Upload
+        <input type="file" id="set-logo-file">
+      </label>
+
+      <label>Theme
+        <select id="set-theme" class="settings-input">
+          <option selected>Light</option>
+          <option>Dark</option>
+          <option>System</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- System Controls -->
+    <div class="settings-card">
+      <h3>System Controls</h3>
+
+      <div class="settings-actions">
+        <button class="settings-btn" id="btn-backup">Backup Data</button>
+      </div>
+
+      <label>Restore from Backup
+        <input type="file" id="set-restore-file">
+      </label>
+
+      <div class="settings-actions">
+        <button class="settings-btn" id="btn-export">Export Data</button>
+      </div>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="settings-card danger">
+      <h3>Danger Zone</h3>
+      <div class="settings-actions">
+        <button class="danger-btn" id="btn-delete-test">Delete All Test Data</button>
+        <button class="danger-btn" id="btn-factory-reset">Factory Reset</button>
+      </div>
     </div>
   </div>
 </section>
+
+<style>
+  /* Scoped to Settings partial */
+  .settings-overview {
+    display:grid;
+    grid-template-columns: repeat(3, minmax(160px, 1fr));
+    gap: 12px;
+    margin: 8px 0 16px 0;
+  }
+  .overview-card {
+    background:#fff;
+    border:1px solid #eee;
+    border-radius:10px;
+    padding:12px 14px;
+    display:flex;flex-direction:column;gap:4px;
+    box-shadow:0 1px 2px rgba(0,0,0,.03);
+  }
+  .ov-title { font-size:12px; color:#6b7280; }
+  .ov-value { font-weight:600; font-size:16px; }
+
+  .settings-grid{
+    display:grid;
+    grid-template-columns: repeat(3, minmax(280px, 1fr));
+    gap:16px;
+    align-items:stretch;  /* equal height rows */
+  }
+  @media (max-width: 1100px){
+    .settings-grid{ grid-template-columns: repeat(2, minmax(260px,1fr)); }
+    .settings-overview{ grid-template-columns: repeat(2, minmax(160px,1fr)); }
+  }
+  @media (max-width: 720px){
+    .settings-grid{ grid-template-columns: 1fr; }
+    .settings-overview{ grid-template-columns: 1fr; }
+  }
+
+  .settings-card{
+    background:#fff;
+    border:1px solid #eee;
+    border-radius:12px;
+    padding:16px;
+    display:flex; flex-direction:column; gap:10px;
+    min-height: 280px; /* keep cards visually equal */
+    box-shadow:0 1px 2px rgba(0,0,0,.03);
+  }
+
+  .settings-card h3{ margin:0 0 6px 0; font-size:16px; font-weight:600; }
+  .settings-input{ width:100%; padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; }
+  .settings-input.small{ width:90px; }
+  .row{ display:flex; align-items:center; gap:10px; }
+  .muted{ color:#6b7280; }
+  .settings-actions{ display:flex; gap:10px; margin-top:auto; }
+  .settings-btn{ padding:8px 12px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer; }
+  .danger{ border-color:#fee2e2; background:#fff; }
+  .danger-btn{ padding:8px 12px; border:1px solid #fecaca; background:#fff; border-radius:8px; color:#b91c1c; cursor:pointer; }
+</style>
+
+<script>
+(function(){
+  // Tiny helper: fetch admin settings if available; otherwise show defaults.
+  const defaults = { currency: "KES", depositPercent: 20, contactEmail: "support@wattsun.co.ke" };
+
+  function setOverview({ currency, depositPercent, contactEmail }){
+    const cur = currency || defaults.currency;
+    const dep = (depositPercent != null ? depositPercent : defaults.depositPercent);
+    const em  = contactEmail || defaults.contactEmail;
+    const byId = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    byId("ov-currency", cur);
+    byId("ov-deposit", (typeof dep === "number" ? dep : parseFloat(dep) || defaults.depositPercent) + "%");
+    byId("ov-contact", em);
+  }
+
+  (async () => {
+    try {
+      const r = await fetch("/api/admin/settings?_=" + Date.now());
+      if (!r.ok) throw new Error("settings 404");
+      const j = await r.json();
+      // Expecting { success:true, settings:{ currency, depositPercent, contactEmail } }
+      const s = j?.settings || j; // tolerate plain object
+      setOverview({
+        currency: s.currency,
+        depositPercent: s.depositPercent,
+        contactEmail: s.contactEmail
+      });
+    } catch (e) {
+      setOverview(defaults);
+    }
+  })();
+})();
+</script>
