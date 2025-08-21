@@ -27,35 +27,42 @@
 
 <script>
 (function(){
-  const TBODY = document.getElementById('dispatchTbody');
+  const TBODY  = document.getElementById('dispatchTbody');
   const SEARCH = document.getElementById('dispatchSearch');
-  let rows = [];
 
+  if (!window.WattSunAdminData) {
+    TBODY.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ef4444">Adapter missing.</td></tr>';
+    return;
+  }
+  const Data = window.WattSunAdminData;
+
+  let rows = []; // normalized orders from adapter
+
+  // Driver is not normalized in v0.1; look into the raw payload too
   function driverName(o) {
+    const r = o.raw || {};
     return (
-      o?.driver?.name ||
-      o?.driverName ||
-      o?.driver_fullname ||
-      (o?.driver_id ? ('#' + o.driver_id) : null) ||
+      r?.driver?.name ||
+      r?.driverName ||
+      r?.driver_fullname ||
+      (r?.driver_id ? ('#' + r.driver_id) : null) ||
       'Unassigned'
     );
   }
 
   function render(list) {
-    if (!Array.isArray(list) || !list.length) {
+    if (!Array.isArray(list) || list.length === 0) {
       TBODY.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6b7280">No orders.</td></tr>';
       return;
     }
     const frag = document.createDocumentFragment();
     list.forEach(o => {
       const tr = document.createElement('tr');
-      const id = String(o.orderNumber || o.id || '');
-      const customer = o.fullName || o.name || '—';
       const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : '—';
       tr.innerHTML = `
-        <td style="white-space:nowrap">${id}</td>
-        <td>${customer}<br><small>${o.phone || ''} ${o.email || ''}</small></td>
-        <td>${o.status || o.orderType || 'Pending'}</td>
+        <td style="white-space:nowrap">${o.id || ''}</td>
+        <td>${o.fullName || '—'}<br><small>${o.phone || ''} ${o.email || ''}</small></td>
+        <td>${o.status || 'Pending'}</td>
         <td>${driverName(o)}</td>
         <td>${created}</td>
       `;
@@ -65,60 +72,28 @@
     TBODY.appendChild(frag);
   }
 
-  function normalize(data) {
-    // Accept both {orders:[...]} and [...]
-    return Array.isArray(data?.orders) ? data.orders : (Array.isArray(data) ? data : []);
-  }
-
-  async function fetchJson(url) {
-    const r = await fetch(url);
-    if (!r.ok) {
-      const err = new Error('HTTP ' + r.status);
-      err.status = r.status;
-      throw err;
-    }
-    return r.json();
-  }
-
-  async function load() {
-    TBODY.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6b7280">Loading…</td></tr>';
-    const ts = Date.now();
-
-    // 1) Try admin endpoint
-    try {
-      const d = await fetchJson(`/api/admin/orders?page=1&per=100&_=${ts}`);
-      rows = normalize(d);
-      render(rows);
-      return;
-    } catch (e) {
-      if (e.status !== 404) {
-        // non-404 failure: show error
-        TBODY.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ef4444">Failed to load.</td></tr>';
-        return;
-      }
-      // 2) Fallback to customer endpoint if admin path is not available
-      try {
-        const d2 = await fetchJson(`/api/orders?page=1&per=100&_=${ts}`);
-        rows = normalize(d2);
-        render(rows);
-        return;
-      } catch {
-        TBODY.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ef4444">Failed to load.</td></tr>';
-      }
-    }
-  }
-
   function onSearch() {
     const q = (SEARCH.value || '').trim().toLowerCase();
     if (!q) return render(rows);
     const filtered = rows.filter(o => {
       const hay = [
-        o.orderNumber, o.id, o.fullName, o.name, o.phone, o.email,
-        o.status, driverName(o)
+        o.id, o.fullName, o.email, o.phone, o.status, driverName(o)
       ].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
     });
     render(filtered);
+  }
+
+  async function load() {
+    try {
+      // Ask for many; adapter paginates client‑side for Orders already
+      const { orders } = await Data.orders.get({ page: 1, per: 10000 });
+      rows = Array.isArray(orders) ? orders : [];
+      render(rows);
+    } catch (e) {
+      console.error('[Dispatch] load failed:', e);
+      TBODY.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ef4444">Failed to load.</td></tr>';
+    }
   }
 
   SEARCH?.addEventListener('input', onSearch);
