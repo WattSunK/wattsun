@@ -1,187 +1,97 @@
-
-<!-- /public/partials/dispatch.html -->
-<section class="ws-admin-section">
-  <h2 class="dispatch-title">Dispatch</h2>
-
-  <!-- Toolbar (filters) -->
-  <div class="dispatch-toolbar">
-    <select class="dispatch-input" id="flt-driver">
-      <option selected>All Drivers</option>
-      <option>John Driver</option>
-      <option>Mary Courier</option>
-      <option>Peter Van</option>
-    </select>
-
-    <select class="dispatch-input" id="flt-status">
-      <option selected>All Status</option>
-      <option>Pending</option>
-      <option>Out for Delivery</option>
-      <option>Delivered</option>
-    </select>
-
-    <input type="date" class="dispatch-input" id="flt-date" />
-
-    <button class="dispatch-btn" id="btn-search">Search</button>
-    <button class="dispatch-btn dispatch-btn-clear" id="btn-clear">Clear</button>
-
-    <input type="search" class="dispatch-input" id="flt-q" placeholder="Search..." style="margin-left:auto; min-width:220px;">
+<section class="card">
+  <div class="card-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border-bottom:1px solid #f0f0f0">
+    <h2 style="margin:0;font-size:18px;font-weight:600">Dispatch</h2>
+    <div style="margin-left:auto">
+      <input id="dispatchSearch" placeholder="Search orders…" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;width:240px">
+    </div>
   </div>
-
-  <!-- Table -->
-  <div class="dispatch-table-wrapper">
-    <table class="dispatch-table">
-      <thead>
-        <tr>
-          <th>Order-Id</th>
-          <th>Customer Name</th>
-          <th>Order Category</th>
-          <th>Mobile</th>
-          <th>Email</th>
-          <th>Driver</th>
-          <th>Order At</th>
-          <th>Delivered At</th>
-          <th>Delivery Fee</th>
-          <th>Order Total</th>
-          <th>Status</th>
-          <th>Delivery Address</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="dispatch-tbody">
-        <tr>
-          <td><a class="dispatch-link" href="#">WSN1001</a></td>
-          <td>Jack Ouma</td>
-          <td>Solar Kit</td>
-          <td>0700123456</td>
-          <td>jack@email.com</td>
-          <td>
-            <div>John Driver</div>
-            <button class="dispatch-action-btn small" data-assign>Assign</button>
-          </td>
-          <td>30‑Jul‑2025<br><small>10:00</small></td>
-          <td>30‑Jul‑2025<br><small>14:30</small></td>
-          <td>KSh 500</td>
-          <td>KSh 45,000</td>
-          <td><span class="dispatch-status-badge pending">Pending</span></td>
-          <td>
-            <span class="dispatch-address" data-addr>
-              23, Shanthi Nagar, Bangalore <span class="more">[+]</span>
-            </span>
-            <div class="addr-full" style="display:none;">
-              23, Shanthi Nagar, Sampangirama Nagar, Bengaluru, Karnataka
-            </div>
-          </td>
-          <td>
-            <button class="dispatch-action-btn">View</button>
-            <button class="dispatch-action-btn">Change Driver</button>
-            <button class="dispatch-action-btn">Mark as Delivered</button>
-          </td>
-        </tr>
-
-        <tr>
-          <td><a class="dispatch-link" href="#">WSN1002</a></td>
-          <td>Mary Wambui</td>
-          <td>Battery</td>
-          <td>0722123456</td>
-          <td>mary@email.com</td>
-          <td>
-            <div>Mary Courier</div>
-            <button class="dispatch-action-btn small" data-assign>Assign</button>
-          </td>
-          <td>29‑Jul‑2025<br><small>11:30</small></td>
-          <td>—</td>
-          <td>KSh 400</td>
-          <td>KSh 9,900</td>
-          <td><span class="dispatch-status-badge out">Out for Delivery</span></td>
-          <td>
-            <span class="dispatch-address" data-addr>
-              52, Muthithi Rd, Nairobi <span class="more">[+]</span>
-            </span>
-            <div class="addr-full" style="display:none;">
-              52, Muthithi Road, Westlands, Nairobi, Kenya
-            </div>
-          </td>
-          <td>
-            <button class="dispatch-action-btn">View</button>
-            <button class="dispatch-action-btn">Change Driver</button>
-            <button class="dispatch-action-btn">Mark as Delivered</button>
-          </td>
-        </tr>
-
-        <tr>
-          <td><a class="dispatch-link" href="#">WSN1003</a></td>
-          <td>Peter Maina</td>
-          <td>Inverter</td>
-          <td>0799123456</td>
-          <td>peter@email.com</td>
-          <td>
-            <div>Peter Van</div>
-            <button class="dispatch-action-btn small" data-assign>Assign</button>
-          </td>
-          <td>28‑Jul‑2025<br><small>09:45</small></td>
-          <td>28‑Jul‑2025<br><small>15:15</small></td>
-          <td>KSh 650</td>
-          <td>KSh 18,000</td>
-          <td><span class="dispatch-status-badge delivered">Delivered</span></td>
-          <td>
-            <span class="dispatch-address" data-addr>
-              8, Karen, Nairobi <span class="more">[+]</span>
-            </span>
-            <div class="addr-full" style="display:none;">
-              8, Karen, Nairobi, Kenya
-            </div>
-          </td>
-          <td>
-            <button class="dispatch-action-btn">View</button>
-            <button class="dispatch-action-btn">Change Driver</button>
-            <button class="dispatch-action-btn">Mark as Delivered</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-    <!-- Pagination -->
-    <div class="dispatch-pagination">
-      <div>Showing 1 to 3 of 3 entries</div>
-      <div>
-        <button class="dispatch-page-btn">First</button>
-        <button class="dispatch-page-btn">Previous</button>
-        <span class="dispatch-page-btn active">1</span>
-        <button class="dispatch-page-btn" disabled>Next</button>
-        <button class="dispatch-page-btn" disabled>Last</button>
-      </div>
+  <div class="card-body" style="padding:0 12px 12px">
+    <div class="table-responsive">
+      <table class="table" id="dispatchTable" style="width:100%">
+        <thead>
+          <tr>
+            <th style="white-space:nowrap">Order ID</th>
+            <th>Customer</th>
+            <th>Status</th>
+            <th>Driver</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody id="dispatchTbody">
+          <tr><td colspan="5" style="text-align:center;color:#6b7280">Loading…</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </section>
 
 <script>
-  // Small helpers: expand/collapse address; fake assign prompt; basic clear
-  document.querySelectorAll('[data-addr]').forEach(function(el){
-    el.addEventListener('click', function(){
-      const full = el.parentElement.querySelector('.addr-full');
-      const more = el.querySelector('.more');
-      const open = full.style.display !== 'none';
-      full.style.display = open ? 'none' : 'block';
-      if(more){ more.textContent = open ? '[+]' : '[-]'; }
-    });
-  });
+(function(){
+  const TBODY = document.getElementById('dispatchTbody');
+  const SEARCH = document.getElementById('dispatchSearch');
+  let rows = []; // cached rows for quick client search
 
-  document.querySelectorAll('[data-assign]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      const name = prompt('Assign driver to this order:', 'John Driver');
-      if(name){
-        const container = btn.parentElement;
-        container.querySelector('div').textContent = name;
-      }
-    });
-  });
+  function pickDriver(o) {
+    // try common shapes without schema change
+    return (
+      o.driver?.name ||
+      o.driverName ||
+      o.driver_fullname ||
+      (o.driver_id ? ('#' + o.driver_id) : null) ||
+      'Unassigned'
+    );
+  }
 
-  document.getElementById('btn-clear')?.addEventListener('click', function(){
-    ['flt-driver', 'flt-status', 'flt-date', 'flt-q'].forEach(id => {
-      const el = document.getElementById(id);
-      if(!el) return;
-      if(el.tagName === 'SELECT') el.selectedIndex = 0;
-      else el.value = '';
+  function render(list) {
+    if (!Array.isArray(list) || !list.length) {
+      TBODY.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6b7280">No orders.</td></tr>';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    list.forEach(o => {
+      const tr = document.createElement('tr');
+      const id = String(o.orderNumber || o.id || '');
+      const customer = o.fullName || o.name || '—';
+      const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : '—';
+      tr.innerHTML = `
+        <td style="white-space:nowrap">${id}</td>
+        <td>${customer}<br><small>${o.phone || ''} ${o.email || ''}</small></td>
+        <td>${o.status || o.orderType || 'Pending'}</td>
+        <td>${pickDriver(o)}</td>
+        <td>${created}</td>
+      `;
+      frag.appendChild(tr);
     });
-  });
+    TBODY.innerHTML = '';
+    TBODY.appendChild(frag);
+  }
+
+  async function load() {
+    try {
+      const r = await fetch('/api/admin/orders?page=1&per=100&_=' + Date.now());
+      const data = r.ok ? await r.json() : null;
+      rows = Array.isArray(data?.orders) ? data.orders : (Array.isArray(data) ? data : []);
+      render(rows);
+    } catch (e) {
+      TBODY.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ef4444">Failed to load.</td></tr>';
+    }
+  }
+
+  // simple client-side filter
+  function onSearch() {
+    const q = (SEARCH.value || '').trim().toLowerCase();
+    if (!q) return render(rows);
+    const filtered = rows.filter(o => {
+      const hay = [
+        o.orderNumber, o.id, o.fullName, o.name, o.phone, o.email,
+        o.status, pickDriver(o)
+      ].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+    render(filtered);
+  }
+
+  SEARCH?.addEventListener('input', onSearch);
+  load();
+})();
 </script>
