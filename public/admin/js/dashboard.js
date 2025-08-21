@@ -191,9 +191,32 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // ---- Hash helpers (NEW) ----
+  function sectionFromHash() {
+    const h = (location.hash || "").replace(/^#/, "").trim();
+    return h || "system-status";
+  }
+
+  function setActiveInSidebar(section) {
+    if (!sidebar) return;
+    const links = sidebar.querySelectorAll("a[data-partial], a[data-section]");
+    links.forEach(a => {
+      const sect = a.getAttribute("data-partial") || a.getAttribute("data-section");
+      if (sect === section) a.classList.add("active");
+      else a.classList.remove("active");
+    });
+  }
+
+  window.addEventListener("hashchange", () => {
+    const sect = sectionFromHash();
+    setActiveInSidebar(sect);
+    loadSection(sect);
+  });
+
   // ---- Section loader ----
   async function loadSection(section) {
-    const hasOwnSearch = new Set(["orders", "users", "items", "myorders"]);
+    // include "dispatch" so the global header search hides on this tab (NEW)
+    const hasOwnSearch = new Set(["orders", "users", "items", "myorders", "dispatch"]);
     setHeaderSearchVisible(!hasOwnSearch.has(section));
 
     // My Orders → embed the exact customer dashboard page to guarantee parity
@@ -310,6 +333,18 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
       content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+
+      // (NEW) For Dispatch: ensure data-adapter is present before running the partial's inline script.
+      if (section === "dispatch" && typeof window.WattSunAdminData === "undefined") {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "/admin/js/data-adapter.js";
+          s.onload = resolve;
+          s.onerror = reject;
+          document.body.appendChild(s);
+        }).catch(() => console.warn("Failed to load data-adapter.js"));
+      }
+
       runInlineScripts(content);
       window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
     } catch {
@@ -354,6 +389,8 @@ document.addEventListener("DOMContentLoaded", () => {
       sidebar.querySelectorAll("a").forEach(x => x.classList.remove("active"));
       a.classList.add("active");
       const sect = a.getAttribute("data-partial") || a.getAttribute("data-section");
+      // keep URL in sync (NEW)
+      location.hash = "#" + sect;
       loadSection(sect);
     });
   }
@@ -362,5 +399,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const u = getUser();
   if (u) { updateHeaderUser(u); setUserCtx(u); }
   setHeaderSearchVisible(true);
-  loadSection("system-status");
+  // Start from hash if provided (NEW); otherwise system-status
+  const initial = sectionFromHash();
+  setActiveInSidebar(initial);
+  loadSection(initial);
 });

@@ -16,6 +16,24 @@ require("dotenv").config();
 
 const app = express(); // ← create app first
 
+require("dotenv").config();
+
+// const app = express(); // ← keep this line (REMOVED DUPLICATE)
+
+// --- Mailer (Nodemailer) ---
+// Safe fallback: if SMTP_* env is not set, use JSON transport so /api/contact and /api/test-email won’t crash.
+const transporter = nodemailer.createTransport(
+  process.env.SMTP_HOST
+    ? {
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT || 587),
+        secure: String(process.env.SMTP_PORT) === "465", // true for 465
+        auth: (process.env.SMTP_USER && process.env.SMTP_PASS)
+          ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+          : undefined,
+      }
+    : { jsonTransport: true }
+);
 // Default to the *users* DB; allow override via env
 const DB_PATH =
   process.env.SQLITE_DB ||
@@ -63,10 +81,12 @@ app.use("/api/admin/orders", require("./routes/admin-orders")); // NEW (PATCH)
 const adminOrdersMeta = require('./routes/admin-orders-meta');
 app.use("/api/admin/users",  require("./routes/admin-users"));  // NEW (GET drivers)
 app.use("/api/admin/_diag", require("./routes/admin-diagnostics"));
+app.use("/api/admin/dispatch", require("./routes/admin-dispatch"));
 app.use("/api", require("./routes/calculator"));
 app.use("/api", require("./routes/users"));
 app.use("/api", require("./routes/login"));
 app.use("/api", require("./routes/reset"));
+
 
 
 // --- Wrap /api/orders to cache the latest list in memory ---

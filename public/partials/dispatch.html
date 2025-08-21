@@ -63,19 +63,12 @@
   }
   const Data = window.WattSunAdminData;
 
-  let rows = []; // normalized orders (adapter output)
+  // State
+  let rows = [];               // normalized orders (adapter output)
+  let drivers = [];            // list of driver users
+  let assignments = Object.create(null); // { [orderId]: driver_id|null }
 
-  function driverName(o) {
-    const r = o.raw || {};
-    return (
-      r?.driver?.name ||
-      r?.driverName ||
-      r?.driver_fullname ||
-      (r?.driver_id ? ('#' + r.driver_id) : null) ||
-      'Unassigned'
-    );
-  }
-
+  // ------ Utils ------
   function currencyKES(val) {
     if (typeof val === 'number') return 'KSh ' + val.toLocaleString();
     if (typeof val === 'string' && val) return val;
@@ -83,6 +76,64 @@
     return '—';
   }
 
+  function driverLabelById(id) {
+    const d = drivers.find(x => String(x.id ?? x.userId ?? x.driverId) === String(id));
+    return d ? (d.fullName || d.name || d.email || ('#' + (d.id ?? d.userId ?? d.driverId))) : 'Unassigned';
+  }
+
+  function getOrderId(o) {
+    return String(o.id || o.orderNumber || '');
+  }
+
+  // Current driver considering overlay assignments, then order raw
+  function currentDriverId(o) {
+    const oid = getOrderId(o);
+    if (Object.prototype.hasOwnProperty.call(assignments, oid)) return assignments[oid];
+    const r = o.raw || {};
+    return r.driver_id ?? r.driverUserId ?? o.driverUserId ?? null;
+  }
+
+  function currentDriverLabel(o) {
+    const id = currentDriverId(o);
+    if (id == null || id === '') {
+      // fallback to any embedded name
+      const r = o.raw || {};
+      return r?.driver?.name || r?.driverName || r?.driver_fullname || 'Unassigned';
+    }
+    return driverLabelById(id);
+  }
+
+  function driverSelectHtml(orderId, selectedId) {
+    const opts = ['<option value="">-- Select driver --</option>']
+      .concat(drivers.map(d => {
+        const val = d.id ?? d.userId ?? d.driverId;
+        const name = d.fullName || d.name || d.email || ('Driver ' + val);
+        const sel = (String(selectedId || '') === String(val)) ? ' selected' : '';
+        return `<option value="${val}"${sel}>${name}</option>`;
+      }));
+    return `<select class="select" data-oid="${orderId}" data-role="driver-select" style="min-width:200px;padding:6px 8px;border:1px solid #d1d5db;border-radius:8px;background:#fff">${opts.join("")}</select>`;
+  }
+
+  function actionButtonsHtml(orderId) {
+    return `
+      <div class="btn-group" style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-outline" data-oid="${orderId}" data-role="assign"
+                style="padding:6px 10px;border:1px solid #10b981;border-radius:8px;background:#ecfdf5;cursor:pointer">
+          Assign
+        </button>
+        <button class="btn btn-sm btn-outline" data-oid="${orderId}" data-role="unassign"
+                style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">
+          Unassign
+        </button>
+        <button class="btn btn-sm btn-outline" data-view-id="${orderId}"
+                style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">
+          View
+        </button>
+      </div>
+    `;
+  }
+
+  // ------ Render ------
   function render(list) {
     if (!Array.isArray(list) || list.length === 0) {
       TBODY.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6b7280">No orders.</td></tr>';
@@ -92,17 +143,18 @@
     list.forEach(o => {
       const tr = document.createElement('tr');
       const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : '—';
+      const orderId = getOrderId(o);
+      const curDriverId = currentDriverId(o);
       tr.innerHTML = `
-        <td style="white-space:nowrap">${o.id || o.orderNumber || ''}</td>
+        <td style="white-space:nowrap">${orderId}</td>
         <td>${o.fullName || '—'}<br><small>${o.phone || ''} ${o.email || ''}</small></td>
         <td>${o.status || 'Pending'}</td>
-        <td>${driverName(o)}</td>
+        <td>
+          ${driverSelectHtml(orderId, curDriverId)}
+        </td>
         <td>${created}</td>
         <td>
-          <button class="btn btn-sm btn-outline" data-view-id="${o.id || o.orderNumber || ''}"
-                  style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">
-            View
-          </button>
+          ${actionButtonsHtml(orderId)}
         </td>
       `;
       frag.appendChild(tr);
@@ -111,23 +163,23 @@
     TBODY.appendChild(frag);
   }
 
+  // ------ Filters ------
   function filterNow() {
     const q = (SEARCH.value || '').trim().toLowerCase();
     if (!q) return render(rows);
     const filtered = rows.filter(o => {
       const hay = [
-        o.id, o.orderNumber, o.fullName, o.email, o.phone, o.status, driverName(o)
+        o.id, o.orderNumber, o.fullName, o.email, o.phone, o.status, currentDriverLabel(o)
       ].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
     });
     render(filtered);
   }
 
+  // ------ Modal ------
   function showModal(o) {
-    // Title
-    TITLE.textContent = `Order ${o.id || o.orderNumber || ''}`;
+    TITLE.textContent = `Order ${getOrderId(o)}`;
 
-    // Items list
     const parts = [];
     (o.items || o.cart || []).forEach(it => {
       const qty = (it.quantity != null && it.quantity !== '') ? ` × ${it.quantity}` : '';
@@ -135,7 +187,6 @@
     });
     const itemsHTML = parts.length ? `<ul style="margin:6px 0 0 18px">${parts.join('')}</ul>` : '<em>No line items</em>';
 
-    // Total (cents first, else number)
     let total = '—';
     if (typeof o.totalCents === 'number') total = 'KSh ' + (o.totalCents/100).toLocaleString();
     else if (typeof o.total === 'number') total = currencyKES(o.total);
@@ -149,7 +200,7 @@
         <div>${o.status || 'Pending'}</div>
 
         <div style="color:#6b7280">Driver</div>
-        <div>${driverName(o)}</div>
+        <div>${currentDriverLabel(o)}</div>
 
         <div style="color:#6b7280">Total</div>
         <div>${total}</div>
@@ -167,28 +218,112 @@
 
     OVERLAY.style.display = 'flex';
   }
-
   function closeModal() { OVERLAY.style.display = 'none'; }
-
-  // Close handlers (X, button, ESC, backdrop)
   CLOSE_X.addEventListener('click', closeModal);
   CLOSE_B.addEventListener('click', closeModal);
   OVERLAY.addEventListener('click', (e)=>{ if (e.target === OVERLAY) closeModal(); });
   window.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && OVERLAY.style.display === 'flex') closeModal(); });
 
-  // Row "View" click
-  TBODY.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-view-id]');
+  // ------ Events: row actions ------
+  TBODY.addEventListener('click', async (e) => {
+    const btnView = e.target.closest('[data-view-id]');
+    if (btnView) {
+      const id = btnView.getAttribute('data-view-id');
+      const o  = rows.find(r => getOrderId(r) === String(id));
+      if (o) showModal(o);
+      return;
+    }
+
+    const btn = e.target.closest('button[data-role]');
     if (!btn) return;
-    const id = btn.getAttribute('data-view-id');
-    const o  = rows.find(r => String(r.id || r.orderNumber) === String(id));
-    if (o) showModal(o);
+    const role = btn.getAttribute('data-role');
+    const orderId = btn.getAttribute('data-oid');
+    const select = TBODY.querySelector(`select[data-role="driver-select"][data-oid="${orderId}"]`);
+    const selected = select ? select.value : "";
+
+    if (role === 'assign') {
+      const driver_id = selected ? parseInt(selected, 10) : null;
+      if (!driver_id) {
+        alert('Please select a driver first.');
+        return;
+      }
+      const ok = await saveAssignment(orderId, driver_id);
+      if (ok) {
+        assignments[orderId] = driver_id;
+        // Visual confirmation: keep selected; optional subtle flash
+        select.style.outline = '2px solid #10b981';
+        setTimeout(()=>{ select.style.outline=''; }, 500);
+        // re-filter to reflect driver label in search context
+        filterNow();
+      }
+    }
+
+    if (role === 'unassign') {
+      const ok = await saveAssignment(orderId, null);
+      if (ok) {
+        assignments[orderId] = null;
+        if (select) select.value = '';
+        select?.style && (select.style.outline = '2px solid #d1d5db');
+        setTimeout(()=>{ select.style.outline=''; }, 500);
+        filterNow();
+      }
+    }
   });
+
+  async function saveAssignment(orderId, driver_id) {
+    try {
+      const res = await fetch(`/api/admin/dispatch/${encodeURIComponent(orderId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driver_id })
+      });
+      const j = await res.json();
+      if (!res.ok || !j || j.success === false) throw new Error(j?.error?.message || 'Failed');
+      return true;
+    } catch (err) {
+      console.error('[Dispatch] assign error:', err);
+      alert('Failed to save assignment.');
+      return false;
+    }
+  }
+
+  // ------ Data fetch ------
+  async function fetchDrivers() {
+    try {
+      const r = await fetch(`/api/admin/users?type=Driver`);
+      const j = await r.json();
+      drivers = (j && (j.users || j)) || [];
+    } catch (e) {
+      console.warn('[Dispatch] drivers fetch failed:', e);
+      drivers = [];
+    }
+  }
+
+  async function fetchAssignments(ids) {
+    if (!ids || !ids.length) return {};
+    try {
+      const r = await fetch(`/api/admin/dispatch?ids=${encodeURIComponent(ids.join(','))}`);
+      const j = await r.json();
+      return (j && j.assignments) || {};
+    } catch (e) {
+      console.warn('[Dispatch] assignments fetch failed:', e);
+      return {};
+    }
+  }
 
   async function load() {
     try {
+      // orders
       const { orders } = await Data.orders.get({ page: 1, per: 10000 });
       rows = Array.isArray(orders) ? orders : [];
+
+      // drivers
+      await fetchDrivers();
+
+      // assignments overlay
+      const ids = rows.map(getOrderId).filter(Boolean);
+      assignments = await fetchAssignments(ids);
+
       render(rows);
     } catch (e) {
       console.error('[Dispatch] load failed:', e);
@@ -196,7 +331,14 @@
     }
   }
 
-  SEARCH?.addEventListener('input', filterNow);
+  // ------ Search ------
+  SEARCH?.addEventListener('input', () => {
+    // tiny debounce (150ms)
+    clearTimeout(SEARCH._t);
+    SEARCH._t = setTimeout(filterNow, 150);
+  });
+
+  // init
   load();
 })();
 </script>
