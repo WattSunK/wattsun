@@ -100,15 +100,7 @@
           document.querySelector('.header-user').textContent = `👤 ${u.name} (${u.type || 'User'})`;
         }
       } catch {}
-      // Load from hash if present; else default to Orders
-      var hash = (location.hash || '').replace('#','');
-      if (hash) {
-        var link = document.querySelector('a[data-partial="'+hash+'"]');
-        if (link) link.click();
-      } else {
-        var link2 = document.querySelector('a[data-partial="orders"]') || document.querySelector('a[data-partial="system-status"]');
-        if (link2) link2.click();
-      }
+     
     });
   </script>
 
