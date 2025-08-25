@@ -38,6 +38,8 @@
           <th>CATEGORY</th>
           <th>STOCK</th>
           <th>UNIT PRICE</th>
+          <!-- ✅ NEW -->
+          <th>PRIORITY</th>
           <th>STATUS</th>
           <th>ACTION</th>
         </tr>
@@ -96,6 +98,11 @@
           <label class="form-label">Stock</label>
           <input id="add-stock" type="number" min="0" class="form-control">
         </div>
+        <!-- ✅ NEW -->
+        <div class="col-md-4">
+          <label class="form-label">Priority</label>
+          <input id="add-priority" type="number" min="0" step="1" class="form-control" placeholder="0">
+        </div>
         <div class="col-md-4 d-flex align-items-end">
           <div class="form-check">
             <input id="add-active" class="form-check-input" type="checkbox" checked>
@@ -153,6 +160,11 @@
         <div class="col-md-4">
           <label class="form-label">Stock</label>
           <input id="edit-stock" type="number" min="0" class="form-control">
+        </div>
+        <!-- ✅ NEW -->
+        <div class="col-md-4">
+          <label class="form-label">Priority</label>
+          <input id="edit-priority" type="number" min="0" step="1" class="form-control" placeholder="0">
         </div>
         <div class="col-md-4 d-flex align-items-end">
           <div class="form-check">

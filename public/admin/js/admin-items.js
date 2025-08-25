@@ -1,5 +1,5 @@
 // public/admin/js/admin-items.js
-// Items list: fetch, search, per-page, pagination, status toggle, Add/Edit/Delete, categories modal
+// Items list: fetch, search, per-page, pagination, status toggle, Add/Edit/Delete, categories modal, PRIORITY save
 (function () {
   let PAGE_SIZE = 15;
   let allItems = [];
@@ -23,7 +23,7 @@
   async function loadItems() {
     const tbody = $('items-table-body');
     if (!tbody) return; // partial not mounted
-    tbody.innerHTML = `<tr><td colspan="9" class="text-center">Loading...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="text-center">Loading...</td></tr>`; // colspan +1 for PRIORITY
     try {
       const res = await fetchJSON('/api/items?active=all');
       // backend might return an array or {items:[...]}
@@ -75,6 +75,12 @@
       return qmatch && cmatch;
     });
 
+    // Mirror server order to keep UI stable after inline edits
+    filtered.sort((a, b) =>
+      (Number(b.priority||0) - Number(a.priority||0)) ||
+      String(a.name||'').localeCompare(String(b.name||''))
+    );
+
     totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     currentPage = Math.min(Math.max(1, page), totalPages);
     renderPage(currentPage);
@@ -91,7 +97,7 @@
     const tb = $('items-table-body');
     if(!tb) return;
     if(!items.length){
-      tb.innerHTML = `<tr><td colspan="9" class="text-center">No items found</td></tr>`;
+      tb.innerHTML = `<tr><td colspan="10" class="text-center">No items found</td></tr>`; // colspan +1
       return;
     }
     tb.innerHTML = items.map((it, i) => {
@@ -106,6 +112,22 @@
           <td>${esc(it.category || '')}</td>
           <td>${it.stock ?? 0}</td>
           <td>${it.price==null?'-':fmtKSH(it.price)}</td>
+
+          <!-- ✅ PRIORITY cell -->
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <input
+                class="form-control form-control-sm prio"
+                type="number" min="0" step="1"
+                value="${Number(it.priority ?? 0)}"
+                data-sku="${esc(it.sku)}"
+                style="width:90px"
+              />
+              <button class="btn btn-outline-secondary btn-sm save-prio"
+                      data-sku="${esc(it.sku)}">Save</button>
+            </div>
+          </td>
+
           <td>
             <label class="switch" style="display:inline-flex;align-items:center;gap:.5rem;">
               <input type="checkbox" class="inline-status-toggle" data-sku="${esc(it.sku)}" ${checked}>
@@ -187,6 +209,26 @@
     }
   });
 
+  // Save priority (delegated)
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button.save-prio');
+    if (!btn) return;
+    const sku = btn.dataset.sku;
+    const input = btn.closest('tr').querySelector('.prio');
+    const priority = parseInt(input.value, 10) || 0;
+    try {
+      await fetchJSON(`/api/items/${encodeURIComponent(sku)}`, {
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ priority })
+      });
+      await loadItems(); // refresh to reflect server order
+    } catch (err) {
+      console.error('save priority error:', err);
+      alert('Failed to save priority');
+    }
+  });
+
   document.addEventListener('click', (e)=>{
     const btn = e.target.closest('button.items-action-btn');
     if (!btn) return;
@@ -242,6 +284,7 @@
     const image = $('add-image').value.trim() || null;
     const warranty = $('add-warranty').value ? Number($('add-warranty').value) : null;
     const stock = $('add-stock').value ? Number($('add-stock').value) : 0;
+    const priority = $('add-priority').value === '' ? 0 : Number($('add-priority').value); // ✅ include priority
     const active = !!$('add-active').checked;
 
     if (!sku || !name || !description || !category || isNaN(price)){
@@ -252,7 +295,7 @@
       await fetchJSON('/api/items', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ sku, name, description, price, category, image, warranty, stock, active })
+        body: JSON.stringify({ sku, name, description, price, category, image, warranty, stock, active, priority })
       });
       $('add-item-modal-bg').style.display = 'none';
       await loadItems();
@@ -274,6 +317,7 @@
       $('edit-image').value = item.image ?? '';
       $('edit-category').value = item.category || '';
       $('edit-status').checked = !!item.active;
+      $('edit-priority').value = Number(item.priority ?? 0); // ✅ include priority
       $('edit-item-modal-bg').style.display = 'block';
     }catch(err){
       alert('Failed to load item: ' + err.message);
@@ -293,6 +337,7 @@
       stock:       $('edit-stock').value === '' ? undefined : Number($('edit-stock').value),
       image:       $('edit-image').value || undefined,
       category:    $('edit-category').value || undefined,
+      priority:    $('edit-priority').value === '' ? undefined : Number($('edit-priority').value), // ✅ include priority
       active:      $('edit-status').checked
     };
 
@@ -302,6 +347,7 @@
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify(body)
       });
+      // status in same call already includes 'active', but keep this legacy status route for safety if needed:
       await fetchJSON(`/api/items/${encodeURIComponent(sku)}/status`, {
         method:'PATCH',
         headers:{'Content-Type':'application/json'},
@@ -325,7 +371,7 @@
     }
   }
 
-  // ---------- Mount / re‑mount
+  // ---------- Mount / re-mount
   async function init(){
     const root = $('items-root');
     if (!root || root.dataset.inited === '1') return;
@@ -338,7 +384,7 @@
     await loadItems();
   }
 
-  // Auto‑init when the partial appears
+  // Auto-init when the partial appears
   const mo = new MutationObserver(() => {
     if ($('items-root') && $('items-table-body')) init();
   });
