@@ -86,6 +86,7 @@ function ensureSchema() {
  * Notes:
  * - v0.3: persists to SQLite via UPSERT, and mirrors to in-memory cache.
  * - API contract unchanged.
+ * - Handles DBs where admin_order_meta.status is NOT NULL by inserting a safe status when creating a new row.
  */
 router.put("/:orderId", async (req, res) => {
   const { orderId } = req.params;
@@ -108,16 +109,26 @@ router.put("/:orderId", async (req, res) => {
   try {
     await ensureSchema();
 
-    // v0.3 persist: upsert driver_id for this order
+    // If a row exists, preserve current status. Otherwise, default to 'Pending' to respect NOT NULL schemas.
+    const current = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT status FROM admin_order_meta WHERE order_id = ?`,
+        [orderId],
+        (err, row) => (err ? reject(err) : resolve(row || null))
+      );
+    });
+    const statusForInsert = current?.status || "Pending";
+
+    // v0.3 persist: upsert driver_id for this order (include status on insert)
     const sql = `
-      INSERT INTO admin_order_meta (order_id, driver_id, updated_at)
-      VALUES (?, ?, datetime('now'))
+      INSERT INTO admin_order_meta (order_id, status, driver_id, updated_at)
+      VALUES (?, ?, ?, datetime('now'))
       ON CONFLICT(order_id) DO UPDATE SET
         driver_id = excluded.driver_id,
         updated_at = datetime('now');
     `;
     await new Promise((resolve, reject) => {
-      db.run(sql, [orderId, driver_id], (err) => (err ? reject(err) : resolve()));
+      db.run(sql, [orderId, statusForInsert, driver_id], (err) => (err ? reject(err) : resolve()));
     });
 
     // Mirror to in-memory cache (non-authoritative)
