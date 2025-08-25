@@ -223,12 +223,10 @@ footer {
   async function loadProducts() {
     const box = document.getElementById("shop-products");
     try {
-      const res = await fetch("/api/items");
+      const res = await fetch("/api/items?active=1");
       const items = await res.json();
       box.innerHTML = "";
-      const priority = ["SYS-1KW","SYS-3KW","SYS-6KW","SYS-9KW","INV-5KW","KIT-CLEAN","BATT-24V100AH","PANEL-450W"];
-      const sorted = [...items.filter(p=>priority.includes(p.sku)), ...items.filter(p=>!priority.includes(p.sku))];
-      sorted.forEach((prod, idx) => {
+      items.forEach((prod, idx) => {
         const img = prod.image ? "/images/products/" + prod.image : "/images/placeholder.jpg";
         const price = parsePrice(prod.price);
         const id = "dep_" + idx;
