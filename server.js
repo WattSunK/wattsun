@@ -71,12 +71,28 @@ app.use(
   })
 );
 
+// === 6.5.5 — Admin gate (INSERTION) ==========================
+function requireAdmin(req, res, next) {
+  // Keep diagnostics open if this file mounts _diag under /api/admin
+  if (req.path && req.path.startsWith("/_diag")) return next();
+  const u = req.session?.user || req.user || null;
+  if (!u || (u.type !== "Admin" && u.role !== "Admin")) {
+    return res.status(403).json({ success:false, error:{ code:"FORBIDDEN", message:"Admin access required." } });
+  }
+  next();
+}
+// =============================================================
+
 // Mounted routes (unchanged)
 app.use("/api/signup", require("./routes/signup"));
 app.use("/api/checkout", require("./routes/checkout"));
 app.use("/api/myorders", require("./routes/myorders"));
 app.use("/api/items", require("./routes/items")(db));
 app.use("/api/categories", require("./routes/categories")(db));
+
+// (INSERTION) Gate all /api/admin/* below with one line:
+app.use("/api/admin", requireAdmin);
+
 app.use("/api/admin/orders", require("./routes/admin-orders")); // NEW (PATCH)
 const adminOrdersMeta = require('./routes/admin-orders-meta');
 app.use("/api/admin/users",  require("./routes/admin-users"));  // NEW (GET drivers)
@@ -86,7 +102,6 @@ app.use("/api", require("./routes/calculator"));
 app.use("/api", require("./routes/users"));
 app.use("/api", require("./routes/login"));
 app.use("/api", require("./routes/reset"));
-
 
 
 // --- Wrap /api/orders to cache the latest list in memory ---
@@ -329,4 +344,3 @@ const PORT = Number(process.env.PORT) || 3001;
 http.createServer(app).listen(PORT, () => {
   console.log(`✅ WattSun backend running on HTTP port ${PORT}`);
 });
-

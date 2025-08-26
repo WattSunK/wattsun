@@ -1,6 +1,6 @@
 // routes/admin-orders.js
 // Minimal, stable router for Phase 6.4/6.5: PATCH /api/admin/orders/:id
-// - Validates status ∈ ["Pending","Processing","Delivered","Cancelled"]
+// - Validates status ∈ ["Pending","Confirmed","Dispatched","Delivered","Closed","Cancelled"]   // (expanded)
 // - driverId is optional (must be an integer if present; null clears it)
 // - notes optional (trimmed)
 // - Upserts into admin_order_meta (in Users DB)
@@ -44,7 +44,16 @@ db.serialize(() => {
 });
 
 // --- Validation helpers ---
-const ALLOWED_STATUSES = ["Pending", "Processing", "Delivered", "Cancelled"];
+// (EDIT) expanded canonical set
+const ALLOWED_STATUSES = ["Pending", "Confirmed", "Dispatched", "Delivered", "Closed", "Cancelled"];
+
+function normalizeStatus(input) {
+  if (input == null) return input;
+  const raw = String(input).trim();
+  // (INSERT) legacy → canonical mapping
+  const map = { Processing: "Confirmed", Shipped: "Dispatched" };
+  return map[raw] || raw;
+}
 
 function safeStatus(s) {
   const v = String(s || "").trim();
@@ -65,20 +74,32 @@ function trimOrEmpty(s) {
 router.patch("/:id", (req, res) => {
   const id = String(req.params.id || "").trim();
   if (!id) {
-    return res.status(400).json({ success: false, error: "Missing order id" });
+    // (EDIT) standard error envelope
+    return res.status(400).json({ success: false, error: { code: "MISSING_ORDER_ID", message: "Missing order id" } });
   }
 
-  const status = safeStatus(req.body?.status);
-  if (!status) {
+  // (EDIT) normalize legacy then validate against canonical set
+  const statusInput = normalizeStatus(req.body?.status);
+  const status = safeStatus(statusInput);
+  if (!status && req.body?.status !== undefined) {
     return res
       .status(422)
-      .json({ success: false, error: `Invalid status. Allowed: ${ALLOWED_STATUSES.join(", ")}` });
+      .json({
+        success: false,
+        error: { code: "VALIDATION_STATUS_INVALID", message: `Status must be one of: ${ALLOWED_STATUSES.join(", ")}` }
+      });
   }
 
-  const dId = safeDriverId(req.body?.driverId);
-  if (Number.isNaN(dId)) {
-    return res.status(422).json({ success: false, error: "driverId must be an integer or null" });
+  // (EDIT) accept driverId or driver_id, allow numeric strings
+  const rawDriver = (req.body?.driverId ?? req.body?.driver_id);
+  const dId = safeDriverId(rawDriver);
+  if (rawDriver !== undefined && Number.isNaN(dId)) {
+    return res.status(422).json({
+      success: false,
+      error: { code: "VALIDATION_DRIVER_ID_INTEGER", message: "Driver ID must be an integer or null" }
+    });
   }
+
   const notes = trimOrEmpty(req.body?.notes);
 
   const sql = `
@@ -91,10 +112,11 @@ router.patch("/:id", (req, res) => {
       updated_at = datetime('now')
   `;
 
-  db.run(sql, [id, status, dId, notes], function (err) {
+  db.run(sql, [id, status || "Pending", dId, notes], function (err) {
     if (err) {
       console.error("[admin-orders] upsert error:", err.message, { id, status, dId });
-      return res.status(500).json({ success: false, error: "Database error" });
+      // (EDIT) standard error envelope
+      return res.status(500).json({ success: false, error: { code: "DB_ERROR", message: "Database error" } });
     }
     return res.json({
       success: true,
