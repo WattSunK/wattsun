@@ -102,28 +102,83 @@ router.patch("/:id", (req, res) => {
 
   const notes = trimOrEmpty(req.body?.notes);
 
-  const sql = `
-    INSERT INTO admin_order_meta (order_id, status, driver_id, notes, updated_at)
-    VALUES (?, ?, ?, ?, datetime('now'))
-    ON CONFLICT(order_id) DO UPDATE SET
-      status = excluded.status,
-      driver_id = excluded.driver_id,
-      notes = excluded.notes,
-      updated_at = datetime('now')
-  `;
+  // ==== SURGICAL FIX: partial-update-safe persistence (replaces UPSERT that reset status) ====
 
-  db.run(sql, [id, status || "Pending", dId, notes], function (err) {
-    if (err) {
-      console.error("[admin-orders] upsert error:", err.message, { id, status, dId });
-      // (EDIT) standard error envelope
-      return res.status(500).json({ success: false, error: { code: "DB_ERROR", message: "Database error" } });
+  // Determine which fields were actually provided in this PATCH
+  const providedStatus   = (req.body?.status !== undefined);
+  const providedDriverId = (rawDriver !== undefined);
+  const providedNotes    = (req.body?.notes !== undefined);
+
+  // STEP 1: does a row already exist?
+  db.get("SELECT 1 FROM admin_order_meta WHERE order_id = ?", [id], (selErr, row) => {
+    if (selErr) {
+      console.error("[admin-orders] select error:", selErr.message);
+      return res.status(500).json({ success:false, error:{ code:"DB_ERROR", message:"Database error" }});
     }
-    return res.json({
-      success: true,
-      order: { id, status, driverId: dId, notes },
-      message: "Order updated",
-    });
+
+    if (!row) {
+      // INSERT path (first time): give status a safe default if omitted
+      const statusForInsert = status || "Pending";
+      const driverForInsert = providedDriverId ? dId : null;
+      const notesForInsert  = providedNotes ? notes : "";
+
+      const insertSql = `
+        INSERT INTO admin_order_meta (order_id, status, driver_id, notes, updated_at)
+        VALUES (?, ?, ?, ?, datetime('now'))
+      `;
+      db.run(insertSql, [id, statusForInsert, driverForInsert, notesForInsert], function (insErr) {
+        if (insErr) {
+          console.error("[admin-orders] insert error:", insErr.message);
+          return res.status(500).json({ success:false, error:{ code:"DB_ERROR", message:"Database error" }});
+        }
+        return res.json({
+          success: true,
+          order: { id, status: statusForInsert, driverId: driverForInsert, notes: notesForInsert },
+          message: "Order updated"
+        });
+      });
+
+    } else {
+      // UPDATE path (row exists): update ONLY fields that were provided; preserve others
+      const sets = [];
+      const args = [];
+
+      if (providedStatus)   { sets.push("status = ?");     args.push(status); }
+      if (providedDriverId) { sets.push("driver_id = ?");  args.push(dId);    }
+      if (providedNotes)    { sets.push("notes = ?");      args.push(notes);  }
+
+      if (sets.length === 0) {
+        return res.status(400).json({
+          success:false,
+          error:{ code:"EMPTY_UPDATE", message:"Provide at least one of: status, driverId, notes." }
+        });
+      }
+
+      sets.push("updated_at = datetime('now')");
+      args.push(id);
+
+      const updateSql = `UPDATE admin_order_meta SET ${sets.join(", ")} WHERE order_id = ?`;
+      db.run(updateSql, args, function (updErr) {
+        if (updErr) {
+          console.error("[admin-orders] update error:", updErr.message);
+          return res.status(500).json({ success:false, error:{ code:"DB_ERROR", message:"Database error" }});
+        }
+        return res.json({
+          success: true,
+          order: {
+            id,
+            // Echo back only what was set this call (so client can merge safely)
+            status:  providedStatus   ? status : null,
+            driverId: providedDriverId ? dId    : null,
+            notes:   providedNotes    ? notes   : undefined
+          },
+          message: "Order updated"
+        });
+      });
+    }
   });
+
+  // ==== /SURGICAL FIX ========================================================================
 });
 
 // Tiny ping for sanity checks (optional)
