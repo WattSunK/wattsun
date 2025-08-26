@@ -5,6 +5,14 @@
 (function () {
   let ordersData = [];
 
+  // 6.5.4 — Empty state row helper
+  function renderEmptyRow(tbody, colspan, msg){
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = colspan; td.className = 'empty-state'; td.textContent = msg;
+    tr.appendChild(td); tbody.appendChild(tr);
+  }
+
   function pickOrdersPayload(data) {
     if (Array.isArray(data)) return data;
     if (data && Array.isArray(data.orders)) return data.orders;
@@ -52,8 +60,9 @@
         const phone = o.phone || "—";
         const email = o.email || "—";
         const pm = o.paymentType || o.paymentMethod || "—";
-        const amount =
-          typeof o.total === "number" ? `KES ${o.total.toLocaleString()}` : "—";
+        const amount = (typeof window!=='undefined' && typeof window.formatKES==='function')
+          ? window.formatKES((o.total ?? 0) * 100)
+          : (typeof o.total === 'number' ? `KES ${o.total.toLocaleString()}` : '—');
 
         return `
           <tr>

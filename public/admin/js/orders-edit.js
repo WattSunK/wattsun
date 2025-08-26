@@ -241,6 +241,19 @@ function isDialog(el){ return el && typeof el.showModal === 'function'; }
     modal.addEventListener("close", () => {});
     modal.querySelectorAll('button[value="cancel"]').forEach(b => b.addEventListener("click", (ev) => { ev.preventDefault(); closeModal(); }));
   }
+  // 6.5.1 — Client guard for driver_id
+  function validateDriverId(inputValue) {
+    if (inputValue === undefined || inputValue === null) return { ok:true, value:null };
+    const s = String(inputValue).trim();
+    if (s === "") return { ok:true, value:null };
+    const n = Number(s);
+    if (!Number.isInteger(n) || n < 0) {
+      return { ok:false, error:{ code:"VALIDATION_DRIVER_ID_INTEGER", message:"Driver ID must be a positive integer." }};
+    }
+    return { ok:true, value:n };
+  }
+
+
 
 
   // ---------- Save (PATCH /api/admin/orders/:id) ----------
@@ -249,15 +262,19 @@ function isDialog(el){ return el && typeof el.showModal === 'function'; }
     const status = statusSel?.value || "Pending";
     if (!ALLOWED.includes(status)) { alert("Please choose a valid status."); return; }
 
-    const driverId = driverIdH?.value ? parseInt(driverIdH.value, 10) : null;
+    const rawDriver = (driverIdH?.value ?? '').trim();
+    const drv = validateDriverId(rawDriver);
+    if (!drv.ok) { alert(drv.error.message); return; }
     const notes = notesEl?.value?.trim() || "";
+    const payload = { status, notes };
+    if (drv.value !== null) payload.driver_id = String(drv.value);
 
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/orders/${encodeURIComponent(currentId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, driverId, notes })
+        body: JSON.stringify(payload)
       });
       const txt = await res.text(); let json; try { json = JSON.parse(txt); } catch {}
       if (!res.ok || (json && json.success === false)) {
