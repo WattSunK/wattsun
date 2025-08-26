@@ -1,3 +1,7 @@
+
+
+/** Mount-once partial cache: keeps each partial DOM after first load. */
+const __partialCache = new Map(); // name -> HTMLElement
 // /public/admin/js/dashboard.js
 document.addEventListener("DOMContentLoaded", () => {
   const content  = document.getElementById("admin-content") || document.getElementById("adminContent");
@@ -214,146 +218,50 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ---- Section loader ----
-  async function loadSection(section) {
-    // include "dispatch" so the global header search hides on this tab (NEW)
-    const hasOwnSearch = new Set(["orders", "users", "items", "myorders", "dispatch"]);
-    setHeaderSearchVisible(!hasOwnSearch.has(section));
+  
+async function loadSection(section) {
+  const content = document.getElementById("content") || document.querySelector("#content, main, .content");
 
-    // My Orders → embed the exact customer dashboard page to guarantee parity
-    if (section === "myorders") {
-      const url = "/myaccount/userdash.html";
-      content.innerHTML = `
-        <div style="height:calc(100vh - 130px);">
-          <iframe id="myorders-embed"
-                  src="${url}"
-                  style="width:100%;height:100%;border:0;border-radius:8px;background:#fff;"></iframe>
-        </div>
-      `;
-      const iframe = content.querySelector("#myorders-embed");
-      // Optional: support postMessage resizes if the embedded page sends them
-      window.addEventListener("message", (e) => {
-        if (e?.data && e.data.type === "resize-embed" && typeof e.data.height === "number") {
-          iframe.style.height = Math.max(300, e.data.height) + "px";
-        }
-      });
-      // My Orders has its own search/filter UI
-      setHeaderSearchVisible(false);
-      return;
-    }
+  // If already mounted once, toggle visibility only
+  if (__partialCache.has(section)) {
+    // hide others
+    content.querySelectorAll('[data-section]').forEach(n => { n.hidden = true; });
+    const panel = __partialCache.get(section);
+    panel.hidden = false;
 
-    if (section === "orders") {
-      try {
-        const res = await fetch(`/partials/orders.html?v=${Date.now()}`);
-        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-        runInlineScripts(content);
-        
-      try { window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "orders" } })); } catch {}
-      try { window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: "orders" } })); } catch {}
-window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
-      } catch {
-        content.innerHTML = `<div class="p-3"></div>`;
-        return;
-      }
-      try { await populateOrders(); } catch(e) { console.warn("populateOrders failed:", e); }
-      return;
-    }
-
-    if (section === "profile") {
-      try {
-        const res = await fetch(`/partials/profile.html?v=${Date.now()}`);
-        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-      } catch {
-        content.innerHTML = `<div class="p-3"></div>`;
-        return;
-      }
-
-      (function mountProfile() {
-        try {
-          const btnSave = content.querySelector("#btnSave");
-          const btnCancel = content.querySelector("#btnCancel");
-          const btnDeact = content.querySelector("#btnDeactivate");
-          if (btnSave && !btnSave._bound) { btnSave._bound=1; btnSave.addEventListener("click", (e)=>{ e.preventDefault(); /* no-op v0.1 */ }); }
-          if (btnCancel && !btnCancel._bound) { btnCancel._bound=1; btnCancel.addEventListener("click", (e)=>{ e.preventDefault(); loadSection("profile"); }); }
-          if (btnDeact && !btnDeact._bound) { btnDeact._bound=1; btnDeact.addEventListener("click", (e)=>{ e.preventDefault(); alert("Not implemented yet."); }); }
-        } catch {}
-      })();
-
-      (function populateFromUser() {
-        try {
-          const u = getUser();
-          const info = u?.user || u || {};
-          const name  = info.fullName || info.name || "";
-          const email = info.email || "";
-          const phone = info.phone || "";
-          const role  = info.role || info.type || "Customer";
-          const last  = info.lastLogin || "—";
-
-          const avatar = content.querySelector("#userAvatar");
-          if (avatar) {
-            const initial = (name || "U").trim().charAt(0).toUpperCase();
-            avatar.textContent = initial || "U";
-          }
-          const elName  = content.querySelector("#userName");  if (elName)  elName.textContent = name || "User Name";
-          const elEmail = content.querySelector("#userEmail"); if (elEmail) elEmail.textContent = email || "";
-          const elRole  = content.querySelector("#userRole");  if (elRole)  elRole.textContent  = role;
-          const elLast  = content.querySelector("#lastLogin"); if (elLast)  elLast.textContent  = `Last login: ${last}`;
-
-          const pfN = content.querySelector("#pf-name");  if (pfN)  pfN.value  = name;
-          const pfE = content.querySelector("#pf-email"); if (pfE) pfE.value = email;
-          const pfP = content.querySelector("#pf-phone"); if (pfP) pfP.value = phone;
-        } catch {}
-      })();
-
-      const u = getUser();
-      hydrateProfile(u);
-      window.addEventListener("ws:user", ev => hydrateProfile(ev.detail));
-      return;
-    }
-
-    if (section === "users") {
-      try {
-        const res = await fetch(`/partials/users.html?v={{Date.now()}}`.replace("{{Date.now()}}", Date.now()));
-        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-      } catch {
-        content.innerHTML = `<div class="p-3"></div>`;
-        return;
-      }
-      if (typeof fetchUsers !== "function") {
-        if (!document.querySelector('script[src="/admin/js/users.js"]')) {
-          const script = document.createElement("script");
-          script.src = "/admin/js/users.js";
-          script.onload = () => { if (typeof fetchUsers === "function") fetchUsers(); };
-          script.onerror = () => console.error("Failed to load users.js");
-          document.body.appendChild(script);
-        }
-      } else {
-        fetchUsers();
-      }
-      return;
-    }
-
-    // Generic partials
+    // notify controllers that this section is active again
     try {
-      const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
-      content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-
-      // (NEW) For Dispatch: ensure data-adapter is present before running the partial's inline script.
-      if (section === "dispatch" && typeof window.WattSunAdminData === "undefined") {
-        await new Promise((resolve, reject) => {
-          const s = document.createElement("script");
-          s.src = "/admin/js/data-adapter.js";
-          s.onload = resolve;
-          s.onerror = reject;
-          document.body.appendChild(s);
-        }).catch(() => console.warn("Failed to load data-adapter.js"));
-      }
-
-      runInlineScripts(content);
-      window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
-    } catch {
-      content.innerHTML = `<div class="p-3"></div>`;
-    }
+      window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: section } }));
+    } catch {}
+    return;
   }
+
+  // First time load — fetch & mount
+  let html = "<div class=\\"p-3\\"></div>";
+  try {
+    const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
+    if (res.ok) html = await res.text();
+  } catch {}
+
+  const panel = document.createElement("div");
+  panel.dataset.section = section;
+  panel.className = "partial-panel swap-smooth";
+  panel.hidden = false;
+  panel.innerHTML = html;
+
+  // hide others and append this panel
+  content.querySelectorAll('[data-section]').forEach(n => { n.hidden = true; });
+  content.appendChild(panel);
+  __partialCache.set(section, panel);
+
+  // run any inline scripts inside just this panel
+  try { (typeof runInlineScripts === "function") && runInlineScripts(panel); } catch {}
+
+  // lifecycle events: init then activate
+  try { window.dispatchEvent(new CustomEvent("admin:partial-loaded",    { detail: { name: section } })); } catch {}
+  try { window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: section } })); } catch {}
+}
+
 
   // ---- Profile hydration (existing) ----
   function hydrateProfile(u) {
