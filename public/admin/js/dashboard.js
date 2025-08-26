@@ -154,7 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let data = null;
     try {
-      const res = await fetch(`/api/orders?page=1&per=10&_=${Date.now()}`);
+      const res = await fetch(`/api/admin/orders?page=1&per=10&_=${Date.now()}`);
       data = res.ok ? await res.json() : null;
     } catch {}
 
@@ -251,7 +251,7 @@ document.addEventListener("DOMContentLoaded", () => {
         content.innerHTML = `<div class="p-3"></div>`;
         return;
       }
-      try { await populateOrders(); } catch(e) { console.warn("populateOrders failed:", e); }
+      // (disabled) populateOrders initial call; orders-controller will render after partial load
       return;
     }
 
