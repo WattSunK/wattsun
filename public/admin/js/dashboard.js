@@ -106,7 +106,6 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       </div>`;
     content.innerHTML = "";
-      try { window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: section } })); } catch {}
     content.appendChild(card);
     return { table: card.querySelector("#ordersTable"), tbody: card.querySelector("#ordersTbody") };
   }
@@ -148,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ---- Orders population ----
-  async function populateOrders() {
+  async function // (disabled) populateOrders();{
     await ensureOrdersModal();
     const { tbody } = ensureOrdersTableShell();
     if (!tbody) return;
@@ -247,12 +246,14 @@ document.addEventListener("DOMContentLoaded", () => {
         const res = await fetch(`/partials/orders.html?v=${Date.now()}`);
         content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
         runInlineScripts(content);
-        window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
+        
+      try { window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "orders" } })); } catch {};
+window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
       } catch {
         content.innerHTML = `<div class="p-3"></div>`;
         return;
       }
-      try { await populateOrders(); } catch(e) { console.warn("populateOrders failed:", e); }
+      try { // (disabled) // (disabled) populateOrders(); } catch(e) { console.warn("populateOrders failed:", e); }
       return;
     }
 
@@ -405,3 +406,18 @@ document.addEventListener("DOMContentLoaded", () => {
   setActiveInSidebar(initial);
   loadSection(initial);
 });
+
+
+// -- Admin nav activation emitter: emits 'admin:section-activated' on user tab/side-nav clicks
+(function(){
+  function nameFromHash(h){ return (h||'').replace(/^#/, '').trim() || 'orders'; }
+  function emit(name){ try{ window.dispatchEvent(new CustomEvent('admin:section-activated', { detail:{ name } })); }catch{} }
+  document.addEventListener('click', function(e){
+    const a = e.target && (e.target.closest ? e.target.closest('a[href^="#"]') : null);
+    if (!a) return;
+    const name = nameFromHash(a.getAttribute('href'));
+    if (!name) return;
+    setTimeout(()=>emit(name), 0);
+  }, true);
+  window.addEventListener('hashchange', ()=>emit(nameFromHash(location.hash)));
+})();

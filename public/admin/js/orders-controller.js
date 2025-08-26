@@ -284,13 +284,3 @@ document.addEventListener("click", (e) => {
     renderPager();
   };
 })();
-
-
-// --- activation refresh: reload orders when the Orders tab is shown ---
-(function() {
-  window.addEventListener("admin:section-activated", (e) => {
-    if (e && e.detail && e.detail.name === "orders") {
-      try { auto(); } catch (err) { console.warn("[orders-controller] refresh on activation failed:", err); }
-    }
-  });
-})();
