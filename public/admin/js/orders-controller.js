@@ -4,7 +4,6 @@
 // Edit button is bound elsewhere (orders-edit.js binder). This file only renders rows.
 
 (function () {
-  let __ordersControllerBooted = false;
   "use strict";
   if (!window.WattSunAdminData) {
     console.warn("[OrdersController] WattSunAdminData missing");
@@ -203,14 +202,12 @@ document.addEventListener("click", (e) => {
     fetchOnce().catch((err) => console.error("[Orders] load failed:", err));
   }
 
-  // (disabled) auto boot on DOMContentLoaded; will start on admin:partial-loaded
+  if (document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", auto);
+  else auto();
 
   window.addEventListener("admin:partial-loaded", (e) => {
-    if (e?.detail?.name === "orders") {
-      if (__ordersControllerBooted) return;
-      __ordersControllerBooted = true;
-      auto();
-    }
+    if (e?.detail?.name === "orders") auto();
   });
 
   // -------- View dialog (unchanged, shows items if API returned them) --------
@@ -286,4 +283,14 @@ document.addEventListener("click", (e) => {
     renderRows();
     renderPager();
   };
+})();
+
+
+// --- activation refresh: reload orders when the Orders tab is shown ---
+(function() {
+  window.addEventListener("admin:section-activated", (e) => {
+    if (e && e.detail && e.detail.name === "orders") {
+      try { auto(); } catch (err) { console.warn("[orders-controller] refresh on activation failed:", err); }
+    }
+  });
 })();

@@ -106,6 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       </div>`;
     content.innerHTML = "";
+      try { window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: section } })); } catch {}
     content.appendChild(card);
     return { table: card.querySelector("#ordersTable"), tbody: card.querySelector("#ordersTbody") };
   }
@@ -251,7 +252,7 @@ document.addEventListener("DOMContentLoaded", () => {
         content.innerHTML = `<div class="p-3"></div>`;
         return;
       }
-      // (disabled) controller owns Orders rendering now; no direct populateOrders() here.
+      try { await populateOrders(); } catch(e) { console.warn("populateOrders failed:", e); }
       return;
     }
 
