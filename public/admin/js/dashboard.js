@@ -251,7 +251,7 @@ document.addEventListener("DOMContentLoaded", () => {
         content.innerHTML = `<div class="p-3"></div>`;
         return;
       }
-      // (disabled) populateOrders initial call; orders-controller will render after partial load
+      // (disabled) controller owns Orders rendering now; no direct populateOrders() here.
       return;
     }
 
