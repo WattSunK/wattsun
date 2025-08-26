@@ -154,7 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let data = null;
     try {
-      const res = await fetch(`/api/admin/orders?page=1&per=10&_=${Date.now()}`);
+      const res = await fetch(`/api/orders?page=1&per=10&_=${Date.now()}`);
       data = res.ok ? await res.json() : null;
     } catch {}
 
