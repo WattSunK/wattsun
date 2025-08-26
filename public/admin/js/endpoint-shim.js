@@ -1,4 +1,7 @@
 // public/admin/js/endpoint-shim.js
+
+console.log("[Shim] Endpoint shim active");
+
 (function(){
   const maps = [
     { from: "/api/admin/orders",   to: "/api/orders" },
