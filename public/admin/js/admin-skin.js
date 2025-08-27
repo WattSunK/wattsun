@@ -1,7 +1,5 @@
 /* Wattsun Admin — Auto Skin Shim (idempotent, additive-only)
-   Purpose: give legacy admin partials the Items-style look without editing HTML.
-   Scope:  strictly pane-root scoped; safe to run repeatedly (idempotent).
-   How:    adds ws-* classes & light DOM tweaks; no removals, no event binding.
+   v1.1: Adds heading-based pane discovery + generic table skin fallback.
 */
 
 (function () {
@@ -16,54 +14,81 @@
     return true;
   };
 
-  // Map of pane roots -> legacy selectors to skin.
-  // Fill these out as we roll to other partials.
+  // === Pane map ===
+  // You can add/adjust selectors here at any time.
+  // `label` is used as a fallback to find the pane by heading text.
   const PANE_MAP = [
-    // USERS (already styled; keep for consistency)
-    { root: '#users-root',
+    {
+      label: 'Users',
+      root:  '#users-root',
       tables: ['#users-table'],
       pager:  { info: ['#users-table-info'], controls: ['#users-pagination'] },
       modal:  ['#usersModal']
     },
-
-    // ORDERS — adjust selectors once you share that partial
-    { root: '#orders-root',
-      tables: ['#orders-table','table.orders'],
+    {
+      label: 'Orders',
+      root:  '#orders-root',                // if present, we use it
+      tables: ['#orders-table', 'table.orders'],  // if missing, fallback will skin any table under the "Orders" pane
       pager:  { info: ['#orders-table-info'], controls: ['#orders-pagination'] },
       modal:  ['#ordersModal']
     },
-
-    // ITEMS — adjust to match your markup
-    { root: '#items-root',
-      tables: ['#items-table','table.items'],
+    {
+      label: 'Items',
+      root:  '#items-root',
+      tables: ['#items-table', 'table.items'],
       pager:  { info: ['#items-table-info'], controls: ['#items-pagination'] },
       modal:  ['#itemsModal']
     },
-
-    // DISPATCH / DRIVERS — placeholders
-    { root: '#dispatch-root',
+    {
+      label: 'Dispatch',
+      root:  '#dispatch-root',
       tables: ['#dispatch-table'],
       pager:  { info: ['#dispatch-table-info'], controls: ['#dispatch-pagination'] },
       modal:  ['#dispatchModal']
     },
-    { root: '#drivers-root',
+    {
+      label: 'Drivers',
+      root:  '#drivers-root',
       tables: ['#drivers-table'],
       pager:  { info: ['#drivers-table-info'], controls: ['#drivers-pagination'] },
       modal:  ['#driversModal']
     }
   ];
 
+  // === Fallback: find pane root by heading text (H1/H2/H3) ===
+  function findPaneRootByHeading(label) {
+    if (!label) return null;
+    const text = String(label).trim().toLowerCase();
+    const headings = $$('h1,h2,h3').filter(h => (h.textContent || '').trim().toLowerCase() === text);
+    for (const h of headings) {
+      const sec = h.closest('section, .ws-admin-section, .panel, .card, .box, .content, .container, main') || h.parentElement;
+      if (sec) return sec;
+    }
+    return null;
+  }
+
+  function getPaneRoot(entry) {
+    // Use explicit root if it exists
+    if (entry.root) {
+      const el = $(entry.root);
+      if (el) return el;
+    }
+    // Fallback: heading-based discovery
+    return findPaneRootByHeading(entry.label);
+  }
+
+  // === Skinners ===
   function skinTable(root, table) {
     if (!table || !once(table, 'table')) return;
 
-    // Table class
+    // Table classes
     add(table, 'ws-table');
 
-    // Try to mark the immediate container as the visual wrapper (no reparenting)
+    // Mark parent as wrapper (no reparenting)
     const p = table.parentElement;
     if (p) add(p, 'ws-table-wrap');
 
-    // Style the action buttons in the last column (View/Edit/Delete)
+    // Row actions
     const rows = $$('tbody tr', table);
     rows.forEach(tr => {
       if (!once(tr, 'rowActions')) return;
@@ -74,11 +99,11 @@
         add(btn, 'ws-btn', 'ws-btn-xs');
         const txt = (btn.textContent || '').trim().toLowerCase();
         if (txt === 'view' || txt === 'edit') add(btn, 'ws-btn-primary');
-        if (txt === 'delete') add(btn, 'ws-btn-ghost');
+        if (txt === 'delete' || txt === 'remove') add(btn, 'ws-btn-ghost');
       });
     });
 
-    // Status badges (auto-detect the STATUS column by header text)
+    // Status badges: detect STATUS column by header text
     const ths = $$('thead th', table);
     const statusIdx = ths.findIndex(th => (/status/i).test(th.textContent || ''));
     if (statusIdx !== -1) {
@@ -102,7 +127,7 @@
     (map.info  || []).forEach(sel => $$(sel, root).forEach(el => add(el, 'ws-pager-info')));
     (map.controls || []).forEach(sel => $$(sel, root).forEach(el => add(el, 'ws-pager-controls')));
 
-    // If both info and controls exist but there's no wrapper, create one adjacent (purely visual)
+    // If both exist but no wrapper, create one sibling wrapper (visual only)
     const infoEl = (map.info||[]).map(s => $(s, root)).find(Boolean);
     const pagEl  = (map.controls||[]).map(s => $(s, root)).find(Boolean);
     if (infoEl && pagEl) {
@@ -124,7 +149,6 @@
         if (!once(modal, 'modal')) return;
         add(modal, 'ws-modal');
 
-        // Try to identify common parts; add ws-dialog wrappers if present
         const dlg  = modal.querySelector('.ws-dialog') ||
                      modal.querySelector('.modal-dialog') ||
                      modal.firstElementChild;
@@ -141,24 +165,28 @@
   }
 
   function skinPane(entry) {
-    const root = $(entry.root);
+    const root = getPaneRoot(entry);
     if (!root) return;
 
-    // Tables
-    (entry.tables || []).forEach(sel => $$(sel, root).forEach(t => skinTable(root, t)));
+    // 1) Known table selectors first
+    let tables = [];
+    (entry.tables || []).forEach(sel => { tables = tables.concat($$(sel, root)); });
 
-    // Pager
+    // 2) Fallback: if none matched, skin any visible table inside the pane
+    if (!tables.length) {
+      tables = $$('table', root).filter(t => !t.classList.contains('ws-table'));
+    }
+    tables.forEach(t => skinTable(root, t));
+
+    // Pager: only applied if known selectors exist; we avoid guessing here
     skinPager(root, entry.pager);
 
-    // Modal
+    // Modal: applied if present
     skinModal(root, entry.modal);
   }
 
-  function run() {
-    PANE_MAP.forEach(skinPane);
-  }
+  function run() { PANE_MAP.forEach(skinPane); }
 
-  // Initial run + observe DOM swaps (SPA-ish dashboard)
   run();
   new MutationObserver(() => run()).observe(document.body, { childList: true, subtree: true });
 })();
