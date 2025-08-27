@@ -1720,22 +1720,26 @@ body {
     width: calc(100% - 24px);
   }
 }
-/* keep filters in one row; allow horizontal scroll on tiny screens */
-.toolbar-nowrap { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* Keep Items toolbar on ONE row (like Users) */
+#items-root .items-toolbar { flex-wrap: nowrap; overflow-x: auto; }
+#items-root #search-text { min-width: 260px; flex: 0 0 260px; }
 
-/* modal primitives */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.38); z-index: 1050; display: none; }
-.modal-overlay.show { display: block; }
-.modal-card { background: #fff; margin: 5vh auto; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.2); overflow: hidden; }
-.modal-card--md { max-width: 720px; }
-.modal-card--sm { max-width: 520px; }
-.modal-head, .modal-foot { padding: 14px 16px; }
-.modal-head { border-bottom: 1px solid rgba(0,0,0,.08); }
-.modal-foot { border-top: 1px solid rgba(0,0,0,.08); }
-.modal-title { font-size: 1.05rem; margin: 0; }
-/* The magic: body scrolls, footer stays visible */
-.modal-body { padding: 16px; max-height: calc(100vh - 10vh - 120px); overflow: auto; }
-@media (max-width: 768px) {
-  .modal-card { margin: 2vh auto; }
-  .modal-body { max-height: calc(100vh - 4vh - 120px); }
+/* Modal height: scroll the body, keep footer with Save visible */
+#edit-item-modal-bg .modal-body,
+#add-item-modal-bg .modal-body,
+#manage-categories-modal .modal-body {
+  max-height: calc(100vh - 160px);
+  overflow: auto;
+}
+
+/* Width caps (if not already defined by your .modal--md/.modal--sm helpers) */
+#edit-item-modal { max-width: 640px; margin: 60px auto; }
+#add-item-modal  { max-width: 640px; margin: 60px auto; }
+#manage-categories-modal .modal { max-width: 520px; margin: 60px auto; }
+
+@media (max-width: 720px){
+  #edit-item-modal, #add-item-modal, #manage-categories-modal .modal {
+    width: calc(100% - 24px);
+    margin: 30px auto;
+  }
 }
