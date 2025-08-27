@@ -1353,3 +1353,109 @@ body {
 .ws-admin-table tbody tr[aria-selected="true"] { background-color: #efefef !important; }
 .ws-btn, .ws-btn-ghost { transition: filter .12s ease; }
 .ws-btn:hover, .ws-btn-ghost:hover { filter: brightness(.97); }
+/* =====================================================================
+   USERS PANE (scoped) — append-only; no impact outside #users-root
+   ===================================================================== */
+
+/* Toolbar tweaks (re-use your ws-admin-* look) */
+#users-root .ws-admin-title { color:#111; font-size:1.33em; font-weight:500; margin:0 0 14px; }
+#users-root .ws-admin-toolbar,
+#users-root .ws-admin-filters { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px; }
+#users-root .ws-input,
+#users-root .ws-select,
+#users-root input[type="search"]#users-search-input {
+  border: 1.1px solid #FFD23F; border-radius: 4px; padding: 6px 11px;
+  background: #fffbe7; font-size: .98em; outline: none; min-width: 110px;
+}
+#users-root .ws-btn { background:#fffbe7; border:1px solid #FFD23F; border-radius:6px; padding:6px 12px; cursor:pointer; }
+#users-root .ws-btn:hover { background:#FFD23F; }
+#users-root .ws-btn.ws-btn-primary { background:#FFD23F; }
+#users-root .ws-btn.ws-btn-ghost { background:#fff; }
+
+/* Table wrapper + table (Items-style, amber header) */
+#users-root .ws-table-wrap {
+  background:#fff; border-radius:12px; box-shadow:0 2px 8px #e9e9e920;
+  border:1.5px solid #eee; margin-bottom:12px; overflow:auto;
+}
+#users-root .ws-table { width:100%; border-collapse:separate; border-spacing:0; min-width: 950px; }
+#users-root .ws-table thead th {
+  position: sticky; top: 0; z-index: 1;
+  background:#fffbe7; color:#333; font-weight:500; text-align:left;
+  padding:10px 12px; border-top:1.5px solid #FFD23F; border-bottom:1px solid #f3f3f3;
+}
+#users-root .ws-table td {
+  padding:10px 12px; text-align:left; font-size:.99em; color:#111827; border-bottom:1px solid #f3f3f3;
+}
+#users-root .ws-table tbody tr:last-child td { border-bottom:none; }
+#users-root .ws-table tbody tr:hover td { background:#f7fbff; }
+
+/* Action buttons (compact, consistent with Items) */
+#users-root .ws-actions { display:inline-flex; gap:8px; align-items:center; }
+#users-root .ws-btn.ws-btn-xs { font-size:12px; line-height:1.2; padding:6px 10px; border-radius:8px; }
+#users-root .ws-btn.ws-btn-primary.ws-btn-xs { background:#fff; border-color:#f59e0b; color:#92400e; }
+#users-root .ws-btn.ws-btn-primary.ws-btn-xs:hover { background:#fef3c7; }
+#users-root .ws-btn.ws-btn-ghost.ws-btn-xs { border-color:transparent; background:transparent; color:#6b7280; }
+#users-root .ws-btn.ws-btn-ghost.ws-btn-xs:hover { background:#f3f4f6; }
+
+/* Status badges */
+#users-root .ws-badge { display:inline-block; font-size:11px; line-height:1; padding:6px 8px; border-radius:999px; background:#e5e7eb; color:#374151; }
+#users-root .ws-badge-success { background:#dcfce7; color:#166534; }
+#users-root .ws-badge-muted   { background:#e5e7eb; color:#374151; }
+
+/* Pager */
+#users-root .ws-pager { display:flex; align-items:center; gap:10px; margin-top:8px; }
+#users-root .ws-pager-info { color:#888; }
+#users-root .ws-pager-controls { display:flex; gap:6px; }
+#users-root .ws-page-btn {
+  font-size:12px; padding:6px 10px; border:1px solid #e5e7eb; background:#fff; border-radius:8px; cursor:pointer;
+}
+#users-root .ws-page-btn.is-active { border-color:#f59e0b; color:#92400e; font-weight:600; }
+#users-root .ws-page-btn.is-disabled { opacity:.5; pointer-events:none; }
+
+/* Modal (separate from global .modal; safe to coexist) */
+#users-root .ws-modal { position:fixed; inset:0; display:none; z-index:999; }
+#users-root .ws-modal[aria-hidden="false"] { display:block; }
+#users-root .ws-modal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,.45); }
+#users-root .ws-dialog {
+  position:relative; width:min(900px, calc(100% - 32px)); margin:60px auto; background:#fff;
+  border-radius:12px; box-shadow:0 6px 36px rgba(0,0,0,.15); border:1px solid #eee;
+}
+#users-root .ws-dialog-header, #users-root .ws-dialog-footer { display:flex; align-items:center; gap:10px; padding:12px 16px; }
+#users-root .ws-dialog-header { border-bottom:1px solid #f1f1f1; }
+#users-root .ws-dialog-title { font-size:18px; font-weight:600; margin:0; }
+#users-root .ws-dialog-body { padding:16px; }
+
+/* Form grid inside modal */
+#users-root .ws-form .ws-field { display:flex; flex-direction:column; gap:6px; }
+#users-root .ws-grid { display:grid; gap:12px; }
+#users-root .ws-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 720px){ #users-root .ws-grid-2 { grid-template-columns:1fr; } }
+#users-root .ws-dialog .ws-input, 
+#users-root .ws-dialog .ws-select {
+  border:1.1px solid #FFD23F; border-radius:4px; padding:7px 10px; background:#fffbe7; font-size:.98em;
+}
+
+/* ---------------------------------------------------------------------
+   Back-compat (if the old markup is still present anywhere)
+   ------------------------------------------------------------------ */
+#users-table { width:100%; border-collapse:separate; border-spacing:0; }
+#users-table thead th {
+  position:sticky; top:0; z-index:1; background:#fffbe7; color:#333; font-weight:500;
+  padding:10px 12px; border-top:1.5px solid #FFD23F; border-bottom:1px solid #f3f3f3; text-align:left;
+}
+#users-table td { padding:10px 12px; border-bottom:1px solid #f3f3f3; }
+#users-table tbody tr:hover td { background:#f7fbff; }
+#users-pagination > button {
+  font-size:12px; padding:6px 10px; border:1px solid #e5e7eb; background:#fff; border-radius:8px; margin-right:6px;
+}
+#users-pagination > button.is-active { border-color:#f59e0b; color:#92400e; font-weight:600; }
+#users-pagination > button[disabled] { opacity:.5; pointer-events:none; }
+#users-table-info { color:#888; }
+#usersModal { position:fixed; inset:0; display:none; z-index:999; }
+#usersModal:not([aria-hidden="true"]) { display:block; }
+#usersModal .ws-modal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,.45); }
+#usersModal .ws-dialog { position:relative; width:min(900px, calc(100% - 32px)); margin:60px auto; background:#fff; border-radius:12px; box-shadow:0 6px 36px rgba(0,0,0,.15); border:1px solid #eee; }
+#usersModal .ws-dialog-header, #usersModal .ws-dialog-footer { display:flex; align-items:center; gap:10px; padding:12px 16px; }
+#usersModal .ws-dialog-header { border-bottom:1px solid #f1f1f1; }
+#usersModal .ws-dialog-title { font-size:18px; font-weight:600; margin:0; }
+#usersModal .ws-dialog-body { padding:16px; }
