@@ -96,7 +96,21 @@ function getEmailFallback(req){
 // ---- Overlay (admin_order_meta) helpers
 function openUsersDb() {
   try { return new sqlite3.Database(USERS_DB_PATH); }
-  catch (e) { console.error("[track] DB open failed:", e.message); return null; }
+  
+
+function getOverlayCols(db, cb) {
+  db.all("PRAGMA table_info(admin_order_meta)", (err, rows) => {
+    if (err) return cb(err, null);
+    const names = new Set((rows || []).map(r => r.name));
+    const cols = ["order_id", "status", "driver_id", "notes"];
+    if (names.has("total_cents"))   cols.push("total_cents");
+    if (names.has("deposit_cents")) cols.push("deposit_cents");
+    if (names.has("currency"))      cols.push("currency");
+    cols.push("updated_at");
+    cb(null, cols);
+  });
+}
+catch (e) { console.error("[track] DB open failed:", e.message); return null; }
 }
 
 function loadOverlay(ids = []) {
@@ -104,10 +118,27 @@ function loadOverlay(ids = []) {
     if (!ids.length) return resolve({});
     const db = openUsersDb();
     if (!db) return resolve({});
+    getOverlayCols(db, (e, cols) => {
+      if (e || !cols) { try{db.close();}catch{}; return resolve({}); }
+      const placeholders = ids.map(() => "?").join(",");
+      const sql = `SELECT ${cols.join(", ")} FROM admin_order_meta WHERE order_id IN (${placeholders})`;
+      const map = {};
+      db.all(sql, ids, (err, rows) => {
+        if (err) { console.error("[track] overlay select error:", err.message); try{db.close();}catch{}; return resolve({}); }
+        for (const r of rows || []) map[r.order_id] = r;
+        try{ db.close(); }catch{}
+        resolve(map);
+      });
+    });
+  });
+}
+);
+    const db = openUsersDb();
+    if (!db) return resolve({});
     const placeholders = ids.map(() => "?").join(",");
     const map = {};
     db.all(
-      `SELECT order_id, status, driver_id, notes, total_cents, deposit_cents, currency, updated_at
+      `SELECT order_id, status, driver_id, notes, updated_at
        FROM admin_order_meta
        WHERE order_id IN (${placeholders})`,
       ids,
@@ -138,12 +169,9 @@ async function mergeOverlay(list){
       if (typeof ov.driver_id !== "undefined") o.driverId = ov.driver_id;
       if (typeof ov.notes === "string") o.notes = ov.notes;
 
-      // NEW: money + currency overrides
-      const t = centsToUnits(ov.total_cents);
-      const d = centsToUnits(ov.deposit_cents);
-      if (t !== null) o.total = t;
-      if (d !== null) o.deposit = d;
-      if (ov.currency) o.currency = ov.currency;
+      if ("total_cents"   in ov) { const t = centsToUnits(ov.total_cents);   if (t !== null) o.total = t; }
+      if ("deposit_cents" in ov) { const d = centsToUnits(ov.deposit_cents); if (d !== null) o.deposit = d; }
+      if ("currency"      in ov && ov.currency) o.currency = ov.currency;
 
       if (ov.updated_at && !o.updatedAt) o.updatedAt = ov.updated_at;
     }
