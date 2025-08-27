@@ -1,11 +1,11 @@
 // /public/admin/js/orders-edit.js
 // Edit Order modal — combobox-only driver picker (markup lives in dashboard.html)
 //
-// Admin API (preferred per ADR-001):
-//   PUT  /api/admin/orders/:id/status         { status, note }
-//   PUT  /api/admin/orders/:id/assign-driver  { driverUserId }
-// Fallback (legacy, if the above return 404):
-//   PATCH /api/admin/orders/:id               { status, note, driverId }
+// Save strategy (compat shim):
+// 1) PUT  /api/admin/orders/:id/status         { status, note }
+// 2) PUT  /api/admin/orders/:id/assign-driver  { driverUserId }
+// 3) PATCH /api/admin/orders/:id               { status, note, driverId }          // legacy A
+// 4) PATCH /api/admin/orders/:id               { status, notes, driver_id }        // legacy B
 
 (() => {
   "use strict";
@@ -31,7 +31,7 @@
   const driverList  = by("orderEditDriverList");
   const driverClear = by("orderEditDriverClear");
 
-  // Money & items (display)
+  // Money & items (display only)
   const totalInp   = by("orderEditTotalInput");
   const depositInp = by("orderEditDepositInput");
   const currInp    = by("orderEditCurrencyInput");
@@ -46,9 +46,7 @@
     saveBtn.disabled = !!on;
     saveBtn.textContent = on ? "Saving…" : "Save";
   }
-
   function isDialog(el) { return el && typeof el.showModal === "function"; }
-
   function openModalShell() {
     if (!modal) return;
     if (isDialog(modal)) { try { modal.showModal(); } catch { modal.setAttribute("open","true"); } }
@@ -59,7 +57,6 @@
     if (isDialog(modal)) { try { modal.close(); } catch { modal.removeAttribute("open"); } }
     else { modal.style.display = "none"; modal.setAttribute("aria-hidden","true"); }
   }
-
   function buildStatusOptions(current) {
     if (!statusSel) return;
     statusSel.innerHTML = "";
@@ -70,7 +67,6 @@
     }
     statusSel.value = ALLOWED.includes(current) ? current : "Pending";
   }
-
   function parseKES(s) {
     if (typeof s === "number") return s;
     if (!s) return 0;
@@ -78,7 +74,6 @@
     const f = parseFloat(n);
     return Number.isFinite(f) ? f : 0;
   }
-
   function rowById(id) {
     return ordersTbody?.querySelector(`tr[data-oid="${CSS.escape(String(id))}"]`);
   }
@@ -133,13 +128,11 @@
       return Array.isArray(data?.users) ? data.users : [];
     } catch { return []; }
   }
-
   function resetDriver(id = "", name = "") {
     if (driverIdH)  driverIdH.value = id ? String(id) : "";
     if (driverInp)  driverInp.value = name || "";
     if (driverList) driverList.innerHTML = "";
   }
-
   function getDriverPayload() {
     const raw = (driverIdH?.value ?? "").trim();
     if (raw === "") return { ok: true, value: null };
@@ -147,12 +140,10 @@
     if (!Number.isInteger(n) || n < 0) return { ok: false, error: "Driver ID must be a positive integer." };
     return { ok: true, value: n };
   }
-
   function wireDriverComboOnce() {
     if (!driverInp || !driverList) return;
     if (driverInp._bound) return;
     driverInp._bound = true;
-
     const render = (arr) => {
       driverList.innerHTML = "";
       if (!arr.length) { driverList.innerHTML = `<li class="empty">No drivers</li>`; return; }
@@ -166,12 +157,10 @@
       }
       driverList.style.display = "block";
     };
-
     const onType = debounce(async () => {
       const q = (driverInp.value || "").trim();
       render(await queryDrivers(q));
     }, 180);
-
     driverInp.addEventListener("input", onType);
     driverInp.addEventListener("focus", onType);
     document.addEventListener("click", (e) => {
@@ -232,23 +221,14 @@
     openModalShell();
   }
 
-  // ---------- Save (split endpoints with legacy fallback) ----------
+  // ---------- Save (split endpoints + dual legacy fallback) ----------
   async function putJSON(url, body) {
-    const r = await fetch(url, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body || {})
-    });
-    return r;
+    return fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
   }
   async function patchJSON(url, body) {
-    const r = await fetch(url, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body || {})
-    });
-    return r;
+    return fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
   }
+  async function readText(r) { try { return await r.text(); } catch { return ""; } }
 
   async function doSave() {
     if (!currentId) return;
@@ -262,46 +242,38 @@
     setSaving(true);
 
     try {
-      // 1) Update status (preferred)
-      let okStatus = false;
+      let okStatus = false, okDriver = true;
+
+      // 1) Preferred routes
       try {
-        const r = await putJSON(`/api/admin/orders/${encodeURIComponent(currentId)}/status`, { status, note });
-        okStatus = r.ok;
-        if (!okStatus && r.status !== 404) {
-          const t = await r.text(); throw new Error(t || `Status update failed (${r.status})`);
-        }
-      } catch (e) {
-        // if a non-404 error, bubble; 404 means try fallback later
-        if (!/status\)$/i.test(String(e.message || ""))) throw e;
-      }
+        const r1 = await putJSON(`/api/admin/orders/${encodeURIComponent(currentId)}/status`, { status, note });
+        okStatus = r1.ok;
+        if (!r1.ok && r1.status !== 404) console.warn("[orders-edit] status route failed:", r1.status, await readText(r1));
+      } catch (e) { console.warn("[orders-edit] status route error:", e); }
 
-      // 2) Assign driver if provided (preferred)
-      let okDriver = true;
       if (drv.value !== null) {
-        const r2 = await putJSON(`/api/admin/orders/${encodeURIComponent(currentId)}/assign-driver`, { driverUserId: Number(drv.value) });
-        okDriver = r2.ok || r2.status === 404; // 404 → fallback path may handle it
-        if (!okDriver && r2.status !== 404) {
-          const t2 = await r2.text(); throw new Error(t2 || `Driver assignment failed (${r2.status})`);
-        }
+        try {
+          const r2 = await putJSON(`/api/admin/orders/${encodeURIComponent(currentId)}/assign-driver`, { driverUserId: Number(drv.value) });
+          okDriver = r2.ok || r2.status === 404;
+          if (!r2.ok && r2.status !== 404) console.warn("[orders-edit] assign-driver failed:", r2.status, await readText(r2));
+        } catch (e) { console.warn("[orders-edit] assign-driver error:", e); okDriver = false; }
       }
 
-      // 3) Fallback (legacy) if needed
+      // 2) Legacy A fallback
       if (!okStatus || (drv.value !== null && !okDriver)) {
-        const r3 = await patchJSON(`/api/admin/orders/${encodeURIComponent(currentId)}`, {
-          status,
-          note,                  // legacy expects "note" (not "notes")
-          driverId: drv.value ?? null
-        });
+        const r3 = await patchJSON(`/api/admin/orders/${encodeURIComponent(currentId)}`, { status, note, driverId: drv.value ?? null });
         if (!r3.ok) {
-          const t3 = await r3.text(); throw new Error(t3 || `Legacy update failed (${r3.status})`);
+          console.warn("[orders-edit] legacy A failed:", r3.status, await readText(r3));
+          // 3) Legacy B fallback
+          const r4 = await patchJSON(`/api/admin/orders/${encodeURIComponent(currentId)}`, { status, notes: note, driver_id: drv.value ?? null });
+          if (!r4.ok) throw new Error(`All save attempts failed. Last ${r4.status}: ${await readText(r4) || "(no body)"}`);
         }
       }
 
-      // Inline row refresh (minimal)
+      // Inline row refresh
       const row = rowById(currentId);
       row?.querySelector('[data-col="status"]')?.replaceChildren(document.createTextNode(status));
 
-      // Cross-tab/customer reflection signal (Step 6.4)
       try {
         localStorage.setItem("ordersUpdatedAt", String(Date.now()));
         window.postMessage({ type: "orders-updated", orderId: currentId }, "*");
@@ -320,7 +292,6 @@
   cancelBtn?.addEventListener("click", (e) => { e.preventDefault(); closeModalShell(); });
   saveBtn?.addEventListener("click",  (e) => { e.preventDefault(); doSave(); });
 
-  // Open via table buttons (supports .btn-edit or [data-action="edit-order"])
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('[data-action="edit-order"], .btn-edit');
     if (!btn) return;
@@ -338,7 +309,6 @@
     openModal(orderLike);
   });
 
-  // Optional global hook
   if (typeof window.openOrderEdit !== "function") {
     window.openOrderEdit = (order) => openModal(order || {});
   }
