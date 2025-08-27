@@ -1,5 +1,10 @@
-/* Admin Users — scoped, idempotent controller with Add/Edit modal */
+/* Admin Users — scoped, idempotent controller with Items-style modal.
+   - Keeps existing list/search/pager behavior
+   - Exposes window.fetchUsers for dashboard loader
+   - Uses adapter-first saves, REST fallback with endpoint auto-detect
+*/
 (function(){
+  // ========= State & Utils =========
   const State = {
     all: [],
     filtered: [],
@@ -8,15 +13,47 @@
     root: null,
     els: {}
   };
+  window.UsersState = State; // (optional) visibility for other panes
 
-  // ---------- utils
   const $  = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const T  = (v)=> (v==null ? "" : String(v));
   const esc= (s)=> T(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
   function log(...a){ console.log("[Users]", ...a); }
 
-  // ---------- data
+  // ========= Endpoint auto-detect (cached) =========
+  const USERS_ENDPOINT_CANDIDATES = [
+    "/api/admin/users",
+    "/api/users",
+    "/admin/users",
+    "/users"
+  ];
+  let USERS_BASE = null;
+
+  async function resolveUsersBase() {
+    if (USERS_BASE) return USERS_BASE;
+    USERS_BASE = localStorage.getItem("wsUsersBase") || null;
+
+    async function check(url) {
+      try {
+        // allow GET 200/OK or 405 (method not allowed but route exists)
+        const r = await fetch(url, { method: "GET", credentials: "same-origin" });
+        if (r.ok || r.status === 405) return true;
+      } catch (_) {}
+      return false;
+    }
+    for (const base of USERS_ENDPOINT_CANDIDATES) {
+      if (await check(base)) {
+        USERS_BASE = base;
+        localStorage.setItem("wsUsersBase", base);
+        break;
+      }
+    }
+    USERS_BASE = USERS_BASE || "/api/users";
+    return USERS_BASE;
+  }
+
+  // ========= Data (adapter-first) =========
   function normalize(u){
     const created = u.createdAt || u.created_at || u.lastActive || "";
     return {
@@ -32,8 +69,7 @@
     };
   }
 
-  async function fetchUsers(type=""){
-    // adapter first
+  async function fetchList(type=""){
     try{
       if (window.WattSunAdminData?.users?.get){
         const res = await window.WattSunAdminData.users.get({ type });
@@ -41,8 +77,8 @@
         return list.map(normalize);
       }
     }catch(_){}
-    // REST fallback
-    const url = type ? `/api/users?type=${encodeURIComponent(type)}` : `/api/users`;
+    const base = await resolveUsersBase();
+    const url = type ? `${base}?type=${encodeURIComponent(type)}` : base;
     const r = await fetch(url, { credentials: "same-origin" });
     const j = await r.json();
     const list = Array.isArray(j) ? j : (Array.isArray(j?.users) ? j.users : []);
@@ -55,9 +91,10 @@
         return normalize(await window.WattSunAdminData.users.create(payload));
       }
     }catch(_){}
-    const r = await fetch(`/api/users`, {
+    const base = await resolveUsersBase();
+    const r = await fetch(base, {
       method:"POST",
-      headers:{"Content-Type":"application/json"},
+      headers:{ "Content-Type":"application/json" },
       credentials:"same-origin",
       body: JSON.stringify(payload)
     });
@@ -72,9 +109,10 @@
         return normalize(await window.WattSunAdminData.users.update(id, payload));
       }
     }catch(_){}
-    const r = await fetch(`/api/users/${encodeURIComponent(id)}`, {
+    const base = await resolveUsersBase();
+    const r = await fetch(`${base}/${encodeURIComponent(id)}`, {
       method:"PATCH",
-      headers:{"Content-Type":"application/json"},
+      headers:{ "Content-Type":"application/json" },
       credentials:"same-origin",
       body: JSON.stringify(payload)
     });
@@ -90,15 +128,16 @@
         return;
       }
     }catch(_){}
-    await fetch(`/api/users/${encodeURIComponent(id)}/status`, {
+    const base = await resolveUsersBase();
+    await fetch(`${base}/${encodeURIComponent(id)}/status`, {
       method:"PATCH",
-      headers:{"Content-Type":"application/json"},
+      headers:{ "Content-Type":"application/json" },
       credentials:"same-origin",
-      body: JSON.stringify({ status:"Inactive" })
+      body: JSON.stringify({ status: "Inactive" })
     });
   }
 
-  // ---------- render
+  // ========= Render =========
   function rowHtml(u, slno){
     const badge = (u.status==="Active") ? "ws-badge-success" : "ws-badge-muted";
     return `
@@ -179,13 +218,12 @@
     render();
   }
 
-  // ---------- modal (unique id + users-scoped actions)
+  // ========= Modal =========
   function mget(){
     const modal = document.getElementById("usersModal");
     return {
       modal,
       title: $("#users-modal-title", modal),
-      form:  $("#users-form", modal),
       id:    $("#u-id", modal),
       name:  $("#u-name", modal),
       email: $("#u-email", modal),
@@ -200,13 +238,13 @@
     const m = mget(); if (!m.modal) return;
     const isNew = !user || !user.id;
     m.title.textContent = isNew ? "Add User" : "Edit User";
-    m.id.value = user?.id || "";
-    m.name.value = user?.name || "";
-    m.email.value = user?.email || "";
-    m.phone.value = user?.phone || "";
-    m.type.value = user?.type || "";
+    m.id.value     = user?.id || "";
+    m.name.value   = user?.name || "";
+    m.email.value  = user?.email || "";
+    m.phone.value  = user?.phone || "";
+    m.type.value   = user?.type || "";
     m.status.value = user?.status || "Active";
-    m.pwd.value = "";
+    m.pwd.value    = "";
     m.modal.style.display = "";
     m.modal.removeAttribute("aria-hidden");
     setTimeout(()=>m.name?.focus(), 10);
@@ -214,11 +252,11 @@
   function closeModal(){
     const m = mget(); if (!m.modal) return;
     m.modal.style.display = "none";
-    m.modal.setAttribute("aria-hidden", "true");
+    m.modal.setAttribute("aria-hidden","true");
   }
 
   async function saveModal(){
-    const m = mget();
+    const m = mget(); if (!m.modal) return;
     const id = m.id.value.trim();
     const payload = {
       name: m.name.value.trim(),
@@ -227,14 +265,12 @@
       type: m.type.value.trim(),
       status: m.status.value.trim()
     };
-    const pwd = m.pwd.value.trim();
-    if (pwd) payload.password = pwd;
+    const pwd = m.pwd.value.trim(); if (pwd) payload.password = pwd;
 
     if (!payload.name || !payload.phone || !payload.type){
       alert("Name, phone and type are required.");
       return;
     }
-
     try{
       let saved;
       if (id){
@@ -253,32 +289,27 @@
     }
   }
 
-  // ---------- events (strictly under users-root + stopImmediatePropagation)
+  // ========= Events (strictly scoped; capture + stopImmediatePropagation) =========
   function onRootClick(e){
-    if (!State.root.contains(e.target)) return;     // hard scope
+    if (!State.root.contains(e.target)) return;
+    const actEl = e.target.closest("[data-users-action], a.ws-link");
+    if (!actEl) return;
+
+    // Hard-scope: block global listeners (e.g., Orders modal)
+    e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
 
-    const actEl = e.target.closest("[data-users-action]");
-    if (!actEl) return;
+    let action = actEl.getAttribute("data-users-action") || "";
+    const row  = actEl.closest("[data-users-row]");
+    const id   = actEl.getAttribute("data-id") || row?.getAttribute("data-user-id") || "";
 
-    const action = actEl.getAttribute("data-users-action");
-    const id = actEl.getAttribute("data-id")
-           || actEl.closest("[data-users-row]")?.getAttribute("data-user-id") || "";
+    if (!action && actEl.matches('a.ws-link')) action = "open-edit";
 
     switch(action){
-      case "open-create":
-        e.preventDefault(); openModal(null); break;
-
-      case "open-edit": {
-        e.preventDefault();
-        const u = State.all.find(x => String(x.id) === String(id));
-        openModal(u);
-        break;
-      }
-
+      case "open-create":   openModal(null); break;
+      case "open-edit":     openModal(State.all.find(x => String(x.id) === String(id))); break;
       case "deactivate":
-        e.preventDefault();
         if (!confirm("Deactivate this user?")) return;
         deactivateUser(id).then(()=>{
           const u = State.all.find(x => String(x.id) === String(id));
@@ -289,42 +320,28 @@
           alert("Could not deactivate user.");
         });
         break;
-
-      case "search":
-        e.preventDefault(); applyFilters(); break;
-
+      case "search":        applyFilters(); break;
       case "clear":
-        e.preventDefault();
         State.els.search.value = "";
         State.els.type.value = "";
         State.els.status.value = "";
         State.page = 1;
         applyFilters();
         break;
-
       case "page":
-        e.preventDefault();
         const p = parseInt(actEl.getAttribute("data-page"), 10);
-        if (Number.isFinite(p)){
-          State.page = p;
-          render();
-        }
+        if (Number.isFinite(p)) { State.page = p; render(); }
         break;
-
-      case "close":
-        e.preventDefault(); closeModal(); break;
-
-      case "save":
-        e.preventDefault(); saveModal(); break;
-
+      case "close":         closeModal(); break;
+      case "save":          saveModal(); break;
       default: break;
     }
   }
 
   function wire(){
     const { root, els } = State;
+    root.addEventListener("click", onRootClick, true); // capture=true
 
-    root.addEventListener("click", onRootClick, true); // capture + scoped
     els.search.addEventListener("keydown", (e)=>{ if (e.key==="Enter") applyFilters(); });
     els.type.addEventListener("change", applyFilters);
     els.status.addEventListener("change", applyFilters);
@@ -333,13 +350,15 @@
       State.page = 1;
       render();
     });
-    // modal ESC
+
+    // ESC closes modal
     document.addEventListener("keydown", (e)=>{
       const m = $("#usersModal");
       if (m && m.style.display !== "none" && e.key === "Escape") closeModal();
     });
   }
 
+  // ========= Init / Re-init =========
   async function init(){
     const root = document.getElementById("users-root");
     if (!root) return;
@@ -358,21 +377,20 @@
     };
     State.per = parseInt(State.els.per?.value || "10", 10);
 
-    State.all = await fetchUsers("");
+    State.all = await fetchList("");
     State.filtered = State.all.slice();
 
     wire();
     render();
   }
 
-  // re-init if partial is re-inserted
   function autoInit(){
     const tryOnce = ()=>{ const r = document.getElementById("users-root"); if (r && r.dataset.wsInit!=="1") init(); };
     tryOnce();
     new MutationObserver(tryOnce).observe(document.body, { childList:true, subtree:true });
   }
 
-  // public hooks expected by dashboard loader
+  // ========= Public hooks (dashboard expects fetchUsers) =========
   window.fetchUsers = init;
   window.AdminUsers = { init };
 
