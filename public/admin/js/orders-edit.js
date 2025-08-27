@@ -2,49 +2,53 @@
 // Edit Order modal — combobox-only driver picker (markup lives in dashboard.html)
 //
 // AUTH on every request:
-//   - credentials:"include" to send cookies
+//   - credentials:"include" (send cookies)
 //   - Authorization: Bearer <token> if ws_token/authToken/jwt/xToken exists
 //
-// PATCH-first strategy for maximum compatibility:
-//   A) PATCH /api/admin/orders/:id { status, note, driverId }
-//   B) PATCH /api/admin/orders/:id { status, notes, driver_id }
-//   C) (last resort) PUT /api/admin/orders/:id/status { status, note }
-//      and, if driver set, PUT /api/admin/orders/:id/assign-driver { driverUserId }
+// Save strategy (compat, PATCH-first):
+//   A) PATCH /api/admin/orders/:id            { status, note, driverId }
+//   B) PATCH /api/admin/orders/:id            { status, notes, driver_id }   // alt legacy keys
+//   C) PUT   /api/admin/orders/:id/status     { status, note }               // last resort
+//      PUT   /api/admin/orders/:id/assign-driver { driverUserId }           // last resort (if driver chosen)
 
 (() => {
   "use strict";
 
-  // ---------- Tiny helpers ----------
+  // ---------- tiny DOM helpers ----------
   const $  = (sel, root = document) => root.querySelector(sel);
   const by = (id) => document.getElementById(id);
   const debounce = (fn, ms = 200) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
   const ALLOWED = ["Pending", "Processing", "Delivered", "Cancelled"];
 
-  // ---------- Modal elements ----------
-  const modal     = by("orderEditModal") || by("orderEditDialog");
-  const saveBtn   = by("orderSaveBtn");
-  const cancelBtn = by("orderCancelBtn");
+  // ---------- modal elements (must match dashboard.html) ----------
+  const modal       = by("orderEditModal");            // container
+  const saveBtn     = by("orderSaveBtn");
+  const cancelBtn   = by("orderCancelBtn");
 
-  const idInput   = by("orderEditId");
-  const statusSel = by("orderEditStatus");
-  const notesEl   = by("orderEditNotes");
+  const idInput     = by("orderEditId");
+  const statusSel   = by("orderEditStatus");
+  const notesEl     = by("orderEditNotes");
 
-  // Driver combobox (legacy)
-  const driverIdH   = by("orderEditDriverId");
-  const driverInp   = by("orderEditDriverInput");
-  const driverList  = by("orderEditDriverList");
+  // combobox (legacy)
+  const driverWrap  = by("orderEditDriverWrap");
+  const driverIdH   = by("orderEditDriverId");         // hidden numeric id
+  const driverInp   = by("orderEditDriverInput");      // text input
+  const driverList  = by("orderEditDriverList");       // <ul> results
   const driverClear = by("orderEditDriverClear");
 
-  // Money & items (display only)
-  const totalInp   = by("orderEditTotalInput");
-  const depositInp = by("orderEditDepositInput");
-  const currInp    = by("orderEditCurrencyInput");
-  const itemsBody  = by("orderEditItemsBody");
+  // money + items (display only; not saved by this file)
+  const totalInp    = by("orderEditTotalInput");
+  const depositInp  = by("orderEditDepositInput");
+  const currInp     = by("orderEditCurrencyInput");
+  const itemsBody   = by("orderEditItemsBody");
 
-  const ordersTbody = by("ordersTbody"); // for inline row refresh
+  // orders table (inline refresh)
+  const ordersTbody = by("ordersTbody");
+
+  // state
   let currentId = null;
 
-  // ---------- AUTH helpers ----------
+  // ---------- auth + fetch wrappers ----------
   function readToken() {
     try {
       return (
@@ -72,22 +76,21 @@
   }
   async function readText(r) { try { return await r.text(); } catch { return ""; } }
 
-  // ---------- UI utilities ----------
+  // ---------- UI utils ----------
   function setSaving(on) {
     if (!saveBtn) return;
     saveBtn.disabled = !!on;
     saveBtn.textContent = on ? "Saving…" : "Save";
   }
-  function isDialog(el) { return el && typeof el.showModal === "function"; }
   function openModalShell() {
     if (!modal) return;
-    if (isDialog(modal)) { try { modal.showModal(); } catch { modal.setAttribute("open","true"); } }
-    else { modal.style.display = "block"; modal.setAttribute("aria-hidden","false"); }
+    modal.style.display = "block";
+    modal.setAttribute("aria-hidden", "false");
   }
   function closeModalShell() {
     if (!modal) return;
-    if (isDialog(modal)) { try { modal.close(); } catch { modal.removeAttribute("open"); } }
-    else { modal.style.display = "none"; modal.setAttribute("aria-hidden","true"); }
+    modal.style.display = "none";
+    modal.setAttribute("aria-hidden", "true");
   }
   function buildStatusOptions(current) {
     if (!statusSel) return;
@@ -99,111 +102,8 @@
     }
     statusSel.value = ALLOWED.includes(current) ? current : "Pending";
   }
-  function parseKES(s) {
-    if (typeof s === "number") return s;
-    if (!s) return 0;
-    const n = String(s).replace(/[^\d.,-]/g, "").replace(/,/g, "");
-    const f = parseFloat(n);
-    return Number.isFinite(f) ? f : 0;
-  }
-  function rowById(id) {
-    return ordersTbody?.querySelector(`tr[data-oid="${CSS.escape(String(id))}"]`);
-  }
-  function readRowFields(id) {
-    const row = rowById(id);
-    if (!row) return {};
-    const phone  = row.querySelector('[data-col="phone"]')?.textContent?.trim()  || "";
-    const email  = row.querySelector('[data-col="email"]')?.textContent?.trim()  || "";
-    const status = row.querySelector('[data-col="status"]')?.textContent?.trim() || "Pending";
-    const total  = parseKES(row.children?.[5]?.textContent || "");
-    const driverName = row.querySelector('[data-col="driver"], .col-driver')?.textContent?.trim() || "";
-    return { phone, email, status, total, driverName };
-  }
 
-  // ---------- Track hydration (optional) ----------
-  async function hydrateFromTrack(orderId, phone, email) {
-    const variants = [];
-    if (phone) {
-      const p = String(phone).trim();
-      variants.push(p, p.replace(/^\+/, ""), p.replace(/^\+?254/, "0"));
-    }
-    const attempts = [];
-    for (const ph of variants) attempts.push({ ph, ord: orderId });
-    for (const ph of variants) attempts.push({ ph, ord: null });
-    if (!variants.length) attempts.push({ ph: "", ord: orderId });
-
-    for (const at of attempts) {
-      try {
-        const qs = new URLSearchParams();
-        if (at.ph)  qs.set("phone", at.ph);
-        if (at.ord) qs.set("order", String(at.ord));
-        qs.set("page", "1"); qs.set("per", "5");
-        const headers = authHeaders();
-        if (email) headers["X-WS-Email"] = email;
-        const res = await fetch(`/api/track?${qs.toString()}`, { credentials: "include", headers });
-        if (!res.ok) continue;
-        const data = await res.json().catch(() => ({}));
-        const list = Array.isArray(data?.orders) ? data.orders : [];
-        if (!list.length) continue;
-        const hit = list.find(o => String(o.orderNumber || o.id) === String(orderId)) || list[0];
-        if (hit) return hit;
-      } catch {}
-    }
-    return null;
-  }
-
-  // ---------- Driver combobox ----------
-  async function queryDrivers(q) {
-    const url = `/api/admin/users?type=Driver${q ? `&q=${encodeURIComponent(q)}` : ""}`;
-    try {
-      const r = await fetch(url, { credentials: "include", headers: authHeaders() });
-      const data = await r.json().catch(() => ({}));
-      return Array.isArray(data?.users) ? data.users : [];
-    } catch { return []; }
-  }
-  function resetDriver(id = "", name = "") {
-    if (driverIdH)  driverIdH.value = id ? String(id) : "";
-    if (driverInp)  driverInp.value = name || "";
-    if (driverList) driverList.innerHTML = "";
-  }
-  function getDriverPayload() {
-    const raw = (driverIdH?.value ?? "").trim();
-    if (raw === "") return { ok: true, value: null };
-    const n = Number(raw);
-    if (!Number.isInteger(n) || n < 0) return { ok: false, error: "Driver ID must be a positive integer." };
-    return { ok: true, value: n };
-  }
-  function wireDriverComboOnce() {
-    if (!driverInp || !driverList) return;
-    if (driverInp._bound) return;
-    driverInp._bound = true;
-    const render = (arr) => {
-      driverList.innerHTML = "";
-      if (!arr.length) { driverList.innerHTML = `<li class="empty">No drivers</li>`; return; }
-      for (const u of arr) {
-        const li = document.createElement("li");
-        const name = u.name || u.fullName || "";
-        li.textContent = `${name}${u.phone ? ` — ${u.phone}` : ""}`;
-        li.tabIndex = 0;
-        li.addEventListener("click", () => { resetDriver(u.id, name); driverList.style.display = "none"; });
-        driverList.appendChild(li);
-      }
-      driverList.style.display = "block";
-    };
-    const onType = debounce(async () => {
-      const q = (driverInp.value || "").trim();
-      render(await queryDrivers(q));
-    }, 180);
-    driverInp.addEventListener("input", onType);
-    driverInp.addEventListener("focus", onType);
-    document.addEventListener("click", (e) => {
-      if (!driverList.contains(e.target) && e.target !== driverInp) driverList.style.display = "none";
-    });
-    driverClear?.addEventListener("click", (e) => { e.preventDefault(); resetDriver(); driverList.style.display = "none"; });
-  }
-  wireDriverComboOnce();
-
-  // ---------- Items table (display only) ----------
+  // ---------- items table (display only) ----------
   function fillItemsTable(list, currency) {
     if (!itemsBody) return;
     itemsBody.innerHTML = "";
@@ -219,7 +119,7 @@
     for (const it of items) {
       const sku   = it.sku ?? it.code ?? it.id ?? "—";
       const name  = it.name ?? it.title ?? it.productName ?? "—";
-      const qty   = it.qty ?? it.quantity ?? 1;
+      const qty   = it.qty  ?? it.quantity ?? 1;
       const price = it.price ?? it.unitPrice ?? 0;
       const tr = document.createElement("tr");
       tr.innerHTML = `<td>${sku}</td><td>${name}</td><td>${qty}</td><td>${fmt(price)}</td>`;
@@ -227,82 +127,148 @@
     }
   }
 
-  // ---------- Modal open ----------
+  // ---------- driver combobox ----------
+  async function queryDrivers(q) {
+    const url = `/api/admin/users?type=Driver${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+    try {
+      const r = await fetch(url, { credentials: "include", headers: authHeaders() });
+      const data = await r.json().catch(() => ({}));
+      return Array.isArray(data?.users) ? data.users : [];
+    } catch { return []; }
+  }
+  function resetDriver(id = "", name = "") {
+    if (driverIdH)  driverIdH.value = id ? String(id) : "";
+    if (driverInp)  driverInp.value = name || "";
+    if (driverList) driverList.innerHTML = "";
+  }
+  function wireDriverComboOnce() {
+    if (!driverInp || !driverList) return;
+    if (driverInp._bound) return;
+    driverInp._bound = true;
+
+    const render = (arr) => {
+      driverList.innerHTML = "";
+      if (!arr.length) { driverList.innerHTML = `<li class="empty">No drivers</li>`; return; }
+      for (const u of arr) {
+        const li = document.createElement("li");
+        const name = u.name || u.fullName || "";
+        li.textContent = `${name}${u.phone ? ` — ${u.phone}` : ""}`;
+        li.tabIndex = 0;
+        li.addEventListener("click", () => { resetDriver(u.id, name); driverList.style.display = "none"; });
+        driverList.appendChild(li);
+      }
+      driverList.style.display = "block";
+    };
+
+    const onType = debounce(async () => {
+      const q = (driverInp.value || "").trim();
+      render(await queryDrivers(q));
+    }, 180);
+
+    driverInp.addEventListener("input", onType);
+    driverInp.addEventListener("focus", onType);
+    document.addEventListener("click", (e) => {
+      if (!driverList.contains(e.target) && e.target !== driverInp) driverList.style.display = "none";
+    });
+    driverClear?.addEventListener("click", (e) => { e.preventDefault(); resetDriver(); driverList.style.display = "none"; });
+  }
+  wireDriverComboOnce();
+
+  // ---------- helpers to read table row values for seeding ----------
+  function rowById(id) {
+    return ordersTbody?.querySelector(`tr[data-oid="${CSS.escape(String(id))}"]`);
+  }
+  function readRowFields(id) {
+    const row = rowById(id);
+    if (!row) return {};
+    const phone  = row.querySelector('[data-col="phone"]')?.textContent?.trim()  || "";
+    const email  = row.querySelector('[data-col="email"]')?.textContent?.trim()  || "";
+    const status = row.querySelector('[data-col="status"]')?.textContent?.trim() || "Pending";
+    const total  = row.children?.[5]?.textContent || ""; // display only
+    const driverName = row.querySelector('[data-col="driver"], .col-driver')?.textContent?.trim() || "";
+    return { phone, email, status, total, driverName };
+  }
+
+  // ---------- modal open (exposed) ----------
   async function openModal(orderLike) {
-    const id = orderLike?.id || orderLike?.orderNumber;
+    const id = orderLike?.id || orderLike?.orderNumber || orderLike?.order_id;
     if (!id) return alert("Missing order id");
     currentId = id;
     if (idInput) idInput.value = id;
 
+    // seed from row / payload
     const row = readRowFields(id);
     buildStatusOptions(orderLike.status || row.status);
     resetDriver("", orderLike.driverName || row.driverName || "");
+    notesEl && (notesEl.value = orderLike.notes || "");
 
-    if (totalInp)   totalInp.value   = String(row.total || 0);
-    if (depositInp) depositInp.value = String(depositInp.value || 0);
-    if (currInp)    currInp.value    = currInp.value || "KES";
-
-    const fromTrack = await hydrateFromTrack(id, orderLike.phone || row.phone, orderLike.email || row.email);
-    if (fromTrack) {
-      if (typeof fromTrack.total === "number" && totalInp) totalInp.value = String(fromTrack.total);
-      if (fromTrack.currency && currInp) currInp.value = fromTrack.currency;
-      fillItemsTable(fromTrack.items || fromTrack.cart || [], currInp?.value || "KES");
-    } else {
-      fillItemsTable([], currInp?.value || "KES");
-    }
+    // money: display only
+    totalInp   && (totalInp.value   = "0");
+    depositInp && (depositInp.value = "0");
+    currInp    && (currInp.value    = "KES");
+    fillItemsTable([], currInp?.value || "KES");
 
     openModalShell();
   }
 
-  // ---------- Save (PATCH-first, then split as last resort) ----------
+  // ---------- SAVE (PATCH-first with credentials) ----------
   async function doSave() {
     if (!currentId) return;
+
     const status = statusSel?.value || "Pending";
     if (!ALLOWED.includes(status)) return alert("Please choose a valid status.");
 
-    const drv = getDriverPayload();
-    if (!drv.ok) return alert(drv.error || "Invalid driver");
-
     const note = notesEl?.value?.trim() || "";
-    setSaving(true);
+    const driverValRaw = (driverIdH?.value ?? "").trim();
+    const driverVal = driverValRaw === "" ? null : Number(driverValRaw);
+    if (driverVal !== null && (!Number.isInteger(driverVal) || driverVal < 0)) {
+      return alert("Driver ID must be a positive integer.");
+    }
 
+    setSaving(true);
     try {
-      // A) Legacy PATCH (note + driverId)
+      // A) legacy PATCH (note + driverId)
       let r = await req("PATCH", `/api/admin/orders/${encodeURIComponent(currentId)}`, {
         status,
         note,
-        driverId: drv.value ?? null
+        driverId: driverVal
       });
+
+      // B) alt legacy keys if A failed
       if (!r.ok) {
         console.warn("[orders-edit] legacy A failed:", r.status, await readText(r));
-        // B) Legacy PATCH alt (notes + driver_id)
         r = await req("PATCH", `/api/admin/orders/${encodeURIComponent(currentId)}`, {
           status,
           notes: note,
-          driver_id: drv.value ?? null
+          driver_id: driverVal
         });
       }
 
-      // If still not ok, try split as last resort
+      // C) split routes as last resort
       if (!r.ok) {
         console.info("[orders-edit] trying split routes as last resort…");
-        // status
         const rs = await req("PUT", `/api/admin/orders/${encodeURIComponent(currentId)}/status`, { status, note });
-        // driver (optional)
-        if (drv.value !== null) {
-          const rd = await req("PUT", `/api/admin/orders/${encodeURIComponent(currentId)}/assign-driver`, { driverUserId: Number(drv.value) });
-          if (!rd.ok) console.warn("[orders-edit] assign-driver failed:", rd.status, await readText(rd));
-        }
         if (!rs.ok) {
           const msg = await readText(rs);
           throw new Error(`Save failed on all routes. Last /status: ${rs.status} — ${msg || "(no body)"}`);
         }
+        if (driverVal !== null) {
+          const rd = await req("PUT", `/api/admin/orders/${encodeURIComponent(currentId)}/assign-driver`, { driverUserId: driverVal });
+          if (!rd.ok) console.warn("[orders-edit] assign-driver failed:", rd.status, await readText(rd));
+        }
       }
 
-      // Inline row refresh
+      // inline row refresh (status + driver name if present)
       const row = rowById(currentId);
       row?.querySelector('[data-col="status"]')?.replaceChildren(document.createTextNode(status));
+      if (driverVal !== null) {
+        // show the typed name as a best-effort (API doesn’t echo)
+        const name = driverInp?.value || "";
+        const cell = row?.querySelector('[data-col="driver"], .col-driver');
+        if (cell) cell.textContent = name;
+      }
 
+      // broadcast to other views (customer track, etc.)
       try {
         localStorage.setItem("ordersUpdatedAt", String(Date.now()));
         window.postMessage({ type: "orders-updated", orderId: currentId }, "*");
@@ -317,10 +283,11 @@
     }
   }
 
-  // ---------- Bindings ----------
+  // ---------- bindings ----------
   cancelBtn?.addEventListener("click", (e) => { e.preventDefault(); closeModalShell(); });
   saveBtn?.addEventListener("click",  (e) => { e.preventDefault(); doSave(); });
 
+  // open via action buttons in the table (supports either selector)
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('[data-action="edit-order"], .btn-edit');
     if (!btn) return;
@@ -334,10 +301,10 @@
     const statusText = tr?.querySelector('[data-col="status"], .col-status')?.textContent?.trim() || "";
     const driverName = tr?.querySelector('[data-col="driver"], .col-driver')?.textContent?.trim() || "";
 
-    const orderLike = { id: oid, orderNumber: oid, phone, email, status: statusText, driverName };
-    openModal(orderLike);
+    openModal({ id: oid, orderNumber: oid, phone, email, status: statusText, driverName });
   });
 
+  // optional global hook
   if (typeof window.openOrderEdit !== "function") {
     window.openOrderEdit = (order) => openModal(order || {});
   }
