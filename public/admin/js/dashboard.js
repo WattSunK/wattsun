@@ -61,6 +61,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const hasOwnSearch = new Set(["orders", "users", "items", "myorders", "dispatch"]);
     setHeaderSearchVisible(!hasOwnSearch.has(section));
 
+    // Allow branches to prefetch and hand HTML to the generic renderer
+    let prefetchedHTML = null;
+    let prefetchedName = null;
+
+    // MYORDERS — special handler, then exit
     if (section === "myorders") {
       const url = "./myaccount/userdash.html";
       content.innerHTML = `
@@ -80,27 +85,30 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Explicit Items branch
+    // ITEMS — prefetch + controller, then let generic path render
     if (section === "items") {
       try {
         const res = await fetch(`./partials/items.html?v=${Date.now()}`);
-        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+        prefetchedHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+        prefetchedName = "items";
       } catch {
-        content.innerHTML = `<div class="p-3"></div>`;
+        prefetchedHTML = `<div class="p-3"></div>`;
+        prefetchedName = "items";
       }
       await ensureScript("./admin/js/admin-items.js", () => window.AdminItems && typeof window.AdminItems.init === "function");
-      if (window.AdminItems && typeof window.AdminItems.init === "function") {
-        window.AdminItems.init();
-      }
-      window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "items" }}));
-      window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: "items" }}));
-      return;
+      // no return; generic renderer will inject HTML then we call init
     }
 
-    // Default branch (includes Dispatch special-case)
+    // DEFAULT (and every other section, including Dispatch)
     try {
-      const res = await fetch(`./partials/${section}.html?v=${Date.now()}`);
-      content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+      let html;
+      if (prefetchedHTML && prefetchedName === section) {
+        html = prefetchedHTML;
+      } else {
+        const res = await fetch(`./partials/${section}.html?v=${Date.now()}`);
+        html = res.ok ? await res.text() : `<div class="p-3"></div>`;
+      }
+      content.innerHTML = html;
 
       if (section === "dispatch" && typeof window.WattSunAdminData === "undefined") {
         await new Promise((resolve) => {
@@ -114,6 +122,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
       runInlineScripts(content);
       window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
+
+      // Finalize Items init now that DOM is present
+      if (section === "items" && window.AdminItems && typeof window.AdminItems.init === "function") {
+        window.AdminItems.init();
+      }
+
       window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: section }}));
     } catch {
       content.innerHTML = `<div class="p-3"></div>`;

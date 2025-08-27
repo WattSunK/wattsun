@@ -88,6 +88,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const hasOwnSearch = new Set(["orders", "users", "items", "myorders"]);
     setHeaderSearchVisible(!hasOwnSearch.has(section));
 
+    // Prefetch hook for branches that want to supply HTML to the generic renderer
+    let prefetchedHTML = null;
+    let prefetchedName = null;
+
+    // ORDERS — special handler, then exit
     if (section === "orders") {
       try {
         const res = await fetch(`./partials/orders.html?v=${Date.now()}`);
@@ -102,6 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // PROFILE — special handler, then exit
     if (section === "profile") {
       try {
         const res = await fetch(`./partials/profile.html?v=${Date.now()}`);
@@ -130,6 +136,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // USERS — special handler, then exit
     if (section === "users") {
       try {
         const res = await fetch(`./partials/users.html?v=${Date.now()}`);
@@ -154,30 +161,41 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Explicit Items loader
+    // ITEMS — do NOT early-return; prefetch + controller, then let generic path run
     if (section === "items") {
       try {
         const res = await fetch(`./partials/items.html?v=${Date.now()}`);
-        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-        window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "items" }}));
+        prefetchedHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+        prefetchedName = "items";
       } catch {
-        content.innerHTML = `<div class="p-3"></div>`;
+        prefetchedHTML = `<div class="p-3"></div>`;
+        prefetchedName = "items";
       }
       await ensureScript("./admin/js/admin-items.js", () => window.AdminItems && typeof window.AdminItems.init === "function");
       if (window.AdminItems && typeof window.AdminItems.init === "function") {
-        window.AdminItems.init();
+        // init will run once the HTML is injected by the generic renderer below
+        // (it is idempotent and MutationObserver-safe)
       } else {
         console.error("AdminItems.init() not found after loading admin-items.js");
       }
-      window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: "items" }}));
-      return;
+      // Don't return here — fall through to generic block which will use prefetchedHTML.
     }
 
-    // default loader for other sections
+    // default / generic loader (uses prefetchedHTML if provided)
     try {
-      const res = await fetch(`./partials/${section}.html?v=${Date.now()}`);
-      content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+      let html;
+      if (prefetchedHTML && prefetchedName === section) {
+        html = prefetchedHTML;
+      } else {
+        const res = await fetch(`./partials/${section}.html?v=${Date.now()}`);
+        html = res.ok ? await res.text() : `<div class="p-3"></div>`;
+      }
+      content.innerHTML = html;
       window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
+      // If Items was the section, call init now that HTML is in the DOM.
+      if (section === "items" && window.AdminItems && typeof window.AdminItems.init === "function") {
+        window.AdminItems.init();
+      }
     } catch {
       content.innerHTML = `<div class="p-3"></div>`;
     }
