@@ -1,473 +1,504 @@
-/* Admin Users — scoped, idempotent controller with Items-style modal.
-   - Keeps existing list/search/pager behavior
-   - Exposes window.fetchUsers for dashboard loader
-   - Uses adapter-first saves, REST fallback with endpoint auto-detect
-   - Adapts to PATCH/PUT/POST and different base routes (/api/admin/users, /api/users, etc.)
-*/
-(function(){
-  // ========= State & Utils =========
+/* public/admin/js/admin-users.js
+ * Admin — Users controller (SSR-friendly, idempotent, strictly scoped)
+ * - Single source of truth for fetch + render (no duplicates)
+ * - Snappy client-side pagination, search and filters
+ * - Strict DOM scoping to #users-root (no cross-talk with other panes)
+ * - Idempotent init/refresh (boot guard + rehydrate)
+ * - Namespaced actions so Orders modal can’t hijack our clicks
+ */
+(() => {
+  // ========= Tiny utils
+  const $  = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const T  = v => (v == null ? "" : String(v));
+  const esc = s => T(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+  const fmtLastActive = iso => {
+    if (!iso) return "—";
+    // Keep server UTC as-is; this is just visual.
+    return iso.replace("T", " ").replace("Z", "Z");
+  };
+
+  const once = (fn => {
+    let done = false;
+    return (...a) => { if (done) return; done = true; fn(...a); };
+  });
+
+  // ========= Local state (single source of truth)
   const State = {
+    booted: false,
+    root: null,
+    els: {},
+    // data
     all: [],
     filtered: [],
+    // ui
+    q: "",
+    type: "",
+    status: "",
     page: 1,
     per: 10,
-    root: null,
-    els: {}
+    // re-entrant guard
+    inflight: 0,
   };
-  // (optional) visible for debugging/other panes
-  window.UsersState = State;
 
-  const $  = (sel, root=document) => root.querySelector(sel);
-  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const T  = (v)=> (v==null ? "" : String(v));
-  const esc= (s)=> T(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
-  function log(...a){ console.log("[Users]", ...a); }
-
-  // ========= Endpoint auto-detect (cached & op-aware) =========
-  const USERS_ENDPOINT_CANDIDATES = ["/api/admin/users", "/api/users", "/admin/users", "/users"];
-
-  async function _routeExists(url) {
-    try {
-      const r = await fetch(url, { method: "GET", credentials: "same-origin" });
-      if (r.ok || r.status === 405) return true; // 405 => route exists (method not allowed)
-    } catch (_) {}
-    return false;
+  // ========= Endpoint helpers (modern → legacy fallbacks)
+  async function hit(method, url, body, headers = {}) {
+    const h = { "Content-Type": "application/json", ...headers };
+    const res = await fetch(url, { method, headers: h, body: body ? JSON.stringify(body) : undefined });
+    const text = await res.text();
+    let json = null;
+    try { json = JSON.parse(text); } catch {}
+    return { ok: res.ok, status: res.status, json, text };
   }
 
-  /** Resolve a base for a given op: 'list' | 'update' | 'create' | 'status' */
-  async function resolveUsersBaseFor(op) {
-    // manual override
-    const override = localStorage.getItem("wsUsersBaseOverride");
-    if (override) return override;
-
-    const key = `wsUsersBase_${op}`;
-    const cached = localStorage.getItem(key);
-    if (cached) return cached;
-
-    for (const base of USERS_ENDPOINT_CANDIDATES) {
-      const ok = await _routeExists(base);
-      if (!ok) continue;
-
-      if (op === "update" || op === "status") {
-        // ensure /:id path exists to avoid 404 later
-        const probeId = "1";
-        const okId = await _routeExists(`${base}/${probeId}`);
-        if (!okId) continue;
-      }
-      localStorage.setItem(key, base);
-      return base;
-    }
-    // fallback
-    localStorage.setItem(key, "/api/users");
-    return "/api/users";
+  async function getUsersFrom(url) {
+    const r = await hit("GET", url);
+    if (!r.ok) return null;
+    const j = r.json ?? {};
+    // Accept several shapes
+    const arr =
+      Array.isArray(j) ? j :
+      Array.isArray(j.users) ? j.users :
+      Array.isArray(j.data) ? j.data :
+      Array.isArray(j.results) ? j.results : null;
+    if (!arr) return null;
+    return arr;
   }
 
-  /** Try a sequence of methods/paths for update until one works; cache the winner */
-  async function tryUpdateSequence(id, payload, suffix = "") {
+  // Normalizer to a canonical user shape used by UI
+  function normalizeUser(u, ix = 0) {
+    const id     = u.id ?? u.userId ?? u._id ?? u.uid ?? u.msisdn ?? u.phone ?? String(ix + 1);
+    const name   = u.name ?? u.fullName ?? u.displayName ?? "—";
+    const email  = u.email ?? u.mail ?? "";
+    const phone  = u.phone ?? u.msisdn ?? "";
+    const type   = u.type ?? u.role ?? "User";
+    const status = u.status ?? (u.active === false ? "Inactive" : "Active");
+    const lastActive = u.lastActive ?? u.lastLogin ?? u.lastSeen ?? "";
+    const orders = u.orders ?? u.ordersCount ?? u.orderCount ?? 0;
+    return { id: String(id), name, email, phone, type, status, lastActive, orders };
+  }
+
+  async function fetchUsers() {
+    // Try modern admin list first, then legacy fallbacks
     const candidates = [
-      { method: "PATCH", path: (b) => `${b}/${encodeURIComponent(id)}${suffix}` },
-      { method: "PUT",   path: (b) => `${b}/${encodeURIComponent(id)}${suffix}` },
-      { method: "POST",  path: (b) => `${b}/update/${encodeURIComponent(id)}${suffix}` },
-      { method: "POST",  path: (b) => `${b}?id=${encodeURIComponent(id)}` },
+      "/api/admin/users",                             // modern
+      "/api/users",                                   // generic
+      "/api/user-setup/users",                        // legacy
+      "/api/admin/users/list",                        // legacy variant
     ];
-
-    const forced = localStorage.getItem("wsUsersUpdateMethod");
-    if (forced) {
-      candidates.sort((a, b) => (a.method === forced ? -1 : b.method === forced ? 1 : 0));
-    }
-
-    // Prefer previously working base if any
-    const firstBase = localStorage.getItem("wsUsersBase_update");
-    const bases = (firstBase ? [firstBase] : []).concat(USERS_ENDPOINT_CANDIDATES);
-
-    for (const base of bases) {
-      for (const c of candidates) {
-        const url = c.path(base);
-        try {
-          const r = await fetch(url, {
-            method: c.method,
-            headers: { "Content-Type": "application/json" },
-            credentials: "same-origin",
-            body: JSON.stringify(payload),
-          });
-          if (r.ok) {
-            localStorage.setItem("wsUsersBase_update", base);
-            localStorage.setItem("wsUsersUpdateMethod", c.method);
-            return await r.json();
-          }
-        } catch (_) { /* continue */ }
-      }
-    }
-    throw new Error("No working update endpoint");
-  }
-
-  // ========= Data (adapter-first) =========
-  function normalize(u){
-    const created = u.createdAt || u.created_at || u.lastActive || "";
-    return {
-      id: u.id ?? u.userId ?? u._id ?? "",
-      name: u.name ?? u.fullName ?? "",
-      email: u.email ?? "",
-      phone: u.phone ?? "",
-      type: u.type ?? u.role ?? "",
-      status: u.status ?? "Active",
-      createdAt: created,
-      orders: Number.isFinite(u.orders) ? u.orders : (u.orderCount ?? 0),
-      _raw: u
-    };
-  }
-
-  async function fetchList(type=""){
-    try{
-      if (window.WattSunAdminData?.users?.get){
-        const res = await window.WattSunAdminData.users.get({ type });
-        const list = Array.isArray(res) ? res : (Array.isArray(res?.users) ? res.users : []);
-        return list.map(normalize);
-      }
-    }catch(_){}
-    const base = await resolveUsersBaseFor("list");
-    const url  = type ? `${base}?type=${encodeURIComponent(type)}` : base;
-    const r = await fetch(url, { credentials: "same-origin" });
-    const j = await r.json();
-    const list = Array.isArray(j) ? j : (Array.isArray(j?.users) ? j.users : []);
-    return list.map(normalize);
-  }
-
-  async function createUser(payload){
-    try{
-      if (window.WattSunAdminData?.users?.create){
-        return normalize(await window.WattSunAdminData.users.create(payload));
-      }
-    }catch(_){}
-    // prefer cached base if any, then try others
-    const firstBase = localStorage.getItem("wsUsersBase_create");
-    const bases = (firstBase ? [firstBase] : []).concat(USERS_ENDPOINT_CANDIDATES);
-
-    for (const base of bases) {
+    for (const u of candidates) {
       try {
-        const r = await fetch(base, {
-          method:"POST",
-          headers:{ "Content-Type":"application/json" },
-          credentials:"same-origin",
-          body: JSON.stringify(payload)
-        });
-        if (r.ok) {
-          localStorage.setItem("wsUsersBase_create", base);
-          const j = await r.json();
-          const obj = j.user || (Array.isArray(j.users) ? j.users[0] : j);
-          return normalize(obj);
+        const arr = await getUsersFrom(u);
+        if (arr) {
+          console.info("[Users] Loaded from", u, "count=", arr.length);
+          return arr.map(normalizeUser);
         }
-      } catch (_) { /* try next */ }
-    }
-    throw new Error("Create failed (no working endpoint)");
-  }
-
-  async function updateUser(id, payload){
-    try{
-      if (window.WattSunAdminData?.users?.update){
-        return normalize(await window.WattSunAdminData.users.update(id, payload));
-      }
-    }catch(_){}
-    const j = await tryUpdateSequence(id, payload);
-    const obj = j.user || (Array.isArray(j.users) ? j.users[0] : j);
-    return normalize(obj);
-  }
-
-  async function deactivateUser(id){
-    try{
-      if (window.WattSunAdminData?.users?.deactivate){
-        await window.WattSunAdminData.users.deactivate(id);
-        return;
-      }
-    }catch(_){}
-
-    const payload = { status: "Inactive" };
-    const firstBase = localStorage.getItem("wsUsersBase_status");
-    const bases = (firstBase ? [firstBase] : []).concat(USERS_ENDPOINT_CANDIDATES);
-
-    for (const base of bases) {
-      const urls = [
-        { method: "PATCH", url: `${base}/${encodeURIComponent(id)}/status` },
-        { method: "PUT",   url: `${base}/${encodeURIComponent(id)}/status`  },
-        { method: "PATCH", url: `${base}/${encodeURIComponent(id)}` },
-        { method: "PUT",   url: `${base}/${encodeURIComponent(id)}` },
-      ];
-      for (const { method, url } of urls) {
-        try {
-          const r = await fetch(url, {
-            method,
-            headers: { "Content-Type": "application/json" },
-            credentials: "same-origin",
-            body: JSON.stringify(payload),
-          });
-          if (r.ok) {
-            localStorage.setItem("wsUsersBase_status", base);
-            return;
-          }
-        } catch (_) { /* continue */ }
+      } catch (e) {
+        console.warn("[Users] Failed", u, e);
       }
     }
-    throw new Error("Deactivate failed (no working endpoint)");
+    // As a last resort, attempt to recover from localStorage (very defensive)
+    try {
+      const b = localStorage.getItem("wattsunUser");
+      if (b) {
+        const j = JSON.parse(b);
+        const u = {
+          id: j.id || j.user?.id || j.userId || "me",
+          name: j.name || j.user?.name || j.fullName || "My Account",
+          email: j.email || j.user?.email || "",
+          phone: j.phone || j.user?.phone || j.user?.msisdn || "",
+          type: j.type || j.user?.type || j.user?.role || "User",
+          status: "Active",
+          lastActive: "",
+          orders: 0
+        };
+        return [u];
+      }
+    } catch {}
+    return [];
   }
 
-  // ========= Render =========
-  function rowHtml(u, slno){
-    const badge = (u.status==="Active") ? "ws-badge-success" : "ws-badge-muted";
-    return `
-      <tr data-users-row data-user-id="${esc(u.id)}">
-        <td>${slno}</td>
-        <td>
-          <a href="#" class="ws-link" data-users-action="open-edit" data-id="${esc(u.id)}">
-            ${esc(u.name || "(no name)")}
-          </a>
-        </td>
-        <td>${esc(u.email)}</td>
-        <td>${esc(u.phone)}</td>
-        <td>${esc(u.type)}</td>
-        <td>${esc(u.orders)}</td>
-        <td><span class="ws-badge ${badge}">${esc(u.status || "Active")}</span></td>
-        <td>${u.createdAt ? esc(u.createdAt) : ""}</td>
-        <td class="ws-actions">
-          <button class="ws-btn ws-btn-xs" data-users-action="open-edit" data-id="${esc(u.id)}">View</button>
-          <button class="ws-btn ws-btn-xs ws-btn-primary" data-users-action="open-edit" data-id="${esc(u.id)}">Edit</button>
-          <button class="ws-btn ws-btn-xs ws-btn-ghost" data-users-action="deactivate" data-id="${esc(u.id)}">Delete</button>
-        </td>
-      </tr>
-    `;
+  async function createOrUpdateUser(payload, userId) {
+    // Accept both create and update with a cascade of endpoints (modern → legacy)
+    const tries = [];
+
+    if (userId) {
+      // Update
+      tries.push(["PATCH", `/api/admin/users/${encodeURIComponent(userId)}`, payload]);
+      tries.push(["PUT",   `/api/admin/users/${encodeURIComponent(userId)}`, payload]);
+      tries.push(["POST",  `/api/admin/users/update/${encodeURIComponent(userId)}`, payload]); // legacy
+      tries.push(["PATCH", `/api/users/${encodeURIComponent(userId)}`, payload]);              // generic
+      tries.push(["PUT",   `/api/users/${encodeURIComponent(userId)}`, payload]);
+    } else {
+      // Create
+      tries.push(["POST", `/api/admin/users`, payload]);
+      tries.push(["POST", `/api/users`,       payload]); // generic
+      tries.push(["POST", `/api/admin/users/create`, payload]); // legacy
+    }
+
+    let lastErr = null;
+    for (const [m,u,b] of tries) {
+      try {
+        const r = await hit(m, u, b);
+        if (r.ok && (r.json?.success !== false)) {
+          console.info("[Users] Saved via", m, u);
+          return r.json || { success: true };
+        }
+        lastErr = r;
+      } catch (e) { lastErr = e; }
+    }
+    throw lastErr || new Error("Save failed (no endpoint accepted)");
   }
 
-  function renderPager(total){
-    const { page, per, els } = State;
-    const pages = Math.max(1, Math.ceil(total/per));
-    if (State.page > pages) State.page = pages;
+  // ========= Rendering (strictly scoped)
+  function applyFilters() {
+    const q = State.q.trim().toLowerCase();
+    const type = State.type;
+    const status = State.status;
 
-    let html = "";
-    const btn = (p, label, disabled=false, active=false)=>{
-      const cls = ["ws-page-btn", active?"is-active":"", disabled?"is-disabled":""].join(" ");
-      return `<button class="${cls}" data-users-action="page" data-page="${p}" ${disabled?"disabled":""}>${label}</button>`;
-    };
-    html += btn(1, "«", page===1);
-    html += btn(Math.max(1, page-1), "‹", page===1);
-    const win=5, s=Math.max(1,page-Math.floor(win/2)), e=Math.min(pages,s+win-1);
-    for (let p=s; p<=e; p++) html += btn(p, String(p), false, p===page);
-    html += btn(Math.min(pages,page+1), "›", page===pages);
-    html += btn(pages, "»", page===pages);
-    els.pager.innerHTML = html;
-  }
-
-  function render(){
-    const { page, per, filtered, els } = State;
-    const start = (page-1)*per;
-    const rows  = filtered.slice(start, start+per);
-
-    els.tbody.innerHTML = rows.length
-      ? rows.map((u, i)=>rowHtml(u, start+i+1)).join("")
-      : `<tr class="ws-empty"><td colspan="9">No users found</td></tr>`;
-
-    const total = filtered.length;
-    const end   = Math.min(start+rows.length, total);
-    els.info.textContent = total ? `${start+1}–${end} of ${total}` : "0–0 of 0";
-
-    renderPager(total);
-    window.dispatchEvent(new CustomEvent("users:rendered"));
-  }
-
-  function applyFilters(){
-    const q = State.els.search.value.trim().toLowerCase();
-    const type = State.els.type.value.trim();
-    const status = State.els.status.value.trim();
-
-    State.filtered = State.all.filter(u=>{
+    State.filtered = State.all.filter(u => {
       if (type && u.type !== type) return false;
       if (status && (u.status || "Active") !== status) return false;
-      if (q){
+      if (q) {
         const hay = `${u.name} ${u.email} ${u.phone}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-
     State.page = 1;
-    render();
   }
 
-  // ========= Modal =========
-  function mget(){
-    const modal = document.getElementById("usersModal");
-    return {
-      modal,
-      title: $("#users-modal-title", modal),
-      id:    $("#u-id", modal),
-      name:  $("#u-name", modal),
-      email: $("#u-email", modal),
-      phone: $("#u-phone", modal),
-      type:  $("#u-type", modal),
-      status:$("#u-status", modal),
-      pwd:   $("#u-password", modal)
-    };
+  function slicePage() {
+    const start = (State.page - 1) * State.per;
+    return State.filtered.slice(start, start + State.per);
   }
 
-  function openModal(user){
-    const m = mget(); if (!m.modal) return;
-    const isNew = !user || !user.id;
-    m.title.textContent = isNew ? "Add User" : "Edit User";
-    m.id.value     = user?.id || "";
-    m.name.value   = user?.name || "";
-    m.email.value  = user?.email || "";
-    m.phone.value  = user?.phone || "";
-    m.type.value   = user?.type || "";
-    m.status.value = user?.status || "Active";
-    m.pwd.value    = "";
-    m.modal.style.display = "";
-    m.modal.removeAttribute("aria-hidden");
-    setTimeout(()=>m.name?.focus(), 10);
-  }
-  function closeModal(){
-    const m = mget(); if (!m.modal) return;
-    m.modal.style.display = "none";
-    m.modal.setAttribute("aria-hidden","true");
+  function renderTableRows() {
+    const tbody = State.els.tbody;
+    if (!tbody) return;
+
+    const rows = slicePage().map((u, i) => {
+      const idx = (State.page - 1) * State.per + i + 1;
+      const nameLink = `<a href="#users/${esc(u.id)}" class="ws-link user-link" data-action="user.view" data-id="${esc(u.id)}">${esc(u.name)}</a>`;
+      const statusPill = `<span class="ws-pill ${u.status === "Active" ? "is-green" : "is-grey"}">${esc(u.status || "Active")}</span>`;
+      // No “Edit” button as requested; keep “View” for parity, plus “Delete” placeholder if you wire it later
+      const actions =
+        `<div class="ws-actions">` +
+          `<button class="ws-btn ws-btn-slim" data-action="user.view" data-id="${esc(u.id)}">View</button>` +
+          `</div>`;
+
+      return `<tr data-row-id="${esc(u.id)}">
+        <td class="ws-col-num">${idx}</td>
+        <td class="ws-col-name">${nameLink}</td>
+        <td class="ws-col-email">${esc(u.email)}</td>
+        <td class="ws-col-phone">${esc(u.phone)}</td>
+        <td class="ws-col-type">${esc(u.type)}</td>
+        <td class="ws-col-orders">${esc(u.orders ?? 0)}</td>
+        <td class="ws-col-status">${statusPill}</td>
+        <td class="ws-col-last">${esc(fmtLastActive(u.lastActive))}</td>
+        <td class="ws-col-actions">${actions}</td>
+      </tr>`;
+    });
+
+    tbody.innerHTML = rows.length
+      ? rows.join("")
+      : `<tr class="ws-empty"><td colspan="9">No users found</td></tr>`;
   }
 
-  async function saveModal(){
-    const m = mget(); if (!m.modal) return;
-    const id = m.id.value.trim();
-    const payload = {
-      name: m.name.value.trim(),
-      email: m.email.value.trim(),
-      phone: m.phone.value.trim(),
-      type: m.type.value.trim(),
-      status: m.status.value.trim()
-    };
-    const pwd = m.pwd.value.trim(); if (pwd) payload.password = pwd;
+  function renderPager() {
+    const info = State.els.info;
+    const pager = State.els.pager;
+    const total = State.filtered.length;
+    if (!info || !pager) return;
 
-    if (!payload.name || !payload.phone || !payload.type){
-      alert("Name, phone and type are required.");
+    if (!total) {
+      info.textContent = "0–0 of 0";
+      pager.innerHTML = "";
       return;
     }
-    try{
-      let saved;
-      if (id){
-        saved = await updateUser(id, payload);
-        const ix = State.all.findIndex(u => String(u.id) === String(id));
-        if (ix >= 0) State.all[ix] = { ...State.all[ix], ...saved };
-      }else{
-        saved = await createUser(payload);
-        State.all.unshift(saved);
+
+    const start = (State.page - 1) * State.per + 1;
+    const end = Math.min(State.page * State.per, total);
+    info.textContent = `${start}–${end} of ${total}`;
+
+    const pages = Math.ceil(total / State.per);
+    const btn = (p, label = p, disabled = false, current = false) =>
+      `<button class="ws-page ${disabled ? "is-disabled" : ""} ${current ? "is-current" : ""}" data-page="${p}" ${disabled ? "disabled" : ""}>${label}</button>`;
+
+    const parts = [];
+    parts.push(btn(Math.max(1, State.page - 1), "‹", State.page === 1));
+    for (let p = 1; p <= pages; p++) {
+      if (p === 1 || p === pages || Math.abs(p - State.page) <= 2) {
+        parts.push(btn(p, p, false, p === State.page));
+      } else if (parts[parts.length - 1] !== "...") {
+        parts.push(`<span class="ws-ellipsis">…</span>`);
       }
-      applyFilters();
-      closeModal();
-    }catch(err){
-      console.warn(err);
-      alert("Save failed. Check the endpoint and try again.");
     }
+    parts.push(btn(Math.min(pages, State.page + 1), "›", State.page === pages));
+
+    pager.innerHTML = parts.join("");
   }
 
-  // ========= Events (strictly scoped; capture + stopImmediatePropagation) =========
-  function onRootClick(e){
-    if (!State.root.contains(e.target)) return;
-    const actEl = e.target.closest("[data-users-action], a.ws-link");
-    if (!actEl) return;
+  function render() {
+    renderTableRows();
+    renderPager();
+    // Emit a hook so other scripts can sync if needed
+    window.dispatchEvent(new CustomEvent("users:rendered"));
+  }
 
-    // Block global listeners (Orders/Dispatch)
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
+  // ========= Modal (Add / Edit / View)
+  function ensureModalHost() {
+    let host = $("#users-modal-host", State.root);
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "users-modal-host";
+      State.root.appendChild(host);
+    }
+    return host;
+  }
 
-    let action = actEl.getAttribute("data-users-action") || "";
-    const row  = actEl.closest("[data-users-row]");
-    const id   = actEl.getAttribute("data-id") || row?.getAttribute("data-user-id") || "";
+  function closeModal() {
+    const m = $("#users-modal");
+    if (m) m.remove();
+  }
 
-    if (!action && actEl.matches('a.ws-link')) action = "open-edit";
+  function openModal({ title = "Edit User", user = null } = {}) {
+    ensureModalHost();
+    closeModal();
 
-    switch(action){
-      case "open-create":   openModal(null); break;
-      case "open-edit":     openModal(State.all.find(x => String(x.id) === String(id))); break;
-      case "deactivate":
-        if (!confirm("Deactivate this user?")) return;
-        deactivateUser(id).then(()=>{
-          const u = State.all.find(x => String(x.id) === String(id));
-          if (u) u.status = "Inactive";
+    const isEdit = !!user;
+    const name  = user?.name  ?? "";
+    const email = user?.email ?? "";
+    const phone = user?.phone ?? "";
+    const type  = user?.type  ?? "";
+    const status = user?.status ?? "Active";
+
+    const html =
+`<div class="ws-modal" id="users-modal" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+  <div class="ws-modal__card">
+    <div class="ws-modal__header">
+      <h3 class="ws-modal__title">${esc(isEdit ? "Edit User" : "Add User")}</h3>
+      <button class="ws-btn ws-btn-light" data-action="user.modal.close">Close</button>
+    </div>
+
+    <div class="ws-modal__body">
+      <div class="ws-form">
+        <div class="ws-form__row">
+          <label>Name</label>
+          <input type="text" id="user-name" class="ws-input" value="${esc(name)}" placeholder="Full name"/>
+        </div>
+        <div class="ws-form__row">
+          <label>Email</label>
+          <input type="email" id="user-email" class="ws-input" value="${esc(email)}" placeholder="Email"/>
+        </div>
+        <div class="ws-form__row">
+          <label>Phone</label>
+          <input type="text" id="user-phone" class="ws-input" value="${esc(phone)}" placeholder="+2547..."/>
+        </div>
+        <div class="ws-form__row">
+          <label>Type</label>
+          <select id="user-type" class="ws-select">
+            <option value="">Select…</option>
+            <option ${type==="Admin"?"selected":""} value="Admin">Admin</option>
+            <option ${type==="Driver"?"selected":""} value="Driver">Driver</option>
+            <option ${type==="Customer"?"selected":""} value="Customer">Customer</option>
+            <option ${type==="User"?"selected":""} value="User">User</option>
+            <option ${type==="Installer"?"selected":""} value="Installer">Installer</option>
+            <option ${type==="Manufacturer"?"selected":""} value="Manufacturer">Manufacturer</option>
+          </select>
+        </div>
+        <div class="ws-form__row">
+          <label>Status</label>
+          <select id="user-status" class="ws-select">
+            <option ${status==="Active"?"selected":""} value="Active">Active</option>
+            <option ${status==="Inactive"?"selected":""} value="Inactive">Inactive</option>
+          </select>
+        </div>
+
+        <div class="ws-form__hint">Temp Password (optional for Add): add in “Password” field below only when creating a new user.</div>
+        <div class="ws-form__row ${isEdit?"is-hidden":""}">
+          <label>Password (optional)</label>
+          <input type="password" id="user-pass" class="ws-input" placeholder="Leave blank to auto-generate"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="ws-modal__footer">
+      <button class="ws-btn" data-action="user.modal.cancel">Cancel</button>
+      <button class="ws-btn ws-btn-primary" data-action="user.modal.save" data-id="${esc(user?.id ?? "")}">
+        Save
+      </button>
+    </div>
+  </div>
+</div>`;
+
+    $("#users-modal-host", State.root).insertAdjacentHTML("beforeend", html);
+  }
+
+  // ========= Events (scoped + namespaced)
+  function bindUI() {
+    const r = State.root;
+    if (!r) return;
+
+    // Search / filters
+    State.els.search = $("#users-search", r) || $("#searchUsers", r);
+    State.els.type   = $("#user-type-filter", r) || $("#usersType", r);
+    State.els.status = $("#users-status-filter", r) || $("#usersStatus", r);
+    State.els.per    = $("#users-per", r);
+    State.els.tbody  = $("#users-table-body", r) || $("#usersTbody", r);
+    State.els.info   = $("#users-table-info", r) || $("#usersInfo", r);
+    State.els.pager  = $("#users-pagination", r) || $("#usersPager", r);
+    State.els.addBtn = $("#add-user-btn", r) || $("#addUserBtn", r);
+
+    // Input handlers (debounced search)
+    if (State.els.search) {
+      let t = null;
+      State.els.search.addEventListener("input", () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          State.q = State.els.search.value || "";
           applyFilters();
-        }).catch(err=>{
-          console.warn("[Users] deactivate failed", err);
-          alert("Could not deactivate user.");
-        });
-        break;
-      case "search":        applyFilters(); break;
-      case "clear":
-        State.els.search.value = "";
-        State.els.type.value = "";
-        State.els.status.value = "";
+          render();
+        }, 120);
+      });
+    }
+    if (State.els.type) {
+      State.els.type.addEventListener("change", () => {
+        State.type = State.els.type.value || "";
+        applyFilters(); render();
+      });
+    }
+    if (State.els.status) {
+      State.els.status.addEventListener("change", () => {
+        State.status = State.els.status.value || "";
+        applyFilters(); render();
+      });
+    }
+    if (State.els.per) {
+      State.els.per.addEventListener("change", () => {
+        const v = parseInt(State.els.per.value, 10);
+        State.per = isNaN(v) ? 10 : Math.max(5, v);
         State.page = 1;
-        applyFilters();
-        break;
-      case "page":
-        const p = parseInt(actEl.getAttribute("data-page"), 10);
-        if (Number.isFinite(p)) { State.page = p; render(); }
-        break;
-      case "close":         closeModal(); break;
-      case "save":          saveModal(); break;
-      default: break;
+        render();
+      });
+    }
+    if (State.els.pager) {
+      State.els.pager.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-page]");
+        if (!b) return;
+        const p = parseInt(b.dataset.page, 10);
+        if (!isNaN(p) && p !== State.page) { State.page = p; render(); }
+      });
+    }
+
+    // Table actions — namespaced
+    r.addEventListener("click", async (e) => {
+      const a = e.target.closest("[data-action]");
+      if (!a) return;
+      const action = a.dataset.action;
+
+      // prevent Orders modal hijack
+      if (/^order\./.test(action)) return;
+
+      if (action === "user.view") {
+        e.preventDefault();
+        const id = a.dataset.id || a.closest("tr")?.dataset.rowId;
+        const u = State.all.find(x => x.id === id);
+        openModal({ title: "Edit User", user: u });
+        return;
+      }
+
+      if (action === "user.modal.close" || action === "user.modal.cancel") {
+        closeModal();
+        return;
+      }
+
+      if (action === "user.modal.save") {
+        const id = a.dataset.id || "";
+        const host = $("#users-modal");
+        const name  = $("#user-name")?.value?.trim();
+        const email = $("#user-email")?.value?.trim();
+        const phone = $("#user-phone")?.value?.trim();
+        const type  = $("#user-type")?.value || "";
+        const status= $("#user-status")?.value || "Active";
+        const pass  = $("#user-pass")?.value?.trim();
+
+        const payload = { name, email, phone, type, status };
+        if (!id && pass) payload.password = pass;
+
+        try {
+          a.disabled = true;
+          const res = await createOrUpdateUser(payload, id || null);
+          // Optimistic refresh of row in memory
+          if (id) {
+            const idx = State.all.findIndex(x => x.id === id);
+            if (idx >= 0) State.all[idx] = { ...State.all[idx], ...payload };
+          } else {
+            // best-effort append (id may be returned)
+            const newId = res?.user?.id || res?.id || Math.random().toString(36).slice(2);
+            State.all.unshift(normalizeUser({ id: newId, ...payload, orders: 0 }));
+          }
+          applyFilters(); render();
+          closeModal();
+          // Signal other tabs/pages if they show users
+          try { localStorage.setItem("usersUpdatedAt", String(Date.now())); } catch {}
+        } catch (err) {
+          console.error("[Users] Save failed", err);
+          const msg = err?.json?.error?.message || err?.text || err?.message || "Save failed. Check the endpoint and try again.";
+          alert(msg);
+        } finally {
+          a.disabled = false;
+        }
+        return;
+      }
+    });
+
+    // Add button
+    if (State.els.addBtn) {
+      State.els.addBtn.addEventListener("click", () => openModal({ title: "Add User", user: null }));
     }
   }
 
-  function wire(){
-    const { root, els } = State;
-    root.addEventListener("click", onRootClick, true); // capture=true
-
-    els.search.addEventListener("keydown", (e)=>{ if (e.key==="Enter") applyFilters(); });
-    els.type.addEventListener("change", applyFilters);
-    els.status.addEventListener("change", applyFilters);
-    els.per.addEventListener("change", ()=>{
-      State.per = parseInt(els.per.value, 10) || 10;
-      State.page = 1;
+  // ========= Init / refresh (idempotent)
+  async function refresh() {
+    if (State.inflight) return; // avoid duplicate fetch
+    State.inflight++;
+    try {
+      State.all = await fetchUsers();
+      State.q = State.els.search?.value || "";
+      State.type = State.els.type?.value || "";
+      State.status = State.els.status?.value || "";
+      State.per = parseInt(State.els.per?.value || "10", 10) || 10;
+      applyFilters();
       render();
-    });
-
-    // ESC closes modal
-    document.addEventListener("keydown", (e)=>{
-      const m = $("#usersModal");
-      if (m && m.style.display !== "none" && e.key === "Escape") closeModal();
-    });
+    } finally {
+      State.inflight = Math.max(0, State.inflight - 1);
+    }
   }
 
-  // ========= Init / Re-init =========
-  async function init(){
-    const root = document.getElementById("users-root");
-    if (!root) return;
-    if (root.dataset.wsInit === "1") return; // idempotent
-    root.dataset.wsInit = "1";
-
-    State.root = root;
-    State.els = {
-      tbody:  $("#users-tbody", root),
-      info:   $("#users-table-info", root),
-      pager:  $("#users-pagination", root),
-      search: $("#users-search-input", root),
-      type:   $("#users-type-filter", root),
-      status: $("#users-status-filter", root),
-      per:    $("#users-per-page", root),
-    };
-    State.per = parseInt(State.els.per?.value || "10", 10);
-
-    State.all = await fetchList("");
-    State.filtered = State.all.slice();
-
-    wire();
-    render();
+  function locateRoot() {
+    const root = $("#users-root") || $("#users");
+    State.root = root || document.createElement("div");
+    if (!root) console.warn("[Users] #users-root not found; controller loaded but detached.");
+    return !!root;
   }
 
-  function autoInit(){
-    const tryOnce = ()=>{ const r = document.getElementById("users-root"); if (r && r.dataset.wsInit!=="1") init(); };
-    tryOnce();
-    new MutationObserver(tryOnce).observe(document.body, { childList:true, subtree:true });
-  }
+  const boot = once(() => {
+    if (!locateRoot()) return;        // defer until partial is present
+    bindUI();
+    refresh();
+  });
 
-  // ========= Public hooks (dashboard expects fetchUsers) =========
-  window.fetchUsers = init;
-  window.AdminUsers = { init };
-
-  (document.readyState === "loading")
-    ? document.addEventListener("DOMContentLoaded", autoInit)
-    : autoInit();
+  // ========= Activate on:
+  // 1) DOM ready (if partial present)
+  document.addEventListener("DOMContentLoaded", () => boot());
+  // 2) Hash change to #users pane
+  window.addEventListener("hashchange", () => {
+    if (location.hash.includes("users")) boot();
+  });
+  // 3) When your partial loader announces users pane
+  window.addEventListener("admin:partial-loaded", (e) => {
+    if ((e?.detail || "") === "users") boot();
+  });
 })();
