@@ -19,6 +19,39 @@
     return r.json();
   }
 
+  // ---------- Modal page-scroll lock (SAFE)
+  function updateModalOpenState(){
+    const ids = ['edit-item-modal-bg','add-item-modal-bg','manage-categories-modal'];
+    const isOpen = ids.some(id => {
+      const el = $(id);
+      return el && getComputedStyle(el).display !== 'none';
+    });
+    document.body.classList.toggle('modal-open', isOpen);
+  }
+
+  // Add backdrop-click + Esc close (scoped)
+  function wireModalBasics(){
+    ['edit-item-modal-bg','add-item-modal-bg','manage-categories-modal'].forEach(id => {
+      const ov = $(id);
+      if (!ov || ov.dataset.bound === '1') return;
+      ov.dataset.bound = '1';
+      ov.addEventListener('click', (e) => {
+        // close only when clicking the backdrop, not inside the dialog
+        if (e.target === ov) { ov.style.display = 'none'; updateModalOpenState(); }
+      });
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape'){
+        ['edit-item-modal-bg','add-item-modal-bg','manage-categories-modal'].forEach(id => {
+          const ov = $(id);
+          if (ov) ov.style.display = 'none';
+        });
+        updateModalOpenState();
+      }
+    }, { passive: true });
+  }
+
   // ---------- Data loads
   async function loadItems() {
     const tbody = $('items-table-body');
@@ -249,14 +282,18 @@
       $('add-item-form')?.reset();
       const a = $('add-active'); if (a) a.checked = true;
       const bg = $('add-item-modal-bg'); if (bg) bg.style.display = 'block';
+      updateModalOpenState(); // ✅ lock body scroll when open
     }
     if (e.target?.id === 'btn-manage-categories'){
       loadCategoriesIntoSelects().finally(()=>{
         const m = $('manage-categories-modal'); if (m) m.style.display = 'block';
+        updateModalOpenState(); // ✅
       });
     }
     if (e.target.classList?.contains('modal-close')){
-      e.target.closest('.modal-bg').style.display = 'none';
+      const ov = e.target.closest('.modal-bg');
+      if (ov) ov.style.display = 'none';
+      updateModalOpenState(); // ✅ unlock if none open
     }
   });
 
@@ -298,6 +335,7 @@
         body: JSON.stringify({ sku, name, description, price, category, image, warranty, stock, active, priority })
       });
       $('add-item-modal-bg').style.display = 'none';
+      updateModalOpenState(); // ✅
       await loadItems();
     }catch(err){
       alert('Failed to create item: ' + err.message);
@@ -319,6 +357,7 @@
       $('edit-status').checked = !!item.active;
       $('edit-priority').value = Number(item.priority ?? 0); // ✅ include priority
       $('edit-item-modal-bg').style.display = 'block';
+      updateModalOpenState(); // ✅
     }catch(err){
       alert('Failed to load item: ' + err.message);
     }
@@ -354,6 +393,7 @@
         body: JSON.stringify({ active: !!$('edit-status').checked })
       });
       $('edit-item-modal-bg').style.display = 'none';
+      updateModalOpenState(); // ✅
       await loadItems();
     }catch(err){
       alert('Failed to update item: ' + err.message);
@@ -380,6 +420,7 @@
     // initial page size if select exists
     if ($('items-per-page')) PAGE_SIZE = parseInt($('items-per-page').value,10) || 15;
 
+    wireModalBasics(); // ✅ ensure backdrop/Esc close works (once)
     await loadCategoriesIntoSelects();
     await loadItems();
   }
