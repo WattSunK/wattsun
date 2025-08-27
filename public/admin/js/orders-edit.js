@@ -1,11 +1,14 @@
 // /public/admin/js/orders-edit.js
 // Edit Order modal — combobox-only driver picker (markup lives in dashboard.html)
 //
-// Save strategy (compat shim):
-// 1) PUT  /api/admin/orders/:id/status         { status, note }
-// 2) PUT  /api/admin/orders/:id/assign-driver  { driverUserId }
-// 3) PATCH /api/admin/orders/:id               { status, note, driverId }          // legacy A
-// 4) PATCH /api/admin/orders/:id               { status, notes, driver_id }        // legacy B
+// Save order with robust fallbacks:
+// 1) Try split endpoints:
+//      PUT  /api/admin/orders/:id/status        { status, note }
+//      PUT  /api/admin/orders/:id/assign-driver { driverUserId }
+// 2) If either is 404 → immediately do legacy PATCH:
+//      PATCH /api/admin/orders/:id { status, note, driverId }
+//    If that fails, retry legacy-alt keys:
+//      PATCH /api/admin/orders/:id { status, notes, driver_id }
 
 (() => {
   "use strict";
@@ -221,7 +224,7 @@
     openModalShell();
   }
 
-  // ---------- Save (split endpoints + dual legacy fallback) ----------
+  // ---------- Save (split + immediate legacy fallback on 404) ----------
   async function putJSON(url, body) {
     return fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
   }
@@ -229,6 +232,29 @@
     return fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
   }
   async function readText(r) { try { return await r.text(); } catch { return ""; } }
+
+  async function tryLegacyPATCH(id, note, driverVal, status) {
+    // First legacy shape
+    let r = await patchJSON(`/api/admin/orders/${encodeURIComponent(id)}`, {
+      status,
+      note,
+      driverId: driverVal ?? null
+    });
+    if (r.ok) return true;
+
+    console.warn("[orders-edit] legacy A failed:", r.status, await readText(r));
+
+    // Second legacy shape
+    r = await patchJSON(`/api/admin/orders/${encodeURIComponent(id)}`, {
+      status,
+      notes: note,
+      driver_id: driverVal ?? null
+    });
+    if (r.ok) return true;
+
+    console.warn("[orders-edit] legacy B failed:", r.status, await readText(r));
+    return false;
+  }
 
   async function doSave() {
     if (!currentId) return;
@@ -242,35 +268,48 @@
     setSaving(true);
 
     try {
-      let okStatus = false, okDriver = true;
+      // 1) Try split endpoints
+      let needsLegacy = false;
 
-      // 1) Preferred routes
+      // Status route
       try {
-        const r1 = await putJSON(`/api/admin/orders/${encodeURIComponent(currentId)}/status`, { status, note });
-        okStatus = r1.ok;
-        if (!r1.ok && r1.status !== 404) console.warn("[orders-edit] status route failed:", r1.status, await readText(r1));
-      } catch (e) { console.warn("[orders-edit] status route error:", e); }
-
-      if (drv.value !== null) {
-        try {
-          const r2 = await putJSON(`/api/admin/orders/${encodeURIComponent(currentId)}/assign-driver`, { driverUserId: Number(drv.value) });
-          okDriver = r2.ok || r2.status === 404;
-          if (!r2.ok && r2.status !== 404) console.warn("[orders-edit] assign-driver failed:", r2.status, await readText(r2));
-        } catch (e) { console.warn("[orders-edit] assign-driver error:", e); okDriver = false; }
+        const rs = await putJSON(`/api/admin/orders/${encodeURIComponent(currentId)}/status`, { status, note });
+        if (rs.status === 404) {
+          needsLegacy = true;
+          console.info("[orders-edit] /status 404 → using legacy PATCH");
+        } else if (!rs.ok) {
+          console.warn("[orders-edit] status route failed:", rs.status, await readText(rs));
+          needsLegacy = true;
+        }
+      } catch (e) {
+        console.warn("[orders-edit] status route error:", e);
+        needsLegacy = true;
       }
 
-      // 2) Legacy A fallback
-      if (!okStatus || (drv.value !== null && !okDriver)) {
-        const r3 = await patchJSON(`/api/admin/orders/${encodeURIComponent(currentId)}`, { status, note, driverId: drv.value ?? null });
-        if (!r3.ok) {
-          console.warn("[orders-edit] legacy A failed:", r3.status, await readText(r3));
-          // 3) Legacy B fallback
-          const r4 = await patchJSON(`/api/admin/orders/${encodeURIComponent(currentId)}`, { status, notes: note, driver_id: drv.value ?? null });
-          if (!r4.ok) throw new Error(`All save attempts failed. Last ${r4.status}: ${await readText(r4) || "(no body)"}`);
+      // Assign-driver route (only if a driver was selected)
+      if (!needsLegacy && drv.value !== null) {
+        try {
+          const rd = await putJSON(`/api/admin/orders/${encodeURIComponent(currentId)}/assign-driver`, { driverUserId: Number(drv.value) });
+          if (rd.status === 404) {
+            needsLegacy = true;
+            console.info("[orders-edit] /assign-driver 404 → using legacy PATCH");
+          } else if (!rd.ok) {
+            console.warn("[orders-edit] assign-driver failed:", rd.status, await readText(rd));
+            needsLegacy = true;
+          }
+        } catch (e) {
+          console.warn("[orders-edit] assign-driver error:", e);
+          needsLegacy = true;
         }
       }
 
-      // Inline row refresh
+      // 2) Immediate legacy fallback if required
+      if (needsLegacy) {
+        const ok = await tryLegacyPATCH(currentId, note, drv.value, status);
+        if (!ok) throw new Error("All save attempts failed (split + both legacy shapes).");
+      }
+
+      // Minimal inline row refresh
       const row = rowById(currentId);
       row?.querySelector('[data-col="status"]')?.replaceChildren(document.createTextNode(status));
 
@@ -292,6 +331,7 @@
   cancelBtn?.addEventListener("click", (e) => { e.preventDefault(); closeModalShell(); });
   saveBtn?.addEventListener("click",  (e) => { e.preventDefault(); doSave(); });
 
+  // Open via table buttons
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('[data-action="edit-order"], .btn-edit');
     if (!btn) return;
