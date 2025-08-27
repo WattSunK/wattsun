@@ -1,60 +1,61 @@
 // /public/admin/js/dashboard.js
 document.addEventListener("DOMContentLoaded", () => {
-  function getContentRoot() {
-    return (
-      document.getElementById("admin-content") ||
-      document.getElementById("adminContent") ||
-      document.getElementById("content")
-    );
-  }
-  const content = getContentRoot();
-  if (!content) console.error("No content container found (#admin-content/#adminContent/#content)");
+  const content  = document.getElementById("admin-content") || document.getElementById("adminContent");
+  const sidebar  = document.querySelector(".sidebar nav");
+  const hdrSearch= document.querySelector(".header-search");
 
-  const sidebar   = document.querySelector(".sidebar nav,[data-admin-sidebar]");
-  const hdrSearch = document.querySelector(".header-search");
-
-  async function ensureScript(src, readyCheck) {
+  // ---- Session helpers ----
+  function getUser() {
+    const a = localStorage.getItem("wattsunUser");
+    const b = localStorage.getItem("ws_user");
+    try { if (a) return JSON.parse(a); } catch {}
     try {
-      if (typeof readyCheck === "function" && readyCheck()) return;
-      if (document.querySelector(`script[src="${src}"]`)) {
-        await new Promise(r => setTimeout(r, 0));
-        return;
+      if (b) {
+        const j = JSON.parse(b);
+        return {
+          success: true,
+          user: {
+            id: j?.id || j?.user?.id,
+            name: j?.name || j?.user?.name || j?.fullName || j?.user?.fullName,
+            fullName: j?.fullName || j?.user?.fullName || j?.name || j?.user?.name,
+            email: j?.email || j?.user?.email,
+            phone: j?.phone || j?.user?.phone,
+            role: j?.role || j?.user?.role || j?.type || j?.user?.type || "Customer"
+          }
+        };
       }
-      await new Promise((resolve) => {
-        const s = document.createElement("script");
-        s.src = src;
-        s.onload = resolve;
-        s.onerror = resolve;
-        document.body.appendChild(s);
-      });
-    } catch (e) {
-      console.warn("ensureScript error:", src, e);
-    }
+    } catch {}
+    return null;
   }
 
-  async function fetchPartial(name) {
-    const bust = Date.now();
-    const rel  = `./partials/${name}.html?v=${bust}`;
-    const abs  = `/public/partials/${name}.html?v=${bust}`;
+  function setUserCtx(u) {
+    document.documentElement.dataset.userRole =
+      (u?.user?.role || u?.role || u?.user?.type || u?.type || "").toLowerCase();
+  }
+
+  function updateHeaderUser(u) {
     try {
-      let r = await fetch(rel);
-      if (!r.ok) throw new Error(`REL ${name} ${r.status}`);
-      return await r.text();
-    } catch (e1) {
-      console.warn("[Partial] REL failed, trying ABS:", name, e1?.message || e1);
-      try {
-        let r2 = await fetch(abs);
-        if (!r2.ok) throw new Error(`ABS ${name} ${r2.status}`);
-        return await r2.text();
-      } catch (e2) {
-        console.error("[Partial] ABS also failed:", name, e2?.message || e2);
-        return `<div class="p-3 text-danger">Failed to load ${name}.html</div>`;
+      const info = u?.user || u || {};
+      const name = info.fullName || info.name || "User";
+      const email = info.email || "";
+      const tel = info.phone || "";
+      const el = document.getElementById("headerUser");
+      if (!el) return;
+      const n = el.querySelector(".user-name");
+      const m = el.querySelector(".user-meta");
+      if (n) n.textContent = name;
+      if (m) {
+        const meta = [];
+        if (email) meta.push(email);
+        if (tel) meta.push(tel);
+        m.textContent = meta.join(" • ");
       }
-    }
+    } catch {}
   }
 
   function setHeaderSearchVisible(show) { if (hdrSearch) hdrSearch.style.display = show ? "" : "none"; }
 
+  // Execute inline <script> tags that arrive with a partial
   function runInlineScripts(root) {
     if (!root) return;
     const scripts = Array.from(root.querySelectorAll("script"));
@@ -66,10 +67,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // ---- Hash helpers ----
   function sectionFromHash() {
     const h = (location.hash || "").replace(/^#/, "").trim();
     return h || "system-status";
-    }
+  }
 
   function setActiveInSidebar(section) {
     if (!sidebar) return;
@@ -87,26 +89,21 @@ document.addEventListener("DOMContentLoaded", () => {
     loadSection(sect);
   });
 
+  // ---- Section loader ----
   async function loadSection(section) {
-    if (!getContentRoot()) { console.error("No content container to inject"); return; }
-
     const hasOwnSearch = new Set(["orders", "users", "items", "myorders", "dispatch"]);
     setHeaderSearchVisible(!hasOwnSearch.has(section));
 
-    let prefetchedHTML = null;
-    let prefetchedName = null;
-
-    // MYORDERS — special iframe view (kept)
     if (section === "myorders") {
-      const url = "./myaccount/userdash.html";
-      getContentRoot().innerHTML = `
+      const url = "/myaccount/userdash.html";
+      content.innerHTML = `
         <div style="height:calc(100vh - 130px);">
           <iframe id="myorders-embed"
                   src="${url}"
                   style="width:100%;height:100%;border:0;border-radius:8px;background:#fff;"></iframe>
         </div>
       `;
-      const iframe = getContentRoot().querySelector("#myorders-embed");
+      const iframe = content.querySelector("#myorders-embed");
       window.addEventListener("message", (e) => {
         if (e?.data && e.data.type === "resize-embed" && typeof e.data.height === "number") {
           iframe.style.height = Math.max(300, e.data.height) + "px";
@@ -116,39 +113,75 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // ITEMS — prefetch + controller; do NOT early-return
-    if (section === "items") {
-      prefetchedHTML = await fetchPartial("items");
-      prefetchedName = "items";
-      await ensureScript("./admin/js/admin-items.js", () => window.AdminItems && typeof window.AdminItems.init === "function");
-      // init will be called after DOM injection below
-    }
-
-    // DEFAULT / GENERIC (includes Dispatch, System Status, etc.)
     try {
-      const html = (prefetchedHTML && prefetchedName === section)
-        ? prefetchedHTML
-        : await fetchPartial(section);
-      getContentRoot().innerHTML = html;
+      const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
+      content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
 
+      // For Dispatch partials, ensure adapter is loaded before running inline script
       if (section === "dispatch" && typeof window.WattSunAdminData === "undefined") {
-        await ensureScript("./admin/js/data-adapter.js", () => typeof window.WattSunAdminData !== "undefined");
+        await new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "/admin/js/data-adapter.js";
+          s.onload = resolve;
+          s.onerror = reject;
+          document.body.appendChild(s);
+        }).catch(() => console.warn("Failed to load data-adapter.js"));
       }
 
-      runInlineScripts(getContentRoot());
+      runInlineScripts(content);
       window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
-
-      if (section === "items" && window.AdminItems && typeof window.AdminItems.init === "function") {
-        window.AdminItems.init();
-      }
-
       window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: section }}));
-    } catch (e) {
-      console.error("Generic load error:", section, e);
-      getContentRoot().innerHTML = `<div class="p-3 text-danger">Failed to load section: ${section}</div>`;
+    } catch {
+      content.innerHTML = `<div class="p-3"></div>`;
     }
   }
 
+  // ---- Profile hydration ----
+  function hydrateProfile(u) {
+    const info = u?.user || u || {};
+    const name  = info.name || "User Name";
+    const email = info.email || "";
+    const phone = info.phone || "";
+    const role  = info.role || info.type || "Customer";
+    const last  = info.lastLogin || "—";
+
+    const elName  = content.querySelector("#userName");
+    const elEmail = content.querySelector("#userEmail");
+    const elRole  = content.querySelector("#userRole");
+    const elLast  = content.querySelector("#lastLogin");
+
+    if (elName)  elName.textContent  = name;
+    if (elEmail) elEmail.textContent = email;
+    if (elRole)  elRole.textContent  = role;
+    if (elLast)  elLast.textContent  = `Last login: ${last}`;
+
+    const pfN = content.querySelector("#pf-name");
+    const pfE = content.querySelector("#pf-email");
+    const pfP = content.querySelector("#pf-phone");
+    if (pfN) pfN.value = info.fullName || info.name || "";
+    if (pfE) pfE.value = email;
+    if (pfP) pfP.value = phone;
+  }
+
+  // ---- Sidebar nav → partial loader ----
+  if (sidebar && !sidebar._bound) {
+    sidebar._bound = true;
+    sidebar.addEventListener("click", (e) => {
+      const a = e.target.closest("a[data-partial], a[data-section]");
+      if (!a) return;
+      e.preventDefault();
+      sidebar.querySelectorAll("a").forEach(x => x.classList.remove("active"));
+      a.classList.add("active");
+      const sect = a.getAttribute("data-partial") || a.getAttribute("data-section");
+      location.hash = "#" + sect;
+      loadSection(sect);
+    });
+  }
+
+  // ---- Boot ----
+  const u = getUser();
+  if (u) { updateHeaderUser(u); setUserCtx(u); }
+  setHeaderSearchVisible(true);
   const initial = sectionFromHash();
   setActiveInSidebar(initial);
   loadSection(initial);
