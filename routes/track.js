@@ -1,12 +1,10 @@
-// routes/track.js — Customer Tracking API (robust overlay merge)
-// - Reads legacy orders from JSON
+// routes/track.js — Customer Tracking API (Step 6.5 ready)
+// - Reads legacy orders from JSON (ORDERS_PATH)
 // - GET /api/track?phone=... [&order=...] [&status=...] [&email=...]
-// - Merges admin overlay from SQLite (admin_order_meta) without assuming new columns exist
+// - Merges admin overlay from SQLite (admin_order_meta), auto-detecting optional money columns
 //
 // Safe to mount:
 //   app.use("/api/track", require("./routes/track"));
-//
-// © WattSun 2025
 
 const express = require("express");
 const fs = require("fs");
@@ -19,6 +17,7 @@ const router = express.Router();
 const ORDERS_PATH =
   process.env.ORDERS_JSON ||
   path.join(__dirname, "../data/orders.json");
+console.log("[track] ORDERS_PATH:", ORDERS_PATH);
 
 const USERS_DB_PATH =
   process.env.DB_PATH_USERS ||
@@ -40,26 +39,20 @@ function readOrders() {
 }
 
 const onlyDigits = (s) => String(s || "").replace(/\D+/g, "");
-function normPhone(p) {
-  const d = onlyDigits(p);
-  if (!d) return "";
-  // Normalize to E.164-like without plus. If number starts with 0 and is Kenyan, coerce to 254.
-  if (d.startsWith("0") && d.length >= 10) return "254" + d.slice(1);
-  // If already starts with 254 or 255 etc, keep as is.
-  return d.startsWith("254") ? d : ("254" + d); // adjust if your deployment is multi-country
-}
+function last9(s) { return onlyDigits(s).slice(-9); }
+
 const normEmail = (e) => String(e || "").trim().toLowerCase();
 const ieq = (a, b) => String(a || "").toLowerCase() === String(b || "").toLowerCase();
 
 function shape(o) {
   return {
-    orderNumber:     o.orderNumber ?? o.id ?? o.orderId ?? o.order_id ?? "—",
+    orderNumber:     o.orderNumber ?? o.id ?? o.orderId ?? o.order_id ?? null,
     status:          o.status ?? "Pending",
     updatedAt:       o.updatedAt ?? o.timestamp ?? o.createdAt ?? null,
     fullName:        o.fullName ?? o.name ?? o.customer ?? "",
     deliveryAddress: o.deliveryAddress ?? o.address ?? "",
     paymentType:     o.paymentType ?? o.paymentMethod ?? o.payment ?? "",
-    total:           o.total ?? o.amount ?? o.netValue ?? 0,
+    total:           o.total ?? o.amount ?? o.netValue ?? null,
     deposit:         o.deposit ?? null,
     currency:        o.currency ?? "KES",
     phone:           o.phone ?? o.msisdn ?? o.customerPhone ?? "",
@@ -70,10 +63,10 @@ function shape(o) {
 }
 
 function findByPhone(all, phone) {
-  const p = normPhone(phone);
+  const q9 = last9(phone);
   return all
     .map(shape)
-    .filter(x => onlyDigits(x.phone).endsWith(onlyDigits(p)));
+    .filter(x => last9(x.phone) === q9);
 }
 
 function findByEmail(all, email) {
@@ -94,7 +87,7 @@ function applyFilters(list, { status, order }) {
     const q = String(order).trim();
     out = out.filter(o => String(o.orderNumber) === q);
   }
-  // default sort: most recent first if updatedAt present
+  // sort: most recent first if updatedAt present
   out.sort((a,b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
   return out;
 }
@@ -113,7 +106,7 @@ function getOverlayCols(db, cb) {
   db.all("PRAGMA table_info(admin_order_meta)", (err, rows) => {
     if (err) return cb(err, null);
     const names = new Set((rows || []).map(r => r.name));
-    const cols = ["order_id", "status", "driver_id", "notes"]; // base columns always present
+    const cols = ["order_id", "status", "driver_id", "notes"]; // base columns
     if (names.has("total_cents"))   cols.push("total_cents");
     if (names.has("deposit_cents")) cols.push("deposit_cents");
     if (names.has("currency"))      cols.push("currency");
@@ -163,10 +156,9 @@ async function mergeOverlay(list) {
       if (typeof ov.driver_id !== "undefined") o.driverId = ov.driver_id;
       if (typeof ov.notes === "string") o.notes = ov.notes;
 
-      // Money + currency only if the columns existed in DB
-      if ("total_cents" in ov)   { const t = centsToUnits(ov.total_cents);   if (t !== null) o.total = t; }
+      if ("total_cents"   in ov) { const t = centsToUnits(ov.total_cents);   if (t !== null) o.total = t; }
       if ("deposit_cents" in ov) { const d = centsToUnits(ov.deposit_cents); if (d !== null) o.deposit = d; }
-      if ("currency" in ov && ov.currency) o.currency = ov.currency;
+      if ("currency"      in ov && ov.currency) o.currency = ov.currency;
 
       if (ov.updated_at && !o.updatedAt) o.updatedAt = ov.updated_at;
     }
