@@ -1,20 +1,11 @@
 // /public/admin/js/orders-edit.js
-// Edit Order modal — combobox-only driver picker (legacy markup in dashboard.html)
+// Edit Order modal — combobox-only driver picker (markup lives in dashboard.html)
 //
-// Requires the following IDs in the page (already present in your dashboard.html):
-// - Modal shell: #orderEditModal  (or <dialog id="orderEditDialog">)
-// - Save/Cancel: #orderSaveBtn, #orderCancelBtn
-// - Fields: #orderEditId, #orderEditStatus, #orderEditNotes
-// - Driver combo: #orderEditDriverId (hidden), #orderEditDriverInput, #orderEditDriverList, #orderEditDriverClear
-// - Money (display): #orderEditTotalInput, #orderEditDepositInput, #orderEditCurrencyInput
-// - Items table body: #orderEditItemsBody
-// - Orders table body (for inline refresh): #ordersTbody [rows with data-oid="<orderId>"]
-//
-// API used:
-// - GET  /api/admin/users?type=Driver&q=...   (search drivers)
-// - PATCH /api/admin/orders/:id  { status, notes, driver_id? }
-//
-// Status enum kept in sync with admin overlay: ["Pending","Processing","Delivered","Cancelled"]
+// Admin API (preferred per ADR-001):
+//   PUT  /api/admin/orders/:id/status         { status, note }
+//   PUT  /api/admin/orders/:id/assign-driver  { driverUserId }
+// Fallback (legacy, if the above return 404):
+//   PATCH /api/admin/orders/:id               { status, note, driverId }
 
 (() => {
   "use strict";
@@ -40,7 +31,7 @@
   const driverList  = by("orderEditDriverList");
   const driverClear = by("orderEditDriverClear");
 
-  // Money & items (display only in this phase)
+  // Money & items (display)
   const totalInp   = by("orderEditTotalInput");
   const depositInp = by("orderEditDepositInput");
   const currInp    = by("orderEditCurrencyInput");
@@ -102,7 +93,7 @@
     return { phone, email, status, total, driverName };
   }
 
-  // ---------- Track hydration (lightweight; optional) ----------
+  // ---------- Track hydration (optional) ----------
   async function hydrateFromTrack(orderId, phone, email) {
     const variants = [];
     if (phone) {
@@ -128,7 +119,7 @@
         if (!list.length) continue;
         const hit = list.find(o => String(o.orderNumber || o.id) === String(orderId)) || list[0];
         if (hit) return hit;
-      } catch { /* try next */ }
+      } catch {}
     }
     return null;
   }
@@ -190,7 +181,7 @@
   }
   wireDriverComboOnce();
 
-  // ---------- Items table (display) ----------
+  // ---------- Items table (display only) ----------
   function fillItemsTable(list, currency) {
     if (!itemsBody) return;
     itemsBody.innerHTML = "";
@@ -214,7 +205,7 @@
     }
   }
 
-  // ---------- Modal open / save ----------
+  // ---------- Modal open ----------
   async function openModal(orderLike) {
     const id = orderLike?.id || orderLike?.orderNumber;
     if (!id) return alert("Missing order id");
@@ -241,6 +232,24 @@
     openModalShell();
   }
 
+  // ---------- Save (split endpoints with legacy fallback) ----------
+  async function putJSON(url, body) {
+    const r = await fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {})
+    });
+    return r;
+  }
+  async function patchJSON(url, body) {
+    const r = await fetch(url, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {})
+    });
+    return r;
+  }
+
   async function doSave() {
     if (!currentId) return;
     const status = statusSel?.value || "Pending";
@@ -249,21 +258,43 @@
     const drv = getDriverPayload();
     if (!drv.ok) return alert(drv.error || "Invalid driver");
 
-    const notes = notesEl?.value?.trim() || "";
-    const payload = { status, notes };
-    if (drv.value !== null) payload.driver_id = String(drv.value);
-
+    const note = notesEl?.value?.trim() || "";
     setSaving(true);
+
     try {
-      const res = await fetch(`/api/admin/orders/${encodeURIComponent(currentId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const txt = await res.text(); let json; try { json = JSON.parse(txt); } catch {}
-      if (!res.ok || (json && json.success === false)) {
-        const msg = (json && (json.error?.message || json.error || json.message)) || txt || `HTTP ${res.status}`;
-        throw new Error(msg);
+      // 1) Update status (preferred)
+      let okStatus = false;
+      try {
+        const r = await putJSON(`/api/admin/orders/${encodeURIComponent(currentId)}/status`, { status, note });
+        okStatus = r.ok;
+        if (!okStatus && r.status !== 404) {
+          const t = await r.text(); throw new Error(t || `Status update failed (${r.status})`);
+        }
+      } catch (e) {
+        // if a non-404 error, bubble; 404 means try fallback later
+        if (!/status\)$/i.test(String(e.message || ""))) throw e;
+      }
+
+      // 2) Assign driver if provided (preferred)
+      let okDriver = true;
+      if (drv.value !== null) {
+        const r2 = await putJSON(`/api/admin/orders/${encodeURIComponent(currentId)}/assign-driver`, { driverUserId: Number(drv.value) });
+        okDriver = r2.ok || r2.status === 404; // 404 → fallback path may handle it
+        if (!okDriver && r2.status !== 404) {
+          const t2 = await r2.text(); throw new Error(t2 || `Driver assignment failed (${r2.status})`);
+        }
+      }
+
+      // 3) Fallback (legacy) if needed
+      if (!okStatus || (drv.value !== null && !okDriver)) {
+        const r3 = await patchJSON(`/api/admin/orders/${encodeURIComponent(currentId)}`, {
+          status,
+          note,                  // legacy expects "note" (not "notes")
+          driverId: drv.value ?? null
+        });
+        if (!r3.ok) {
+          const t3 = await r3.text(); throw new Error(t3 || `Legacy update failed (${r3.status})`);
+        }
       }
 
       // Inline row refresh (minimal)
