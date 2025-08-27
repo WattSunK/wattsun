@@ -1,5 +1,5 @@
 <!-- Users — Admin Partial -->
-<section id="users-root" class="ws-admin-section" data-users-scope>
+<section id="users-root" class="ws-admin-section">
   <h2 class="ws-admin-title">Users</h2>
 
   <!-- Toolbar -->
@@ -26,8 +26,8 @@
 
     <input id="users-search-input" class="ws-input" type="search"
            placeholder="Search by name/email/phone" autocomplete="off" />
-    <button class="ws-btn" id="users-search-btn" data-users-action="search">🔎 Search</button>
-    <button class="ws-btn" id="users-clear-btn" data-users-action="clear">✖ Clear</button>
+    <button class="ws-btn" data-users-action="search">🔎 Search</button>
+    <button class="ws-btn" data-users-action="clear">✖ Clear</button>
 
     <div class="ws-spacer"></div>
 
@@ -41,7 +41,7 @@
     </label>
   </div>
 
-  <!-- Table -->
+  <!-- Table (Items skin) -->
   <div class="ws-table-wrap">
     <table id="users-table" class="ws-table">
       <thead>
@@ -69,15 +69,16 @@
     <div id="users-pagination" class="ws-pager-controls"></div>
   </div>
 
-  <!-- Users Modal (unique; same skin as Items) -->
+  <!-- Users Modal (same skin as Items) -->
   <div id="usersModal" class="ws-modal" style="display:none" aria-hidden="true"
-       role="dialog" aria-labelledby="users-modal-title" data-users-scope>
+       role="dialog" aria-labelledby="users-modal-title">
     <div class="ws-modal-backdrop" data-users-action="close"></div>
     <div class="ws-dialog" role="document">
       <div class="ws-dialog-header">
         <h3 id="users-modal-title" class="ws-dialog-title">Edit User</h3>
         <button class="ws-btn ws-btn-ghost ws-btn-xs" data-users-action="close" aria-label="Close">✖</button>
       </div>
+
       <div class="ws-dialog-body">
         <form id="users-form" class="ws-form" novalidate>
           <input type="hidden" id="u-id" />
@@ -120,6 +121,7 @@
           </div>
         </form>
       </div>
+
       <div class="ws-dialog-footer">
         <button class="ws-btn ws-btn-ghost" data-users-action="close">Cancel</button>
         <button class="ws-btn ws-btn-primary" id="users-save-btn" data-users-action="save">Save</button>
