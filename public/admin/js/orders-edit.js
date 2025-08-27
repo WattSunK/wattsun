@@ -1,14 +1,15 @@
 // /public/admin/js/orders-edit.js
 // Edit Order modal — combobox-only driver picker (markup lives in dashboard.html)
 //
-// Save order with robust fallbacks:
-// 1) Try split endpoints:
-//      PUT  /api/admin/orders/:id/status        { status, note }
-//      PUT  /api/admin/orders/:id/assign-driver { driverUserId }
-// 2) If either is 404 → immediately do legacy PATCH:
-//      PATCH /api/admin/orders/:id { status, note, driverId }
-//    If that fails, retry legacy-alt keys:
-//      PATCH /api/admin/orders/:id { status, notes, driver_id }
+// AUTH on every request:
+//   - credentials:"include" to send cookies
+//   - Authorization: Bearer <token> if ws_token/authToken/jwt/xToken exists
+//
+// PATCH-first strategy for maximum compatibility:
+//   A) PATCH /api/admin/orders/:id { status, note, driverId }
+//   B) PATCH /api/admin/orders/:id { status, notes, driver_id }
+//   C) (last resort) PUT /api/admin/orders/:id/status { status, note }
+//      and, if driver set, PUT /api/admin/orders/:id/assign-driver { driverUserId }
 
 (() => {
   "use strict";
@@ -42,6 +43,34 @@
 
   const ordersTbody = by("ordersTbody"); // for inline row refresh
   let currentId = null;
+
+  // ---------- AUTH helpers ----------
+  function readToken() {
+    try {
+      return (
+        localStorage.getItem("ws_token") ||
+        localStorage.getItem("authToken") ||
+        localStorage.getItem("jwt") ||
+        localStorage.getItem("xToken") ||
+        ""
+      );
+    } catch { return ""; }
+  }
+  function authHeaders(extra = {}) {
+    const h = { "Content-Type": "application/json", ...extra };
+    const tok = readToken();
+    if (tok && !h.Authorization) h.Authorization = `Bearer ${tok}`;
+    return h;
+  }
+  async function req(method, url, body) {
+    return fetch(url, {
+      method,
+      credentials: "include",
+      headers: authHeaders(),
+      body: body ? JSON.stringify(body) : undefined
+    });
+  }
+  async function readText(r) { try { return await r.text(); } catch { return ""; } }
 
   // ---------- UI utilities ----------
   function setSaving(on) {
@@ -109,8 +138,9 @@
         if (at.ph)  qs.set("phone", at.ph);
         if (at.ord) qs.set("order", String(at.ord));
         qs.set("page", "1"); qs.set("per", "5");
-        const headers = email ? { "X-WS-Email": email } : undefined;
-        const res = await fetch(`/api/track?${qs.toString()}`, { headers });
+        const headers = authHeaders();
+        if (email) headers["X-WS-Email"] = email;
+        const res = await fetch(`/api/track?${qs.toString()}`, { credentials: "include", headers });
         if (!res.ok) continue;
         const data = await res.json().catch(() => ({}));
         const list = Array.isArray(data?.orders) ? data.orders : [];
@@ -126,7 +156,7 @@
   async function queryDrivers(q) {
     const url = `/api/admin/users?type=Driver${q ? `&q=${encodeURIComponent(q)}` : ""}`;
     try {
-      const r = await fetch(url);
+      const r = await fetch(url, { credentials: "include", headers: authHeaders() });
       const data = await r.json().catch(() => ({}));
       return Array.isArray(data?.users) ? data.users : [];
     } catch { return []; }
@@ -224,38 +254,7 @@
     openModalShell();
   }
 
-  // ---------- Save (split + immediate legacy fallback on 404) ----------
-  async function putJSON(url, body) {
-    return fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
-  }
-  async function patchJSON(url, body) {
-    return fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
-  }
-  async function readText(r) { try { return await r.text(); } catch { return ""; } }
-
-  async function tryLegacyPATCH(id, note, driverVal, status) {
-    // First legacy shape
-    let r = await patchJSON(`/api/admin/orders/${encodeURIComponent(id)}`, {
-      status,
-      note,
-      driverId: driverVal ?? null
-    });
-    if (r.ok) return true;
-
-    console.warn("[orders-edit] legacy A failed:", r.status, await readText(r));
-
-    // Second legacy shape
-    r = await patchJSON(`/api/admin/orders/${encodeURIComponent(id)}`, {
-      status,
-      notes: note,
-      driver_id: driverVal ?? null
-    });
-    if (r.ok) return true;
-
-    console.warn("[orders-edit] legacy B failed:", r.status, await readText(r));
-    return false;
-  }
-
+  // ---------- Save (PATCH-first, then split as last resort) ----------
   async function doSave() {
     if (!currentId) return;
     const status = statusSel?.value || "Pending";
@@ -268,48 +267,39 @@
     setSaving(true);
 
     try {
-      // 1) Try split endpoints
-      let needsLegacy = false;
-
-      // Status route
-      try {
-        const rs = await putJSON(`/api/admin/orders/${encodeURIComponent(currentId)}/status`, { status, note });
-        if (rs.status === 404) {
-          needsLegacy = true;
-          console.info("[orders-edit] /status 404 → using legacy PATCH");
-        } else if (!rs.ok) {
-          console.warn("[orders-edit] status route failed:", rs.status, await readText(rs));
-          needsLegacy = true;
-        }
-      } catch (e) {
-        console.warn("[orders-edit] status route error:", e);
-        needsLegacy = true;
+      // A) Legacy PATCH (note + driverId)
+      let r = await req("PATCH", `/api/admin/orders/${encodeURIComponent(currentId)}`, {
+        status,
+        note,
+        driverId: drv.value ?? null
+      });
+      if (!r.ok) {
+        console.warn("[orders-edit] legacy A failed:", r.status, await readText(r));
+        // B) Legacy PATCH alt (notes + driver_id)
+        r = await req("PATCH", `/api/admin/orders/${encodeURIComponent(currentId)}`, {
+          status,
+          notes: note,
+          driver_id: drv.value ?? null
+        });
       }
 
-      // Assign-driver route (only if a driver was selected)
-      if (!needsLegacy && drv.value !== null) {
-        try {
-          const rd = await putJSON(`/api/admin/orders/${encodeURIComponent(currentId)}/assign-driver`, { driverUserId: Number(drv.value) });
-          if (rd.status === 404) {
-            needsLegacy = true;
-            console.info("[orders-edit] /assign-driver 404 → using legacy PATCH");
-          } else if (!rd.ok) {
-            console.warn("[orders-edit] assign-driver failed:", rd.status, await readText(rd));
-            needsLegacy = true;
-          }
-        } catch (e) {
-          console.warn("[orders-edit] assign-driver error:", e);
-          needsLegacy = true;
+      // If still not ok, try split as last resort
+      if (!r.ok) {
+        console.info("[orders-edit] trying split routes as last resort…");
+        // status
+        const rs = await req("PUT", `/api/admin/orders/${encodeURIComponent(currentId)}/status`, { status, note });
+        // driver (optional)
+        if (drv.value !== null) {
+          const rd = await req("PUT", `/api/admin/orders/${encodeURIComponent(currentId)}/assign-driver`, { driverUserId: Number(drv.value) });
+          if (!rd.ok) console.warn("[orders-edit] assign-driver failed:", rd.status, await readText(rd));
+        }
+        if (!rs.ok) {
+          const msg = await readText(rs);
+          throw new Error(`Save failed on all routes. Last /status: ${rs.status} — ${msg || "(no body)"}`);
         }
       }
 
-      // 2) Immediate legacy fallback if required
-      if (needsLegacy) {
-        const ok = await tryLegacyPATCH(currentId, note, drv.value, status);
-        if (!ok) throw new Error("All save attempts failed (split + both legacy shapes).");
-      }
-
-      // Minimal inline row refresh
+      // Inline row refresh
       const row = rowById(currentId);
       row?.querySelector('[data-col="status"]')?.replaceChildren(document.createTextNode(status));
 
@@ -331,7 +321,6 @@
   cancelBtn?.addEventListener("click", (e) => { e.preventDefault(); closeModalShell(); });
   saveBtn?.addEventListener("click",  (e) => { e.preventDefault(); doSave(); });
 
-  // Open via table buttons
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('[data-action="edit-order"], .btn-edit');
     if (!btn) return;
