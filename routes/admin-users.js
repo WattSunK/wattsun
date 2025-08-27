@@ -1,20 +1,21 @@
 // routes/admin-users.js
 // Admin Users routes:
-//  - GET    /api/admin/users?type=Driver   → list users
-//  - POST   /api/admin/users               → create user
-//  - PUT    /api/admin/users/:id           → update user (deterministic; used by admin UI)
-//  - PATCH  /api/admin/users/:id           → update user (alias)
+//  - GET    /api/admin/users?type=Driver
+//  - POST   /api/admin/users
+//  - PUT    /api/admin/users/:id
+//  - PATCH  /api/admin/users/:id
+//  - PATCH  /api/admin/users/:id/status   (status only)
 
 const express = require("express");
 const router = express.Router();
 
 function getDb(req) {
   const db = req.app.get("db");
-  if (!db) throw new Error("SQLite database handle not found (app.set('db', ...) missing)");
+  if (!db) throw new Error("SQLite handle missing (app.set('db', ...) not set)");
   return db;
 }
 
-// Promisified sqlite helpers
+// sqlite helpers (promisified)
 function all(db, sql, params = []) {
   return new Promise((resolve, reject) => db.all(sql, params, (e, rows) => (e ? reject(e) : resolve(rows))));
 }
@@ -30,6 +31,11 @@ function run(db, sql, params = []) {
   );
 }
 
+async function columnExists(db, table, name) {
+  const cols = await all(db, `PRAGMA table_info(${table})`);
+  return cols.some(c => String(c.name).toLowerCase() === String(name).toLowerCase());
+}
+
 function mapRow(r) {
   if (!r) return null;
   return {
@@ -39,7 +45,7 @@ function mapRow(r) {
     phone: r.phone,
     type: r.type,
     status: r.status || "Active",
-    createdAt: r.created_at || null,
+    createdAt: r.created_at || r.createdAt || null,
   };
 }
 
@@ -66,13 +72,23 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "name, phone, type required" } });
   }
   try {
-    const now = new Date().toISOString();
-    const ins = await run(
+    const hasCreatedAt = await columnExists(db, "users", "created_at");
+
+    const cols = ["name", "email", "phone", "type", "status"];
+    const vals = [name, email, phone, type, status];
+    if (hasCreatedAt) {
+      cols.push("created_at");
+      vals.push(new Date().toISOString());
+    }
+
+    const placeholders = cols.map(() => "?").join(",");
+    await run(db, `INSERT INTO users (${cols.join(",")}) VALUES (${placeholders})`, vals);
+
+    const row = await get(
       db,
-      `INSERT INTO users (name,email,phone,type,status,created_at) VALUES (?,?,?,?,?,?)`,
-      [name, email, phone, type, status, now]
+      `SELECT id,name,email,phone,type,status,created_at FROM users ORDER BY id DESC LIMIT 1`,
+      []
     );
-    const row = await get(db, `SELECT id,name,email,phone,type,status,created_at FROM users WHERE id = ?`, [ins.lastID]);
     return res.json({ success: true, user: mapRow(row) });
   } catch (err) {
     console.error("POST /api/admin/users failed:", err);
@@ -80,8 +96,10 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT/PATCH /api/admin/users/:id
+// PUT /api/admin/users/:id  (admin UI uses this)
 router.put("/:id", (req, res) => updateUser(req, res, "PUT"));
+
+// PATCH /api/admin/users/:id (alias)
 router.patch("/:id", (req, res) => updateUser(req, res, "PATCH"));
 
 async function updateUser(req, res, verb) {
@@ -93,20 +111,22 @@ async function updateUser(req, res, verb) {
   const sets = [];
   const params = [];
 
-  if (name != null) { sets.push("name = ?");   params.push(String(name)); }
-  if (email != null){ sets.push("email = ?");  params.push(String(email)); }
-  if (phone != null){ sets.push("phone = ?");  params.push(String(phone)); }
-  if (type != null) { sets.push("type = ?");   params.push(String(type)); }
-  if (status != null){sets.push("status = ?"); params.push(String(status)); }
+  if (name != null)   { sets.push("name = ?");   params.push(String(name)); }
+  if (email != null)  { sets.push("email = ?");  params.push(String(email)); }
+  if (phone != null)  { sets.push("phone = ?");  params.push(String(phone)); }
+  if (type != null)   { sets.push("type = ?");   params.push(String(type)); }
+  if (status != null) { sets.push("status = ?"); params.push(String(status)); }
 
-  // Password handling is schema-dependent (hashing). Left intentionally as a TODO.
+  // Optional timestamp column — only if it exists
+  const hasUpdatedAt = await columnExists(db, "users", "updated_at");
+  if (hasUpdatedAt) sets.push("updated_at = CURRENT_TIMESTAMP");
 
   if (!sets.length) {
     return res.status(400).json({ success: false, error: { code: "NO_FIELDS", message: "No updatable fields provided" } });
   }
 
   try {
-    await run(db, `UPDATE users SET ${sets.join(", ")}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [...params, id]);
+    await run(db, `UPDATE users SET ${sets.join(", ")} WHERE id = ?`, [...params, id]);
     const row = await get(db, `SELECT id,name,email,phone,type,status,created_at FROM users WHERE id = ?`, [id]);
     if (!row) return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "User not found" } });
     return res.json({ success: true, user: mapRow(row) });
@@ -115,5 +135,23 @@ async function updateUser(req, res, verb) {
     return res.status(500).json({ success: false, error: { code: "SERVER", message: err.message } });
   }
 }
+
+// PATCH /api/admin/users/:id/status  (used by “Deactivate” flow)
+router.patch("/:id/status", async (req, res) => {
+  const db = getDb(req);
+  const id = String(req.params.id || "").trim();
+  const { status = "Inactive" } = req.body || {};
+  if (!id) return res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "missing id" } });
+
+  try {
+    await run(db, `UPDATE users SET status = ? WHERE id = ?`, [String(status), id]);
+    const row = await get(db, `SELECT id,name,email,phone,type,status,created_at FROM users WHERE id = ?`, [id]);
+    if (!row) return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "User not found" } });
+    return res.json({ success: true, user: mapRow(row) });
+  } catch (err) {
+    console.error(`PATCH /api/admin/users/${id}/status failed:`, err);
+    return res.status(500).json({ success: false, error: { code: "SERVER", message: err.message } });
+  }
+});
 
 module.exports = router;
