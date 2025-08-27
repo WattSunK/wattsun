@@ -1574,3 +1574,94 @@ body {
 @media (max-width: 720px){
   .modal-bg .modal { width: calc(100% - 24px); margin: 30px auto; }
 }
+/* ===== Items modal: sizing (you already added modal--md/sm widths) ===== */
+/* keep your existing .modal--md/.modal--sm rules – these are additional polish */
+
+/* ===== Items modal: layout polish (scoped) ===== */
+#add-item-modal, #edit-item-modal, #manage-categories-modal .modal {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.15);
+}
+
+/* Header & footer spacing, borders – match Users table dialogs */
+#add-item-modal .modal-header,
+#edit-item-modal .modal-header,
+#manage-categories-modal .modal-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0,0,0,.08);
+}
+
+#add-item-modal .modal-footer,
+#edit-item-modal .modal-footer,
+#manage-categories-modal .modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(0,0,0,.08);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Body spacing (works even if your form uses no extra wrappers) */
+#add-item-modal form,
+#edit-item-modal form,
+#manage-categories-modal .modal-body,
+#manage-categories-modal .p-3 {
+  padding: 12px 16px;
+}
+
+/* Labels & controls align cleanly */
+#add-item-modal label,
+#edit-item-modal label {
+  display: block;
+  margin: 6px 0 4px;
+  font-weight: 500;
+}
+
+#add-item-modal .form-control,
+#add-item-modal .form-select,
+#edit-item-modal .form-control,
+#edit-item-modal .form-select,
+#add-item-modal textarea,
+#edit-item-modal textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Compact vertical rhythm between fields */
+#add-item-modal .form-control,
+#add-item-modal .form-select,
+#add-item-modal textarea,
+#edit-item-modal .form-control,
+#edit-item-modal .form-select,
+#edit-item-modal textarea {
+  margin-bottom: 10px;
+}
+
+/* Inline checkbox (Active) alignment */
+#add-item-modal .form-check,
+#edit-item-modal .form-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Buttons */
+#add-item-modal .btn-close,
+#edit-item-modal .btn-close,
+#manage-categories-modal .btn-close {
+  opacity: .6;
+}
+#add-item-modal .btn-close:hover,
+#edit-item-modal .btn-close:hover,
+#manage-categories-modal .btn-close:hover {
+  opacity: 1;
+}
+
+/* Mobile fallback: keep things breathable on small screens */
+@media (max-width: 720px){
+  #add-item-modal form,
+  #edit-item-modal form {
+    padding: 12px;
+  }
+}
