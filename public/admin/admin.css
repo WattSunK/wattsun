@@ -1743,3 +1743,45 @@ body {
     margin: 30px auto;
   }
 }
+/* Fit Items modals to the viewport */
+#edit-item-modal, #add-item-modal, #manage-categories-modal .modal {
+  display: flex;                /* header / body / footer stack */
+  flex-direction: column;
+  width: min(640px, calc(100% - 32px));
+  margin: 48px auto;            /* top/bottom breathing room */
+  max-height: calc(100vh - 96px); /* never taller than screen minus margins */
+  border-radius: 12px;
+}
+
+/* Mobile-accurate viewport (prevents iOS address bar jumps) */
+@supports (height: 100svh) {
+  #edit-item-modal, #add-item-modal, #manage-categories-modal .modal {
+    max-height: calc(100svh - 96px);
+  }
+}
+
+/* Keep header/footer visible; only body scrolls */
+#edit-item-modal .modal-header,
+#edit-item-modal .modal-footer,
+#add-item-modal .modal-header,
+#add-item-modal .modal-footer,
+#manage-categories-modal .modal-header,
+#manage-categories-modal .modal-footer {
+  flex: 0 0 auto;
+}
+
+#edit-item-modal .modal-body,
+#add-item-modal .modal-body,
+#manage-categories-modal .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;        /* critical for flex overflow */
+  overflow: auto;       /* scroll inside modal, not the page */
+  padding: 16px;
+}
+
+/* Slightly tighter margins on very small screens */
+@media (max-width: 600px) {
+  #edit-item-modal, #add-item-modal, #manage-categories-modal .modal {
+    margin: 24px auto;
+  }
+}
