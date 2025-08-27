@@ -92,7 +92,6 @@ app.use("/api/categories", require("./routes/categories")(db));
 
 // (INSERTION) Gate all /api/admin/* below with one line:
 app.use("/api/admin", requireAdmin);
-
 app.use("/api/admin/orders", require("./routes/admin-orders")); // NEW (PATCH)
 const adminOrdersMeta = require('./routes/admin-orders-meta');
 app.use("/api/admin/users",  require("./routes/admin-users"));  // NEW (GET drivers)
