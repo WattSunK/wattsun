@@ -1,9 +1,14 @@
 /* Wattsun Admin — Auto Skin Shim (idempotent, additive-only)
-   v1.2: heading-based fallback + generic table skin + toolbar skin.
+   v1.3
+   - Skins legacy admin partials to the Items look without changing HTML
+   - Heading fallback to find pane roots
+   - Generic table/pager/modal skin
+   - Toolbar skin even if controls are "loose" before the first table
+   - Dispatch extras: Status, Driver, Date range filters (client-side)
 */
 (function () {
-  const $  = (s, r=document) => r.querySelector(s);
-  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const $  = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const add = (el, ...cls) => el && cls.forEach(c => el.classList.add(c));
   const once = (el, key) => {
     if (!el) return false;
@@ -13,7 +18,7 @@
     return true;
   };
 
-  // Pane map: add/adjust selectors as needed; label is used for fallback
+  // ---------- Pane registry ----------
   const PANE_MAP = [
     {
       label: 'Users',
@@ -21,13 +26,15 @@
       tables: ['#users-table'],
       pager:  { info: ['#users-table-info'], controls: ['#users-pagination'] },
       modal:  ['#usersModal']
+      // no extras needed
     },
     {
       label: 'Orders',
       root:  '#orders-root',
-      tables: ['#orders-table', 'table.orders'],  // fallback will skin any table if these aren't present
+      tables: ['#orders-table', 'table.orders'],
       pager:  { info: ['#orders-table-info'], controls: ['#orders-pagination'] },
       modal:  ['#ordersModal']
+      // optional future extras
     },
     {
       label: 'Items',
@@ -35,23 +42,27 @@
       tables: ['#items-table', 'table.items'],
       pager:  { info: ['#items-table-info'], controls: ['#items-pagination'] },
       modal:  ['#itemsModal']
+      // toolbar skin handles loose controls
     },
     {
       label: 'Dispatch',
       root:  '#dispatch-root',
       tables: ['#dispatch-table'],
       pager:  { info: ['#dispatch-table-info'], controls: ['#dispatch-pagination'] },
-      modal:  ['#dispatchModal']
+      modal:  ['#dispatchModal'],
+      enhance: enhanceDispatch // <- inject Status/Driver/Date filters
     }
   ];
 
-  // ---- Root discovery (explicit id, else heading text) ----
+  // ---------- Root discovery (id or heading text) ----------
   function findPaneRootByHeading(label) {
     if (!label) return null;
     const text = String(label).trim().toLowerCase();
-    const headings = $$('h1,h2,h3').filter(h => (h.textContent || '').trim().toLowerCase() === text);
-    for (const h of headings) {
-      const sec = h.closest('section, .ws-admin-section, .panel, .card, .box, .content, .container, main') || h.parentElement;
+    const heads = $$('h1,h2,h3').filter(h => (h.textContent || '').trim().toLowerCase() === text);
+    for (const h of heads) {
+      const sec =
+        h.closest('section, .ws-admin-section, .panel, .card, .box, .content, .container, main') ||
+        h.parentElement;
       if (sec) return sec;
     }
     return null;
@@ -64,44 +75,54 @@
     return findPaneRootByHeading(entry.label);
   }
 
-  // ---- Toolbar skin (adds classes only) ----
+  // ---------- Toolbar skin ----------
   function skinToolbar(root) {
     if (!root) return;
 
-    // If a toolbar already exists, just enhance children
-    let bar = $('.ws-admin-toolbar', root);
-
-    // Otherwise: find a container near top that looks like filters (selects/inputs/buttons)
+    // 1) Prefer an existing wrapper that already looks like a toolbar
+    let bar = root.querySelector('.ws-admin-toolbar');
     if (!bar) {
       const candidates = $$('.filters, .toolbar, .controls, .actions, form, .row, div', root)
-        .filter(el => el.querySelector('select, input[type="search"], input[type="text"], button'));
+        .filter(el => el.querySelector('select, input[type="search"], input[type="text"], button, .btn'));
       bar = candidates[0] || null;
       if (bar) add(bar, 'ws-admin-toolbar');
     }
-    if (!bar || !once(bar, 'toolbar')) return;
+    if (bar && once(bar, 'toolbar')) {
+      $$('select', bar).forEach(s => add(s, 'ws-select'));
+      $$('input[type="search"], input[type="text"]', bar).forEach(i => add(i, 'ws-input'));
+      $$('button, .btn', bar).forEach(btn => {
+        add(btn, 'ws-btn');
+        const txt = (btn.textContent || '').trim().toLowerCase();
+        if (txt.startsWith('+') || /add|manage/.test(txt)) add(btn, 'ws-btn-primary');
+        if (/clear|reset/.test(txt)) add(btn, 'ws-btn-ghost');
+      });
+    }
 
-    // Enhance controls
-    $$('select', bar).forEach(s => add(s, 'ws-select'));
-    $$('input[type="search"], input[type="text"]', bar).forEach(i => add(i, 'ws-input'));
-    $$('button, .btn', bar).forEach(btn => {
-      add(btn, 'ws-btn');
-      const txt = (btn.textContent || '').trim().toLowerCase();
-      if (txt.startsWith('+') || /add/.test(txt)) add(btn, 'ws-btn-primary');
-      if (/clear|reset/.test(txt)) add(btn, 'ws-btn-ghost');
+    // 2) Fallback: style any top-of-pane controls even if there is no wrapper.
+    const firstTable = root.querySelector('table');
+    const topControls = $$('button, .btn, select, input[type="search"], input[type="text"]', root)
+      .filter(el => {
+        if (!firstTable) return true;
+        // keep only those that appear BEFORE the first table
+        return !!(el.compareDocumentPosition(firstTable) & Node.DOCUMENT_POSITION_FOLLOWING);
+      });
+    topControls.forEach(el => {
+      const tag = el.tagName;
+      if (tag === 'SELECT') add(el, 'ws-select');
+      else if (tag === 'INPUT') add(el, 'ws-input');
+      else add(el, 'ws-btn');
     });
   }
 
-  // ---- Table skin ----
+  // ---------- Table skin ----------
   function skinTable(root, table) {
     if (!table || !once(table, 'table')) return;
+
     add(table, 'ws-table');
     const p = table.parentElement;
     if (p) add(p, 'ws-table-wrap');
 
-    // Row actions
-    $$('.ws-actions', table).forEach(a => a.classList.remove('ws-actions')); // normalize duplicates
-    $$('.ws-actions', table).length; // noop
-
+    // Row action buttons
     $$('tbody tr', table).forEach(tr => {
       if (!once(tr, 'rowActions')) return;
       const last = tr.lastElementChild;
@@ -110,12 +131,12 @@
       $$('button', last).forEach(btn => {
         add(btn, 'ws-btn', 'ws-btn-xs');
         const t = (btn.textContent || '').trim().toLowerCase();
-        if (t === 'view' || t === 'edit') add(btn, 'ws-btn-primary');
-        if (t === 'delete' || t === 'remove') add(btn, 'ws-btn-ghost');
+        if (t === 'view' || t === 'edit' || t === 'assign') add(btn, 'ws-btn-primary');
+        if (t === 'delete' || t === 'remove' || t === 'unassign') add(btn, 'ws-btn-ghost');
       });
     });
 
-    // Status badges
+    // Status badges by header text
     const ths = $$('thead th', table);
     const statusIdx = ths.findIndex(th => (/status/i).test(th.textContent || ''));
     if (statusIdx !== -1) {
@@ -127,20 +148,23 @@
         const val = raw.toLowerCase();
         td.textContent = '';
         const span = document.createElement('span');
-        add(span, 'ws-badge', (val === 'active' ? 'ws-badge-success' : 'ws-badge-muted'));
+        add(span, 'ws-badge', (val === 'active' || val === 'pending' || val === 'open')
+          ? 'ws-badge-success'
+          : 'ws-badge-muted');
         span.textContent = raw || '—';
         td.appendChild(span);
       });
     }
   }
 
-  // ---- Pager skin (only when we know selectors) ----
+  // ---------- Pager skin (when we know selectors) ----------
   function skinPager(root, map) {
     if (!map) return;
     (map.info  || []).forEach(sel => $$(sel, root).forEach(el => add(el, 'ws-pager-info')));
     (map.controls || []).forEach(sel => $$(sel, root).forEach(el => add(el, 'ws-pager-controls')));
-    const infoEl = (map.info||[]).map(s => $(s, root)).find(Boolean);
-    const pagEl  = (map.controls||[]).map(s => $(s, root)).find(Boolean);
+
+    const infoEl = (map.info || []).map(s => $(s, root)).find(Boolean);
+    const pagEl  = (map.controls || []).map(s => $(s, root)).find(Boolean);
     if (infoEl && pagEl) {
       const same = infoEl.parentElement === pagEl.parentElement &&
                    infoEl.parentElement.classList.contains('ws-pager');
@@ -154,7 +178,7 @@
     }
   }
 
-  // ---- Modal skin ----
+  // ---------- Modal skin ----------
   function skinModal(root, selectors) {
     (selectors || []).forEach(sel => {
       $$(sel, root).forEach(modal => {
@@ -174,26 +198,184 @@
     });
   }
 
+  // ---------- Dispatch extras (Status, Driver, Date range) ----------
+  function enhanceDispatch(root) {
+    if (!root) return;
+    const table = $('table', root);
+    if (!table) return;
+
+    // Only build once
+    if (!once(root, 'dispatchFilters')) return;
+
+    // Column indexes
+    const ths = $$('thead th', table).map(th => (th.textContent || '').trim().toLowerCase());
+    const idx = {
+      status: ths.findIndex(t => /status/.test(t)),
+      driver: ths.findIndex(t => /driver/.test(t)),
+      created: ths.findIndex(t => /created|date/.test(t))
+    };
+
+    // Build container right above the table
+    const bar = document.createElement('div');
+    add(bar, 'ws-admin-toolbar', 'ws-dispatch-filters');
+    table.parentNode.insertBefore(bar, table);
+
+    // Helper: create select
+    const mkSelect = (placeholder, cls = 'ws-select') => {
+      const s = document.createElement('select');
+      add(s, cls);
+      const opt = document.createElement('option');
+      opt.value = ''; opt.textContent = placeholder;
+      s.appendChild(opt);
+      return s;
+    };
+    // Helper: create input date
+    const mkDate = () => { const i = document.createElement('input'); i.type = 'date'; add(i, 'ws-input'); return i; };
+
+    // Collect unique values from rows
+    const rows = $$('tbody tr', table);
+    const statuses = new Set(), drivers = new Set();
+    rows.forEach(tr => {
+      if (idx.status !== -1) statuses.add(($('td:nth-child('+(idx.status+1)+')', tr)?.textContent || '').trim());
+      if (idx.driver !== -1) drivers.add(($('td:nth-child('+(idx.driver+1)+')', tr)?.textContent || '').trim());
+    });
+
+    // Controls
+    const statusSel = mkSelect('All Status');
+    Array.from(statuses).filter(Boolean).sort().forEach(v => {
+      const o = document.createElement('option'); o.value = v; o.textContent = v; statusSel.appendChild(o);
+    });
+
+    const driverSel = mkSelect('All Drivers');
+    Array.from(drivers).filter(Boolean).sort().forEach(v => {
+      const o = document.createElement('option'); o.value = v; o.textContent = v; driverSel.appendChild(o);
+    });
+
+    const fromDate = mkDate(); fromDate.placeholder = 'From';
+    const toDate   = mkDate(); toDate.placeholder   = 'To';
+
+    // Label-ish buttons (optional)
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button'; clearBtn.textContent = 'Clear';
+    add(clearBtn, 'ws-btn', 'ws-btn-ghost');
+
+    // Append
+    bar.appendChild(statusSel);
+    bar.appendChild(driverSel);
+    bar.appendChild(fromDate);
+    bar.appendChild(toDate);
+    bar.appendChild(clearBtn);
+
+    // Filtering
+    function parseDate(text) {
+      const s = (text || '').trim();
+      // try dd/MM/yyyy HH:mm[:ss]
+      const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})(?:[^\d](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+      if (m) {
+        const d = Number(m[1]), mo = Number(m[2]) - 1, y = Number(m[3]);
+        const hh = Number(m[4] || 0), mm = Number(m[5] || 0), ss = Number(m[6] || 0);
+        return new Date(y, mo, d, hh, mm, ss);
+      }
+      // ISO or anything Date can parse
+      const dt = new Date(s);
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+
+    function rowDate(tr) {
+      if (idx.created === -1) return null;
+      const cell = $('td:nth-child('+(idx.created+1)+')', tr);
+      return parseDate(cell ? cell.textContent : '');
+    }
+
+    function applyFilters() {
+      const sVal = statusSel.value;
+      const dVal = driverSel.value;
+      const fVal = fromDate.value ? new Date(fromDate.value) : null;
+      const tVal = toDate.value   ? new Date(toDate.value)   : null;
+
+      $$('tbody tr', table).forEach(tr => {
+        let show = true;
+
+        if (sVal && idx.status !== -1) {
+          const txt = ($('td:nth-child('+(idx.status+1)+')', tr)?.textContent || '').trim();
+          show = show && (txt === sVal);
+        }
+
+        if (dVal && idx.driver !== -1) {
+          const txt = ($('td:nth-child('+(idx.driver+1)+')', tr)?.textContent || '').trim();
+          show = show && (txt === dVal);
+        }
+
+        if ((fVal || tVal) && idx.created !== -1) {
+          const when = rowDate(tr);
+          if (!when) show = false;
+          if (show && fVal && when < new Date(fVal.getFullYear(), fVal.getMonth(), fVal.getDate())) show = false;
+          if (show && tVal && when > new Date(tVal.getFullYear(), tVal.getMonth(), tVal.getDate(), 23, 59, 59)) show = false;
+        }
+
+        tr.style.display = show ? '' : 'none';
+      });
+    }
+
+    [statusSel, driverSel, fromDate, toDate].forEach(el => el.addEventListener('change', applyFilters));
+    clearBtn.addEventListener('click', () => {
+      statusSel.value = ''; driverSel.value = ''; fromDate.value = ''; toDate.value = '';
+      applyFilters();
+    });
+
+    // Rebuild driver/status lists if rows change (e.g., pagination/refresh)
+    const tbody = $('tbody', table);
+    if (tbody) {
+      new MutationObserver(() => {
+        // preserve current selections
+        const sKeep = statusSel.value, dKeep = driverSel.value;
+        const st = new Set(), dr = new Set();
+        $$('tr', tbody).forEach(tr => {
+          if (idx.status !== -1) st.add(($('td:nth-child('+(idx.status+1)+')', tr)?.textContent || '').trim());
+          if (idx.driver !== -1) dr.add(($('td:nth-child('+(idx.driver+1)+')', tr)?.textContent || '').trim());
+        });
+        // repopulate
+        statusSel.length = 1; Array.from(st).filter(Boolean).sort().forEach(v => {
+          const o = document.createElement('option'); o.value = v; o.textContent = v; statusSel.appendChild(o);
+        });
+        driverSel.length = 1; Array.from(dr).filter(Boolean).sort().forEach(v => {
+          const o = document.createElement('option'); o.value = v; o.textContent = v; driverSel.appendChild(o);
+        });
+        // restore + reapply
+        statusSel.value = sKeep || '';
+        driverSel.value = dKeep || '';
+        applyFilters();
+      }).observe(tbody, { childList: true, subtree: true });
+    }
+
+    // Initial pass
+    applyFilters();
+  }
+
+  // ---------- Skin a single pane ----------
   function skinPane(entry) {
     const root = getPaneRoot(entry);
     if (!root) return;
 
-    // Toolbar first (visual only)
     skinToolbar(root);
 
-    // Known table selectors
+    // Known tables first
     let tables = [];
     (entry.tables || []).forEach(sel => { tables = tables.concat($$(sel, root)); });
-    // Fallback: any table inside the pane
+    // Fallback: any table under root
     if (!tables.length) tables = $$('table', root).filter(t => !t.classList.contains('ws-table'));
     tables.forEach(t => skinTable(root, t));
 
-    // Pager / Modal when known
     skinPager(root, entry.pager);
     skinModal(root, entry.modal);
+
+    // Extras (e.g., Dispatch filters)
+    if (typeof entry.enhance === 'function') entry.enhance(root);
   }
 
-  function run(){ PANE_MAP.forEach(skinPane); }
+  // ---------- Boot & observe ----------
+  function run() { PANE_MAP.forEach(skinPane); }
+
   run();
   new MutationObserver(() => run()).observe(document.body, { childList: true, subtree: true });
 })();
