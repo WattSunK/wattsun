@@ -1720,3 +1720,22 @@ body {
     width: calc(100% - 24px);
   }
 }
+/* keep filters in one row; allow horizontal scroll on tiny screens */
+.toolbar-nowrap { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* modal primitives */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.38); z-index: 1050; display: none; }
+.modal-overlay.show { display: block; }
+.modal-card { background: #fff; margin: 5vh auto; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.2); overflow: hidden; }
+.modal-card--md { max-width: 720px; }
+.modal-card--sm { max-width: 520px; }
+.modal-head, .modal-foot { padding: 14px 16px; }
+.modal-head { border-bottom: 1px solid rgba(0,0,0,.08); }
+.modal-foot { border-top: 1px solid rgba(0,0,0,.08); }
+.modal-title { font-size: 1.05rem; margin: 0; }
+/* The magic: body scrolls, footer stays visible */
+.modal-body { padding: 16px; max-height: calc(100vh - 10vh - 120px); overflow: auto; }
+@media (max-width: 768px) {
+  .modal-card { margin: 2vh auto; }
+  .modal-body { max-height: calc(100vh - 4vh - 120px); }
+}

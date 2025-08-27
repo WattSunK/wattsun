@@ -1,202 +1,285 @@
 <div id="items-root" class="container-fluid px-4">
   <h2 class="mt-4">Items</h2>
 
-  <!-- Toolbar (one line) -->
-  <div class="items-toolbar">
+  <!-- Toolbar (single row). TIP: move the inline style into .toolbar-nowrap in admin.css -->
+  <div class="mb-3 d-flex align-items-center gap-2 toolbar-nowrap"
+       style="flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;">
     <button id="btn-add-item" class="btn btn-outline-warning btn-sm">+ Add Item</button>
     <button id="btn-manage-categories" class="btn btn-outline-warning btn-sm">Manage Categories</button>
 
-    <select id="category-filter" class="form-select form-select-sm">
+    <select id="category-filter" class="form-select form-select-sm w-auto ms-2">
       <option value="">All Categories</option>
     </select>
 
-    <input type="text" id="search-text" class="form-control form-control-sm" placeholder="Search by name or SKU">
+    <input type="text" id="search-text" class="form-control form-control-sm" placeholder="Search by name or SKU"
+           style="min-width:280px; max-width:420px;">
+
     <button id="search-button" class="btn btn-outline-warning btn-sm">Search</button>
     <button id="clear-button" class="btn btn-outline-warning btn-sm">Clear</button>
-  </div>
 
-  <!-- Show entries -->
-  <div class="d-flex justify-content-start mb-2 align-items-center gap-2">
-    <label for="items-per-page" class="form-label mb-0">Show</label>
-    <select id="items-per-page" class="form-select form-select-sm w-auto">
-      <option value="15" selected>15</option>
-      <option value="25">25</option>
-      <option value="50">50</option>
-      <option value="100">100</option>
-    </select>
-    <span>entries</span>
+    <!-- Show per-page on the far right -->
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <label for="items-per-page" class="small mb-0 text-muted">Show</label>
+      <select id="items-per-page" class="form-select form-select-sm w-auto">
+        <option value="10">10</option>
+        <option value="15" selected>15</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+      </select>
+      <span class="small text-muted">entries</span>
+    </div>
   </div>
 
   <!-- Table -->
   <div class="table-responsive">
-    <table id="items-table" class="table table-bordered table-striped align-middle">
-      <thead class="table-warning">
+    <table id="items-table" class="table table-sm align-middle">
+      <thead class="table-warning-subtle">
         <tr>
-          <th>SL. NO</th>
-          <th>IMAGE</th>
+          <th style="width:56px;">SL. NO</th>
+          <th style="width:72px;">IMAGE</th>
           <th>ITEM NAME</th>
-          <th>SKU</th>
-          <th>CATEGORY</th>
-          <th>STOCK</th>
-          <th>UNIT PRICE</th>
-          <th>PRIORITY</th>
-          <th>STATUS</th>
-          <th>ACTION</th>
+          <th style="width:140px;">SKU</th>
+          <th style="width:170px;">CATEGORY</th>
+          <th style="width:90px;">STOCK</th>
+          <th style="width:120px;">UNIT PRICE</th>
+          <th style="width:110px;">PRIORITY</th>
+          <th style="width:110px;">STATUS</th>
+          <th style="width:140px;">ACTION</th>
         </tr>
       </thead>
-      <tbody id="items-table-body"><!-- populated by JS --></tbody>
+      <tbody id="items-table-body"><!-- filled by JS --></tbody>
     </table>
   </div>
 
   <!-- Pager -->
   <div class="d-flex justify-content-between align-items-center mt-2">
-    <div id="items-table-info" class="small text-muted">Showing 0 to 0 of 0 entries</div>
-    <div class="pagination" id="items-pagination"></div>
+    <div id="items-table-info" class="small text-muted"><!-- set by JS --></div>
+    <nav id="items-pager" class="d-flex gap-1"><!-- buttons injected by JS --></nav>
   </div>
 </div>
 
-<!-- ADD ITEM MODAL -->
-<div id="add-item-modal-bg" class="modal-bg modal--md" style="display:none;">
-  <div id="add-item-modal" class="modal">
-    <div class="modal-header">
-      <h5 class="m-0">Add Item</h5>
-      <button type="button" class="btn-close modal-close" aria-label="Close"></button>
+<!-- ============ SHARED MODAL PRIMITIVES ============
+  All modals below follow the same structure:
+  .modal-overlay  (fixed fullscreen, dark backdrop)
+    .modal-card   (centered container with max-width)
+      .modal-head (fixed inside card)
+      .modal-body (scrollable area -> keeps Save in view)
+      .modal-foot (fixed inside card)
+  Move these inline styles into CSS:
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.38); z-index:1050; display:none; }
+    .modal-overlay.show { display:block; }
+    .modal-card { background:#fff; margin:5vh auto; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.2); overflow:hidden; }
+    .modal-card--md { max-width:720px; }
+    .modal-card--sm { max-width:520px; }
+    .modal-head, .modal-foot { padding:14px 16px; border-bottom:1px solid rgba(0,0,0,.08); }
+    .modal-foot { border-top:1px solid rgba(0,0,0,.08); border-bottom:none; }
+    .modal-title { font-size:1.05rem; margin:0; }
+    .modal-close { border:none; background:transparent; font-size:0.95rem; }
+    .modal-body { padding:16px; max-height:calc(100vh - 5vh - 5vh - 120px); overflow:auto; }  -- 120px ≈ head+foot
+    @media (max-width: 768px) { .modal-card { margin:2vh auto; } .modal-body { max-height:calc(100vh - 2vh - 2vh - 120px);} }
+-->
+
+<!-- ================== ADD / EDIT ITEM MODAL ================== -->
+<div id="item-modal" class="modal-overlay" aria-hidden="true">
+  <div class="modal-card modal-card--md" role="dialog" aria-modal="true" aria-labelledby="itemModalTitle">
+    <div class="modal-head d-flex align-items-center justify-content-between">
+      <h5 id="itemModalTitle" class="modal-title">Edit Item</h5>
+      <button type="button" class="modal-close btn btn-sm btn-outline-secondary" data-close="#item-modal">Cancel</button>
     </div>
+
+    <!-- Scrollable body: keep inputs visible, Save stays in footer -->
     <div class="modal-body">
-      <form id="add-item-form" class="p-3">
-        <div class="row g-3">
-          <div class="col-md-4">
-            <label class="form-label">SKU *</label>
-            <input id="add-sku" class="form-control" required>
-          </div>
-          <div class="col-md-8">
-            <label class="form-label">Name *</label>
-            <input id="add-name" class="form-control" required>
-          </div>
-          <div class="col-12">
-            <label class="form-label">Description *</label>
-            <textarea id="add-description" class="form-control" rows="2" required></textarea>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Price (KSH) *</label>
-            <input id="add-price" type="number" min="0" class="form-control" required>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Category *</label>
-            <select id="add-category" class="form-select" required>
-              <option value="">Select...</option>
-            </select>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Image filename</label>
-            <input id="add-image" class="form-control" placeholder="example.jpg">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Warranty (months)</label>
-            <input id="add-warranty" type="number" min="0" class="form-control">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Stock</label>
-            <input id="add-stock" type="number" min="0" class="form-control">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Priority</label>
-            <input id="add-priority" type="number" min="0" step="1" class="form-control" placeholder="0">
-          </div>
-          <div class="col-md-4 d-flex align-items-end">
-            <div class="form-check">
-              <input id="add-active" class="form-check-input" type="checkbox" checked>
-              <label class="form-check-label">Active</label>
-            </div>
-          </div>
+      <form id="item-form" class="row g-3">
+        <input type="hidden" id="item-id">
+
+        <div class="col-12">
+          <label for="item-sku" class="form-label">SKU</label>
+          <input id="item-sku" class="form-control form-control-sm" autocomplete="off">
         </div>
-        <div class="visually-hidden"></div>
+
+        <div class="col-12">
+          <label for="item-name" class="form-label">Name</label>
+          <input id="item-name" class="form-control form-control-sm" autocomplete="off">
+        </div>
+
+        <div class="col-12">
+          <label for="item-description" class="form-label">Description</label>
+          <textarea id="item-description" rows="2" class="form-control form-control-sm"></textarea>
+        </div>
+
+        <div class="col-6">
+          <label for="item-price" class="form-label">Price (KSH)</label>
+          <input id="item-price" class="form-control form-control-sm" inputmode="numeric">
+        </div>
+
+        <div class="col-6">
+          <label for="item-category" class="form-label">Category</label>
+          <select id="item-category" class="form-select form-select-sm"></select>
+        </div>
+
+        <div class="col-6">
+          <label for="item-image" class="form-label">Image filename</label>
+          <input id="item-image" class="form-control form-control-sm" placeholder="example.jpg">
+        </div>
+
+        <div class="col-6">
+          <label for="item-warranty" class="form-label">Warranty (months)</label>
+          <input id="item-warranty" class="form-control form-control-sm" inputmode="numeric">
+        </div>
+
+        <div class="col-6">
+          <label for="item-stock" class="form-label">Stock</label>
+          <input id="item-stock" class="form-control form-control-sm" inputmode="numeric">
+        </div>
+
+        <div class="col-6">
+          <label for="item-priority" class="form-label">Priority</label>
+          <input id="item-priority" class="form-control form-control-sm" inputmode="numeric">
+        </div>
+
+        <div class="col-12 d-flex align-items-center gap-2">
+          <input id="item-active" type="checkbox" class="form-check-input">
+          <label for="item-active" class="form-check-label">Active</label>
+        </div>
       </form>
     </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-outline-secondary modal-close">Cancel</button>
-      <button type="submit" form="add-item-form" class="btn btn-warning">Save</button>
+
+    <div class="modal-foot d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-light" data-close="#item-modal">Close</button>
+      <button id="item-save" type="button" class="btn btn-warning">Save Changes</button>
     </div>
   </div>
 </div>
 
-<!-- EDIT ITEM MODAL -->
-<div id="edit-item-modal-bg" class="modal-bg modal--md" style="display:none;">
-  <div id="edit-item-modal" class="modal">
-    <div class="modal-header">
-      <h5 class="m-0">Edit Item</h5>
-      <button type="button" class="btn-close modal-close" aria-label="Close"></button>
+<!-- ================== ADD ITEM (shortcut) ==================
+     Optional: if your JS opens the same modal for Add + Edit, you don’t need this.
+     Kept here with a unique id in case you prefer separate hooks. -->
+<div id="add-item-modal" class="modal-overlay" aria-hidden="true">
+  <div class="modal-card modal-card--md" role="dialog" aria-modal="true" aria-labelledby="addItemTitle">
+    <div class="modal-head d-flex align-items-center justify-content-between">
+      <h5 id="addItemTitle" class="modal-title">Add Item</h5>
+      <button type="button" class="modal-close btn btn-sm btn-outline-secondary" data-close="#add-item-modal">Cancel</button>
     </div>
+
     <div class="modal-body">
-      <form id="edit-item-form" class="p-3">
-        <div class="row g-3">
-          <div class="col-md-4">
-            <label class="form-label">SKU</label>
-            <input id="edit-sku" class="form-control" readonly>
-          </div>
-          <div class="col-md-8">
-            <label class="form-label">Name</label>
-            <input id="edit-name" class="form-control">
-          </div>
-          <div class="col-12">
-            <label class="form-label">Description</label>
-            <textarea id="edit-description" class="form-control" rows="2"></textarea>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Price (KSH)</label>
-            <input id="edit-price" type="number" min="0" class="form-control">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Category</label>
-            <select id="edit-category" class="form-select">
-              <option value="">(unchanged)</option>
-            </select>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Image filename</label>
-            <input id="edit-image" class="form-control" placeholder="example.jpg">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Warranty (months)</label>
-            <input id="edit-warranty" type="number" min="0" class="form-control">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Stock</label>
-            <input id="edit-stock" type="number" min="0" class="form-control">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Priority</label>
-            <input id="edit-priority" type="number" min="0" step="1" class="form-control" placeholder="0">
-          </div>
-          <div class="col-md-4 d-flex align-items-end">
-            <div class="form-check">
-              <input id="edit-status" class="form-check-input" type="checkbox">
-              <label class="form-check-label">Active</label>
-            </div>
-          </div>
+      <!-- Reuse the same form markup/ids if your JS swaps between the two.
+           Alternatively, use add- prefixed ids and map them in JS. Here we reuse for simplicity. -->
+      <form id="add-item-form" class="row g-3">
+        <div class="col-12">
+          <label for="add-sku" class="form-label">SKU *</label>
+          <input id="add-sku" class="form-control form-control-sm">
         </div>
-        <div class="visually-hidden"></div>
+        <div class="col-12">
+          <label for="add-name" class="form-label">Name *</label>
+          <input id="add-name" class="form-control form-control-sm">
+        </div>
+        <div class="col-12">
+          <label for="add-description" class="form-label">Description *</label>
+          <textarea id="add-description" rows="2" class="form-control form-control-sm"></textarea>
+        </div>
+        <div class="col-6">
+          <label for="add-price" class="form-label">Price (KSH) *</label>
+          <input id="add-price" class="form-control form-control-sm" inputmode="numeric">
+        </div>
+        <div class="col-6">
+          <label for="add-category" class="form-label">Category *</label>
+          <select id="add-category" class="form-select form-select-sm"></select>
+        </div>
+        <div class="col-6">
+          <label for="add-image" class="form-label">Image filename</label>
+          <input id="add-image" class="form-control form-control-sm" placeholder="example.jpg">
+        </div>
+        <div class="col-6">
+          <label for="add-warranty" class="form-label">Warranty (months)</label>
+          <input id="add-warranty" class="form-control form-control-sm" inputmode="numeric">
+        </div>
+        <div class="col-6">
+          <label for="add-stock" class="form-label">Stock</label>
+          <input id="add-stock" class="form-control form-control-sm" inputmode="numeric">
+        </div>
+        <div class="col-6">
+          <label for="add-priority" class="form-label">Priority</label>
+          <input id="add-priority" class="form-control form-control-sm" inputmode="numeric" value="0">
+        </div>
+        <div class="col-12 d-flex align-items-center gap-2">
+          <input id="add-active" type="checkbox" class="form-check-input" checked>
+          <label for="add-active" class="form-check-label">Active</label>
+        </div>
       </form>
     </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-outline-secondary modal-close">Cancel</button>
-      <button type="submit" form="edit-item-form" class="btn btn-warning">Save Changes</button>
+
+    <div class="modal-foot d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-light" data-close="#add-item-modal">Close</button>
+      <button id="add-item-save" type="button" class="btn btn-warning">Save</button>
     </div>
   </div>
 </div>
 
-<!-- MANAGE CATEGORIES MODAL -->
-<div id="manage-categories-modal" class="modal-bg modal--sm" style="display:none;">
-  <div class="modal">
-    <div class="modal-header">
-      <h5 class="m-0">Categories</h5>
-      <button type="button" class="btn-close modal-close" aria-label="Close"></button>
+<!-- ================== MANAGE CATEGORIES MODAL ================== -->
+<div id="manage-categories-modal" class="modal-overlay" aria-hidden="true">
+  <div class="modal-card modal-card--sm" role="dialog" aria-modal="true" aria-labelledby="categoriesTitle">
+    <div class="modal-head d-flex align-items-center justify-content-between">
+      <h5 id="categoriesTitle" class="modal-title">Categories</h5>
+      <button type="button" class="modal-close btn btn-sm btn-outline-secondary" data-close="#manage-categories-modal">Close</button>
     </div>
-    <div class="modal-body p-3">
-      <ul id="categories-list" class="list-group small"></ul>
+
+    <div class="modal-body">
+      <div class="input-group input-group-sm mb-3">
+        <input id="new-category-name" class="form-control" placeholder="New category name">
+        <button id="create-category" class="btn btn-warning" type="button">Add</button>
+      </div>
+
+      <ul id="categories-list" class="list-group small">
+        <!-- filled by JS with li > span.name + actions (rename/toggle/delete) -->
+      </ul>
     </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-warning modal-close">Close</button>
+
+    <div class="modal-foot d-flex justify-content-end">
+      <button type="button" class="btn btn-light" data-close="#manage-categories-modal">Done</button>
     </div>
   </div>
 </div>
+
+<!-- ============== LIGHT JS HOOKS FOR OPEN/CLOSE ONLY ==============
+     Your existing controller (admin-items.js or similar) should continue
+     to populate table data, wire Save buttons, etc.
+     These helpers just open/close the modals reliably.
+-->
+<script>
+  (function () {
+    const $ = (sel, ctx=document) => ctx.querySelector(sel);
+    const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
+
+    // Open helpers (your controller can call these too)
+    window.openItemModal = function(title) {
+      $('#itemModalTitle').textContent = title || 'Edit Item';
+      $('#item-modal').classList.add('show');
+    };
+    window.openAddItemModal = function() {
+      $('#add-item-modal').classList.add('show');
+    };
+    window.openCategoriesModal = function() {
+      $('#manage-categories-modal').classList.add('show');
+    };
+
+    // Close buttons
+    document.querySelectorAll('[data-close]').forEach(btn => {
+      on(btn, 'click', () => {
+        const id = btn.getAttribute('data-close');
+        const el = document.querySelector(id);
+        if (el) el.classList.remove('show');
+      });
+    });
+
+    // Backdrop click to close
+    document.querySelectorAll('.modal-overlay').forEach(ov => {
+      on(ov, 'click', (e) => {
+        if (e.target === ov) ov.classList.remove('show');
+      });
+    });
+
+    // Wire the header buttons (non-breaking; your controller can override)
+    on(document.getElementById('btn-add-item'), 'click', () => openAddItemModal());
+    on(document.getElementById('btn-manage-categories'), 'click', () => openCategoriesModal());
+  })();
+</script>
