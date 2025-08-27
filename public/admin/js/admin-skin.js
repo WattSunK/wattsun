@@ -1,7 +1,6 @@
 /* Wattsun Admin — Auto Skin Shim (idempotent, additive-only)
-   v1.1: Adds heading-based pane discovery + generic table skin fallback.
+   v1.2: heading-based fallback + generic table skin + toolbar skin.
 */
-
 (function () {
   const $  = (s, r=document) => r.querySelector(s);
   const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
@@ -14,9 +13,7 @@
     return true;
   };
 
-  // === Pane map ===
-  // You can add/adjust selectors here at any time.
-  // `label` is used as a fallback to find the pane by heading text.
+  // Pane map: add/adjust selectors as needed; label is used for fallback
   const PANE_MAP = [
     {
       label: 'Users',
@@ -27,8 +24,8 @@
     },
     {
       label: 'Orders',
-      root:  '#orders-root',                // if present, we use it
-      tables: ['#orders-table', 'table.orders'],  // if missing, fallback will skin any table under the "Orders" pane
+      root:  '#orders-root',
+      tables: ['#orders-table', 'table.orders'],  // fallback will skin any table if these aren't present
       pager:  { info: ['#orders-table-info'], controls: ['#orders-pagination'] },
       modal:  ['#ordersModal']
     },
@@ -45,17 +42,10 @@
       tables: ['#dispatch-table'],
       pager:  { info: ['#dispatch-table-info'], controls: ['#dispatch-pagination'] },
       modal:  ['#dispatchModal']
-    },
-    {
-      label: 'Drivers',
-      root:  '#drivers-root',
-      tables: ['#drivers-table'],
-      pager:  { info: ['#drivers-table-info'], controls: ['#drivers-pagination'] },
-      modal:  ['#driversModal']
     }
   ];
 
-  // === Fallback: find pane root by heading text (H1/H2/H3) ===
+  // ---- Root discovery (explicit id, else heading text) ----
   function findPaneRootByHeading(label) {
     if (!label) return null;
     const text = String(label).trim().toLowerCase();
@@ -66,44 +56,66 @@
     }
     return null;
   }
-
   function getPaneRoot(entry) {
-    // Use explicit root if it exists
     if (entry.root) {
       const el = $(entry.root);
       if (el) return el;
     }
-    // Fallback: heading-based discovery
     return findPaneRootByHeading(entry.label);
   }
 
-  // === Skinners ===
+  // ---- Toolbar skin (adds classes only) ----
+  function skinToolbar(root) {
+    if (!root) return;
+
+    // If a toolbar already exists, just enhance children
+    let bar = $('.ws-admin-toolbar', root);
+
+    // Otherwise: find a container near top that looks like filters (selects/inputs/buttons)
+    if (!bar) {
+      const candidates = $$('.filters, .toolbar, .controls, .actions, form, .row, div', root)
+        .filter(el => el.querySelector('select, input[type="search"], input[type="text"], button'));
+      bar = candidates[0] || null;
+      if (bar) add(bar, 'ws-admin-toolbar');
+    }
+    if (!bar || !once(bar, 'toolbar')) return;
+
+    // Enhance controls
+    $$('select', bar).forEach(s => add(s, 'ws-select'));
+    $$('input[type="search"], input[type="text"]', bar).forEach(i => add(i, 'ws-input'));
+    $$('button, .btn', bar).forEach(btn => {
+      add(btn, 'ws-btn');
+      const txt = (btn.textContent || '').trim().toLowerCase();
+      if (txt.startsWith('+') || /add/.test(txt)) add(btn, 'ws-btn-primary');
+      if (/clear|reset/.test(txt)) add(btn, 'ws-btn-ghost');
+    });
+  }
+
+  // ---- Table skin ----
   function skinTable(root, table) {
     if (!table || !once(table, 'table')) return;
-
-    // Table classes
     add(table, 'ws-table');
-
-    // Mark parent as wrapper (no reparenting)
     const p = table.parentElement;
     if (p) add(p, 'ws-table-wrap');
 
     // Row actions
-    const rows = $$('tbody tr', table);
-    rows.forEach(tr => {
+    $$('.ws-actions', table).forEach(a => a.classList.remove('ws-actions')); // normalize duplicates
+    $$('.ws-actions', table).length; // noop
+
+    $$('tbody tr', table).forEach(tr => {
       if (!once(tr, 'rowActions')) return;
       const last = tr.lastElementChild;
       if (!last) return;
       add(last, 'ws-actions');
       $$('button', last).forEach(btn => {
         add(btn, 'ws-btn', 'ws-btn-xs');
-        const txt = (btn.textContent || '').trim().toLowerCase();
-        if (txt === 'view' || txt === 'edit') add(btn, 'ws-btn-primary');
-        if (txt === 'delete' || txt === 'remove') add(btn, 'ws-btn-ghost');
+        const t = (btn.textContent || '').trim().toLowerCase();
+        if (t === 'view' || t === 'edit') add(btn, 'ws-btn-primary');
+        if (t === 'delete' || t === 'remove') add(btn, 'ws-btn-ghost');
       });
     });
 
-    // Status badges: detect STATUS column by header text
+    // Status badges
     const ths = $$('thead th', table);
     const statusIdx = ths.findIndex(th => (/status/i).test(th.textContent || ''));
     if (statusIdx !== -1) {
@@ -122,18 +134,17 @@
     }
   }
 
+  // ---- Pager skin (only when we know selectors) ----
   function skinPager(root, map) {
     if (!map) return;
     (map.info  || []).forEach(sel => $$(sel, root).forEach(el => add(el, 'ws-pager-info')));
     (map.controls || []).forEach(sel => $$(sel, root).forEach(el => add(el, 'ws-pager-controls')));
-
-    // If both exist but no wrapper, create one sibling wrapper (visual only)
     const infoEl = (map.info||[]).map(s => $(s, root)).find(Boolean);
     const pagEl  = (map.controls||[]).map(s => $(s, root)).find(Boolean);
     if (infoEl && pagEl) {
-      const alreadyWrapped = infoEl.parentElement === pagEl.parentElement &&
-                             infoEl.parentElement.classList.contains('ws-pager');
-      if (!alreadyWrapped) {
+      const same = infoEl.parentElement === pagEl.parentElement &&
+                   infoEl.parentElement.classList.contains('ws-pager');
+      if (!same) {
         const wrap = document.createElement('div');
         add(wrap, 'ws-pager');
         infoEl.parentNode.insertBefore(wrap, infoEl);
@@ -143,17 +154,16 @@
     }
   }
 
+  // ---- Modal skin ----
   function skinModal(root, selectors) {
     (selectors || []).forEach(sel => {
       $$(sel, root).forEach(modal => {
         if (!once(modal, 'modal')) return;
         add(modal, 'ws-modal');
-
         const dlg  = modal.querySelector('.ws-dialog') ||
                      modal.querySelector('.modal-dialog') ||
                      modal.firstElementChild;
         if (dlg) add(dlg, 'ws-dialog');
-
         const hdr = modal.querySelector('.ws-dialog-header') || modal.querySelector('.modal-header');
         const bdy = modal.querySelector('.ws-dialog-body')   || modal.querySelector('.modal-body');
         const ftr = modal.querySelector('.ws-dialog-footer') || modal.querySelector('.modal-footer');
@@ -168,25 +178,22 @@
     const root = getPaneRoot(entry);
     if (!root) return;
 
-    // 1) Known table selectors first
+    // Toolbar first (visual only)
+    skinToolbar(root);
+
+    // Known table selectors
     let tables = [];
     (entry.tables || []).forEach(sel => { tables = tables.concat($$(sel, root)); });
-
-    // 2) Fallback: if none matched, skin any visible table inside the pane
-    if (!tables.length) {
-      tables = $$('table', root).filter(t => !t.classList.contains('ws-table'));
-    }
+    // Fallback: any table inside the pane
+    if (!tables.length) tables = $$('table', root).filter(t => !t.classList.contains('ws-table'));
     tables.forEach(t => skinTable(root, t));
 
-    // Pager: only applied if known selectors exist; we avoid guessing here
+    // Pager / Modal when known
     skinPager(root, entry.pager);
-
-    // Modal: applied if present
     skinModal(root, entry.modal);
   }
 
-  function run() { PANE_MAP.forEach(skinPane); }
-
+  function run(){ PANE_MAP.forEach(skinPane); }
   run();
   new MutationObserver(() => run()).observe(document.body, { childList: true, subtree: true });
 })();

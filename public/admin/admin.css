@@ -1459,3 +1459,30 @@ body {
 #usersModal .ws-dialog-header { border-bottom:1px solid #f1f1f1; }
 #usersModal .ws-dialog-title { font-size:18px; font-weight:600; margin:0; }
 #usersModal .ws-dialog-body { padding:16px; }
+/* ===== Admin toolbars — Items & Dispatch (match Users look) ===== */
+#items-root .ws-admin-title,
+#dispatch-root .ws-admin-title { color:#111; font-size:1.33em; font-weight:500; margin:0 0 14px; }
+
+#items-root .ws-admin-toolbar,
+#items-root .ws-admin-filters,
+#dispatch-root .ws-admin-toolbar,
+#dispatch-root .ws-admin-filters {
+  display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px;
+}
+
+#items-root .ws-input,
+#items-root .ws-select,
+#items-root input[type="search"],
+#dispatch-root .ws-input,
+#dispatch-root .ws-select,
+#dispatch-root input[type="search"]{
+  border: 1.1px solid #FFD23F; border-radius: 4px; padding: 6px 11px;
+  background: #fffbe7; font-size: .98em; outline: none; min-width: 110px;
+}
+
+#items-root .ws-btn, #dispatch-root .ws-btn {
+  background:#fffbe7; border:1px solid #FFD23F; border-radius:6px; padding:6px 12px; cursor:pointer;
+}
+#items-root .ws-btn:hover, #dispatch-root .ws-btn:hover { background:#FFD23F; }
+#items-root .ws-btn.ws-btn-primary, #dispatch-root .ws-btn.ws-btn-primary { background:#FFD23F; }
+#items-root .ws-btn.ws-btn-ghost,   #dispatch-root .ws-btn.ws-btn-ghost   { background:#fff; }
