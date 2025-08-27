@@ -1,32 +1,61 @@
-<section class="card">
-  <div class="card-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border-bottom:1px solid #f0f0f0">
-    <h2 style="margin:0;font-size:18px;font-weight:600">Dispatch</h2>
-    <div style="margin-left:auto">
-      <input id="dispatchSearch" placeholder="Search orders…" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;width:240px">
-    </div>
+<!-- Dispatch — Admin Partial (Items-style + server-side paging) -->
+<section id="dispatch-root" class="ws-admin-section">
+  <h2 class="ws-admin-title">Dispatch</h2>
+
+  <!-- Toolbar -->
+  <div class="ws-admin-toolbar" id="dispatch-toolbar">
+    <select id="flt-status" class="ws-select">
+      <option value="">All Status</option>
+      <option>Pending</option>
+      <option>Assigned</option>
+      <option>Delivered</option>
+      <option>Cancelled</option>
+    </select>
+
+    <select id="flt-driver" class="ws-select">
+      <option value="">All Drivers</option>
+      <!-- populated -->
+    </select>
+
+    <input id="flt-from" class="ws-input" type="date" />
+    <input id="flt-to"   class="ws-input" type="date" />
+
+    <input id="flt-q" class="ws-input" type="search" placeholder="Search orders…" />
+    <button id="flt-clear" class="ws-btn ws-btn-ghost" type="button">Clear</button>
+
+    <label for="page-per" style="margin-left:8px">Per page:</label>
+    <select id="page-per" class="ws-select">
+      <option>10</option><option>15</option><option selected>25</option><option>50</option><option>100</option>
+    </select>
   </div>
-  <div class="card-body" style="padding:0 12px 12px">
-    <div class="table-responsive">
-      <table class="table" id="dispatchTable" style="width:100%">
-        <thead>
-          <tr>
-            <th>Order ID</th>
-            <th>Customer</th>
-            <th>Status</th>
-            <th>Driver</th>
-            <th>Created</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="dispatchTbody">
-          <tr><td colspan="6" style="text-align:center;color:#6b7280">Loading…</td></tr>
-        </tbody>
-      </table>
-    </div>
+
+  <!-- Table -->
+  <div class="ws-table-wrap">
+    <table class="ws-table" id="dispatch-table">
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Customer</th>
+          <th>Status</th>
+          <th>Driver</th>
+          <th>Created</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="dispatch-tbody">
+        <tr><td colspan="6" style="text-align:center;color:#6b7280">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pager -->
+  <div class="ws-pager">
+    <div class="ws-pager-info" id="dispatch-info"></div>
+    <div class="ws-pager-controls" id="dispatch-pager"></div>
   </div>
 </section>
 
-<!-- Items-style modal (single, centered) -->
+<!-- Items-style modal -->
 <div id="dispatchModalOverlay"
      style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:flex-start;justify-content:center;">
   <div id="dispatchModalDialog"
@@ -35,9 +64,7 @@
       <h3 id="dv-title" style="margin:0;font-size:18px;font-weight:600">Order</h3>
       <button type="button" id="dv-close-x" aria-label="Close" style="font-size:22px;line-height:1;border:none;background:transparent;cursor:pointer">&times;</button>
     </div>
-    <div id="dv-body" class="modal-body" style="padding:16px">
-      <!-- populated by JS -->
-    </div>
+    <div id="dv-body" class="modal-body" style="padding:16px"></div>
     <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:12px 16px;border-top:1px solid #f0f0f0">
       <button type="button" id="dv-close-btn" class="btn" style="padding:8px 14px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer">Close</button>
     </div>
@@ -46,299 +73,305 @@
 
 <script>
 (function(){
-  const TBODY  = document.getElementById('dispatchTbody');
-  const SEARCH = document.getElementById('dispatchSearch');
-
-  // Modal bits
-  const OVERLAY = document.getElementById('dispatchModalOverlay');
-  const TITLE   = document.getElementById('dv-title');
-  const BODY    = document.getElementById('dv-body');
-  const CLOSE_X = document.getElementById('dv-close-x');
-  const CLOSE_B = document.getElementById('dv-close-btn');
-
-  // Guard: adapter required
-  if (!window.WattSunAdminData) {
-    TBODY.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#ef4444">Adapter missing.</td></tr>';
+  // Guard for adapter
+  if (!window.WattSunAdminData || !window.WattSunAdminData.orders?.get) {
+    document.getElementById('dispatch-tbody').innerHTML =
+      '<tr><td colspan="6" style="text-align:center;color:#ef4444">Orders adapter missing.</td></tr>';
     return;
   }
   const Data = window.WattSunAdminData;
 
-  // State
-  let rows = [];               // normalized orders (adapter output)
-  let drivers = [];            // list of driver users
-  let assignments = Object.create(null); // { [orderId]: driver_id|null }
+  // ---------- State ----------
+  const State = {
+    page: 1,
+    per:  parseInt(document.getElementById('page-per').value, 10) || 25,
+    q:    '',
+    status: '',
+    driver: '',
+    from: '',
+    to: '',
+    rows: [],
+    drivers: [],
+    assignments: Object.create(null),
+  };
 
-  // ------ Utils ------
-  function currencyKES(val) {
-    if (typeof val === 'number') return 'KSh ' + val.toLocaleString();
-    if (typeof val === 'string' && val) return val;
-    if (typeof val === 'number' && isFinite(val)) return 'KSh ' + val.toLocaleString();
-    return '—';
-  }
+  // ---------- Els ----------
+  const els = {
+    tbody:   document.getElementById('dispatch-tbody'),
+    info:    document.getElementById('dispatch-info'),
+    pager:   document.getElementById('dispatch-pager'),
+    per:     document.getElementById('page-per'),
+    q:       document.getElementById('flt-q'),
+    status:  document.getElementById('flt-status'),
+    driver:  document.getElementById('flt-driver'),
+    from:    document.getElementById('flt-from'),
+    to:      document.getElementById('flt-to'),
+    clear:   document.getElementById('flt-clear'),
+    // modal
+    overlay: document.getElementById('dispatchModalOverlay'),
+    title:   document.getElementById('dv-title'),
+    body:    document.getElementById('dv-body'),
+    closeX:  document.getElementById('dv-close-x'),
+    closeB:  document.getElementById('dv-close-btn')
+  };
+
+  // ---------- Utils ----------
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const fmtDate = s => s ? new Date(s).toLocaleString() : '—';
+  const orderIdOf = o => String(o.id || o.orderNumber || o.order_id || '');
+  const currencyKES = n => (typeof n === 'number') ? ('KSh ' + n.toLocaleString()) : (n || '—');
 
   function driverLabelById(id) {
-    const d = drivers.find(x => String(x.id ?? x.userId ?? x.driverId) === String(id));
-    return d ? (d.fullName || d.name || d.email || ('#' + (d.id ?? d.userId ?? d.driverId))) : 'Unassigned';
+    const d = State.drivers.find(x => String(x.id ?? x.userId ?? x.driverId) === String(id));
+    return d ? (d.fullName || d.name || d.email || ('#'+(d.id ?? d.userId ?? d.driverId))) : 'Unassigned';
   }
 
-  function getOrderId(o) {
-    return String(o.id || o.orderNumber || '');
-  }
-
-  // Current driver considering overlay assignments, then order raw
   function currentDriverId(o) {
-    const oid = getOrderId(o);
-    if (Object.prototype.hasOwnProperty.call(assignments, oid)) return assignments[oid];
+    const oid = orderIdOf(o);
+    if (Object.prototype.hasOwnProperty.call(State.assignments, oid)) return State.assignments[oid];
     const r = o.raw || {};
     return r.driver_id ?? r.driverUserId ?? o.driverUserId ?? null;
   }
 
-  function currentDriverLabel(o) {
-    const id = currentDriverId(o);
-    if (id == null || id === '') {
-      // fallback to any embedded name
-      const r = o.raw || {};
-      return r?.driver?.name || r?.driverName || r?.driver_fullname || 'Unassigned';
-    }
-    return driverLabelById(id);
+  // ---------- Render ----------
+  function rowHtml(o){
+    const id = orderIdOf(o);
+    const sel = driverSelectHtml(id, currentDriverId(o));
+    return `
+      <tr>
+        <td style="white-space:nowrap">${esc(id)}</td>
+        <td>${esc(o.fullName || '—')}<br><small>${esc(o.phone || '')} ${esc(o.email || '')}</small></td>
+        <td>${esc(o.status || 'Pending')}</td>
+        <td>${sel}</td>
+        <td>${esc(fmtDate(o.createdAt))}</td>
+        <td class="ws-actions">
+          <button class="ws-btn ws-btn-xs ws-btn-primary" data-act="assign" data-id="${esc(id)}">Assign</button>
+          <button class="ws-btn ws-btn-xs ws-btn-ghost"    data-act="unassign" data-id="${esc(id)}">Unassign</button>
+          <button class="ws-btn ws-btn-xs ws-btn-primary" data-act="view"    data-id="${esc(id)}">View</button>
+        </td>
+      </tr>
+    `;
   }
 
   function driverSelectHtml(orderId, selectedId) {
     const opts = ['<option value="">-- Select driver --</option>']
-      .concat(drivers.map(d => {
+      .concat(State.drivers.map(d => {
         const val = d.id ?? d.userId ?? d.driverId;
         const name = d.fullName || d.name || d.email || ('Driver ' + val);
         const sel = (String(selectedId || '') === String(val)) ? ' selected' : '';
-        return `<option value="${val}"${sel}>${name}</option>`;
+        return `<option value="${val}"${sel}>${esc(name)}</option>`;
       }));
-    return `<select class="select" data-oid="${orderId}" data-role="driver-select" style="min-width:200px;padding:6px 8px;border:1px solid #d1d5db;border-radius:8px;background:#fff">${opts.join("")}</select>`;
+    return `<select class="ws-select" data-oid="${orderId}" data-role="driver-select" style="min-width:200px">${opts.join('')}</select>`;
   }
 
-  function actionButtonsHtml(orderId) {
-    return `
-      <div class="btn-group" style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-sm btn-outline" data-oid="${orderId}" data-role="assign"
-                style="padding:6px 10px;border:1px solid #10b981;border-radius:8px;background:#ecfdf5;cursor:pointer">
-          Assign
-        </button>
-        <button class="btn btn-sm btn-outline" data-oid="${orderId}" data-role="unassign"
-                style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">
-          Unassign
-        </button>
-        <button class="btn btn-sm btn-outline" data-view-id="${orderId}"
-                style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">
-          View
-        </button>
-      </div>
-    `;
+  function renderRows(rows){
+    els.tbody.innerHTML = rows.length ? rows.map(rowHtml).join('') :
+      '<tr><td colspan="6" style="text-align:center;color:#6b7280">No orders.</td></tr>';
   }
 
-  // ------ Render ------
-  function render(list) {
-    if (!Array.isArray(list) || list.length === 0) {
-      TBODY.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6b7280">No orders.</td></tr>';
-      return;
-    }
-    const frag = document.createDocumentFragment();
-    list.forEach(o => {
-      const tr = document.createElement('tr');
-      const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : '—';
-      const orderId = getOrderId(o);
-      const curDriverId = currentDriverId(o);
-      tr.innerHTML = `
-        <td style="white-space:nowrap">${orderId}</td>
-        <td>${o.fullName || '—'}<br><small>${o.phone || ''} ${o.email || ''}</small></td>
-        <td>${o.status || 'Pending'}</td>
-        <td>
-          ${driverSelectHtml(orderId, curDriverId)}
-        </td>
-        <td>${created}</td>
-        <td>
-          ${actionButtonsHtml(orderId)}
-        </td>
-      `;
-      frag.appendChild(tr);
-    });
-    TBODY.innerHTML = '';
-    TBODY.appendChild(frag);
+  function renderPager(total){
+    const pages = Math.max(1, Math.ceil(total / State.per));
+    if (State.page > pages) State.page = pages;
+
+    const start = total ? (State.page-1)*State.per + 1 : 0;
+    const end   = total ? Math.min(State.page*State.per, total) : 0;
+    els.info.textContent = total ? `${start}–${end} of ${total}` : '0–0 of 0';
+
+    const b = [];
+    const btn = (p, label, disabled=false, active=false) => {
+      b.push(`<button class="ws-page-btn${active?' is-active':''}${disabled?' is-disabled':''}" data-page="${p}" ${disabled?'disabled':''}>${label}</button>`);
+    };
+    btn(1, '«', State.page===1);
+    btn(Math.max(1, State.page-1), '‹', State.page===1);
+    const win=5, s=Math.max(1, State.page-Math.floor(win/2)), e=Math.min(pages, s+win-1);
+    for (let p=s; p<=e; p++) btn(p, String(p), false, p===State.page);
+    btn(Math.min(pages, State.page+1), '›', State.page===pages);
+    btn(pages, '»', State.page===pages);
+    els.pager.innerHTML = b.join('');
   }
 
-  // ------ Filters ------
-  function filterNow() {
-    const q = (SEARCH.value || '').trim().toLowerCase();
-    if (!q) return render(rows);
-    const filtered = rows.filter(o => {
-      const hay = [
-        o.id, o.orderNumber, o.fullName, o.email, o.phone, o.status, currentDriverLabel(o)
-      ].filter(Boolean).join(' ').toLowerCase();
-      return hay.includes(q);
-    });
-    render(filtered);
-  }
-
-  // ------ Modal ------
-  function showModal(o) {
-    TITLE.textContent = `Order ${getOrderId(o)}`;
-
-    const parts = [];
-    (o.items || o.cart || []).forEach(it => {
-      const qty = (it.quantity != null && it.quantity !== '') ? ` × ${it.quantity}` : '';
-      parts.push(`<li>${(it.name || '').replace(/</g,'&lt;')}${qty}</li>`);
-    });
-    const itemsHTML = parts.length ? `<ul style="margin:6px 0 0 18px">${parts.join('')}</ul>` : '<em>No line items</em>';
-
-    let total = '—';
-    if (typeof o.totalCents === 'number') total = 'KSh ' + (o.totalCents/100).toLocaleString();
-    else if (typeof o.total === 'number') total = currencyKES(o.total);
-
-    BODY.innerHTML = `
-      <div style="display:grid;grid-template-columns:160px 1fr;row-gap:8px;column-gap:12px">
-        <div style="color:#6b7280">Customer</div>
-        <div>${o.fullName || '—'}<br><small>${o.phone || ''} ${o.email || ''}</small></div>
-
-        <div style="color:#6b7280">Status</div>
-        <div>${o.status || 'Pending'}</div>
-
-        <div style="color:#6b7280">Driver</div>
-        <div>${currentDriverLabel(o)}</div>
-
-        <div style="color:#6b7280">Total</div>
-        <div>${total}</div>
-
-        <div style="color:#6b7280">Created</div>
-        <div>${o.createdAt ? new Date(o.createdAt).toLocaleString() : '—'}</div>
-
-        <div style="color:#6b7280">Items</div>
-        <div>${itemsHTML}</div>
-
-        <div style="color:#6b7280">Notes</div>
-        <div>${(o.notes || '').toString().replace(/</g,'&lt;') || '—'}</div>
-      </div>
-    `;
-
-    OVERLAY.style.display = 'flex';
-  }
-  function closeModal() { OVERLAY.style.display = 'none'; }
-  CLOSE_X.addEventListener('click', closeModal);
-  CLOSE_B.addEventListener('click', closeModal);
-  OVERLAY.addEventListener('click', (e)=>{ if (e.target === OVERLAY) closeModal(); });
-  window.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && OVERLAY.style.display === 'flex') closeModal(); });
-
-  // ------ Events: row actions ------
-  TBODY.addEventListener('click', async (e) => {
-    const btnView = e.target.closest('[data-view-id]');
-    if (btnView) {
-      const id = btnView.getAttribute('data-view-id');
-      const o  = rows.find(r => getOrderId(r) === String(id));
-      if (o) showModal(o);
-      return;
-    }
-
-    const btn = e.target.closest('button[data-role]');
-    if (!btn) return;
-    const role = btn.getAttribute('data-role');
-    const orderId = btn.getAttribute('data-oid');
-    const select = TBODY.querySelector(`select[data-role="driver-select"][data-oid="${orderId}"]`);
-    const selected = select ? select.value : "";
-
-    if (role === 'assign') {
-      const driver_id = selected ? parseInt(selected, 10) : null;
-      if (!driver_id) {
-        alert('Please select a driver first.');
-        return;
-      }
-      const ok = await saveAssignment(orderId, driver_id);
-      if (ok) {
-        assignments[orderId] = driver_id;
-        // Visual confirmation: keep selected; optional subtle flash
-        select.style.outline = '2px solid #10b981';
-        setTimeout(()=>{ select.style.outline=''; }, 500);
-        // re-filter to reflect driver label in search context
-        filterNow();
-      }
-    }
-
-    if (role === 'unassign') {
-      const ok = await saveAssignment(orderId, null);
-      if (ok) {
-        assignments[orderId] = null;
-        if (select) select.value = '';
-        select?.style && (select.style.outline = '2px solid #d1d5db');
-        setTimeout(()=>{ select.style.outline=''; }, 500);
-        filterNow();
-      }
-    }
-  });
-
-  async function saveAssignment(orderId, driver_id) {
+  // ---------- Data ----------
+  async function fetchDrivers(){
     try {
-      const res = await fetch(`/api/admin/dispatch/${encodeURIComponent(orderId)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driver_id })
-      });
-      const j = await res.json();
-      if (!res.ok || !j || j.success === false) throw new Error(j?.error?.message || 'Failed');
-      return true;
-    } catch (err) {
-      console.error('[Dispatch] assign error:', err);
-      alert('Failed to save assignment.');
-      return false;
-    }
-  }
-
-  // ------ Data fetch ------
-  async function fetchDrivers() {
-    try {
-      const r = await fetch(`/api/admin/users?type=Driver`);
+      const r = await fetch('/api/admin/users?type=Driver', { credentials:'same-origin' });
       const j = await r.json();
-      drivers = (j && (j.users || j)) || [];
-    } catch (e) {
-      console.warn('[Dispatch] drivers fetch failed:', e);
-      drivers = [];
-    }
+      State.drivers = Array.isArray(j) ? j : (j?.users || []);
+      // populate driver select
+      const keep = els.driver.value;
+      els.driver.innerHTML = '<option value="">All Drivers</option>' +
+        State.drivers.map(d => {
+          const val = d.id ?? d.userId ?? d.driverId;
+          const name = d.fullName || d.name || d.email || ('Driver ' + val);
+          return `<option value="${esc(val)}">${esc(name)}</option>`;
+        }).join('');
+      els.driver.value = keep || '';
+    } catch { State.drivers = []; }
   }
 
   async function fetchAssignments(ids) {
     if (!ids || !ids.length) return {};
     try {
-      const r = await fetch(`/api/admin/dispatch?ids=${encodeURIComponent(ids.join(','))}`);
+      const r = await fetch(`/api/admin/dispatch?ids=${encodeURIComponent(ids.join(','))}`, { credentials:'same-origin' });
       const j = await r.json();
-      return (j && j.assignments) || {};
-    } catch (e) {
-      console.warn('[Dispatch] assignments fetch failed:', e);
-      return {};
-    }
+      return j?.assignments || {};
+    } catch { return {}; }
   }
 
-  async function load() {
-    try {
-      // orders
-      const { orders } = await Data.orders.get({ page: 1, per: 10000 });
-      rows = Array.isArray(orders) ? orders : [];
+  async function fetchPage(){
+    const query = {
+      page:  State.page,
+      per:   State.per,
+      q:     State.q,
+      status: State.status,
+      driver: State.driver,
+      from:   State.from,
+      to:     State.to
+    };
+    // Adapter-first; if the adapter ignores some filters it's still fine.
+    const res = await Data.orders.get(query);
+    // Expected shape: { orders, total, page, per } or array fallback
+    const rows = Array.isArray(res) ? res : (res.orders || []);
+    const total = Number(res?.total ?? rows.length);
+    return { rows, total };
+  }
 
-      // drivers
+  // ---------- Load ----------
+  async function load(){
+    els.tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6b7280">Loading…</td></tr>';
+    try {
+      // drivers (for selects + labels)
       await fetchDrivers();
 
-      // assignments overlay
-      const ids = rows.map(getOrderId).filter(Boolean);
-      assignments = await fetchAssignments(ids);
+      // paged orders
+      const { rows, total } = await fetchPage();
+      State.rows = rows;
 
-      render(rows);
+      // overlay persisted assignments
+      const ids = rows.map(orderIdOf).filter(Boolean);
+      State.assignments = await fetchAssignments(ids);
+
+      renderRows(rows);
+      renderPager(total);
     } catch (e) {
-      console.error('[Dispatch] load failed:', e);
-      TBODY.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#ef4444">Failed to load.</td></tr>';
+      console.warn('[Dispatch] load failed', e);
+      els.tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#ef4444">Failed to load.</td></tr>';
+      els.info.textContent = ''; els.pager.innerHTML = '';
     }
   }
 
-  // ------ Search ------
-  SEARCH?.addEventListener('input', () => {
-    // tiny debounce (150ms)
-    clearTimeout(SEARCH._t);
-    SEARCH._t = setTimeout(filterNow, 150);
+  // ---------- Events ----------
+  els.per.addEventListener('change', () => { State.per = parseInt(els.per.value, 10) || 25; State.page = 1; load(); });
+  els.pager.addEventListener('click', e => {
+    const b = e.target.closest('button[data-page]'); if (!b) return;
+    State.page = parseInt(b.dataset.page, 10); load();
   });
 
-  // init
+  // Filters (client-side compatible; server will use them if supported)
+  function applyFiltersFromUI(){
+    State.q      = els.q.value.trim();
+    State.status = els.status.value.trim();
+    State.driver = els.driver.value.trim();
+    State.from   = els.from.value || '';
+    State.to     = els.to.value   || '';
+    State.page   = 1;
+    load();
+  }
+  els.q.addEventListener('keydown', e => { if (e.key === 'Enter') applyFiltersFromUI(); });
+  [els.status, els.driver, els.from, els.to].forEach(el => el.addEventListener('change', applyFiltersFromUI));
+  els.clear.addEventListener('click', () => {
+    els.q.value = ''; els.status.value = ''; els.driver.value = ''; els.from.value=''; els.to.value='';
+    applyFiltersFromUI();
+  });
+
+  // Row-level actions
+  els.tbody.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const act = btn.dataset.act;
+
+    if (act === 'view') {
+      const o = State.rows.find(r => orderIdOf(r) === id);
+      if (o) showModal(o);
+      return;
+    }
+
+    // Assign/unassign
+    const select = els.tbody.querySelector(`select[data-role="driver-select"][data-oid="${CSS.escape(id)}"]`);
+    if (act === 'assign') {
+      const driver_id = select?.value ? parseInt(select.value, 10) : null;
+      if (!driver_id) { alert('Please select a driver first.'); return; }
+      const ok = await saveAssignment(id, driver_id);
+      if (ok) { State.assignments[id] = driver_id; select.style.outline = '2px solid #10b981'; setTimeout(()=>select.style.outline='',500); }
+    }
+    if (act === 'unassign') {
+      const ok = await saveAssignment(id, null);
+      if (ok) { State.assignments[id] = null; if (select) select.value=''; select && (select.style.outline='2px solid #d1d5db'); setTimeout(()=>select.style.outline='',500); }
+    }
+  });
+
+  async function saveAssignment(orderId, driver_id){
+    try {
+      const r = await fetch(`/api/admin/dispatch/${encodeURIComponent(orderId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driver_id })
+      });
+      const j = await r.json();
+      if (!r.ok || j?.success === false) throw new Error(j?.error?.message || 'Failed');
+      return true;
+    } catch (e) {
+      console.error('[Dispatch] saveAssignment failed', e);
+      alert('Failed to save assignment.');
+      return false;
+    }
+  }
+
+  // Modal helpers
+  function showModal(o) {
+    els.title.textContent = `Order ${orderIdOf(o)}`;
+    const parts = (o.items || o.cart || []).map(it => {
+      const qty = (it.quantity != null && it.quantity !== '') ? ` × ${it.quantity}` : '';
+      return `<li>${esc(it.name || '')}${qty}</li>`;
+    });
+    const itemsHTML = parts.length ? `<ul style="margin:6px 0 0 18px">${parts.join('')}</ul>` : '<em>No line items</em>';
+
+    let total = '—';
+    if (typeof o.totalCents === 'number')      total = 'KSh ' + (o.totalCents/100).toLocaleString();
+    else if (typeof o.total === 'number')      total = currencyKES(o.total);
+
+    els.body.innerHTML = `
+      <div style="display:grid;grid-template-columns:160px 1fr;row-gap:8px;column-gap:12px">
+        <div style="color:#6b7280">Customer</div>
+        <div>${esc(o.fullName || '—')}<br><small>${esc(o.phone || '')} ${esc(o.email || '')}</small></div>
+
+        <div style="color:#6b7280">Status</div>
+        <div>${esc(o.status || 'Pending')}</div>
+
+        <div style="color:#6b7280">Driver</div>
+        <div>${esc(driverLabelById(currentDriverId(o)))}</div>
+
+        <div style="color:#6b7280">Total</div>
+        <div>${esc(total)}</div>
+
+        <div style="color:#6b7280">Created</div>
+        <div>${esc(fmtDate(o.createdAt))}</div>
+
+        <div style="color:#6b7280">Items</div>
+        <div>${itemsHTML}</div>
+
+        <div style="color:#6b7280">Notes</div>
+        <div>${esc(o.notes || '—')}</div>
+      </div>`;
+    els.overlay.style.display = 'flex';
+  }
+  function closeModal(){ els.overlay.style.display = 'none'; }
+  els.closeX.addEventListener('click', closeModal);
+  els.closeB.addEventListener('click', closeModal);
+  els.overlay.addEventListener('click', (e)=>{ if (e.target === els.overlay) closeModal(); });
+  window.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && els.overlay.style.display === 'flex') closeModal(); });
+
+  // Boot
   load();
 })();
 </script>
