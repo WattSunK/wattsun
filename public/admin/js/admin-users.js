@@ -1,19 +1,23 @@
 /* Admin Users — scoped, idempotent controller with Items-style modal.
    - Keeps existing list/search/pager behavior
    - Exposes window.fetchUsers for dashboard loader
-   - Adapter-first saves, REST fallback with a single safe fallback (no bursts)
+   - Deterministic save: POST /api/admin/users (create), PUT /api/admin/users/:id (update)
+   - Optional overrides via localStorage (no bursts, no 502s)
 */
 (function(){
   // ========= State & Utils =========
-  const State = { all: [], filtered: [], page: 1, per: 10, root: null, els: {} };
-  window.UsersState = State;
+  const State = {
+    all: [], filtered: [], page: 1, per: 10,
+    root: null, els: {}
+  };
+  window.UsersState = State; // optional for debugging
 
   const $  = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const T  = (v)=> (v==null ? "" : String(v));
-  const esc= (s)=> T(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+  const T  = v => (v==null ? "" : String(v));
+  const esc= s => T(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
-  // ========= Endpoint auto-detect (cached for LIST only)
+  // ========= Endpoint (cached LIST base; SAVE is deterministic)
   const USERS_ENDPOINT_CANDIDATES = ["/api/admin/users","/api/users","/admin/users","/users"];
   let USERS_BASE = null;
 
@@ -35,7 +39,11 @@
     return USERS_BASE;
   }
 
-  // ========= Data (adapter-first)
+  // Optional manual overrides (no probing; one call only)
+  const USERS_UPDATE_BASE   = localStorage.getItem('wsUsersUpdateBase')   || "/api/admin/users";
+  const USERS_UPDATE_METHOD = (localStorage.getItem('wsUsersUpdateMethod') || "PUT").toUpperCase();
+
+  // ========= Data
   function normalize(u){
     const created = u.createdAt || u.created_at || u.lastActive || "";
     return {
@@ -74,29 +82,16 @@
       }
     }catch(_){}
     const base = await resolveUsersBase();
-    let r = await fetch(base, {
+    const r = await fetch(base, {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       credentials:"same-origin",
       body: JSON.stringify(payload)
     });
-    // one safe fallback if the list base is the admin route but POST 404s there
-    if (r.status === 404 && base.includes("/api/admin/users")) {
-      r = await fetch(`/api/users`, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        credentials:"same-origin",
-        body: JSON.stringify(payload)
-      });
-    }
     if(!r.ok) throw new Error(`Create failed ${r.status}`);
     const j = await r.json().catch(()=> ({}));
     return normalize(j.user || (Array.isArray(j.users) ? j.users[0] : j));
   }
-
-  // Manual overrides (optional, no probing)
-  const USERS_UPDATE_BASE_OVERRIDE   = localStorage.getItem('wsUsersUpdateBase')   || '';
-  const USERS_UPDATE_METHOD_OVERRIDE = (localStorage.getItem('wsUsersUpdateMethod') || '').toUpperCase();
 
   async function updateUser(id, payload){
     try{
@@ -104,28 +99,12 @@
         return normalize(await window.WattSunAdminData.users.update(id, payload));
       }
     }catch(_){}
-
-    const base = USERS_UPDATE_BASE_OVERRIDE || await resolveUsersBase();
-    const method = USERS_UPDATE_METHOD_OVERRIDE || 'PATCH';
-
-    // single attempt
-    let r = await fetch(`${base}/${encodeURIComponent(id)}`, {
-      method,
+    const r = await fetch(`${USERS_UPDATE_BASE}/${encodeURIComponent(id)}`, {
+      method: USERS_UPDATE_METHOD, // default PUT
       headers:{ "Content-Type":"application/json" },
       credentials:"same-origin",
       body: JSON.stringify(payload)
     });
-
-    // exact one fallback (avoid bursts/gateway 502)
-    if (r.status === 404 && !USERS_UPDATE_BASE_OVERRIDE && base.includes('/api/admin/users')) {
-      r = await fetch(`/api/users/${encodeURIComponent(id)}`, {
-        method: 'PUT',
-        headers:{ "Content-Type":"application/json" },
-        credentials:"same-origin",
-        body: JSON.stringify(payload)
-      });
-    }
-
     if(!r.ok) throw new Error(`Update failed ${r.status}`);
     const j = await r.json().catch(()=> ({}));
     return normalize(j.user || (Array.isArray(j.users) ? j.users[0] : j));
@@ -165,6 +144,7 @@
         <td><span class="ws-badge ${badge}">${esc(u.status || "Active")}</span></td>
         <td>${u.createdAt ? esc(u.createdAt) : ""}</td>
         <td class="ws-actions">
+          <!-- Single entry point: opens the Users modal -->
           <button class="ws-btn ws-btn-xs ws-btn-primary" data-users-action="open-edit" data-id="${esc(u.id)}">View</button>
           <button class="ws-btn ws-btn-xs ws-btn-ghost" data-users-action="deactivate" data-id="${esc(u.id)}">Delete</button>
         </td>
@@ -359,6 +339,7 @@
       render();
     });
 
+    // ESC closes modal
     document.addEventListener("keydown", (e)=>{
       const m = $("#usersModal");
       if (m && m.style.display !== "none" && e.key === "Escape") closeModal();
@@ -369,7 +350,7 @@
   async function init(){
     const root = document.getElementById("users-root");
     if (!root) return;
-    if (root.dataset.wsInit === "1") return;
+    if (root.dataset.wsInit === "1") return; // idempotent
     root.dataset.wsInit = "1";
 
     State.root = root;
