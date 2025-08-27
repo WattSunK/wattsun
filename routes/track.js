@@ -107,7 +107,7 @@ function loadOverlay(ids = []) {
     const placeholders = ids.map(() => "?").join(",");
     const map = {};
     db.all(
-      `SELECT order_id, status, driver_id, notes, updated_at
+      `SELECT order_id, status, driver_id, notes, total_cents, deposit_cents, currency, updated_at
        FROM admin_order_meta
        WHERE order_id IN (${placeholders})`,
       ids,
@@ -122,18 +122,37 @@ function loadOverlay(ids = []) {
 }
 
 async function mergeOverlay(list){
+  const centsToUnits = (c) => {
+    const n = Number(c);
+    return Number.isFinite(n) ? Number((n / 100).toFixed(2)) : null;
+  };
+
   try {
     const ids = list.map(o => o.orderNumber).filter(Boolean);
     const overlay = await loadOverlay(ids);
     for (const o of list) {
       const ov = overlay[o.orderNumber];
       if (!ov) continue;
+
       if (ov.status) o.status = ov.status;
       if (typeof ov.driver_id !== "undefined") o.driverId = ov.driver_id;
       if (typeof ov.notes === "string") o.notes = ov.notes;
+
+      // NEW: money + currency overrides
+      const t = centsToUnits(ov.total_cents);
+      const d = centsToUnits(ov.deposit_cents);
+      if (t !== null) o.total = t;
+      if (d !== null) o.deposit = d;
+      if (ov.currency) o.currency = ov.currency;
+
       if (ov.updated_at && !o.updatedAt) o.updatedAt = ov.updated_at;
     }
   } catch (e) {
+    console.error("[track] overlay merge error:", e.message);
+  }
+  return list;
+}
+} catch (e) {
     console.error("[track] overlay merge error:", e.message);
   }
   return list;

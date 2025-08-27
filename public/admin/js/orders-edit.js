@@ -20,6 +20,24 @@
   const debounce = (fn, ms = 200) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
   const ALLOWED = ["Pending", "Processing", "Delivered", "Cancelled"];
 
+  // ----- money helpers (Step 6.5) -----
+  function toCentsFromInput(v) {
+    if (v == null || v === "") return null;
+    if (typeof v === "number" && Number.isFinite(v)) return Math.round(v * 100);
+    let s = String(v).trim();
+    s = s.replace(/[^\d.,-]/g, "");
+    if (s.indexOf(",") > -1 && s.indexOf(".") > -1) s = s.replace(/,/g, "");
+    else s = s.replace(/,/g, "");
+    const f = parseFloat(s);
+    return Number.isFinite(f) ? Math.round(f * 100) : null;
+  }
+  function normCurrency(v) {
+    if (!v) return null;
+    let c = String(v).trim().toUpperCase();
+    if (c === "KSH") c = "KES";
+    return /^[A-Z]{3}$/.test(c) ? c : null;
+  }
+
   // ---------- modal elements (must match dashboard.html) ----------
   const modal       = by("orderEditModal");            // container
   const saveBtn     = by("orderSaveBtn");
@@ -227,21 +245,27 @@
 
     setSaving(true);
     try {
-      // A) legacy PATCH (note + driverId)
-      let r = await req("PATCH", `/api/admin/orders/${encodeURIComponent(currentId)}`, {
-        status,
-        note,
-        driverId: driverVal
-      });
+      // Read optional money fields and include in PATCH
+      const tCents = totalInp ? toCentsFromInput(totalInp.value) : null;
+      const dCents = depositInp ? toCentsFromInput(depositInp.value) : null;
+      const curr   = currInp ? normCurrency(currInp.value) : null;
+
+      // A) primary PATCH with new fields
+      const bodyA = { status, note, driverId: driverVal };
+      if (tCents !== null) bodyA.totalCents = tCents;
+      if (dCents !== null) bodyA.depositCents = dCents;
+      if (curr)            bodyA.currency = curr;
+
+      let r = await req("PATCH", `/api/admin/orders/${encodeURIComponent(currentId)}`, bodyA);
 
       // B) alt legacy keys if A failed
       if (!r.ok) {
         console.warn("[orders-edit] legacy A failed:", r.status, await readText(r));
-        r = await req("PATCH", `/api/admin/orders/${encodeURIComponent(currentId)}`, {
-          status,
-          notes: note,
-          driver_id: driverVal
-        });
+        const bodyB = { status, notes: note, driver_id: driverVal };
+        if (tCents !== null) bodyB.totalCents = tCents;
+        if (dCents !== null) bodyB.depositCents = dCents;
+        if (curr)            bodyB.currency = curr;
+        r = await req("PATCH", `/api/admin/orders/${encodeURIComponent(currentId)}`, bodyB);
       }
 
       // C) split routes as last resort
