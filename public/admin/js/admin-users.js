@@ -1,4 +1,4 @@
-/* Admin Users — list controller (observer init + adapter aware + namespaced actions) */
+/* Admin Users — list + Add/Edit modal (adapter-aware, strictly scoped, idempotent) */
 (function () {
   const State = {
     all: [],
@@ -15,16 +15,16 @@
   const T  = (v) => (v == null ? "" : String(v));
   const esc = (s) => T(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
+  function log(...a){ console.log("[Users]", ...a); }
+
   async function fetchUsersViaAdapter(type = "") {
-    // Prefer the shared adapter (resilient to {success,users} or raw array)
     try {
       if (window.WattSunAdminData?.users?.get) {
         const res = await window.WattSunAdminData.users.get({ type });
         const list = Array.isArray(res) ? res : (Array.isArray(res?.users) ? res.users : []);
         return list.map(normalizeUser);
       }
-    } catch(_) {}
-    // Fallback direct calls
+    } catch(_) { /* adapter missing or failed */ }
     const url = type ? `/api/users?type=${encodeURIComponent(type)}` : `/api/users`;
     const r = await fetch(url, { credentials: "same-origin" });
     const j = await r.json();
@@ -43,6 +43,7 @@
       status: u.status ?? "Active",
       createdAt: created,
       orders: Number.isFinite(u.orders) ? u.orders : (u.orderCount ?? 0),
+      _raw: u
     };
   }
 
@@ -128,9 +129,154 @@
 
     State.page = 1;
     render();
+    // let skin know new rows are in
+    window.dispatchEvent(new CustomEvent("users:rendered"));
   }
 
-  // ---------- Actions (GUARDED to stop Orders modal hijack)
+  // ---------- Persist (adapter first, REST fallback)
+  async function createUser(payload) {
+    try {
+      if (window.WattSunAdminData?.users?.create) {
+        return normalizeUser(await window.WattSunAdminData.users.create(payload));
+      }
+    } catch(_) {}
+    const r = await fetch(`/api/users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(payload)
+    });
+    if (!r.ok) throw new Error(`Create failed ${r.status}`);
+    const j = await r.json();
+    return normalizeUser(Array.isArray(j?.users) ? j.users[0] : j.user || j);
+  }
+
+  async function updateUser(id, payload) {
+    try {
+      if (window.WattSunAdminData?.users?.update) {
+        return normalizeUser(await window.WattSunAdminData.users.update(id, payload));
+      }
+    } catch(_) {}
+    const r = await fetch(`/api/users/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(payload)
+    });
+    if (!r.ok) throw new Error(`Update failed ${r.status}`);
+    const j = await r.json();
+    return normalizeUser(Array.isArray(j?.users) ? j.users[0] : j.user || j);
+  }
+
+  // ---------- Modal
+  function ensureModal() {
+    const modal = $("#users-modal");
+    if (!modal) return null;
+
+    const data = {
+      modal,
+      title: $("#users-modal-title", modal),
+      form: $("#users-form", modal),
+      id: $("#um-id", modal),
+      name: $("#um-name", modal),
+      email: $("#um-email", modal),
+      phone: $("#um-phone", modal),
+      type: $("#um-type", modal),
+      status: $("#um-status", modal),
+      password: $("#um-password", modal),
+      save: $("#users-save-btn", modal),
+      closers: $$("[data-users-close]", modal)
+    };
+
+    if (!modal.dataset.bound) {
+      modal.dataset.bound = "1";
+      // close actions
+      data.closers.forEach(btn => btn.addEventListener("click", closeModal));
+      modal.addEventListener("click", (e) => {
+        if (e.target.matches(".ws-modal, .ws-modal-backdrop")) closeModal();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (modal.style.display !== "none" && e.key === "Escape") closeModal();
+      });
+      // save
+      data.save.addEventListener("click", onSaveClicked);
+    }
+
+    return data;
+  }
+
+  function openModal(user) {
+    const m = ensureModal();
+    if (!m) return;
+    const isNew = !user || !user.id;
+    m.modal.dataset.mode = isNew ? "create" : "edit";
+    m.title.textContent = isNew ? "Add User" : "Edit User";
+
+    m.id.value = user?.id || "";
+    m.name.value = user?.name || "";
+    m.email.value = user?.email || "";
+    m.phone.value = user?.phone || "";
+    m.type.value = user?.type || "";
+    m.status.value = user?.status || "Active";
+    m.password.value = "";
+
+    m.modal.style.display = "";
+    m.modal.removeAttribute("aria-hidden");
+    setTimeout(() => m.name?.focus(), 10);
+  }
+
+  function closeModal() {
+    const m = $("#users-modal");
+    if (!m) return;
+    m.style.display = "none";
+    m.setAttribute("aria-hidden", "true");
+  }
+
+  async function onSaveClicked(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const m = ensureModal(); if (!m) return;
+
+    const id = m.id.value.trim();
+    const payload = {
+      name: m.name.value.trim(),
+      email: m.email.value.trim(),
+      phone: m.phone.value.trim(),
+      type: m.type.value.trim(),
+      status: m.status.value.trim()
+    };
+    const pwd = m.password.value.trim();
+    if (pwd) payload.password = pwd; // optional
+
+    // basic client validation
+    if (!payload.name || !payload.phone || !payload.type) {
+      alert("Name, phone and type are required.");
+      return;
+    }
+
+    try {
+      let saved;
+      if (id) {
+        saved = await updateUser(id, payload);
+        // update in place
+        const ix = State.all.findIndex(u => String(u.id) === String(id));
+        if (ix >= 0) State.all[ix] = { ...State.all[ix], ...saved };
+      } else {
+        saved = await createUser(payload);
+        // add to top
+        State.all.unshift(saved);
+      }
+      applyFilters();
+      closeModal();
+      log("Saved", saved);
+    } catch (err) {
+      console.warn(err);
+      alert("Save failed. Please check the server endpoint and try again.");
+    }
+  }
+
+  // ---------- Actions (GUARDED to stop cross-pane listeners)
   async function onAction(e) {
     const el = e.target.closest('[data-action], .user-view-link, .user-view, .user-edit, .user-delete');
     if (!el) return;
@@ -141,9 +287,7 @@
     e.stopImmediatePropagation();
 
     const tr = el.closest('tr[data-user-id], tr[data-id]');
-    const id = el.getAttribute('data-id') || tr?.dataset.userId || tr?.dataset.id;
-    if (!id) return;
-
+    const id = el.getAttribute('data-id') || tr?.dataset.userId || tr?.dataset.id || "";
     const action =
       el.getAttribute('data-action') ||
       (el.classList.contains('user-view-link') ? 'open-profile' :
@@ -160,9 +304,8 @@
         break;
       }
       case 'edit-user': {
-        try { localStorage.setItem('adminSelectedUserId', String(id)); } catch {}
-        location.hash = '#profile';
-        window.postMessage({ type: 'admin-user-edit', userId: String(id) }, '*');
+        const u = State.all.find(x => String(x.id) === String(id));
+        openModal(u);
         break;
       }
       case 'delete-user': {
@@ -174,7 +317,6 @@
             credentials: 'same-origin',
             body: JSON.stringify({ status: 'Inactive' })
           });
-          // reflect immediately in UI
           const row = State.all.find(u => String(u.id) === String(id));
           if (row) row.status = 'Inactive';
           applyFilters();
@@ -194,7 +336,6 @@
   function wireEvents() {
     const { root, els } = State;
 
-    // namespaced actions
     root.addEventListener('click', onAction, true); // capture=true to pre-empt others
 
     // search/filters
@@ -213,6 +354,7 @@
       State.per = parseInt(els.per.value, 10) || 10;
       State.page = 1;
       render();
+      window.dispatchEvent(new CustomEvent("users:rendered"));
     });
 
     // pager
@@ -223,15 +365,14 @@
       if (!Number.isFinite(p)) return;
       State.page = p;
       render();
+      window.dispatchEvent(new CustomEvent("users:rendered"));
     });
 
-    // add user (go to Profile new-user mode)
+    // add user → open modal (create)
     $("#add-user-btn", root)?.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      try { localStorage.removeItem('adminSelectedUserId'); } catch {}
-      location.hash = '#profile';
-      window.postMessage({ type: 'admin-user-create' }, '*');
+      openModal(null);
     });
   }
 
@@ -265,6 +406,7 @@
 
     wireEvents();
     render();
+    window.dispatchEvent(new CustomEvent("users:rendered"));
   }
 
   // Keep observing so re-inserts re-init automatically
@@ -290,7 +432,7 @@
     : autoInitWhenReady();
 })();
 
-// === Users surgical skin — runs from admin-users.js (safe, non-breaking) v4 ===
+/* === Users surgical skin — (kept as-is) === */
 (function(){
   const $ = (s,r=document)=>r.querySelector(s);
   const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));

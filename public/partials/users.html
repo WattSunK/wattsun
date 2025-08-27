@@ -75,4 +75,60 @@
     <div id="users-table-info" class="ws-pager-info">0–0 of 0</div>
     <div id="users-pagination" class="ws-pager-controls"></div>
   </div>
+
+  <!-- Users Modal (Add/Edit) -->
+  <div id="users-modal" class="ws-modal" style="display:none" aria-hidden="true" role="dialog" aria-labelledby="users-modal-title">
+    <div class="ws-modal-backdrop" data-users-close></div>
+    <div class="ws-dialog" role="document">
+      <div class="ws-dialog-header">
+        <h3 id="users-modal-title" class="ws-dialog-title">Edit User</h3>
+        <button class="ws-btn ws-btn-ghost ws-btn-xs" data-users-close aria-label="Close">✖</button>
+      </div>
+      <div class="ws-dialog-body">
+        <form id="users-form" class="ws-form" novalidate>
+          <input type="hidden" id="um-id" />
+          <div class="ws-grid ws-grid-2">
+            <label class="ws-field">
+              <span>Name</span>
+              <input id="um-name" class="ws-input" type="text" required />
+            </label>
+            <label class="ws-field">
+              <span>Email</span>
+              <input id="um-email" class="ws-input" type="email" />
+            </label>
+            <label class="ws-field">
+              <span>Phone</span>
+              <input id="um-phone" class="ws-input" type="text" required />
+            </label>
+            <label class="ws-field">
+              <span>Type</span>
+              <select id="um-type" class="ws-select" required>
+                <option value="">Select…</option>
+                <option>Admin</option>
+                <option>Driver</option>
+                <option>Customer</option>
+                <option>Installer</option>
+                <option>Manufacturer</option>
+              </select>
+            </label>
+            <label class="ws-field">
+              <span>Status</span>
+              <select id="um-status" class="ws-select">
+                <option>Active</option>
+                <option>Inactive</option>
+              </select>
+            </label>
+            <label class="ws-field">
+              <span>Temp Password (optional)</span>
+              <input id="um-password" class="ws-input" type="text" placeholder="Leave blank to keep/unset" />
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="ws-dialog-footer">
+        <button class="ws-btn ws-btn-ghost" data-users-close>Cancel</button>
+        <button class="ws-btn ws-btn-primary" id="users-save-btn">Save</button>
+      </div>
+    </div>
+  </div>
 </section>
