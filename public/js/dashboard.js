@@ -22,23 +22,25 @@ window.addEventListener("admin:section-activated", (e) => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  const content  = document.getElementById("admin-content");
-  const sidebar  = document.querySelector(".sidebar nav");
+  // Be generous about where to inject content (some pages use adminContent or content)
+  const content  = document.getElementById("admin-content")
+                  || document.getElementById("adminContent")
+                  || document.getElementById("content");
+  const sidebar  = document.querySelector(".sidebar nav,[data-admin-sidebar]");
   const hdrSearch= document.querySelector(".header-search");
 
   // ---- loader helper for scripts (idempotent)
   async function ensureScript(src, readyCheck) {
     if (typeof readyCheck === "function" && readyCheck()) return;
     if (document.querySelector(`script[src="${src}"]`)) {
-      // give the browser a tick to execute if it was just appended elsewhere
       await new Promise(r => setTimeout(r, 0));
       return;
     }
-    await new Promise((resolve, reject) => {
+    await new Promise((resolve) => {
       const s = document.createElement("script");
       s.src = src;
       s.onload = resolve;
-      s.onerror = resolve; // do not hard fail; allow page to continue
+      s.onerror = resolve; // soft-fail to avoid blocking section render
       document.body.appendChild(s);
     });
   }
@@ -78,35 +80,31 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---- UI helpers
   function setHeaderSearchVisible(show) { if (hdrSearch) hdrSearch.style.display = show ? "" : "none"; }
 
-  // ---- Section loader (Orders handled by canonical admin-orders.js)
+  // ---- Section loader
   async function loadSection(section) {
-    window.__activeSection = section; // tag for DIAG + guards
+    if (!content) { console.error("No content container found (#admin-content/#adminContent/#content)."); return; }
+    window.__activeSection = section;
 
     const hasOwnSearch = new Set(["orders", "users", "items", "myorders"]);
     setHeaderSearchVisible(!hasOwnSearch.has(section));
 
     if (section === "orders") {
       try {
-        const res = await fetch(`/partials/orders.html?v=${Date.now()}`);
+        const res = await fetch(`./partials/orders.html?v=${Date.now()}`);
         content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
         window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "orders" }}));
       } catch {
         content.innerHTML = `<div class="p-3"></div>`;
       }
-
-      await ensureScript("/public/admin/js/admin-orders.js", () => typeof window.initAdminOrders === "function");
-      if (typeof window.initAdminOrders === "function") {
-        window.initAdminOrders();
-      } else {
-        console.error("initAdminOrders() not found after loading admin-orders.js");
-      }
+      await ensureScript("./admin/js/admin-orders.js", () => typeof window.initAdminOrders === "function");
+      if (typeof window.initAdminOrders === "function") window.initAdminOrders();
       window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: "orders" }}));
       return;
     }
 
     if (section === "profile") {
       try {
-        const res = await fetch(`/partials/profile.html?v=${Date.now()}`);
+        const res = await fetch(`./partials/profile.html?v=${Date.now()}`);
         content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
         window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "profile" }}));
       } catch {
@@ -115,7 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       (async () => {
         try {
-          const resp = await fetch("/api/users/me", { credentials: "include" });
+          const resp = await fetch("./api/users/me", { credentials: "include" });
           if (resp.ok) {
             const body = await resp.json();
             const normalized = body && body.user ? body : { success: true, user: body };
@@ -134,7 +132,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (section === "users") {
       try {
-        const res = await fetch(`/partials/users.html?v=${Date.now()}`);
+        const res = await fetch(`./partials/users.html?v=${Date.now()}`);
         content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
         window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "users" }}));
       } catch {
@@ -142,9 +140,9 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       if (typeof fetchUsers !== "function") {
-        if (!document.querySelector('script[src="/admin/js/users.js"]')) {
+        if (!document.querySelector('script[src="./admin/js/users.js"]')) {
           const script = document.createElement("script");
-          script.src = "/admin/js/users.js";
+          script.src = "./admin/js/users.js";
           script.onload = () => { if (typeof fetchUsers === "function") fetchUsers(); };
           script.onerror = () => console.error("Failed to load users.js");
           document.body.appendChild(script);
@@ -156,16 +154,16 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // NEW: Explicit Items loader (prevents race with MutationObserver-only boot)
+    // Explicit Items loader
     if (section === "items") {
       try {
-        const res = await fetch(`/partials/items.html?v=${Date.now()}`);
+        const res = await fetch(`./partials/items.html?v=${Date.now()}`);
         content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
         window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "items" }}));
       } catch {
         content.innerHTML = `<div class="p-3"></div>`;
       }
-      await ensureScript("/public/admin/js/admin-items.js", () => window.AdminItems && typeof window.AdminItems.init === "function");
+      await ensureScript("./admin/js/admin-items.js", () => window.AdminItems && typeof window.AdminItems.init === "function");
       if (window.AdminItems && typeof window.AdminItems.init === "function") {
         window.AdminItems.init();
       } else {
@@ -177,7 +175,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // default loader for other sections
     try {
-      const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
+      const res = await fetch(`./partials/${section}.html?v=${Date.now()}`);
       content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
       window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
     } catch {
@@ -195,20 +193,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const role  = info.role || info.type || "Customer";
     const last  = info.lastLogin || "—";
 
-    const elName  = content.querySelector("#userName");
-    const elEmail = content.querySelector("#userEmail");
-    const elRole  = content.querySelector("#userRole");
-    const elLast  = content.querySelector("#userLastLogin");
-    const elAvatar= content.querySelector("#userAvatar");
+    const elName  = content?.querySelector("#userName");
+    const elEmail = content?.querySelector("#userEmail");
+    const elRole  = content?.querySelector("#userRole");
+    const elLast  = content?.querySelector("#userLastLogin");
+    const elAvatar= content?.querySelector("#userAvatar");
     if (elName)  elName.textContent  = name;
     if (elEmail) elEmail.textContent = email || (phone ? `${phone}@` : "—");
     if (elRole)  elRole.textContent  = role;
     if (elLast)  elLast.textContent  = `Last login: ${last}`;
     if (elAvatar)elAvatar.textContent = (name || "U").trim().charAt(0).toUpperCase() || "U";
 
-    const fName  = content.querySelector("#pf-name");
-    const fEmail = content.querySelector("#pf-email");
-    const fPhone = content.querySelector("#pf-phone");
+    const fName  = content?.querySelector("#pf-name");
+    const fEmail = content?.querySelector("#pf-email");
+    const fPhone = content?.querySelector("#pf-phone");
     if (fName)  fName.value  = name || "";
     if (fEmail) fEmail.value = email || "";
     if (fPhone) fPhone.value = phone || "";

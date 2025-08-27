@@ -1,10 +1,11 @@
 // /public/admin/js/dashboard.js
 document.addEventListener("DOMContentLoaded", () => {
-  const content  = document.getElementById("admin-content") || document.getElementById("adminContent");
-  const sidebar  = document.querySelector(".sidebar nav");
+  const content  = document.getElementById("admin-content")
+                  || document.getElementById("adminContent")
+                  || document.getElementById("content");
+  const sidebar  = document.querySelector(".sidebar nav,[data-admin-sidebar]");
   const hdrSearch= document.querySelector(".header-search");
 
-  // ---- loader helper for scripts (idempotent)
   async function ensureScript(src, readyCheck) {
     if (typeof readyCheck === "function" && readyCheck()) return;
     if (document.querySelector(`script[src="${src}"]`)) {
@@ -20,58 +21,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ---- Session helpers ----
-  function getUser() {
-    const a = localStorage.getItem("wattsunUser");
-    const b = localStorage.getItem("ws_user");
-    try { if (a) return JSON.parse(a); } catch {}
-    try {
-      if (b) {
-        const j = JSON.parse(b);
-        return {
-          success: true,
-          user: {
-            id: j?.id || j?.user?.id,
-            name: j?.name || j?.user?.name || j?.fullName || j?.user?.fullName,
-            fullName: j?.fullName || j?.user?.fullName || j?.name || j?.user?.name,
-            email: j?.email || j?.user?.email,
-            phone: j?.phone || j?.user?.phone,
-            role: j?.role || j?.user?.role || j?.type || j?.user?.type || "Customer"
-          }
-        };
-      }
-    } catch {}
-    return null;
-  }
-
-  function setUserCtx(u) {
-    document.documentElement.dataset.userRole =
-      (u?.user?.role || u?.role || u?.user?.type || u?.type || "").toLowerCase();
-  }
-
-  function updateHeaderUser(u) {
-    try {
-      const info = u?.user || u || {};
-      const name = info.fullName || info.name || "User";
-      const email = info.email || "";
-      const tel = info.phone || "";
-      const el = document.getElementById("headerUser");
-      if (!el) return;
-      const n = el.querySelector(".user-name");
-      const m = el.querySelector(".user-meta");
-      if (n) n.textContent = name;
-      if (m) {
-        const meta = [];
-        if (email) meta.push(email);
-        if (tel) meta.push(tel);
-        m.textContent = meta.join(" • ");
-      }
-    } catch {}
-  }
-
   function setHeaderSearchVisible(show) { if (hdrSearch) hdrSearch.style.display = show ? "" : "none"; }
 
-  // Execute inline <script> tags that arrive with a partial
   function runInlineScripts(root) {
     if (!root) return;
     const scripts = Array.from(root.querySelectorAll("script"));
@@ -83,7 +34,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ---- Hash helpers ----
   function sectionFromHash() {
     const h = (location.hash || "").replace(/^#/, "").trim();
     return h || "system-status";
@@ -105,13 +55,14 @@ document.addEventListener("DOMContentLoaded", () => {
     loadSection(sect);
   });
 
-  // ---- Section loader ----
   async function loadSection(section) {
+    if (!content) { console.error("No content container found (#admin-content/#adminContent/#content)."); return; }
+
     const hasOwnSearch = new Set(["orders", "users", "items", "myorders", "dispatch"]);
     setHeaderSearchVisible(!hasOwnSearch.has(section));
 
     if (section === "myorders") {
-      const url = "/myaccount/userdash.html";
+      const url = "./myaccount/userdash.html";
       content.innerHTML = `
         <div style="height:calc(100vh - 130px);">
           <iframe id="myorders-embed"
@@ -129,15 +80,15 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // NEW: explicit Items loader
+    // Explicit Items branch
     if (section === "items") {
       try {
-        const res = await fetch(`/partials/items.html?v=${Date.now()}`);
+        const res = await fetch(`./partials/items.html?v=${Date.now()}`);
         content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
       } catch {
         content.innerHTML = `<div class="p-3"></div>`;
       }
-      await ensureScript("/public/admin/js/admin-items.js", () => window.AdminItems && typeof window.AdminItems.init === "function");
+      await ensureScript("./admin/js/admin-items.js", () => window.AdminItems && typeof window.AdminItems.init === "function");
       if (window.AdminItems && typeof window.AdminItems.init === "function") {
         window.AdminItems.init();
       }
@@ -146,19 +97,19 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // existing special case for Dispatch (ensures adapter)
+    // Default branch (includes Dispatch special-case)
     try {
-      const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
+      const res = await fetch(`./partials/${section}.html?v=${Date.now()}`);
       content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
 
       if (section === "dispatch" && typeof window.WattSunAdminData === "undefined") {
-        await new Promise((resolve, reject) => {
+        await new Promise((resolve) => {
           const s = document.createElement("script");
-          s.src = "/admin/js/data-adapter.js";
+          s.src = "./admin/js/data-adapter.js";
           s.onload = resolve;
-          s.onerror = reject;
+          s.onerror = resolve;
           document.body.appendChild(s);
-        }).catch(() => console.warn("Failed to load data-adapter.js"));
+        });
       }
 
       runInlineScripts(content);
@@ -169,7 +120,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ---- first load
   const initial = sectionFromHash();
   setActiveInSidebar(initial);
   loadSection(initial);
