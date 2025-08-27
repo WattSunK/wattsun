@@ -1,64 +1,50 @@
 // public/admin/js/orders-edit.js
-// Edit Order modal — surgical update for Phase 6.4:
+// Edit Order modal — surgical update for Phase 6.4/6.5:
+// - Works with either the old driver combobox OR a simple <select id="editDriver">.
 // - Status defaults to the clicked row’s real value (no “sticky” carry-over).
-// - Hydrate via GET /api/track?phone=&order= with safe phone variants.
-// - Driver combobox resets per open and queries /api/admin/users?type=Driver&q=.
-// - Save PATCHes {status, driverId, notes}; inline row refresh + Step 6.4 broadcast.
+// - Hydrates from /api/track when available.
+// - Saves via PATCH /api/admin/orders/:id { status, notes, driver_id? } and refreshes the row.
 
 (() => {
   "use strict";
 
-
-// Flexible selectors to support both legacy (#orderEditModal/Save) and dialog-based (#orderEditDialog/editSaveBtn) markup
-function getEl(...ids) {
-  for (const i of ids) {
-    let el = null;
-    if (i.startsWith('#')) el = document.querySelector(i);
-    else el = document.getElementById(i);
-    if (el) return el;
-  }
-  return null;
-}
-function isDialog(el){ return el && typeof el.showModal === 'function'; }
-
-
-  // ---------- Modal elements ----------
-  const modal       = getEl("orderEditModal","#orderEditDialog");
-  const saveBtn     = getEl("orderSaveBtn","#editSaveBtn");
-  const cancelBtn   = getEl("orderCancelBtn");
-
-  const idInput     = getEl("orderEditId");
-  const statusSel   = getEl("orderEditStatus","#editStatus");
-
-  const driverIdH   = getEl("orderEditDriverId");
-  const driverInp   = getEl("orderEditDriverInput");
-  const driverList  = getEl("orderEditDriverList");
-  const driverClear = getEl("orderEditDriverClear");
-
-  const notesEl     = getEl("orderEditNotes","#editNotes");
-
-  const totalInp    = getEl("orderEditTotalInput");
-  const depositInp  = getEl("orderEditDepositInput");
-  const currInp     = getEl("orderEditCurrencyInput");
-
-  const itemsBody   = getEl("orderEditItemsBody");
-
-  // Orders table (for reading row data + inline refresh)
-  const ordersTbody = document.getElementById("ordersTbody");
-
-  // ---------- Constants / helpers ----------
-  const ALLOWED = ["Pending", "Processing", "Delivered", "Cancelled"]; // backend enum
-
+  // ---------- Helpers ----------
+  function $(sel, root = document) { return root.querySelector(sel); }
+  function byId(id) { return document.getElementById(id); }
+  function isDialog(el){ return el && typeof el.showModal === "function"; }
   const debounce = (fn, ms = 200) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  const ALLOWED = ["Pending", "Processing", "Delivered", "Cancelled"];
+
+  // ---------- Modal elements (support both legacy and new IDs) ----------
+  const modal       = byId("orderEditModal") || byId("orderEditDialog");
+  const saveBtn     = byId("orderSaveBtn")   || byId("editSaveBtn");
+  const cancelBtn   = byId("orderCancelBtn");
+
+  const idInput     = byId("orderEditId");
+  const statusSel   = byId("orderEditStatus") || byId("editStatus");
+  const notesEl     = byId("orderEditNotes")  || byId("editNotes");
+
+  // Driver (support 2 modes)
+  const driverSelect  = byId("editDriver"); // new simple <select>
+  const driverIdH     = byId("orderEditDriverId");      // old hidden id field
+  const driverInp     = byId("orderEditDriverInput");   // old text input
+  const driverList    = byId("orderEditDriverList");    // old <ul> list
+  const driverClear   = byId("orderEditDriverClear");
+
+  // Money (display only in this phase)
+  const totalInp    = byId("orderEditTotalInput");
+  const depositInp  = byId("orderEditDepositInput");
+  const currInp     = byId("orderEditCurrencyInput");
+
+  // Orders table for reading row defaults
+  const ordersTbody = byId("ordersTbody");
+
+  let currentId = null;
 
   function setSaving(on) {
     if (!saveBtn) return;
     saveBtn.disabled = !!on;
     saveBtn.textContent = on ? "Saving…" : "Save";
-  }
-
-  function rowById(id) {
-    return ordersTbody?.querySelector(`tr[data-oid="${CSS.escape(String(id))}"]`);
   }
 
   function parseKES(s) {
@@ -69,54 +55,35 @@ function isDialog(el){ return el && typeof el.showModal === 'function'; }
     return Number.isFinite(f) ? f : 0;
   }
 
+  function rowById(id) {
+    return ordersTbody?.querySelector(`tr[data-oid="${CSS.escape(String(id))}"]`);
+  }
+
   function readRowFields(id) {
     const row = rowById(id);
     if (!row) return {};
     const phone  = row.querySelector('[data-col="phone"]')?.textContent?.trim()  || "";
     const email  = row.querySelector('[data-col="email"]')?.textContent?.trim()  || "";
     const status = row.querySelector('[data-col="status"]')?.textContent?.trim() || "Pending";
-    const totalCell = row.children?.[5]?.textContent || ""; // matches orders table layout
+    const totalCell = row.children?.[5]?.textContent || "";
     const total = parseKES(totalCell);
     const driverName = row.querySelector('[data-col="driver"], .col-driver')?.textContent?.trim() || "";
     return { phone, email, status, total, driverName };
   }
 
-  function fillItemsTable(list, currency) {
-    if (!itemsBody) return;
-    itemsBody.innerHTML = "";
-    const items = Array.isArray(list) ? list : [];
-    if (!items.length) {
-      itemsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#6b7280">No items</td></tr>`;
-      return;
-    }
-    const fmt = (n) => {
-      try { return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "KES" }).format(Number(n||0)); }
-      catch { return `${currency || "KES"} ${(Number(n||0)).toLocaleString()}`; }
-    };
-    for (const it of items) {
-      const sku   = it.sku ?? it.code ?? it.id ?? "—";
-      const name  = it.name ?? it.title ?? it.productName ?? "—";
-      const qty   = it.qty ?? it.quantity ?? 1;
-      const price = it.price ?? it.unitPrice ?? 0;
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${sku}</td><td>${name}</td><td>${qty}</td><td>${fmt(price)}</td>`;
-      itemsBody.appendChild(tr);
-    }
-  }
-
-  // ---------- Track hydration (GET with phone variants) ----------
+  // ---------- Track hydration ----------
   async function hydrateFromTrack(orderId, phone, email) {
     const variants = [];
     if (phone) {
       const p = String(phone).trim();
-      variants.push(p);                             // "+254722…"
-      variants.push(p.replace(/^\+/, ""));          // "254722…"
-      variants.push(p.replace(/^\+?254/, "0"));     // "07…"
+      variants.push(p);
+      variants.push(p.replace(/^\+/, ""));          // "+254…" → "254…"
+      variants.push(p.replace(/^\+?254/, "0"));     // "254…"  → "07…"
     }
     const attempts = [];
-    for (const ph of variants) attempts.push({ ph, ord: orderId }); // exact order
-    for (const ph of variants) attempts.push({ ph, ord: null });    // phone-only
-    if (!variants.length) attempts.push({ ph: "", ord: orderId });  // last resort
+    for (const ph of variants) attempts.push({ ph, ord: orderId });
+    for (const ph of variants) attempts.push({ ph, ord: null });
+    if (!variants.length) attempts.push({ ph: "", ord: orderId });
 
     for (const at of attempts) {
       try {
@@ -124,9 +91,7 @@ function isDialog(el){ return el && typeof el.showModal === 'function'; }
         if (at.ph)  qs.set("phone", at.ph);
         if (at.ord) qs.set("order", String(at.ord));
         qs.set("page", "1"); qs.set("per", "5");
-        const res = await fetch(`/api/track?${qs.toString()}`, {
-          headers: email ? { "X-WS-Email": email } : undefined
-        });
+        const res = await fetch(`/api/track?${qs.toString()}`, { headers: email ? { "X-WS-Email": email } : undefined });
         if (!res.ok) continue;
         const data = await res.json().catch(() => ({}));
         const list = Array.isArray(data?.orders) ? data.orders : [];
@@ -138,7 +103,7 @@ function isDialog(el){ return el && typeof el.showModal === 'function'; }
     return null;
   }
 
-  // ---------- Drivers ----------
+  // ---------- Driver UI (supports select or combo) ----------
   async function queryDrivers(q) {
     const url = `/api/admin/users?type=Driver${q ? `&q=${encodeURIComponent(q)}` : ""}`;
     try {
@@ -149,13 +114,31 @@ function isDialog(el){ return el && typeof el.showModal === 'function'; }
   }
 
   function resetDriver(id = "", name = "") {
-    if (driverIdH) driverIdH.value = id ? String(id) : "";
-    if (driverInp) driverInp.value = name || "";
-    if (driverList) driverList.innerHTML = "";
+    if (driverSelect) driverSelect.value = id ? String(id) : "";
+    if (driverIdH)    driverIdH.value    = id ? String(id) : "";
+    if (driverInp)    driverInp.value    = name || "";
+    if (driverList)   driverList.innerHTML = "";
   }
 
-  function wireDriverCombo() {
-    if (!driverInp || !driverList) return;
+  function getDriverPayload() {
+    // Prefer <select id="editDriver"> if present
+    if (driverSelect) {
+      const val = driverSelect.value.trim();
+      return val ? { ok: true, value: Number(val) } : { ok: true, value: null };
+    }
+    // Legacy combo path
+    const raw = (driverIdH?.value ?? "").trim();
+    if (raw === "") return { ok: true, value: null };
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < 0) return { ok: false, error: "Driver ID must be a positive integer." };
+    return { ok: true, value: n };
+  }
+
+  function wireDriverComboOnce() {
+    if (!driverInp || !driverList) return; // using <select>, nothing to wire
+    if (driverInp._bound) return;
+    driverInp._bound = true;
+
     const render = (arr) => {
       driverList.innerHTML = "";
       if (!arr.length) { driverList.innerHTML = `<li class="empty">No drivers</li>`; return; }
@@ -164,10 +147,7 @@ function isDialog(el){ return el && typeof el.showModal === 'function'; }
         const name = u.name || u.fullName || "";
         li.textContent = `${name}${u.phone ? ` — ${u.phone}` : ""}`;
         li.tabIndex = 0;
-        li.addEventListener("click", () => {
-          resetDriver(u.id, name);
-          driverList.style.display = "none";
-        });
+        li.addEventListener("click", () => { resetDriver(u.id, name); driverList.style.display = "none"; });
         driverList.appendChild(li);
       }
       driverList.style.display = "block";
@@ -183,11 +163,9 @@ function isDialog(el){ return el && typeof el.showModal === 'function'; }
     });
     driverClear?.addEventListener("click", (e) => { e.preventDefault(); resetDriver(); driverList.style.display = "none"; });
   }
-  wireDriverCombo(); // one-time wire
+  wireDriverComboOnce();
 
   // ---------- Modal lifecycle ----------
-  let currentId = null;
-
   function buildStatusOptions(current) {
     if (!statusSel) return;
     statusSel.innerHTML = "";
@@ -196,29 +174,48 @@ function isDialog(el){ return el && typeof el.showModal === 'function'; }
       opt.value = s; opt.textContent = s;
       statusSel.appendChild(opt);
     }
-    const toSelect = ALLOWED.includes(current) ? current : "Pending";
-    statusSel.value = toSelect;
+    statusSel.value = ALLOWED.includes(current) ? current : "Pending";
+  }
+
+  function fillItemsTable(list, currency) {
+    const body = byId("orderEditItemsBody");
+    if (!body) return;
+    body.innerHTML = "";
+    const items = Array.isArray(list) ? list : [];
+    if (!items.length) {
+      body.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#6b7280">No items</td></tr>`;
+      return;
+    }
+    const fmt = (n) => {
+      try { return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "KES" }).format(Number(n||0)); }
+      catch { return `${currency || "KES"} ${(Number(n||0)).toLocaleString()}`; }
+    };
+    for (const it of items) {
+      const sku   = it.sku ?? it.code ?? it.id ?? "—";
+      const name  = it.name ?? it.title ?? it.productName ?? "—";
+      const qty   = it.qty ?? it.quantity ?? 1;
+      const price = it.price ?? it.unitPrice ?? 0;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${sku}</td><td>${name}</td><td>${qty}</td><td>${fmt(price)}</td>`;
+      body.appendChild(tr);
+    }
   }
 
   async function openModal(orderLike) {
     const id = orderLike?.id || orderLike?.orderNumber;
     if (!id) return alert("Missing order id");
     currentId = id;
-
     if (idInput) idInput.value = id;
 
-    // Seed from the row (real values for this order)
-    buildStatusOptions(orderLike.status);           // <-- fixes sticky status
-    resetDriver("", orderLike.driverName || "");    // clear/reset driver each open
+    // Seed from the row
+    buildStatusOptions(orderLike.status);
+    resetDriver("", orderLike.driverName || "");
 
     const row = readRowFields(id);
-
-    // Money fields are display-only in this phase
     if (totalInp)   totalInp.value   = String(row.total || 0);
     if (depositInp) depositInp.value = String(depositInp.value || 0);
     if (currInp)    currInp.value    = currInp.value || "KES";
 
-    // Try to hydrate better totals/items via Track
     const fromTrack = await hydrateFromTrack(id, orderLike.phone || row.phone, orderLike.email || row.email);
     if (fromTrack) {
       if (typeof fromTrack.total === "number" && totalInp) totalInp.value = String(fromTrack.total);
@@ -228,43 +225,29 @@ function isDialog(el){ return el && typeof el.showModal === 'function'; }
       fillItemsTable([], currInp?.value || "KES");
     }
 
-    if (modal) { if (isDialog(modal)) { try { modal.showModal(); } catch { modal.setAttribute("open","true"); } } else { modal.style.display="block"; modal.setAttribute("aria-hidden","false"); } }
+    if (modal) {
+      if (isDialog(modal)) { try { modal.showModal(); } catch { modal.setAttribute("open","true"); } }
+      else { modal.style.display = "block"; modal.setAttribute("aria-hidden","false"); }
+    }
   }
 
   function closeModal() {
-    if (modal) { if (isDialog(modal)) { try { modal.close(); } catch { modal.removeAttribute("open"); } } else { modal.style.display="none"; modal.setAttribute("aria-hidden","true"); } }
+    if (modal) {
+      if (isDialog(modal)) { try { modal.close(); } catch { modal.removeAttribute("open"); } }
+      else { modal.style.display = "none"; modal.setAttribute("aria-hidden","true"); }
+    }
   }
 
   cancelBtn?.addEventListener("click", (e) => { e.preventDefault(); closeModal(); });
-  // Fallback: close when a <button value="cancel"> inside dialog is clicked
-  if (isDialog(modal)) {
-    modal.addEventListener("close", () => {});
-    modal.querySelectorAll('button[value="cancel"]').forEach(b => b.addEventListener("click", (ev) => { ev.preventDefault(); closeModal(); }));
-  }
-  // 6.5.1 — Client guard for driver_id
-  function validateDriverId(inputValue) {
-    if (inputValue === undefined || inputValue === null) return { ok:true, value:null };
-    const s = String(inputValue).trim();
-    if (s === "") return { ok:true, value:null };
-    const n = Number(s);
-    if (!Number.isInteger(n) || n < 0) {
-      return { ok:false, error:{ code:"VALIDATION_DRIVER_ID_INTEGER", message:"Driver ID must be a positive integer." }};
-    }
-    return { ok:true, value:n };
-  }
 
-
-
-
-  // ---------- Save (PATCH /api/admin/orders/:id) ----------
   async function doSave() {
     if (!currentId) return;
     const status = statusSel?.value || "Pending";
-    if (!ALLOWED.includes(status)) { alert("Please choose a valid status."); return; }
+    if (!ALLOWED.includes(status)) return alert("Please choose a valid status.");
 
-    const rawDriver = (driverIdH?.value ?? '').trim();
-    const drv = validateDriverId(rawDriver);
-    if (!drv.ok) { alert(drv.error.message); return; }
+    const drv = getDriverPayload();
+    if (!drv.ok) return alert(drv.error || "Invalid driver");
+
     const notes = notesEl?.value?.trim() || "";
     const payload = { status, notes };
     if (drv.value !== null) payload.driver_id = String(drv.value);
@@ -282,7 +265,6 @@ function isDialog(el){ return el && typeof el.showModal === 'function'; }
         throw new Error(msg);
       }
 
-      // inline table refresh via controller hook when available
       if (typeof window.refreshOrderRow === "function") {
         window.refreshOrderRow(currentId, { status });
       } else {
@@ -290,7 +272,6 @@ function isDialog(el){ return el && typeof el.showModal === 'function'; }
         row?.querySelector('[data-col="status"]')?.replaceChildren(document.createTextNode(status));
       }
 
-      // Step 6.4 broadcast
       try {
         localStorage.setItem("ordersUpdatedAt", String(Date.now()));
         window.postMessage({ type: "orders-updated", orderId: currentId }, "*");
@@ -307,11 +288,10 @@ function isDialog(el){ return el && typeof el.showModal === 'function'; }
 
   saveBtn?.addEventListener("click", (e) => { e.preventDefault(); doSave(); });
 
-  // ---------- Click binder (status comes from the clicked row) ----------
+  // Bind open (supports .btn-edit or [data-action="edit-order"])
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('[data-action="edit-order"], .btn-edit');
     if (!btn) return;
-
     e.preventDefault();
 
     const oid   = btn.getAttribute("data-oid")   || "";
@@ -319,28 +299,14 @@ function isDialog(el){ return el && typeof el.showModal === 'function'; }
     const email = btn.getAttribute("data-email") || "";
 
     const tr = btn.closest("tr");
-    const statusText =
-      tr?.querySelector('[data-col="status"], .col-status')?.textContent?.trim() || "";
-    const driverName =
-      tr?.querySelector('[data-col="driver"], .col-driver')?.textContent?.trim() || "";
+    const statusText = tr?.querySelector('[data-col="status"], .col-status')?.textContent?.trim() || "";
+    const driverName = tr?.querySelector('[data-col="driver"], .col-driver')?.textContent?.trim() || "";
 
-    const orderLike = {
-      id: oid,
-      orderNumber: oid,
-      phone,
-      email,
-      status: statusText,   // <-- pass real row status
-      driverName           // (display only)
-    };
-
-    if (typeof window.openOrderEdit === "function") {
-      window.openOrderEdit(orderLike);
-    } else {
-      openModal(orderLike);
-    }
+    const orderLike = { id: oid, orderNumber: oid, phone, email, status: statusText, driverName };
+    openModal(orderLike);
   });
 
-  // expose programmatic hook if needed
+  // Optional global hook
   if (typeof window.openOrderEdit !== "function") {
     window.openOrderEdit = (order) => openModal(order || {});
   }
