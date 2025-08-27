@@ -1,50 +1,83 @@
-// public/admin/js/orders-edit.js
-// Edit Order modal — surgical update for Phase 6.4/6.5:
-// - Works with either the old driver combobox OR a simple <select id="editDriver">.
-// - Status defaults to the clicked row’s real value (no “sticky” carry-over).
-// - Hydrates from /api/track when available.
-// - Saves via PATCH /api/admin/orders/:id { status, notes, driver_id? } and refreshes the row.
+// /public/admin/js/orders-edit.js
+// Edit Order modal — combobox-only driver picker (legacy markup in dashboard.html)
+//
+// Requires the following IDs in the page (already present in your dashboard.html):
+// - Modal shell: #orderEditModal  (or <dialog id="orderEditDialog">)
+// - Save/Cancel: #orderSaveBtn, #orderCancelBtn
+// - Fields: #orderEditId, #orderEditStatus, #orderEditNotes
+// - Driver combo: #orderEditDriverId (hidden), #orderEditDriverInput, #orderEditDriverList, #orderEditDriverClear
+// - Money (display): #orderEditTotalInput, #orderEditDepositInput, #orderEditCurrencyInput
+// - Items table body: #orderEditItemsBody
+// - Orders table body (for inline refresh): #ordersTbody [rows with data-oid="<orderId>"]
+//
+// API used:
+// - GET  /api/admin/users?type=Driver&q=...   (search drivers)
+// - PATCH /api/admin/orders/:id  { status, notes, driver_id? }
+//
+// Status enum kept in sync with admin overlay: ["Pending","Processing","Delivered","Cancelled"]
 
 (() => {
   "use strict";
 
-  // ---------- Helpers ----------
-  function $(sel, root = document) { return root.querySelector(sel); }
-  function byId(id) { return document.getElementById(id); }
-  function isDialog(el){ return el && typeof el.showModal === "function"; }
+  // ---------- Tiny helpers ----------
+  const $  = (sel, root = document) => root.querySelector(sel);
+  const by = (id) => document.getElementById(id);
   const debounce = (fn, ms = 200) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
   const ALLOWED = ["Pending", "Processing", "Delivered", "Cancelled"];
 
-  // ---------- Modal elements (support both legacy and new IDs) ----------
-  const modal       = byId("orderEditModal") || byId("orderEditDialog");
-  const saveBtn     = byId("orderSaveBtn")   || byId("editSaveBtn");
-  const cancelBtn   = byId("orderCancelBtn");
+  // ---------- Modal elements ----------
+  const modal     = by("orderEditModal") || by("orderEditDialog");
+  const saveBtn   = by("orderSaveBtn");
+  const cancelBtn = by("orderCancelBtn");
 
-  const idInput     = byId("orderEditId");
-  const statusSel   = byId("orderEditStatus") || byId("editStatus");
-  const notesEl     = byId("orderEditNotes")  || byId("editNotes");
+  const idInput   = by("orderEditId");
+  const statusSel = by("orderEditStatus");
+  const notesEl   = by("orderEditNotes");
 
-  // Driver (support 2 modes)
-  const driverSelect  = byId("editDriver"); // new simple <select>
-  const driverIdH     = byId("orderEditDriverId");      // old hidden id field
-  const driverInp     = byId("orderEditDriverInput");   // old text input
-  const driverList    = byId("orderEditDriverList");    // old <ul> list
-  const driverClear   = byId("orderEditDriverClear");
+  // Driver combobox (legacy)
+  const driverIdH   = by("orderEditDriverId");
+  const driverInp   = by("orderEditDriverInput");
+  const driverList  = by("orderEditDriverList");
+  const driverClear = by("orderEditDriverClear");
 
-  // Money (display only in this phase)
-  const totalInp    = byId("orderEditTotalInput");
-  const depositInp  = byId("orderEditDepositInput");
-  const currInp     = byId("orderEditCurrencyInput");
+  // Money & items (display only in this phase)
+  const totalInp   = by("orderEditTotalInput");
+  const depositInp = by("orderEditDepositInput");
+  const currInp    = by("orderEditCurrencyInput");
+  const itemsBody  = by("orderEditItemsBody");
 
-  // Orders table for reading row defaults
-  const ordersTbody = byId("ordersTbody");
-
+  const ordersTbody = by("ordersTbody"); // for inline row refresh
   let currentId = null;
 
+  // ---------- UI utilities ----------
   function setSaving(on) {
     if (!saveBtn) return;
     saveBtn.disabled = !!on;
     saveBtn.textContent = on ? "Saving…" : "Save";
+  }
+
+  function isDialog(el) { return el && typeof el.showModal === "function"; }
+
+  function openModalShell() {
+    if (!modal) return;
+    if (isDialog(modal)) { try { modal.showModal(); } catch { modal.setAttribute("open","true"); } }
+    else { modal.style.display = "block"; modal.setAttribute("aria-hidden","false"); }
+  }
+  function closeModalShell() {
+    if (!modal) return;
+    if (isDialog(modal)) { try { modal.close(); } catch { modal.removeAttribute("open"); } }
+    else { modal.style.display = "none"; modal.setAttribute("aria-hidden","true"); }
+  }
+
+  function buildStatusOptions(current) {
+    if (!statusSel) return;
+    statusSel.innerHTML = "";
+    for (const s of ALLOWED) {
+      const opt = document.createElement("option");
+      opt.value = s; opt.textContent = s;
+      statusSel.appendChild(opt);
+    }
+    statusSel.value = ALLOWED.includes(current) ? current : "Pending";
   }
 
   function parseKES(s) {
@@ -58,27 +91,23 @@
   function rowById(id) {
     return ordersTbody?.querySelector(`tr[data-oid="${CSS.escape(String(id))}"]`);
   }
-
   function readRowFields(id) {
     const row = rowById(id);
     if (!row) return {};
     const phone  = row.querySelector('[data-col="phone"]')?.textContent?.trim()  || "";
     const email  = row.querySelector('[data-col="email"]')?.textContent?.trim()  || "";
     const status = row.querySelector('[data-col="status"]')?.textContent?.trim() || "Pending";
-    const totalCell = row.children?.[5]?.textContent || "";
-    const total = parseKES(totalCell);
+    const total  = parseKES(row.children?.[5]?.textContent || "");
     const driverName = row.querySelector('[data-col="driver"], .col-driver')?.textContent?.trim() || "";
     return { phone, email, status, total, driverName };
   }
 
-  // ---------- Track hydration ----------
+  // ---------- Track hydration (lightweight; optional) ----------
   async function hydrateFromTrack(orderId, phone, email) {
     const variants = [];
     if (phone) {
       const p = String(phone).trim();
-      variants.push(p);
-      variants.push(p.replace(/^\+/, ""));          // "+254…" → "254…"
-      variants.push(p.replace(/^\+?254/, "0"));     // "254…"  → "07…"
+      variants.push(p, p.replace(/^\+/, ""), p.replace(/^\+?254/, "0"));
     }
     const attempts = [];
     for (const ph of variants) attempts.push({ ph, ord: orderId });
@@ -91,7 +120,8 @@
         if (at.ph)  qs.set("phone", at.ph);
         if (at.ord) qs.set("order", String(at.ord));
         qs.set("page", "1"); qs.set("per", "5");
-        const res = await fetch(`/api/track?${qs.toString()}`, { headers: email ? { "X-WS-Email": email } : undefined });
+        const headers = email ? { "X-WS-Email": email } : undefined;
+        const res = await fetch(`/api/track?${qs.toString()}`, { headers });
         if (!res.ok) continue;
         const data = await res.json().catch(() => ({}));
         const list = Array.isArray(data?.orders) ? data.orders : [];
@@ -103,7 +133,7 @@
     return null;
   }
 
-  // ---------- Driver UI (supports select or combo) ----------
+  // ---------- Driver combobox ----------
   async function queryDrivers(q) {
     const url = `/api/admin/users?type=Driver${q ? `&q=${encodeURIComponent(q)}` : ""}`;
     try {
@@ -114,19 +144,12 @@
   }
 
   function resetDriver(id = "", name = "") {
-    if (driverSelect) driverSelect.value = id ? String(id) : "";
-    if (driverIdH)    driverIdH.value    = id ? String(id) : "";
-    if (driverInp)    driverInp.value    = name || "";
-    if (driverList)   driverList.innerHTML = "";
+    if (driverIdH)  driverIdH.value = id ? String(id) : "";
+    if (driverInp)  driverInp.value = name || "";
+    if (driverList) driverList.innerHTML = "";
   }
 
   function getDriverPayload() {
-    // Prefer <select id="editDriver"> if present
-    if (driverSelect) {
-      const val = driverSelect.value.trim();
-      return val ? { ok: true, value: Number(val) } : { ok: true, value: null };
-    }
-    // Legacy combo path
     const raw = (driverIdH?.value ?? "").trim();
     if (raw === "") return { ok: true, value: null };
     const n = Number(raw);
@@ -135,7 +158,7 @@
   }
 
   function wireDriverComboOnce() {
-    if (!driverInp || !driverList) return; // using <select>, nothing to wire
+    if (!driverInp || !driverList) return;
     if (driverInp._bound) return;
     driverInp._bound = true;
 
@@ -152,10 +175,12 @@
       }
       driverList.style.display = "block";
     };
+
     const onType = debounce(async () => {
       const q = (driverInp.value || "").trim();
       render(await queryDrivers(q));
-    }, 200);
+    }, 180);
+
     driverInp.addEventListener("input", onType);
     driverInp.addEventListener("focus", onType);
     document.addEventListener("click", (e) => {
@@ -165,25 +190,13 @@
   }
   wireDriverComboOnce();
 
-  // ---------- Modal lifecycle ----------
-  function buildStatusOptions(current) {
-    if (!statusSel) return;
-    statusSel.innerHTML = "";
-    for (const s of ALLOWED) {
-      const opt = document.createElement("option");
-      opt.value = s; opt.textContent = s;
-      statusSel.appendChild(opt);
-    }
-    statusSel.value = ALLOWED.includes(current) ? current : "Pending";
-  }
-
+  // ---------- Items table (display) ----------
   function fillItemsTable(list, currency) {
-    const body = byId("orderEditItemsBody");
-    if (!body) return;
-    body.innerHTML = "";
+    if (!itemsBody) return;
+    itemsBody.innerHTML = "";
     const items = Array.isArray(list) ? list : [];
     if (!items.length) {
-      body.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#6b7280">No items</td></tr>`;
+      itemsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#6b7280">No items</td></tr>`;
       return;
     }
     const fmt = (n) => {
@@ -197,21 +210,21 @@
       const price = it.price ?? it.unitPrice ?? 0;
       const tr = document.createElement("tr");
       tr.innerHTML = `<td>${sku}</td><td>${name}</td><td>${qty}</td><td>${fmt(price)}</td>`;
-      body.appendChild(tr);
+      itemsBody.appendChild(tr);
     }
   }
 
+  // ---------- Modal open / save ----------
   async function openModal(orderLike) {
     const id = orderLike?.id || orderLike?.orderNumber;
     if (!id) return alert("Missing order id");
     currentId = id;
     if (idInput) idInput.value = id;
 
-    // Seed from the row
-    buildStatusOptions(orderLike.status);
-    resetDriver("", orderLike.driverName || "");
-
     const row = readRowFields(id);
+    buildStatusOptions(orderLike.status || row.status);
+    resetDriver("", orderLike.driverName || row.driverName || "");
+
     if (totalInp)   totalInp.value   = String(row.total || 0);
     if (depositInp) depositInp.value = String(depositInp.value || 0);
     if (currInp)    currInp.value    = currInp.value || "KES";
@@ -225,20 +238,8 @@
       fillItemsTable([], currInp?.value || "KES");
     }
 
-    if (modal) {
-      if (isDialog(modal)) { try { modal.showModal(); } catch { modal.setAttribute("open","true"); } }
-      else { modal.style.display = "block"; modal.setAttribute("aria-hidden","false"); }
-    }
+    openModalShell();
   }
-
-  function closeModal() {
-    if (modal) {
-      if (isDialog(modal)) { try { modal.close(); } catch { modal.removeAttribute("open"); } }
-      else { modal.style.display = "none"; modal.setAttribute("aria-hidden","true"); }
-    }
-  }
-
-  cancelBtn?.addEventListener("click", (e) => { e.preventDefault(); closeModal(); });
 
   async function doSave() {
     if (!currentId) return;
@@ -265,19 +266,17 @@
         throw new Error(msg);
       }
 
-      if (typeof window.refreshOrderRow === "function") {
-        window.refreshOrderRow(currentId, { status });
-      } else {
-        const row = rowById(currentId);
-        row?.querySelector('[data-col="status"]')?.replaceChildren(document.createTextNode(status));
-      }
+      // Inline row refresh (minimal)
+      const row = rowById(currentId);
+      row?.querySelector('[data-col="status"]')?.replaceChildren(document.createTextNode(status));
 
+      // Cross-tab/customer reflection signal (Step 6.4)
       try {
         localStorage.setItem("ordersUpdatedAt", String(Date.now()));
         window.postMessage({ type: "orders-updated", orderId: currentId }, "*");
       } catch {}
 
-      closeModal();
+      closeModalShell();
     } catch (e) {
       console.error("[orders-edit] save failed:", e);
       alert(`Failed to save order changes.\n\n${e.message || ""}`);
@@ -286,9 +285,11 @@
     }
   }
 
-  saveBtn?.addEventListener("click", (e) => { e.preventDefault(); doSave(); });
+  // ---------- Bindings ----------
+  cancelBtn?.addEventListener("click", (e) => { e.preventDefault(); closeModalShell(); });
+  saveBtn?.addEventListener("click",  (e) => { e.preventDefault(); doSave(); });
 
-  // Bind open (supports .btn-edit or [data-action="edit-order"])
+  // Open via table buttons (supports .btn-edit or [data-action="edit-order"])
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('[data-action="edit-order"], .btn-edit');
     if (!btn) return;
