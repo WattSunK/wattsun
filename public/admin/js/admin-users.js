@@ -2,6 +2,7 @@
    - Keeps existing list/search/pager behavior
    - Exposes window.fetchUsers for dashboard loader
    - Uses adapter-first saves, REST fallback with endpoint auto-detect
+   - Adapts to PATCH/PUT/POST and different base routes (/api/admin/users, /api/users, etc.)
 */
 (function(){
   // ========= State & Utils =========
@@ -13,7 +14,8 @@
     root: null,
     els: {}
   };
-  window.UsersState = State; // (optional) visibility for other panes
+  // (optional) visible for debugging/other panes
+  window.UsersState = State;
 
   const $  = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -21,36 +23,82 @@
   const esc= (s)=> T(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
   function log(...a){ console.log("[Users]", ...a); }
 
-  // ========= Endpoint auto-detect (cached) =========
-  const USERS_ENDPOINT_CANDIDATES = [
-    "/api/admin/users",
-    "/api/users",
-    "/admin/users",
-    "/users"
-  ];
-  let USERS_BASE = null;
+  // ========= Endpoint auto-detect (cached & op-aware) =========
+  const USERS_ENDPOINT_CANDIDATES = ["/api/admin/users", "/api/users", "/admin/users", "/users"];
 
-  async function resolveUsersBase() {
-    if (USERS_BASE) return USERS_BASE;
-    USERS_BASE = localStorage.getItem("wsUsersBase") || null;
+  async function _routeExists(url) {
+    try {
+      const r = await fetch(url, { method: "GET", credentials: "same-origin" });
+      if (r.ok || r.status === 405) return true; // 405 => route exists (method not allowed)
+    } catch (_) {}
+    return false;
+  }
 
-    async function check(url) {
-      try {
-        // allow GET 200/OK or 405 (method not allowed but route exists)
-        const r = await fetch(url, { method: "GET", credentials: "same-origin" });
-        if (r.ok || r.status === 405) return true;
-      } catch (_) {}
-      return false;
-    }
+  /** Resolve a base for a given op: 'list' | 'update' | 'create' | 'status' */
+  async function resolveUsersBaseFor(op) {
+    // manual override
+    const override = localStorage.getItem("wsUsersBaseOverride");
+    if (override) return override;
+
+    const key = `wsUsersBase_${op}`;
+    const cached = localStorage.getItem(key);
+    if (cached) return cached;
+
     for (const base of USERS_ENDPOINT_CANDIDATES) {
-      if (await check(base)) {
-        USERS_BASE = base;
-        localStorage.setItem("wsUsersBase", base);
-        break;
+      const ok = await _routeExists(base);
+      if (!ok) continue;
+
+      if (op === "update" || op === "status") {
+        // ensure /:id path exists to avoid 404 later
+        const probeId = "1";
+        const okId = await _routeExists(`${base}/${probeId}`);
+        if (!okId) continue;
+      }
+      localStorage.setItem(key, base);
+      return base;
+    }
+    // fallback
+    localStorage.setItem(key, "/api/users");
+    return "/api/users";
+  }
+
+  /** Try a sequence of methods/paths for update until one works; cache the winner */
+  async function tryUpdateSequence(id, payload, suffix = "") {
+    const candidates = [
+      { method: "PATCH", path: (b) => `${b}/${encodeURIComponent(id)}${suffix}` },
+      { method: "PUT",   path: (b) => `${b}/${encodeURIComponent(id)}${suffix}` },
+      { method: "POST",  path: (b) => `${b}/update/${encodeURIComponent(id)}${suffix}` },
+      { method: "POST",  path: (b) => `${b}?id=${encodeURIComponent(id)}` },
+    ];
+
+    const forced = localStorage.getItem("wsUsersUpdateMethod");
+    if (forced) {
+      candidates.sort((a, b) => (a.method === forced ? -1 : b.method === forced ? 1 : 0));
+    }
+
+    // Prefer previously working base if any
+    const firstBase = localStorage.getItem("wsUsersBase_update");
+    const bases = (firstBase ? [firstBase] : []).concat(USERS_ENDPOINT_CANDIDATES);
+
+    for (const base of bases) {
+      for (const c of candidates) {
+        const url = c.path(base);
+        try {
+          const r = await fetch(url, {
+            method: c.method,
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify(payload),
+          });
+          if (r.ok) {
+            localStorage.setItem("wsUsersBase_update", base);
+            localStorage.setItem("wsUsersUpdateMethod", c.method);
+            return await r.json();
+          }
+        } catch (_) { /* continue */ }
       }
     }
-    USERS_BASE = USERS_BASE || "/api/users";
-    return USERS_BASE;
+    throw new Error("No working update endpoint");
   }
 
   // ========= Data (adapter-first) =========
@@ -77,8 +125,8 @@
         return list.map(normalize);
       }
     }catch(_){}
-    const base = await resolveUsersBase();
-    const url = type ? `${base}?type=${encodeURIComponent(type)}` : base;
+    const base = await resolveUsersBaseFor("list");
+    const url  = type ? `${base}?type=${encodeURIComponent(type)}` : base;
     const r = await fetch(url, { credentials: "same-origin" });
     const j = await r.json();
     const list = Array.isArray(j) ? j : (Array.isArray(j?.users) ? j.users : []);
@@ -91,16 +139,27 @@
         return normalize(await window.WattSunAdminData.users.create(payload));
       }
     }catch(_){}
-    const base = await resolveUsersBase();
-    const r = await fetch(base, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      credentials:"same-origin",
-      body: JSON.stringify(payload)
-    });
-    if(!r.ok) throw new Error(`Create failed ${r.status}`);
-    const j = await r.json();
-    return normalize(j.user || (Array.isArray(j.users) ? j.users[0] : j));
+    // prefer cached base if any, then try others
+    const firstBase = localStorage.getItem("wsUsersBase_create");
+    const bases = (firstBase ? [firstBase] : []).concat(USERS_ENDPOINT_CANDIDATES);
+
+    for (const base of bases) {
+      try {
+        const r = await fetch(base, {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          credentials:"same-origin",
+          body: JSON.stringify(payload)
+        });
+        if (r.ok) {
+          localStorage.setItem("wsUsersBase_create", base);
+          const j = await r.json();
+          const obj = j.user || (Array.isArray(j.users) ? j.users[0] : j);
+          return normalize(obj);
+        }
+      } catch (_) { /* try next */ }
+    }
+    throw new Error("Create failed (no working endpoint)");
   }
 
   async function updateUser(id, payload){
@@ -109,16 +168,9 @@
         return normalize(await window.WattSunAdminData.users.update(id, payload));
       }
     }catch(_){}
-    const base = await resolveUsersBase();
-    const r = await fetch(`${base}/${encodeURIComponent(id)}`, {
-      method:"PATCH",
-      headers:{ "Content-Type":"application/json" },
-      credentials:"same-origin",
-      body: JSON.stringify(payload)
-    });
-    if(!r.ok) throw new Error(`Update failed ${r.status}`);
-    const j = await r.json();
-    return normalize(j.user || (Array.isArray(j.users) ? j.users[0] : j));
+    const j = await tryUpdateSequence(id, payload);
+    const obj = j.user || (Array.isArray(j.users) ? j.users[0] : j);
+    return normalize(obj);
   }
 
   async function deactivateUser(id){
@@ -128,13 +180,34 @@
         return;
       }
     }catch(_){}
-    const base = await resolveUsersBase();
-    await fetch(`${base}/${encodeURIComponent(id)}/status`, {
-      method:"PATCH",
-      headers:{ "Content-Type":"application/json" },
-      credentials:"same-origin",
-      body: JSON.stringify({ status: "Inactive" })
-    });
+
+    const payload = { status: "Inactive" };
+    const firstBase = localStorage.getItem("wsUsersBase_status");
+    const bases = (firstBase ? [firstBase] : []).concat(USERS_ENDPOINT_CANDIDATES);
+
+    for (const base of bases) {
+      const urls = [
+        { method: "PATCH", url: `${base}/${encodeURIComponent(id)}/status` },
+        { method: "PUT",   url: `${base}/${encodeURIComponent(id)}/status`  },
+        { method: "PATCH", url: `${base}/${encodeURIComponent(id)}` },
+        { method: "PUT",   url: `${base}/${encodeURIComponent(id)}` },
+      ];
+      for (const { method, url } of urls) {
+        try {
+          const r = await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify(payload),
+          });
+          if (r.ok) {
+            localStorage.setItem("wsUsersBase_status", base);
+            return;
+          }
+        } catch (_) { /* continue */ }
+      }
+    }
+    throw new Error("Deactivate failed (no working endpoint)");
   }
 
   // ========= Render =========
@@ -295,7 +368,7 @@
     const actEl = e.target.closest("[data-users-action], a.ws-link");
     if (!actEl) return;
 
-    // Hard-scope: block global listeners (e.g., Orders modal)
+    // Block global listeners (Orders/Dispatch)
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
