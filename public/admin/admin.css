@@ -1535,3 +1535,24 @@ body {
 .ws-admin-toolbar .ws-btn:hover { background:#FFD23F; }
 .ws-admin-toolbar .ws-btn.ws-btn-primary { background:#FFD23F; }
 .ws-admin-toolbar .ws-btn.ws-btn-ghost { background:#fff; }
+/* === Items modal sizing parity with Users === */
+.modal-bg.modal--md .modal {
+  width: min(600px, calc(100% - 32px));
+  margin: 60px auto;
+  padding: 0;               /* header/body already provide inner padding */
+  border-radius: 12px;
+}
+.modal-bg.modal--sm .modal {
+  width: min(520px, calc(100% - 32px));
+  margin: 60px auto;
+  padding: 0;
+  border-radius: 12px;
+}
+
+/* Mobile fallback */
+@media (max-width: 720px) {
+  .modal-bg .modal {
+    width: calc(100% - 24px);
+    margin: 30px auto;
+  }
+}
