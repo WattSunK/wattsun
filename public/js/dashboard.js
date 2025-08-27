@@ -1,4 +1,26 @@
 // /public/js/dashboard.js
+// ====== DIAG: fetch logger (temporary; remove after fix) ======
+(function () {
+  const origFetch = window.fetch;
+  window.fetch = async function (input, init) {
+    const url = (typeof input === "string") ? input : (input && input.url) || "";
+    const method = (init && init.method) || (typeof input !== "string" && input.method) || "GET";
+    const sec = (window.__activeSection || "unknown");
+    const at = (new Error()).stack.split("\n")[2]?.trim();
+    console.log("[NET]", method, url, "sec:", sec, "at:", at);
+    return origFetch.call(this, input, init);
+  };
+})();
+
+// ====== DIAG: lifecycle probes (temporary; remove after fix) ======
+window.addEventListener("admin:partial-loaded", (e) => {
+  console.log("[EVT] partial-loaded:", e?.detail?.name, "active=", window.__activeSection);
+});
+window.addEventListener("admin:section-activated", (e) => {
+  if (e?.detail?.name) window.__activeSection = e.detail.name;
+  console.log("[EVT] section-activated:", e?.detail?.name, "active=", window.__activeSection);
+});
+
 document.addEventListener("DOMContentLoaded", () => {
   const content  = document.getElementById("admin-content");
   const sidebar  = document.querySelector(".sidebar nav");
@@ -39,8 +61,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---- UI helpers ----
   function setHeaderSearchVisible(show) { if (hdrSearch) hdrSearch.style.display = show ? "" : "none"; }
 
-  // ---- Section loader (deduped: Orders handled by canonical admin-orders.js) ----
+  // ---- Section loader (Orders handled by canonical admin-orders.js) ----
   async function loadSection(section) {
+    window.__activeSection = section; // tag for DIAG + guards
+
     const hasOwnSearch = new Set(["orders", "users", "items", "myorders"]);
     setHeaderSearchVisible(!hasOwnSearch.has(section));
 
@@ -48,6 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const res = await fetch(`/partials/orders.html?v=${Date.now()}`);
         content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+        window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "orders" }}));
       } catch {
         content.innerHTML = `<div class="p-3"></div>`;
       }
@@ -59,6 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         console.error("initAdminOrders() not found after loading admin-orders.js");
       }
+      window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: "orders" }}));
       return;
     }
 
@@ -66,6 +92,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const res = await fetch(`/partials/profile.html?v=${Date.now()}`);
         content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+        window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "profile" }}));
       } catch {
         content.innerHTML = `<div class="p-3"></div>`;
       }
@@ -86,6 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const u = getUser();
       hydrateProfile(u);
       window.addEventListener("ws:user", ev => hydrateProfile(ev.detail));
+      window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: "profile" }}));
       return;
     }
 
@@ -93,6 +121,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const res = await fetch(`/partials/users.html?v=${Date.now()}`);
         content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+        window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "users" }}));
       } catch {
         content.innerHTML = `<div class="p-3"></div>`;
         return;
@@ -108,15 +137,18 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         fetchUsers();
       }
+      window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: "users" }}));
       return;
     }
 
     try {
       const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
       content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+      window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
     } catch {
       content.innerHTML = `<div class="p-3"></div>`;
     }
+    window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: section }}));
   }
 
   // ---- Profile hydration (unchanged) ----
@@ -183,7 +215,6 @@ document.addEventListener("DOMContentLoaded", () => {
       tag.defer = true;
       document.body.appendChild(tag);
     }
-    // Wait until it’s available or fails
     await new Promise((resolve) => {
       let done = false;
       const onReady = () => {
@@ -197,7 +228,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return readyCheck ? !!readyCheck() : true;
   }
 
-  // ---- Sidebar routing (existing) ----
+  // ---- Sidebar routing ----
   if (sidebar && !sidebar.dataset.bound) {
     sidebar.dataset.bound = "1";
     sidebar.addEventListener("click", (e) => {

@@ -3,7 +3,13 @@
 // Works with GET /api/orders -> { total, orders:[...] } or an array.
 
 (function () {
+  // ====== DIAG (temporary) ======
+  console.log("[ORD] file loaded");
+  let __ORD_boots = 0;
+  function __ORD_logBoot(where){ console.log(`[ORD] boot ${++__ORD_boots} via`, where, "active=", window.__activeSection); console.trace(); }
+
   let ordersData = [];
+
   function pickOrdersPayload(data) {
     if (Array.isArray(data)) return data;
     if (data && Array.isArray(data.orders)) return data.orders;
@@ -19,28 +25,44 @@
     return (typeof n === "number") ? `KES ${n.toLocaleString()}` : "—";
   }
 
+  // Find the Orders pane only; never paint outside it.
+  function findOrdersPane() {
+    const sel = [
+      "#admin-content #orders",
+      "#admin-content [data-partial='orders']",
+      "#admin-content section.orders",
+      "#admin-content .orders-panel"
+    ].join(", ");
+    const pane = document.querySelector(sel);
+    console.log("[ORD] pane check:", pane ? (pane.id || pane.className || "(node)") : "NOT FOUND");
+    return pane;
+  }
+
   function fetchOrdersAndRender() {
+    const pane = findOrdersPane();
+    if (!pane) return; // If user switched away, do nothing.
+
     return fetch("/api/orders")
       .then((r) => r.json())
       .then((data) => {
         ordersData = pickOrdersPayload(data);
-        renderOrdersTable();
+        renderOrdersTable(pane);
       })
       .catch((e) => {
         console.error("Failed to load orders:", e);
         ordersData = [];
-        renderOrdersTable();
+        renderOrdersTable(pane);
       });
   }
 
-  function renderOrdersTable() {
-    // Use only the Orders pane DOM; avoid clobbering other sections.
-    let host = document.querySelector("#admin-content") || document.body;
-    let container = host.querySelector("#orders-table");
+  function renderOrdersTable(pane) {
+    if (!pane) return;
+
+    let container = pane.querySelector("#orders-table");
     if (!container) {
       container = document.createElement("div");
       container.id = "orders-table";
-      host.prepend(container);
+      pane.appendChild(container);
     }
 
     // Build rows into a fragment to avoid flicker
@@ -187,7 +209,6 @@
           }
           await fetchOrdersAndRender();
           close();
-          // Optional toast could replace alert in future
           alert("Order updated");
         } catch (e) {
           console.error(e);
@@ -247,6 +268,7 @@
   }
 
   function init() {
+    __ORD_logBoot("initAdminOrders");
     fetchOrdersAndRender();
     ensureModalScaffold();
   }
