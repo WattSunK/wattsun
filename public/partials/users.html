@@ -1,38 +1,33 @@
-<!-- Users — Admin Partial (no inline <script>) -->
-<section id="users-root" class="ws-admin-section">
+<!-- Users — Admin Partial -->
+<section id="users-root" class="ws-admin-section" data-users-scope>
   <h2 class="ws-admin-title">Users</h2>
 
   <!-- Toolbar -->
   <div class="ws-admin-toolbar">
-    <button class="ws-btn ws-btn-primary" id="add-user-btn">
-      <span>+ Add User</span>
+    <button class="ws-btn ws-btn-primary" id="users-add-btn" data-users-action="open-create">
+      + Add User
     </button>
 
-    <select id="user-type-filter" class="ws-select" aria-label="Filter by type">
+    <select id="users-type-filter" class="ws-select" aria-label="Filter by type">
       <option value="">All Types</option>
-      <option value="Admin">Admin</option>
-      <option value="Driver">Driver</option>
-      <option value="Customer">Customer</option>
-      <option value="Installer">Installer</option>
-      <option value="Manufacturer">Manufacturer</option>
+      <option>Admin</option>
+      <option>Driver</option>
+      <option>Customer</option>
+      <option>Installer</option>
+      <option>Manufacturer</option>
+      <option>User</option>
     </select>
 
-    <select id="user-status-filter" class="ws-select" aria-label="Filter by status">
+    <select id="users-status-filter" class="ws-select" aria-label="Filter by status">
       <option value="">All Status</option>
-      <option value="Active">Active</option>
-      <option value="Inactive">Inactive</option>
+      <option>Active</option>
+      <option>Inactive</option>
     </select>
 
-    <input
-      id="user-search-input"
-      class="ws-input"
-      type="search"
-      placeholder="Search by name/email/phone"
-      autocomplete="off"
-    />
-
-    <button class="ws-btn" id="user-search-btn">🔎 Search</button>
-    <button class="ws-btn" id="user-clear-btn">✖ Clear</button>
+    <input id="users-search-input" class="ws-input" type="search"
+           placeholder="Search by name/email/phone" autocomplete="off" />
+    <button class="ws-btn" id="users-search-btn" data-users-action="search">🔎 Search</button>
+    <button class="ws-btn" id="users-clear-btn" data-users-action="clear">✖ Clear</button>
 
     <div class="ws-spacer"></div>
 
@@ -62,10 +57,8 @@
           <th>ACTION</th>
         </tr>
       </thead>
-      <tbody id="users-table-body">
-        <tr class="ws-empty">
-          <td colspan="9">No users found</td>
-        </tr>
+      <tbody id="users-tbody">
+        <tr class="ws-empty"><td colspan="9">No users found</td></tr>
       </tbody>
     </table>
   </div>
@@ -76,58 +69,60 @@
     <div id="users-pagination" class="ws-pager-controls"></div>
   </div>
 
-  <!-- Users Modal (Add/Edit) -->
-  <div id="users-modal" class="ws-modal" style="display:none" aria-hidden="true" role="dialog" aria-labelledby="users-modal-title">
-    <div class="ws-modal-backdrop" data-users-close></div>
+  <!-- Users Modal (unique id; same look as Items modal) -->
+  <div id="usersModal" class="ws-modal" style="display:none" aria-hidden="true"
+       role="dialog" aria-labelledby="users-modal-title" data-users-scope>
+    <div class="ws-modal-backdrop" data-users-action="close"></div>
     <div class="ws-dialog" role="document">
       <div class="ws-dialog-header">
         <h3 id="users-modal-title" class="ws-dialog-title">Edit User</h3>
-        <button class="ws-btn ws-btn-ghost ws-btn-xs" data-users-close aria-label="Close">✖</button>
+        <button class="ws-btn ws-btn-ghost ws-btn-xs" data-users-action="close" aria-label="Close">✖</button>
       </div>
       <div class="ws-dialog-body">
         <form id="users-form" class="ws-form" novalidate>
-          <input type="hidden" id="um-id" />
+          <input type="hidden" id="u-id" />
           <div class="ws-grid ws-grid-2">
             <label class="ws-field">
               <span>Name</span>
-              <input id="um-name" class="ws-input" type="text" required />
+              <input id="u-name" class="ws-input" type="text" required />
             </label>
             <label class="ws-field">
               <span>Email</span>
-              <input id="um-email" class="ws-input" type="email" />
+              <input id="u-email" class="ws-input" type="email" />
             </label>
             <label class="ws-field">
               <span>Phone</span>
-              <input id="um-phone" class="ws-input" type="text" required />
+              <input id="u-phone" class="ws-input" type="text" required />
             </label>
             <label class="ws-field">
               <span>Type</span>
-              <select id="um-type" class="ws-select" required>
+              <select id="u-type" class="ws-select" required>
                 <option value="">Select…</option>
                 <option>Admin</option>
                 <option>Driver</option>
                 <option>Customer</option>
                 <option>Installer</option>
                 <option>Manufacturer</option>
+                <option>User</option>
               </select>
             </label>
             <label class="ws-field">
               <span>Status</span>
-              <select id="um-status" class="ws-select">
+              <select id="u-status" class="ws-select">
                 <option>Active</option>
                 <option>Inactive</option>
               </select>
             </label>
             <label class="ws-field">
               <span>Temp Password (optional)</span>
-              <input id="um-password" class="ws-input" type="text" placeholder="Leave blank to keep/unset" />
+              <input id="u-password" class="ws-input" type="text" placeholder="Leave blank to keep/unset" />
             </label>
           </div>
         </form>
       </div>
       <div class="ws-dialog-footer">
-        <button class="ws-btn ws-btn-ghost" data-users-close>Cancel</button>
-        <button class="ws-btn ws-btn-primary" id="users-save-btn">Save</button>
+        <button class="ws-btn ws-btn-ghost" data-users-action="close">Cancel</button>
+        <button class="ws-btn ws-btn-primary" id="users-save-btn" data-users-action="save">Save</button>
       </div>
     </div>
   </div>
