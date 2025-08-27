@@ -1,15 +1,16 @@
 <div id="items-root" class="container-fluid px-4">
   <h2 class="mt-4">Items</h2>
 
-  <!-- Top controls -->
-  <div class="mb-3 d-flex align-items-center flex-wrap gap-2">
+  <!-- Toolbar (one line) -->
+  <div class="items-toolbar">
     <button id="btn-add-item" class="btn btn-outline-warning btn-sm">+ Add Item</button>
     <button id="btn-manage-categories" class="btn btn-outline-warning btn-sm">Manage Categories</button>
 
-    <select id="category-filter" class="form-select form-select-sm w-auto ms-auto">
+    <select id="category-filter" class="form-select form-select-sm">
       <option value="">All Categories</option>
     </select>
-    <input type="text" id="search-text" class="form-control form-control-sm w-auto" placeholder="Search by name or SKU">
+
+    <input type="text" id="search-text" class="form-control form-control-sm" placeholder="Search by name or SKU">
     <button id="search-button" class="btn btn-outline-warning btn-sm">Search</button>
     <button id="clear-button" class="btn btn-outline-warning btn-sm">Clear</button>
   </div>
@@ -43,7 +44,7 @@
           <th>ACTION</th>
         </tr>
       </thead>
-      <tbody id="items-table-body"><!-- populated by admin-items.js --></tbody>
+      <tbody id="items-table-body"><!-- populated by JS --></tbody>
     </table>
   </div>
 
@@ -54,16 +55,13 @@
   </div>
 </div>
 
-<!-- ===========================
-     ADD ITEM MODAL
-=========================== -->
+<!-- ADD ITEM MODAL -->
 <div id="add-item-modal-bg" class="modal-bg modal--md" style="display:none;">
   <div id="add-item-modal" class="modal">
     <div class="modal-header">
       <h5 class="m-0">Add Item</h5>
       <button type="button" class="btn-close modal-close" aria-label="Close"></button>
     </div>
-
     <div class="modal-body">
       <form id="add-item-form" class="p-3">
         <div class="row g-3">
@@ -75,12 +73,10 @@
             <label class="form-label">Name *</label>
             <input id="add-name" class="form-control" required>
           </div>
-
           <div class="col-12">
             <label class="form-label">Description *</label>
             <textarea id="add-description" class="form-control" rows="2" required></textarea>
           </div>
-
           <div class="col-md-4">
             <label class="form-label">Price (KSH) *</label>
             <input id="add-price" type="number" min="0" class="form-control" required>
@@ -95,7 +91,6 @@
             <label class="form-label">Image filename</label>
             <input id="add-image" class="form-control" placeholder="example.jpg">
           </div>
-
           <div class="col-md-4">
             <label class="form-label">Warranty (months)</label>
             <input id="add-warranty" type="number" min="0" class="form-control">
@@ -108,7 +103,6 @@
             <label class="form-label">Priority</label>
             <input id="add-priority" type="number" min="0" step="1" class="form-control" placeholder="0">
           </div>
-
           <div class="col-md-4 d-flex align-items-end">
             <div class="form-check">
               <input id="add-active" class="form-check-input" type="checkbox" checked>
@@ -116,11 +110,9 @@
             </div>
           </div>
         </div>
-
-        <div class="visually-hidden"><!-- keep form submit semantics for Enter key --></div>
+        <div class="visually-hidden"></div>
       </form>
     </div>
-
     <div class="modal-footer">
       <button type="button" class="btn btn-outline-secondary modal-close">Cancel</button>
       <button type="submit" form="add-item-form" class="btn btn-warning">Save</button>
@@ -128,16 +120,13 @@
   </div>
 </div>
 
-<!-- ===========================
-     EDIT ITEM MODAL
-=========================== -->
+<!-- EDIT ITEM MODAL -->
 <div id="edit-item-modal-bg" class="modal-bg modal--md" style="display:none;">
   <div id="edit-item-modal" class="modal">
     <div class="modal-header">
       <h5 class="m-0">Edit Item</h5>
       <button type="button" class="btn-close modal-close" aria-label="Close"></button>
     </div>
-
     <div class="modal-body">
       <form id="edit-item-form" class="p-3">
         <div class="row g-3">
@@ -149,12 +138,10 @@
             <label class="form-label">Name</label>
             <input id="edit-name" class="form-control">
           </div>
-
           <div class="col-12">
             <label class="form-label">Description</label>
             <textarea id="edit-description" class="form-control" rows="2"></textarea>
           </div>
-
           <div class="col-md-4">
             <label class="form-label">Price (KSH)</label>
             <input id="edit-price" type="number" min="0" class="form-control">
@@ -169,7 +156,6 @@
             <label class="form-label">Image filename</label>
             <input id="edit-image" class="form-control" placeholder="example.jpg">
           </div>
-
           <div class="col-md-4">
             <label class="form-label">Warranty (months)</label>
             <input id="edit-warranty" type="number" min="0" class="form-control">
@@ -182,7 +168,6 @@
             <label class="form-label">Priority</label>
             <input id="edit-priority" type="number" min="0" step="1" class="form-control" placeholder="0">
           </div>
-
           <div class="col-md-4 d-flex align-items-end">
             <div class="form-check">
               <input id="edit-status" class="form-check-input" type="checkbox">
@@ -190,11 +175,9 @@
             </div>
           </div>
         </div>
-
-        <div class="visually-hidden"><!-- keep form submit semantics for Enter key --></div>
+        <div class="visually-hidden"></div>
       </form>
     </div>
-
     <div class="modal-footer">
       <button type="button" class="btn btn-outline-secondary modal-close">Cancel</button>
       <button type="submit" form="edit-item-form" class="btn btn-warning">Save Changes</button>
@@ -202,20 +185,16 @@
   </div>
 </div>
 
-<!-- ===========================
-     MANAGE CATEGORIES MODAL
-=========================== -->
+<!-- MANAGE CATEGORIES MODAL -->
 <div id="manage-categories-modal" class="modal-bg modal--sm" style="display:none;">
   <div class="modal">
     <div class="modal-header">
       <h5 class="m-0">Categories</h5>
       <button type="button" class="btn-close modal-close" aria-label="Close"></button>
     </div>
-
     <div class="modal-body p-3">
-      <ul id="categories-list" class="list-group small"><!-- filled by JS --></ul>
+      <ul id="categories-list" class="list-group small"></ul>
     </div>
-
     <div class="modal-footer">
       <button type="button" class="btn btn-warning modal-close">Close</button>
     </div>
