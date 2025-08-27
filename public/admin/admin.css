@@ -1527,3 +1527,11 @@ body {
 #dispatch-root > .btn.ws-btn,
 #dispatch-root > select.ws-select,
 #dispatch-root > input.ws-input { margin-right: 8px; }
+/* Generic toolbar skin (covers panes without #...-root wrappers) */
+.ws-admin-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px; }
+.ws-admin-toolbar .ws-input,
+.ws-admin-toolbar .ws-select { border:1.1px solid #FFD23F; border-radius:4px; padding:6px 11px; background:#fffbe7; font-size:.98em; min-width:110px; }
+.ws-admin-toolbar .ws-btn { background:#fffbe7; border:1px solid #FFD23F; border-radius:6px; padding:6px 12px; cursor:pointer; }
+.ws-admin-toolbar .ws-btn:hover { background:#FFD23F; }
+.ws-admin-toolbar .ws-btn.ws-btn-primary { background:#FFD23F; }
+.ws-admin-toolbar .ws-btn.ws-btn-ghost { background:#fff; }
