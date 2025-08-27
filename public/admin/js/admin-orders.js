@@ -1,22 +1,22 @@
 // /public/admin/js/admin-orders.js
-// Vanilla JS Orders table + modal + atomic save.
+// Canonical Orders controller (table + modal + atomic save)
 // Works with GET /api/orders -> { total, orders:[...] } or an array.
 
 (function () {
   let ordersData = [];
-
-  // 6.5.4 — Empty state row helper
-  function renderEmptyRow(tbody, colspan, msg){
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = colspan; td.className = 'empty-state'; td.textContent = msg;
-    tr.appendChild(td); tbody.appendChild(tr);
-  }
-
   function pickOrdersPayload(data) {
     if (Array.isArray(data)) return data;
     if (data && Array.isArray(data.orders)) return data.orders;
     return [];
+  }
+
+  function formatKESMaybe(n) {
+    try {
+      if (typeof window !== "undefined" && typeof window.formatKES === "function") {
+        return window.formatKES(Math.round((n ?? 0) * 100));
+      }
+    } catch {}
+    return (typeof n === "number") ? `KES ${n.toLocaleString()}` : "—";
   }
 
   function fetchOrdersAndRender() {
@@ -34,69 +34,78 @@
   }
 
   function renderOrdersTable() {
-    // Find or create the container the script expects.
-    let container = document.getElementById("orders-table");
+    // Use only the Orders pane DOM; avoid clobbering other sections.
+    let host = document.querySelector("#admin-content") || document.body;
+    let container = host.querySelector("#orders-table");
     if (!container) {
       container = document.createElement("div");
       container.id = "orders-table";
-      const host =
-        document.querySelector("#admin-content") ||
-        document.querySelector(".main-section") ||
-        document.body;
       host.prepend(container);
     }
 
-    if (!ordersData.length) {
-      container.innerHTML =
-        '<div class="text-sm text-gray-500 px-3 py-2">No orders found.</div>';
-      return;
-    }
+    // Build rows into a fragment to avoid flicker
+    const frag = document.createDocumentFragment();
 
-    const rows = ordersData
-      .map((o) => {
+    const wrap = document.createElement("div");
+    wrap.className = "table-responsive";
+
+    const table = document.createElement("table");
+    table.className = "table table-striped table-sm w-100";
+
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Customer</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Status</th>
+          <th>Payment</th>
+          <th>Net Value</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+
+    const tbody = table.querySelector("tbody");
+
+    if (!ordersData.length) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 8;
+      td.className = "empty-state";
+      td.textContent = "No orders found.";
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    } else {
+      ordersData.forEach((o) => {
         const id = String(o.orderNumber || o.id || "");
         const name = o.fullName || o.name || "";
         const status = o.status || o.orderType || "Pending";
         const phone = o.phone || "—";
         const email = o.email || "—";
         const pm = o.paymentType || o.paymentMethod || "—";
-        const amount = (typeof window!=='undefined' && typeof window.formatKES==='function')
-          ? window.formatKES((o.total ?? 0) * 100)
-          : (typeof o.total === 'number' ? `KES ${o.total.toLocaleString()}` : '—');
+        const amount = formatKESMaybe(o.total);
 
-        return `
-          <tr>
-            <td class="whitespace-nowrap">${id}</td>
-            <td class="whitespace-nowrap">${name}</td>
-            <td class="whitespace-nowrap">${phone}</td>
-            <td class="whitespace-nowrap">${email}</td>
-            <td class="whitespace-nowrap"><span class="badge badge-light">${status}</span></td>
-            <td class="whitespace-nowrap">${pm}</td>
-            <td class="whitespace-nowrap">${amount}</td>
-            <td><button class="btn btn-sm btn-outline-secondary view-order-btn" data-id="${id}">View</button></td>
-          </tr>`;
-      })
-      .join("");
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="whitespace-nowrap">${id}</td>
+          <td class="whitespace-nowrap">${name}</td>
+          <td class="whitespace-nowrap">${phone}</td>
+          <td class="whitespace-nowrap">${email}</td>
+          <td class="whitespace-nowrap"><span class="badge badge-light">${status}</span></td>
+          <td class="whitespace-nowrap">${pm}</td>
+          <td class="whitespace-nowrap">${amount}</td>
+          <td><button class="btn btn-sm btn-outline-secondary view-order-btn" data-id="${id}">View</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
 
-    container.innerHTML = `
-      <div class="table-responsive">
-        <table class="table table-striped table-sm w-100">
-          <thead>
-            <tr>
-              <th>Order ID</th>
-              <th>Customer</th>
-              <th>Phone</th>
-              <th>Email</th>
-              <th>Status</th>
-              <th>Payment</th>
-              <th>Net Value</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    `;
+    wrap.appendChild(table);
+    frag.appendChild(wrap);
+    container.replaceChildren(frag);
 
     container.querySelectorAll(".view-order-btn").forEach((btn) => {
       btn.addEventListener("click", (ev) => {
@@ -108,7 +117,7 @@
       });
     });
 
-    ensureModalScaffold(); // make sure the modal exists
+    ensureModalScaffold(); // ensure modal exists/bound
   }
 
   function setText(id, val) {
@@ -124,10 +133,7 @@
     setText("modal-phone", order.phone || "—");
     setText("modal-email", order.email || "—");
     setText("modal-payment-method", order.paymentType || order.paymentMethod || "—");
-    setText(
-      "modal-amount",
-      typeof order.total === "number" ? `KES ${order.total.toLocaleString()}` : "—"
-    );
+    setText("modal-amount", formatKESMaybe(order.total));
     setText("modal-deposit", order.deposit == null ? "—" : String(order.deposit));
 
     const select = document.getElementById("modal-status");
@@ -145,12 +151,15 @@
       });
     }
 
-    document.getElementById("orderDetailsModal").style.display = "block";
+    const modal = document.getElementById("orderDetailsModal");
+    if (modal) modal.style.display = "block";
   }
 
   function bindModalButtons() {
-    const close = () =>
-      (document.getElementById("orderDetailsModal").style.display = "none");
+    const close = () => {
+      const m = document.getElementById("orderDetailsModal");
+      if (m) m.style.display = "none";
+    };
 
     const c1 = document.getElementById("closeOrderModal");
     const c2 = document.getElementById("closeOrderModalBtn");
@@ -160,34 +169,39 @@
     const save = document.getElementById("updateOrderStatusBtn");
     if (save && !save._bound) {
       save._bound = 1;
-      save.addEventListener("click", () => {
+      save.addEventListener("click", async () => {
         const orderId = document.getElementById("modal-order-id").textContent.trim();
         const newStatus = document.getElementById("modal-status").value;
+        const newNotes  = (document.getElementById("modal-notes")?.value || "").trim();
 
-        fetch("/api/update-order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId, status: newStatus }),
-        })
-          .then((r) => r.json())
-          .then((j) => {
-            if (!j || !(j.ok || j.success)) throw new Error(j?.error || "Update failed");
-            return fetchOrdersAndRender();
-          })
-          .then(() => {
-            close();
-            alert("Order updated");
-          })
-          .catch((e) => {
-            console.error(e);
-            alert("Failed to update: " + e.message);
+        try {
+          // Align with backend used elsewhere: PATCH /api/admin/orders/:id
+          const r = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: newStatus, notes: newNotes }),
           });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok || !(j.ok || j.success)) {
+            throw new Error(j?.error || `Update failed (${r.status})`);
+          }
+          await fetchOrdersAndRender();
+          close();
+          // Optional toast could replace alert in future
+          alert("Order updated");
+        } catch (e) {
+          console.error(e);
+          alert("Failed to update: " + e.message);
+        }
       });
     }
   }
 
   function ensureModalScaffold() {
-    if (document.getElementById("orderDetailsModal")) return;
+    if (document.getElementById("orderDetailsModal")) {
+      bindModalButtons();
+      return;
+    }
     fetch("/partials/orders-modal.html")
       .then((r) => (r.ok ? r.text() : ""))
       .then((html) => {
@@ -196,7 +210,7 @@
           div.innerHTML = html;
           document.body.appendChild(div);
         } else {
-          // Fallback minimal modal if partial not found
+          // Minimal fallback if partial missing
           const wrap = document.createElement("div");
           wrap.innerHTML = `
             <div id="orderDetailsModal" style="display:none">
@@ -215,8 +229,11 @@
                     <option>Delivered</option><option>Cancelled</option>
                   </select>
                 </label>
-                <button id="updateOrderStatusBtn">Save</button>
-                <button id="closeOrderModalBtn">Close</button>
+                <textarea id="modal-notes" placeholder="Internal notes"></textarea>
+                <div style="margin-top:8px">
+                  <button id="updateOrderStatusBtn">Save</button>
+                  <button id="closeOrderModalBtn">Close</button>
+                </div>
                 <ul id="modal-items-list"></ul>
               </div>
             </div>`;
@@ -234,5 +251,6 @@
     ensureModalScaffold();
   }
 
+  // Expose init for dashboard.js
   window.initAdminOrders = init;
 })();
