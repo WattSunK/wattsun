@@ -1,18 +1,18 @@
 // /public/js/dashboard.js
-// ====== DIAG: fetch logger (temporary; remove after fix) ======
+
+// ====== (Optional) DIAG: fetch logger — remove after debug ======
 (function () {
-  const origFetch = window.fetch;
+  const orig = window.fetch;
   window.fetch = async function (input, init) {
-    const url = (typeof input === "string") ? input : (input && input.url) || "";
-    const method = (init && init.method) || (typeof input !== "string" && input.method) || "GET";
-    const sec = (window.__activeSection || "unknown");
-    const at = (new Error()).stack.split("\n")[2]?.trim();
-    console.log("[NET]", method, url, "sec:", sec, "at:", at);
-    return origFetch.call(this, input, init);
+    const url = typeof input === "string" ? input : input?.url || "";
+    const method = init?.method || (typeof input !== "string" && input?.method) || "GET";
+    const sec = window.__activeSection || "unknown";
+    console.log("[NET]", method, url, "sec:", sec);
+    return orig.call(this, input, init);
   };
 })();
 
-// ====== DIAG: lifecycle probes (temporary; remove after fix) ======
+// ====== (Optional) DIAG: lifecycle probes — remove after debug ======
 window.addEventListener("admin:partial-loaded", (e) => {
   console.log("[EVT] partial-loaded:", e?.detail?.name, "active=", window.__activeSection);
 });
@@ -22,43 +22,68 @@ window.addEventListener("admin:section-activated", (e) => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Be generous about where to inject content (some pages use adminContent or content)
-  const content  = document.getElementById("admin-content")
-                  || document.getElementById("adminContent")
-                  || document.getElementById("content");
-  const sidebar  = document.querySelector(".sidebar nav,[data-admin-sidebar]");
-  const hdrSearch= document.querySelector(".header-search");
+  // ---- Resolve the content slot robustly
+  function getContentRoot() {
+    return (
+      document.getElementById("admin-content") ||
+      document.getElementById("adminContent") ||
+      document.getElementById("content")
+    );
+  }
+  const content = getContentRoot();
+  if (!content) console.error("No content container found (#admin-content/#adminContent/#content)");
 
-  // ---- loader helper for scripts (idempotent)
+  const sidebar   = document.querySelector(".sidebar nav,[data-admin-sidebar]");
+  const hdrSearch = document.querySelector(".header-search");
+
+  // ---- Idempotent script loader
   async function ensureScript(src, readyCheck) {
-    if (typeof readyCheck === "function" && readyCheck()) return;
-    if (document.querySelector(`script[src="${src}"]`)) {
-      await new Promise(r => setTimeout(r, 0));
-      return;
+    try {
+      if (typeof readyCheck === "function" && readyCheck()) return;
+      if (document.querySelector(`script[src="${src}"]`)) {
+        await new Promise(r => setTimeout(r, 0));
+        return;
+      }
+      await new Promise((resolve) => {
+        const s = document.createElement("script");
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = resolve; // soft-fail
+        document.body.appendChild(s);
+      });
+    } catch (e) {
+      console.warn("ensureScript error:", src, e);
     }
-    await new Promise((resolve) => {
-      const s = document.createElement("script");
-      s.src = src;
-      s.onload = resolve;
-      s.onerror = resolve; // soft-fail to avoid blocking section render
-      document.body.appendChild(s);
-    });
   }
 
-  // ---- Session helpers
+  // ---- Resilient partial fetcher (relative → absolute fallback)
+  async function fetchPartial(name) {
+    const bust = Date.now();
+    const rel  = `./partials/${name}.html?v=${bust}`;
+    const abs  = `/public/partials/${name}.html?v=${bust}`;
+    try {
+      let r = await fetch(rel);
+      if (!r.ok) throw new Error(`REL ${name} ${r.status}`);
+      return await r.text();
+    } catch (e1) {
+      console.warn("[Partial] REL failed, trying ABS:", name, e1?.message || e1);
+      try {
+        let r2 = await fetch(abs);
+        if (!r2.ok) throw new Error(`ABS ${name} ${r2.status}`);
+        return await r2.text();
+      } catch (e2) {
+        console.error("[Partial] ABS also failed:", name, e2?.message || e2);
+        return `<div class="p-3 text-danger">Failed to load ${name}.html</div>`;
+      }
+    }
+  }
+
+  // ---- Session helpers (unchanged)
   function getUser() {
     const a = localStorage.getItem("wattsunUser");
     const b = localStorage.getItem("ws_user");
     try { if (a) return JSON.parse(a); } catch {}
-    try {
-      if (b) {
-        const j = JSON.parse(b);
-        return {
-          success: true,
-          user: { name: j.name || "", phone: j.phone || "", type: j.type || "", status: j.status || "" }
-        };
-      }
-    } catch {}
+    try { if (b) { const j = JSON.parse(b); return { success:true, user:{ name:j.name||"", phone:j.phone||"", type:j.type||"", status:j.status||"" } }; } } catch {}
     return null;
   }
   function setUserCtx(u) {
@@ -69,53 +94,42 @@ document.addEventListener("DOMContentLoaded", () => {
     window.dispatchEvent(new CustomEvent("ws:user", { detail: u }));
   }
   function updateHeaderUser(u) {
-    const el = document.querySelector(".header-user");
-    if (!el) return;
+    const el = document.querySelector(".header-user"); if (!el) return;
     const info = u?.user || u || {};
     const name = info.name || "Admin";
     const phone = info.phone || "";
     el.textContent = `👤 ${name}${phone ? " · " + phone : ""}`;
   }
-
-  // ---- UI helpers
   function setHeaderSearchVisible(show) { if (hdrSearch) hdrSearch.style.display = show ? "" : "none"; }
 
   // ---- Section loader
   async function loadSection(section) {
-    if (!content) { console.error("No content container found (#admin-content/#adminContent/#content)."); return; }
+    if (!getContentRoot()) { console.error("No content container to inject"); return; }
     window.__activeSection = section;
 
     const hasOwnSearch = new Set(["orders", "users", "items", "myorders"]);
     setHeaderSearchVisible(!hasOwnSearch.has(section));
 
-    // Prefetch hook for branches that want to supply HTML to the generic renderer
+    // Prefetch bucket (lets us avoid duplicate fetches)
     let prefetchedHTML = null;
     let prefetchedName = null;
 
-    // ORDERS — special handler, then exit
+    // ORDERS — special branch (kept as-is), early return
     if (section === "orders") {
-      try {
-        const res = await fetch(`./partials/orders.html?v=${Date.now()}`);
-        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-        window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "orders" }}));
-      } catch {
-        content.innerHTML = `<div class="p-3"></div>`;
-      }
+      const html = await fetchPartial("orders");
+      getContentRoot().innerHTML = html;
+      window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "orders" }}));
       await ensureScript("./admin/js/admin-orders.js", () => typeof window.initAdminOrders === "function");
       if (typeof window.initAdminOrders === "function") window.initAdminOrders();
       window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: "orders" }}));
       return;
     }
 
-    // PROFILE — special handler, then exit
+    // PROFILE — special branch (kept as-is), early return
     if (section === "profile") {
-      try {
-        const res = await fetch(`./partials/profile.html?v=${Date.now()}`);
-        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-        window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "profile" }}));
-      } catch {
-        content.innerHTML = `<div class="p-3"></div>`;
-      }
+      const html = await fetchPartial("profile");
+      getContentRoot().innerHTML = html;
+      window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "profile" }}));
 
       (async () => {
         try {
@@ -136,69 +150,49 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // USERS — special handler, then exit
+    // USERS — special branch (kept as-is), early return
     if (section === "users") {
-      try {
-        const res = await fetch(`./partials/users.html?v=${Date.now()}`);
-        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-        window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "users" }}));
-      } catch {
-        content.innerHTML = `<div class="p-3"></div>`;
-        return;
-      }
+      const html = await fetchPartial("users");
+      getContentRoot().innerHTML = html;
+      window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "users" }}));
       if (typeof fetchUsers !== "function") {
         if (!document.querySelector('script[src="./admin/js/users.js"]')) {
-          const script = document.createElement("script");
-          script.src = "./admin/js/users.js";
-          script.onload = () => { if (typeof fetchUsers === "function") fetchUsers(); };
-          script.onerror = () => console.error("Failed to load users.js");
-          document.body.appendChild(script);
+          const s = document.createElement("script");
+          s.src = "./admin/js/users.js";
+          s.onload = () => { if (typeof fetchUsers === "function") fetchUsers(); };
+          s.onerror = () => console.error("Failed to load users.js");
+          document.body.appendChild(s);
         }
-      } else {
-        fetchUsers();
-      }
+      } else { fetchUsers(); }
       window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: "users" }}));
       return;
     }
 
-    // ITEMS — do NOT early-return; prefetch + controller, then let generic path run
+    // ITEMS — prefetch + controller, but DO NOT early-return
     if (section === "items") {
-      try {
-        const res = await fetch(`./partials/items.html?v=${Date.now()}`);
-        prefetchedHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
-        prefetchedName = "items";
-      } catch {
-        prefetchedHTML = `<div class="p-3"></div>`;
-        prefetchedName = "items";
-      }
+      prefetchedHTML = await fetchPartial("items");
+      prefetchedName = "items";
       await ensureScript("./admin/js/admin-items.js", () => window.AdminItems && typeof window.AdminItems.init === "function");
-      if (window.AdminItems && typeof window.AdminItems.init === "function") {
-        // init will run once the HTML is injected by the generic renderer below
-        // (it is idempotent and MutationObserver-safe)
-      } else {
-        console.error("AdminItems.init() not found after loading admin-items.js");
-      }
-      // Don't return here — fall through to generic block which will use prefetchedHTML.
+      // init will be called after generic injection below
     }
 
-    // default / generic loader (uses prefetchedHTML if provided)
+    // DEFAULT / GENERIC
     try {
-      let html;
-      if (prefetchedHTML && prefetchedName === section) {
-        html = prefetchedHTML;
-      } else {
-        const res = await fetch(`./partials/${section}.html?v=${Date.now()}`);
-        html = res.ok ? await res.text() : `<div class="p-3"></div>`;
-      }
-      content.innerHTML = html;
+      const html = (prefetchedHTML && prefetchedName === section)
+        ? prefetchedHTML
+        : await fetchPartial(section);
+      getContentRoot().innerHTML = html;
       window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: section }}));
-      // If Items was the section, call init now that HTML is in the DOM.
+
+      // finalize Items init now that DOM exists
       if (section === "items" && window.AdminItems && typeof window.AdminItems.init === "function") {
         window.AdminItems.init();
       }
-    } catch {
-      content.innerHTML = `<div class="p-3"></div>`;
+    } catch (e) {
+      console.error("Generic load error:", section, e);
+      getContentRoot().innerHTML = `<div class="p-3 text-danger">Failed to load section: ${section}</div>`;
     }
+
     window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: section }}));
   }
 
@@ -211,26 +205,27 @@ document.addEventListener("DOMContentLoaded", () => {
     const role  = info.role || info.type || "Customer";
     const last  = info.lastLogin || "—";
 
-    const elName  = content?.querySelector("#userName");
-    const elEmail = content?.querySelector("#userEmail");
-    const elRole  = content?.querySelector("#userRole");
-    const elLast  = content?.querySelector("#userLastLogin");
-    const elAvatar= content?.querySelector("#userAvatar");
+    const root = getContentRoot();
+    const elName  = root?.querySelector("#userName");
+    const elEmail = root?.querySelector("#userEmail");
+    const elRole  = root?.querySelector("#userRole");
+    const elLast  = root?.querySelector("#userLastLogin");
+    const elAvatar= root?.querySelector("#userAvatar");
     if (elName)  elName.textContent  = name;
     if (elEmail) elEmail.textContent = email || (phone ? `${phone}@` : "—");
     if (elRole)  elRole.textContent  = role;
     if (elLast)  elLast.textContent  = `Last login: ${last}`;
     if (elAvatar)elAvatar.textContent = (name || "U").trim().charAt(0).toUpperCase() || "U";
 
-    const fName  = content?.querySelector("#pf-name");
-    const fEmail = content?.querySelector("#pf-email");
-    const fPhone = content?.querySelector("#pf-phone");
+    const fName  = root?.querySelector("#pf-name");
+    const fEmail = root?.querySelector("#pf-email");
+    const fPhone = root?.querySelector("#pf-phone");
     if (fName)  fName.value  = name || "";
     if (fEmail) fEmail.value = email || "";
     if (fPhone) fPhone.value = phone || "";
   }
 
-  // ---- Sidebar nav → partial loader
+  // ---- Sidebar → loader
   if (sidebar && !sidebar._bound) {
     sidebar._bound = true;
     sidebar.addEventListener("click", (e) => {
@@ -245,7 +240,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // initial section
+  // initial
   const initial = (location.hash || "").replace(/^#/, "") || "system-status";
   loadSection(initial);
 });
