@@ -10,6 +10,12 @@
   const $  = (id) => document.getElementById(id);
   const qs = (sel, root=document) => root.querySelector(sel);
 
+  // ---- pane guard: only react to events from inside #items-root
+  const inPane = (evt) => {
+    const root = $('items-root');
+    return !!(root && evt?.target && root.contains(evt.target));
+  };
+
   function fmtKSH(v){ const n = Number(v||0); return 'KSH ' + n.toLocaleString('en-KE'); }
   function esc(s){ return String(s ?? '').replace(/[&"'<>\n]/g, c => ({'&':'&amp;','"':'&quot;',"'":'&#39;','<':'&lt;','>':'&gt;','\n':'<br>'}[c])); }
 
@@ -25,7 +31,7 @@
     if (!tbody) return; // partial not mounted
     tbody.innerHTML = `<tr><td colspan="10" class="text-center">Loading...</td></tr>`; // colspan +1 for PRIORITY
     try {
-      const res = await fetchJSON('/api/items?active=all');
+      const res = await fetchJSON('/api/items?active=all'); // keep direct path; controller needs raw fields
       // backend might return an array or {items:[...]}
       allItems = Array.isArray(res) ? res : (res.items || []);
     } catch(e){
@@ -69,28 +75,30 @@
     const q = ($('search-text')?.value || '').trim().toLowerCase();
     const cat = ($('category-filter')?.value || '').trim();
 
-    filtered = allItems.filter(it => {
-      const qmatch = !q || (it.name && it.name.toLowerCase().includes(q)) || (it.sku && it.sku.toLowerCase().includes(q));
-      const cmatch = !cat || it.category === cat;
-      return qmatch && cmatch;
+    filtered = allItems.filter(it=>{
+      const hitQ = !q || (String(it.name||'').toLowerCase().includes(q) || String(it.sku||'').toLowerCase().includes(q));
+      const hitC = !cat || String(it.category||'') === cat;
+      return hitQ && hitC;
     });
 
-    // Mirror server order to keep UI stable after inline edits
-    filtered.sort((a, b) =>
-      (Number(b.priority||0) - Number(a.priority||0)) ||
-      String(a.name||'').localeCompare(String(b.name||''))
-    );
+    // Sort by priority DESC then name ASC (unchanged)
+    filtered.sort((a, b) => {
+      const pa = Number(a.priority ?? 0), pb = Number(b.priority ?? 0);
+      if (pb !== pa) return pb - pa;
+      return String(a.name||'').localeCompare(String(b.name||''));
+    });
 
+    currentPage = Math.max(1, Number(page||1));
     totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-    currentPage = Math.min(Math.max(1, page), totalPages);
     renderPage(currentPage);
+    renderPager(currentPage, filtered.length);
   }
 
   function renderPage(page){
-    const start = (page-1)*PAGE_SIZE;
-    const pageItems = filtered.slice(start, start + PAGE_SIZE);
-    renderTable(pageItems, start);
-    renderPager(page, filtered.length);
+    const start = (page-1) * PAGE_SIZE;
+    const end = Math.min(filtered.length, start + PAGE_SIZE);
+    const slice = filtered.slice(start, end);
+    renderTable(slice, start);
   }
 
   function renderTable(items, startIndex){
@@ -113,7 +121,7 @@
           <td>${it.stock ?? 0}</td>
           <td>${it.price==null?'-':fmtKSH(it.price)}</td>
 
-          <!-- ✅ PRIORITY cell -->
+          <!-- PRIORITY cell -->
           <td>
             <div class="d-flex align-items-center gap-2">
               <input
@@ -189,8 +197,9 @@
     $('items-table')?.scrollIntoView({behavior:'smooth', block:'start'});
   }
 
-  // ---------- Delegated inline actions (survive DOM swaps)
+  // ---------- Delegated inline actions (SCOPED to items pane)
   document.addEventListener('change', async (e)=>{
+    if (!inPane(e)) return;
     const box = e.target.closest('input.inline-status-toggle');
     if (!box) return;
     const sku = box.dataset.sku;
@@ -211,6 +220,7 @@
 
   // Save priority (delegated)
   document.addEventListener('click', async (e) => {
+    if (!inPane(e)) return;
     const btn = e.target.closest('button.save-prio');
     if (!btn) return;
     const sku = btn.dataset.sku;
@@ -230,6 +240,7 @@
   });
 
   document.addEventListener('click', (e)=>{
+    if (!inPane(e)) return;
     const btn = e.target.closest('button.items-action-btn');
     if (!btn) return;
     const sku = btn.dataset.sku;
@@ -239,6 +250,7 @@
 
   // ---------- Search / Filter / Per-page (delegated)
   document.addEventListener('click', (e)=>{
+    if (!inPane(e)) return;
     if (e.target?.id === 'search-button') applyFilters(1);
     if (e.target?.id === 'clear-button'){
       const s = $('search-text'); const c = $('category-filter');
@@ -261,9 +273,12 @@
   });
 
   document.addEventListener('input', (e)=>{
+    if (!inPane(e)) return;
     if (e.target?.id === 'search-text') applyFilters(1);
   });
+
   document.addEventListener('change', (e)=>{
+    if (!inPane(e)) return;
     if (e.target?.id === 'category-filter') applyFilters(1);
     if (e.target?.id === 'items-per-page'){
       PAGE_SIZE = parseInt(e.target.value, 10) || 15;
@@ -273,6 +288,7 @@
 
   // ---------- Add
   document.addEventListener('submit', async (e)=>{
+    if (!inPane(e)) return;
     const form = e.target.closest('#add-item-form');
     if (!form) return;
     e.preventDefault();
@@ -284,7 +300,7 @@
     const image = $('add-image').value.trim() || null;
     const warranty = $('add-warranty').value ? Number($('add-warranty').value) : null;
     const stock = $('add-stock').value ? Number($('add-stock').value) : 0;
-    const priority = $('add-priority').value === '' ? 0 : Number($('add-priority').value); // ✅ include priority
+    const priority = $('add-priority').value === '' ? 0 : Number($('add-priority').value); // include priority
     const active = !!$('add-active').checked;
 
     if (!sku || !name || !description || !category || isNaN(price)){
@@ -317,18 +333,21 @@
       $('edit-image').value = item.image ?? '';
       $('edit-category').value = item.category || '';
       $('edit-status').checked = !!item.active;
-      $('edit-priority').value = Number(item.priority ?? 0); // ✅ include priority
+      $('edit-priority').value = Number(item.priority ?? 0); // include priority
       $('edit-item-modal-bg').style.display = 'block';
     }catch(err){
       alert('Failed to load item: ' + err.message);
     }
   }
 
+  // ---------- Save Edit
   document.addEventListener('submit', async (e)=>{
+    if (!inPane(e)) return;
     const form = e.target.closest('#edit-item-form');
     if (!form) return;
     e.preventDefault();
-    const sku = $('edit-sku').value.trim();
+
+    const sku = $('edit-sku').value;
     const body = {
       name:        $('edit-name').value || undefined,
       description: $('edit-description').value || undefined,
@@ -337,7 +356,7 @@
       stock:       $('edit-stock').value === '' ? undefined : Number($('edit-stock').value),
       image:       $('edit-image').value || undefined,
       category:    $('edit-category').value || undefined,
-      priority:    $('edit-priority').value === '' ? undefined : Number($('edit-priority').value), // ✅ include priority
+      priority:    $('edit-priority').value === '' ? undefined : Number($('edit-priority').value), // include priority
       active:      $('edit-status').checked
     };
 
@@ -347,7 +366,7 @@
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify(body)
       });
-      // status in same call already includes 'active', but keep this legacy status route for safety if needed:
+      // keep legacy status route call for safety with older backends
       await fetchJSON(`/api/items/${encodeURIComponent(sku)}/status`, {
         method:'PATCH',
         headers:{'Content-Type':'application/json'},
@@ -371,15 +390,13 @@
     }
   }
 
-  // ---------- Mount / re-mount
+  // ---------- Mount / re-mount (idempotent)
   async function init(){
     const root = $('items-root');
     if (!root || root.dataset.inited === '1') return;
     root.dataset.inited = '1';
 
-    // initial page size if select exists
     if ($('items-per-page')) PAGE_SIZE = parseInt($('items-per-page').value,10) || 15;
-
     await loadCategoriesIntoSelects();
     await loadItems();
   }
@@ -390,7 +407,7 @@
   });
   mo.observe(document.documentElement, { childList:true, subtree:true });
 
-  // Also expose a manual hook for the dashboard loader (optional)
+  // Manual hook for dashboards
   window.AdminItems = window.AdminItems || {};
   window.AdminItems.init = init;
 

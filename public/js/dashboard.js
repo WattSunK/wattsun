@@ -26,7 +26,24 @@ document.addEventListener("DOMContentLoaded", () => {
   const sidebar  = document.querySelector(".sidebar nav");
   const hdrSearch= document.querySelector(".header-search");
 
-  // ---- Session helpers ----
+  // ---- loader helper for scripts (idempotent)
+  async function ensureScript(src, readyCheck) {
+    if (typeof readyCheck === "function" && readyCheck()) return;
+    if (document.querySelector(`script[src="${src}"]`)) {
+      // give the browser a tick to execute if it was just appended elsewhere
+      await new Promise(r => setTimeout(r, 0));
+      return;
+    }
+    await new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = resolve; // do not hard fail; allow page to continue
+      document.body.appendChild(s);
+    });
+  }
+
+  // ---- Session helpers
   function getUser() {
     const a = localStorage.getItem("wattsunUser");
     const b = localStorage.getItem("ws_user");
@@ -58,10 +75,10 @@ document.addEventListener("DOMContentLoaded", () => {
     el.textContent = `👤 ${name}${phone ? " · " + phone : ""}`;
   }
 
-  // ---- UI helpers ----
+  // ---- UI helpers
   function setHeaderSearchVisible(show) { if (hdrSearch) hdrSearch.style.display = show ? "" : "none"; }
 
-  // ---- Section loader (Orders handled by canonical admin-orders.js) ----
+  // ---- Section loader (Orders handled by canonical admin-orders.js)
   async function loadSection(section) {
     window.__activeSection = section; // tag for DIAG + guards
 
@@ -77,7 +94,6 @@ document.addEventListener("DOMContentLoaded", () => {
         content.innerHTML = `<div class="p-3"></div>`;
       }
 
-      // Ensure canonical Orders controller is loaded, then init.
       await ensureScript("/public/admin/js/admin-orders.js", () => typeof window.initAdminOrders === "function");
       if (typeof window.initAdminOrders === "function") {
         window.initAdminOrders();
@@ -97,7 +113,6 @@ document.addEventListener("DOMContentLoaded", () => {
         content.innerHTML = `<div class="p-3"></div>`;
       }
 
-      // Attempt server "me" hydration first; fall back to local
       (async () => {
         try {
           const resp = await fetch("/api/users/me", { credentials: "include" });
@@ -141,6 +156,26 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // NEW: Explicit Items loader (prevents race with MutationObserver-only boot)
+    if (section === "items") {
+      try {
+        const res = await fetch(`/partials/items.html?v=${Date.now()}`);
+        content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
+        window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { name: "items" }}));
+      } catch {
+        content.innerHTML = `<div class="p-3"></div>`;
+      }
+      await ensureScript("/public/admin/js/admin-items.js", () => window.AdminItems && typeof window.AdminItems.init === "function");
+      if (window.AdminItems && typeof window.AdminItems.init === "function") {
+        window.AdminItems.init();
+      } else {
+        console.error("AdminItems.init() not found after loading admin-items.js");
+      }
+      window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: "items" }}));
+      return;
+    }
+
+    // default loader for other sections
     try {
       const res = await fetch(`/partials/${section}.html?v=${Date.now()}`);
       content.innerHTML = res.ok ? await res.text() : `<div class="p-3"></div>`;
@@ -151,7 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: section }}));
   }
 
-  // ---- Profile hydration (unchanged) ----
+  // ---- Profile hydration (unchanged)
   function hydrateProfile(u) {
     const info = u?.user || u || {};
     const name  = info.name || "User Name";
@@ -177,73 +212,24 @@ document.addEventListener("DOMContentLoaded", () => {
     if (fName)  fName.value  = name || "";
     if (fEmail) fEmail.value = email || "";
     if (fPhone) fPhone.value = phone || "";
-
-    const btnSave = content.querySelector("#btnSave");
-    const btnCancel = content.querySelector("#btnCancel");
-    if (btnSave && !btnSave.dataset.bound) {
-      btnSave.dataset.bound = "1";
-      btnSave.addEventListener("click", () => {
-        const nu = {
-          ...(u || { success: true }),
-          user: {
-            ...(u?.user || {}),
-            name:  (content.querySelector("#pf-name")?.value || "").trim(),
-            email: (content.querySelector("#pf-email")?.value || "").trim(),
-            phone: (content.querySelector("#pf-phone")?.value || "").trim(),
-            type: role,
-            status: u?.user?.status || "Active"
-          }
-        };
-        setUserCtx(nu);
-        hydrateProfile(nu);
-        alert("Saved locally. (Server save coming soon)");
-      });
-    }
-    if (btnCancel && !btnCancel.dataset.bound) {
-      btnCancel.dataset.bound = "1";
-      btnCancel.addEventListener("click", () => hydrateProfile(getUser()));
-    }
   }
 
-  // ---- Script loader helper ----
-  async function ensureScript(src, readyCheck) {
-    if (readyCheck && readyCheck()) return true;
-    let tag = document.querySelector(`script[src="${src}"]`);
-    if (!tag) {
-      tag = document.createElement("script");
-      tag.src = src;
-      tag.defer = true;
-      document.body.appendChild(tag);
-    }
-    await new Promise((resolve) => {
-      let done = false;
-      const onReady = () => {
-        if (!done && (!readyCheck || readyCheck())) { done = true; resolve(); }
-      };
-      const iv = setInterval(onReady, 50);
-      tag.addEventListener("load", () => { onReady(); clearInterval(iv); });
-      tag.addEventListener("error", () => { clearInterval(iv); resolve(); });
-      setTimeout(() => { clearInterval(iv); resolve(); }, 5000);
-    });
-    return readyCheck ? !!readyCheck() : true;
-  }
-
-  // ---- Sidebar routing ----
-  if (sidebar && !sidebar.dataset.bound) {
-    sidebar.dataset.bound = "1";
+  // ---- Sidebar nav → partial loader
+  if (sidebar && !sidebar._bound) {
+    sidebar._bound = true;
     sidebar.addEventListener("click", (e) => {
-      const a = e.target.closest("a[data-section]");
+      const a = e.target.closest("a[data-partial], a[data-section]");
       if (!a) return;
       e.preventDefault();
       sidebar.querySelectorAll("a").forEach(x => x.classList.remove("active"));
       a.classList.add("active");
-      loadSection(a.getAttribute("data-section"));
+      const sect = a.getAttribute("data-partial") || a.getAttribute("data-section");
+      location.hash = "#" + sect;
+      loadSection(sect);
     });
   }
 
-  // ---- Boot ----
-  const u = getUser();
-  if (u) { updateHeaderUser(u); setUserCtx(u); }
-  setHeaderSearchVisible(true);
-  loadSection("system-status");
+  // initial section
+  const initial = (location.hash || "").replace(/^#/, "") || "system-status";
+  loadSection(initial);
 });
