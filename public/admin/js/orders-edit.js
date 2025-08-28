@@ -192,17 +192,23 @@
 
   // ---------- helpers to read table row values for seeding ----------
   function rowById(id) {
-    return ordersTbody?.querySelector(`tr[data-oid="${CSS.escape(String(id))}"]`);
+    // our table doesn’t carry a data attribute; fallback to first-cell text match
+    const rows = document.querySelectorAll('table tbody tr');
+    for (const r of rows) {
+      const first = r.querySelector('td');
+      if (first && (first.textContent || '').trim() === String(id)) return r;
+    }
+    return ordersTbody?.querySelector(`tr[data-oid="${CSS.escape(String(id))}"]`) || null;
   }
   function readRowFields(id) {
     const row = rowById(id);
     if (!row) return {};
-    const phone  = row.querySelector('[data-col="phone"]')?.textContent?.trim()  || "";
-    const email  = row.querySelector('[data-col="email"]')?.textContent?.trim()  || "";
-    const status = row.querySelector('[data-col="status"]')?.textContent?.trim() || "Pending";
-    const total  = row.children?.[5]?.textContent || ""; // display only
-    const driverName = row.querySelector('[data-col="driver"], .col-driver')?.textContent?.trim() || "";
-    return { phone, email, status, total, driverName };
+    const cells = row.querySelectorAll('td');
+    const status = cells?.[4]?.textContent?.trim() || "Pending";
+    const total  = cells?.[5]?.textContent?.trim() || "";
+    const phone  = cells?.[2]?.textContent?.trim() || "";
+    const email  = cells?.[3]?.textContent?.trim() || "";
+    return { phone, email, status, total };
   }
 
   // ---------- modal open (exposed) ----------
@@ -214,14 +220,11 @@
 
     const row = readRowFields(id);
     buildStatusOptions(orderLike.status || row.status);
-    resetDriver("", orderLike.driverName || row.driverName || "");
+    resetDriver("", orderLike.driverName || "");
+
     notesEl && (notesEl.value = orderLike.notes || "");
 
-    totalInp   && (totalInp.value   = "0");
-    depositInp && (depositInp.value = "0");
-    currInp    && (currInp.value    = "KES");
-    fillItemsTable([], currInp?.value || "KES");
-
+    // DON’T zero-out money; keep whatever was last shown/typed, tiny appends will hydrate if we have cached overlay.
     openModalShell();
   }
 
@@ -272,17 +275,38 @@
         }
       }
 
-      // best-effort inline update before broadcast
+      // best-effort inline update before broadcast (Status/Total columns)
       const row = rowById(currentId);
-      row?.setAttribute?.('data-oid', currentId);
-      row?.querySelector('[data-col="status"]')?.replaceChildren(document.createTextNode(status));
-      if (driverVal !== null) {
-        const name = driverInp?.value || "";
-        const cell = row?.querySelector('[data-col="driver"], .col-driver');
-        if (cell) cell.textContent = name;
+      const cells = row?.querySelectorAll('td');
+      if (cells && cells.length >= 6) {
+        cells[4].textContent = status; // Status col
+        const money = (amtCents, cur) => {
+          if (amtCents == null) return cells[5].textContent || '';
+          const n = (amtCents/100);
+          return `${cur || curr || 'KES'} ${n.toLocaleString(undefined,{maximumFractionDigits:2})}`;
+        };
+        if (tCents != null) cells[5].textContent = money(tCents, curr);
+        row?.setAttribute?.('data-oid', currentId);
+        try { row.classList.add('just-saved'); setTimeout(()=>row.classList.remove('just-saved'), 900); } catch {}
       }
 
       try {
+        // cache the overlay locally so the next open shows persisted values even if the list re-renders
+        const cacheKey = 'ordersOverlayCache';
+        const cache = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+        cache[currentId] = {
+          orderId: currentId,
+          status,
+          driverId: driverVal,
+          driverName: driverInp?.value || '',
+          notes: note,
+          totalCents: tCents,
+          depositCents: dCents,
+          currency: curr || 'KES',
+          ts: Date.now()
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(cache));
+
         localStorage.setItem("ordersUpdatedAt", String(Date.now()));
         window.postMessage({ type: "orders-updated", orderId: currentId }, "*");
       } catch {}
@@ -306,14 +330,9 @@
     e.preventDefault();
 
     const oid   = btn.getAttribute("data-oid")   || "";
-    const phone = btn.getAttribute("data-phone") || "";
-    const email = btn.getAttribute("data-email") || "";
-
     const tr = btn.closest("tr");
-    const statusText = tr?.querySelector('[data-col="status"], .col-status')?.textContent?.trim() || "";
-    const driverName = tr?.querySelector('[data-col="driver"], .col-driver')?.textContent?.trim() || "";
-
-    openModal({ id: oid, orderNumber: oid, phone, email, status: statusText, driverName });
+    const statusText = tr?.querySelectorAll('td')?.[4]?.textContent?.trim() || "";
+    openModal({ id: oid, orderNumber: oid, status: statusText });
   });
 
   if (typeof window.openOrderEdit !== "function") {
@@ -323,7 +342,7 @@
 
 /* ==== Step 6.5 overlay enhancer (updated) ===================================
    Hooks PATCH/PUT to /api/admin/orders*, supports JSON & urlencoded,
-   then updates row & broadcasts.
+   then updates row, caches overlay, and broadcasts.
 ============================================================================ */
 (() => {
   const ADMIN_ORDERS_RE = /\/api\/admin\/orders(\/|$)/i;
@@ -366,54 +385,8 @@
     const drvRaw     = (ctx.driverSel?.value || ctx.driverSel?.getAttribute?.('data-driver-id') || '').trim();
     ctx.driverId     = drvRaw ? (isNaN(Number(drvRaw)) ? drvRaw : Number(drvRaw)) : null;
     ctx.notes        = (ctx.notesEl?.value || ctx.notesEl?.textContent || '').trim();
+    ctx.driverName   = (document.getElementById('orderEditDriverInput')?.value || '').trim();
     return ctx;
-  }
-
-  function findRow(orderId) {
-    return document.querySelector(`tr[data-oid="${CSS.escape(orderId)}"]`) ||
-           document.querySelector(`tr[data-order-id="${CSS.escape(orderId)}"]`);
-  }
-  function fmtMoney(cents, currency) {
-    if (!isFinite(cents)) return '';
-    const amount = cents / 100;
-    return `${currency || 'KES'} ${amount.toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:2})}`;
-  }
-  function updateRowNow(ctx) {
-    const row = findRow(ctx.orderId);
-    if (!row) return false;
-    row.setAttribute('data-oid', ctx.orderId);
-    const set = (sel, text) => { const el = row.querySelector(sel); if (el) el.textContent = text; };
-    if (ctx.statusValue) set('[data-col="status"], .col-status', ctx.statusValue);
-    if (ctx.driverId != null) set('[data-col="driver"], .col-driver', String(ctx.driverId));
-    if (ctx.totalCents != null)   set('[data-col="total"], .col-total',   fmtMoney(ctx.totalCents, ctx.currency));
-    if (ctx.depositCents != null) set('[data-col="deposit"], .col-deposit', fmtMoney(ctx.depositCents, ctx.currency));
-    set('[data-col="currency"], .col-currency', ctx.currency);
-    try { row.classList.add('just-saved'); setTimeout(() => row.classList.remove('just-saved'), 900); } catch {}
-    return true;
-  }
-  function updateRowResilient() {
-    const ctx = ctxFromModal();
-    if (!ctx.orderId) return;
-
-    // attempt immediately
-    if (updateRowNow(ctx)) return;
-
-    // survive a re-render for ~2s
-    const tbody = document.getElementById('ordersTbody') || document.querySelector('table tbody');
-    if (!tbody) return;
-    const deadline = Date.now() + 2000;
-    const obs = new MutationObserver(() => {
-      if (updateRowNow(ctx) || Date.now() > deadline) {
-        try { obs.disconnect(); } catch {}
-      }
-    });
-    try { obs.observe(tbody, { childList: true, subtree: true }); } catch {}
-  }
-  function signal() {
-    try {
-      localStorage.setItem('ordersUpdatedAt', String(Date.now()));
-      window.postMessage?.({ type:'orders-updated' }, '*');
-    } catch {}
   }
 
   // urlencoded helpers
@@ -427,6 +400,48 @@
     const p = new URLSearchParams();
     Object.entries(obj || {}).forEach(([k,v]) => { if (v != null) p.set(k, String(v)); });
     return p.toString();
+  }
+
+  function cacheOverlay(ctx) {
+    try {
+      const key = 'ordersOverlayCache';
+      const cache = JSON.parse(localStorage.getItem(key) || '{}');
+      cache[ctx.orderId] = {
+        orderId: ctx.orderId,
+        status: ctx.statusValue,
+        driverId: ctx.driverId,
+        driverName: ctx.driverName || '',
+        notes: ctx.notes,
+        totalCents: ctx.totalCents,
+        depositCents: ctx.depositCents,
+        currency: ctx.currency,
+        ts: Date.now()
+      };
+      localStorage.setItem(key, JSON.stringify(cache));
+    } catch {}
+  }
+
+  function updateRowCells(ctx) {
+    // locate the row by exact first-cell match
+    const rows = document.querySelectorAll('table tbody tr');
+    let row = null;
+    for (const r of rows) {
+      const first = r.querySelector('td');
+      if (first && (first.textContent || '').trim() === ctx.orderId) { row = r; break; }
+    }
+    if (!row) return;
+    row.setAttribute('data-oid', ctx.orderId);
+
+    const cells = row.querySelectorAll('td');
+    const fmt = (cents, currency) => {
+      if (cents == null) return cells?.[5]?.textContent || '';
+      const n = (cents/100);
+      return `${currency || 'KES'} ${n.toLocaleString(undefined,{maximumFractionDigits:2})}`;
+    };
+    if (ctx.statusValue && cells[4]) cells[4].textContent = ctx.statusValue;
+    if (cells[5] && ctx.totalCents != null) cells[5].textContent = fmt(ctx.totalCents, ctx.currency);
+
+    try { row.classList.add('just-saved'); setTimeout(()=>row.classList.remove('just-saved'), 900); } catch {}
   }
 
   if (!window.__orders_edit_fetch_patched_v3__) {
@@ -475,76 +490,93 @@
 
       const res = await _fetch.apply(this, arguments);
       try {
-        if (res && res.ok) { updateRowResilient(); signal(); }
+        if (res && res.ok) {
+          const ctx = ctxFromModal();
+          cacheOverlay(ctx);
+          updateRowCells(ctx);
+          localStorage.setItem('ordersUpdatedAt', String(Date.now()));
+          window.postMessage?.({ type:'orders-updated', orderId: ctx.orderId }, '*');
+        }
       } catch {}
       return res;
     };
   }
 })();
 
-/* ==== Step 6.5 — minimal UI refresh hardener (tiny append) ==================
-   Also listens for 'orders-updated' and re-applies row patch after re-render.
+/* ==== Step 6.5 — minimal UI refresh & rehydrate on open (tiny appends) ======
+   1) After save we cached overlay in localStorage. This block rehydrates the
+      modal fields on open if cache exists.
+   2) Also listens for 'orders-updated' and reapplies row patch after re-render.
 ============================================================================ */
 (() => {
-  function robustFindRowByOrderId(orderId) {
-    if (!orderId) return null;
-    let row = document.querySelector(`tr[data-oid="${CSS.escape(orderId)}"]`)
-          || document.querySelector(`tr[data-order-id="${CSS.escape(orderId)}"]`);
-    if (row) return row;
-    const rows = document.querySelectorAll('table tbody tr');
-    for (const r of rows) {
-      const cells = r.querySelectorAll('td, [data-col]');
-      for (const c of cells) {
-        if ((c.textContent || '').trim().includes(orderId)) return r;
-      }
-    }
-    return null;
-  }
-  function writeCell(row, selList, text) {
-    if (!row || text == null) return;
-    for (const sel of selList) {
-      const el = row.querySelector(sel);
-      if (el) { el.textContent = String(text); return; }
-    }
-  }
-  function fmtMoney(cents, currency) {
-    if (!(Number.isFinite(cents))) return '';
-    const amt = cents / 100;
-    return `${currency || 'KES'} ${amt.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2})}`;
-  }
-  function updateRowFromModal() {
-    const orderId = (document.getElementById('orderEditId')?.value || '').trim();
-    if (!orderId) return;
-    const row = robustFindRowByOrderId(orderId);
-    if (!row) return;
+  const CACHE_KEY = 'ordersOverlayCache';
 
-    row.setAttribute('data-oid', orderId);
-
-    const status   = (document.getElementById('orderEditStatus')?.value || '').trim();
-    const driverNm = (document.getElementById('orderEditDriverInput')?.value || '').trim();
-    const currency = (document.getElementById('orderEditCurrencyInput')?.value || 'KES').trim();
-
-    const toCents = (v) => {
-      if (!v) return null;
-      const n = Number(String(v).replace(/[^\d.]/g,''));
-      return Number.isFinite(n) ? Math.round(n * 100) : null;
-    };
-    const totalCts   = toCents(document.getElementById('orderEditTotalInput')?.value);
-    const depositCts = toCents(document.getElementById('orderEditDepositInput')?.value);
-
-    if (status)   writeCell(row, ['[data-col="status"]','.col-status'], status);
-    if (driverNm) writeCell(row, ['[data-col="driver"]','.col-driver'], driverNm);
-    if (totalCts!=null)   writeCell(row, ['[data-col="total"]','.col-total'],   fmtMoney(totalCts, currency));
-    if (depositCts!=null) writeCell(row, ['[data-col="deposit"]','.col-deposit'], fmtMoney(depositCts, currency));
-    writeCell(row, ['[data-col="currency"]','.col-currency'], currency);
-
-    try { row.classList.add('just-saved'); setTimeout(()=>row.classList.remove('just-saved'), 900); } catch {}
+  function getCache(orderId) {
+    try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')[orderId] || null; }
+    catch { return null; }
   }
 
+  function toMoney(cents) {
+    if (cents == null) return '';
+    return (cents/100).toString();
+  }
+
+  // Rehydrate modal once it becomes visible
+  const m = document.getElementById('orderEditModal') || document;
+  const hydrate = () => {
+    const id = (document.getElementById('orderEditId')?.value || '').trim();
+    if (!id) return;
+    const c = getCache(id);
+    if (!c) return;
+
+    const statusSel = document.getElementById('orderEditStatus');
+    const notesEl   = document.getElementById('orderEditNotes');
+    const drvInp    = document.getElementById('orderEditDriverInput');
+    const drvIdH    = document.getElementById('orderEditDriverId');
+    const totalInp  = document.getElementById('orderEditTotalInput');
+    const depInp    = document.getElementById('orderEditDepositInput');
+    const currInp   = document.getElementById('orderEditCurrencyInput');
+
+    if (statusSel && c.status) statusSel.value = c.status;
+    if (notesEl && c.notes != null) notesEl.value = c.notes;
+    if (drvInp && c.driverName != null) drvInp.value = c.driverName;
+    if (drvIdH && c.driverId != null) drvIdH.value = String(c.driverId);
+    if (totalInp && c.totalCents != null) totalInp.value = toMoney(c.totalCents);
+    if (depInp && c.depositCents != null) depInp.value = toMoney(c.depositCents);
+    if (currInp && c.currency) currInp.value = c.currency;
+  };
+
+  // Observe visibility/state change of the modal container (defensive)
+  try {
+    const obs = new MutationObserver(() => hydrate());
+    const modal = document.getElementById('orderEditModal') || document.body;
+    obs.observe(modal, { attributes: true, subtree: true, attributeFilter: ['style','aria-hidden','class'] });
+  } catch {}
+
+  // Re-apply row patch after list re-render
   window.addEventListener('message', (e) => {
-    if (e?.data?.type === 'orders-updated') {
-      // next tick + slight delay to allow any table refresh to finish
-      requestAnimationFrame(() => setTimeout(updateRowFromModal, 60));
+    if (e?.data?.type !== 'orders-updated') return;
+    const id = (document.getElementById('orderEditId')?.value || '').trim();
+    if (!id) return;
+
+    const c = getCache(id);
+    if (!c) return;
+
+    // find row by exact first-cell match
+    const rows = document.querySelectorAll('table tbody tr');
+    let row = null;
+    for (const r of rows) {
+      const first = r.querySelector('td');
+      if (first && (first.textContent || '').trim() === id) { row = r; break; }
+    }
+    if (!row) return;
+    row.setAttribute('data-oid', id);
+
+    const cells = row.querySelectorAll('td');
+    if (cells[4] && c.status) cells[4].textContent = c.status;
+    if (cells[5] && c.totalCents != null) {
+      const n = (c.totalCents/100);
+      cells[5].textContent = `${c.currency || 'KES'} ${n.toLocaleString(undefined,{maximumFractionDigits:2})}`;
     }
   });
 })();
