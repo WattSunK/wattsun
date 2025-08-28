@@ -13,16 +13,32 @@ const sqlite3 = require("sqlite3").verbose();
 
 const router = express.Router();
 
-// ---------- Config ----------
-const ORDERS_PATH =
-  process.env.ORDERS_JSON ||
-  path.join(__dirname, "../data/orders.json");
-console.log("[track] ORDERS_PATH:", ORDERS_PATH);
-
+// ---------- Config: DB path ----------
 const USERS_DB_PATH =
   process.env.DB_PATH_USERS ||
   process.env.SQLITE_DB ||
   path.join(__dirname, "../data/dev/wattsun.dev.db");
+
+// ---------- Legacy orders path resolver (no behavior changes elsewhere) ----------
+const CANDIDATE_ORDERS_PATHS = [
+  process.env.ORDERS_JSON,                    // explicit override via env
+  "/volume1/web/wattsun/orders.json",         // NAS path (correct in your prod box)
+  path.join(__dirname, "../data/orders.json") // repo/dev default
+].filter(Boolean);
+
+function resolveOrdersPath() {
+  for (const p of CANDIDATE_ORDERS_PATHS) {
+    try {
+      const st = fs.statSync(p);
+      if (st.isFile() && st.size > 0) return p;
+    } catch {}
+  }
+  // fallback (may not exist; visible in _diag)
+  return CANDIDATE_ORDERS_PATHS[0];
+}
+
+const ORDERS_PATH = resolveOrdersPath();
+console.log("[track] ORDERS_PATH:", ORDERS_PATH);
 
 // ---------- Helpers: read + normalize legacy orders ----------
 function readOrders() {
@@ -190,7 +206,7 @@ router.get("/", async (req, res) => {
 
     const payload = { success: true, total: out.length, orders: out };
 
-    // ---------- diagnostics ----------
+    // ---------- diagnostics (enable with ?_diag=1) ----------
     if (String(req.query._diag || "") === "1") {
       const diag = {};
       diag.ORDERS_JSON_env = process.env.ORDERS_JSON || null;
