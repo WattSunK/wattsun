@@ -1,14 +1,14 @@
 // /public/admin/js/orders-edit.js
 // Admin Orders — Edit & View modals, overlay persistence, and table refresh hardeners.
 //
-// What this file handles:
+// Handles:
 // 1) Edit modal: send PATCH with status, notes, driverId, + money fields (totalCents, depositCents, currency).
-// 2) Post-save: update the visible table row, broadcast a change event, and cache the overlay in localStorage.
+// 2) Post-save: update the visible table row, broadcast a change event, and cache overlay in localStorage.
 // 3) Hydration: when opening Edit/View, fetch from /api/track and populate fields + items.
-// 4) Re-render resilience: if the table re-renders (pagination/partials), re-apply cached overlays to rows.
+// 4) Re-render resilience: if the table re-renders (pagination/partials/tab switch), re-apply cached overlays.
 //
 // This file is APPEND-ONLY safe. It does not remove or rely on other app scripts.
-// -----------------------------------------------------------------------------
+// ------------------------------------------------------------------------------
 
 (() => {
   "use strict";
@@ -55,7 +55,6 @@
   const notesEl     = by("orderEditNotes");
 
   // combobox (legacy)
-  const driverWrap  = by("orderEditDriverWrap");
   const driverIdH   = by("orderEditDriverId");         // hidden numeric id
   const driverInp   = by("orderEditDriverInput");      // text input
   const driverList  = by("orderEditDriverList");       // <ul> results
@@ -199,7 +198,7 @@
   }
   wireDriverComboOnce();
 
-  // ---------- helpers to read table row values for seeding ----------
+  // ---------- table helpers ----------
   function rowById(id) {
     // Prefer exact first-cell match (works even without data attributes)
     const rows = document.querySelectorAll('table tbody tr');
@@ -220,6 +219,37 @@
     return { phone, email, status, total };
   }
 
+  // ---------- cache helpers (persist across re-renders & tab switches) ----------
+  function readCache() {
+    try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); }
+    catch { return {}; }
+  }
+  function cacheOverlay(obj) {
+    if (!obj || !obj.orderId) return;
+    try {
+      const cache = readCache();
+      cache[obj.orderId] = { ...cache[obj.orderId], ...obj, ts: Date.now() };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    } catch {}
+  }
+  function applyCacheToTable() {
+    const cache = readCache();
+    if (!cache || !Object.keys(cache).length) return;
+    const rows = document.querySelectorAll('table tbody tr');
+    for (const r of rows) {
+      const idCell = r.querySelector('td');
+      if (!idCell) continue;
+      const oid = (idCell.textContent || '').trim();
+      const c = cache[oid];
+      if (!c) continue;
+
+      const cells = r.querySelectorAll('td');
+      if (c.status && cells[4]) cells[4].textContent = c.status;
+      if (cells[5] && c.totalCents != null) cells[5].textContent = moneyString(c.totalCents, c.currency);
+      r.setAttribute('data-oid', oid);
+    }
+  }
+
   // ---------- modal open (exposed) ----------
   async function openModal(orderLike) {
     const id = orderLike?.id || orderLike?.orderNumber || orderLike?.order_id;
@@ -231,7 +261,6 @@
     buildStatusOptions(orderLike.status || row.status);
     resetDriver("", orderLike.driverName || "");
 
-    // do not overwrite previous input; hydrator will populate from /api/track
     openModalShell();
 
     // kick off hydrator (fetch items & overlay)
@@ -342,9 +371,9 @@
     window.openOrderEdit = (order) => openModal(order || {});
   }
 
-  // =======================================================================
-  // FETCH PATCH: inject totalCents/depositCents/currency + robust row update
-  // =======================================================================
+  // ======================================================
+  // FETCH PATCH: inject totals/dep/currency + row updating
+  // ======================================================
   (() => {
     const ADMIN_ORDERS_RE = /\/api\/admin\/orders(\/|$)/i;
 
@@ -429,22 +458,18 @@
       try { row.classList.add('just-saved'); setTimeout(()=>row.classList.remove('just-saved'), 900); } catch {}
     }
 
-    function cacheOverlay(ctx) {
-      try {
-        const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
-        cache[ctx.orderId] = {
-          orderId: ctx.orderId,
-          status: ctx.statusValue,
-          driverId: ctx.driverId,
-          driverName: ctx.driverName || '',
-          notes: ctx.notes,
-          totalCents: ctx.totalCents,
-          depositCents: ctx.depositCents,
-          currency: ctx.currency,
-          ts: Date.now()
-        };
-        localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-      } catch {}
+    function stashCacheFromCtx() {
+      const ctx = ctxFromModal();
+      cacheOverlay({
+        orderId: ctx.orderId,
+        status: ctx.statusValue,
+        driverId: ctx.driverId,
+        driverName: ctx.driverName || '',
+        notes: ctx.notes,
+        totalCents: ctx.totalCents,
+        depositCents: ctx.depositCents,
+        currency: ctx.currency
+      });
     }
 
     if (!window.__orders_edit_fetch_patched_v3__) {
@@ -469,7 +494,7 @@
           }
 
           if (body) {
-           if (ct.includes('application/json')) {
+            if (ct.includes('application/json')) {
               let json; try { json = JSON.parse(body); } catch { json = {}; }
               if (ctx.totalCents != null)   json.totalCents   = json.totalCents   ?? ctx.totalCents;
               if (ctx.depositCents != null) json.depositCents = json.depositCents ?? ctx.depositCents;
@@ -494,11 +519,10 @@
         const res = await _fetch.apply(this, arguments);
         try {
           if (res && res.ok) {
-            const ctx = ctxFromModal();
-            cacheOverlay(ctx);
+            stashCacheFromCtx();
             updateRowResilient();
             localStorage.setItem('ordersUpdatedAt', String(Date.now()));
-            window.postMessage?.({ type:'orders-updated', orderId: ctx.orderId }, '*');
+            window.postMessage?.({ type:'orders-updated' }, '*');
           }
         } catch {}
         return res;
@@ -506,9 +530,9 @@
     }
   })();
 
-  // ===========================================================
-  // Hydrator: fetch /api/track on open to populate Edit / View
-  // ===========================================================
+  // ==========================================
+  // Hydrator: fetch /api/track for Edit / View
+  // ==========================================
   async function fetchOrderFromTrack({ orderId, phone, email }) {
     if (!orderId || (!phone && !email)) return null;
     const params = new URLSearchParams();
@@ -557,6 +581,19 @@
     if (currInp && data.currency) currInp.value = data.currency;
 
     renderItems(itemsBody, data.items || data.cart || [], data.currency);
+
+    // Also reflect latest truth into cache so table stays correct on re-render/tab switch
+    cacheOverlay({
+      orderId,
+      status: data.status,
+      driverId: data.driverId ?? null,
+      driverName: data.driverName ?? driverInp?.value || "",
+      notes: data.notes ?? "",
+      totalCents: data.total != null ? Math.round(Number(data.total) * 100) : undefined,
+      depositCents: data.deposit != null ? Math.round(Number(data.deposit) * 100) : undefined,
+      currency: data.currency || "KES"
+    });
+    applyCacheToTable();
   }
 
   async function openViewAndHydrate(btn) {
@@ -576,7 +613,7 @@
       set('[data-field="status"], .js-order-status', data.status);
       set('[data-field="phone"], .js-order-phone', data.phone || phone);
       set('[data-field="email"], .js-order-email', data.email || email);
-      set('[data-field="total"], .js-order-total', moneyString((data.total ?? 0)*100, data.currency));
+      set('[data-field="total"], .js-order-total', moneyString(Math.round(Number(data.total || 0) * 100), data.currency));
       const vBody = view.querySelector("#orderViewItemsBody, .js-view-items-body, tbody");
       if (vBody) renderItems(vBody, data.items || data.cart || [], data.currency);
     }
@@ -590,115 +627,31 @@
   }, { capture: true });
 
   // ===========================================================
-  // Cache + Table re-render resilience (persist across partials)
+  // Table re-render resilience (persist across tabs/exits)
   // ===========================================================
-  function cacheOverlay(obj) {
-    if (!obj || !obj.orderId) return;
-    try {
-      const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
-      cache[obj.orderId] = { ...cache[obj.orderId], ...obj, ts: Date.now() };
-      localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-    } catch {}
-  }
-  function readCache() {
-    try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); }
-    catch { return {}; }
-  }
-  function applyCacheToTable() {
-    const cache = readCache();
-    if (!cache || !Object.keys(cache).length) return;
-    const rows = document.querySelectorAll('table tbody tr');
-    for (const r of rows) {
-      const idCell = r.querySelector('td');
-      if (!idCell) continue;
-      const oid = (idCell.textContent || '').trim();
-      const c = cache[oid];
-      if (!c) continue;
-
-      const cells = r.querySelectorAll('td');
-      // Status at col 5 (index 4), Total at col 6 (index 5) typical layout
-      if (c.status && cells[4]) cells[4].textContent = c.status;
-      if (cells[5] && c.totalCents != null) cells[5].textContent = moneyString(c.totalCents, c.currency);
-      r.setAttribute('data-oid', oid);
-    }
-  }
-  // Observe tbody for re-renders and re-apply cache
   (function observeTable() {
     const tbody = document.querySelector('table tbody') || ordersTbody;
     if (!tbody) return;
     const obs = new MutationObserver(debounce(applyCacheToTable, 30));
     try { obs.observe(tbody, { childList: true, subtree: true }); } catch {}
-    // initial pass
-    applyCacheToTable();
+    // initial pass on load or when page becomes visible
+    const applyNow = () => setTimeout(applyCacheToTable, 30);
+    on(window, "load", applyNow);
+    on(document, "DOMContentLoaded", applyNow);
+    on(document, "visibilitychange", () => { if (!document.hidden) applyNow(); });
+    on(window, "pageshow", applyNow);   // back-forward cache
+    on(window, "hashchange", applyNow);
+    on(window, "focus", applyNow);
   })();
 
-  // Re-apply cache on storage events (multi-tab) and on nav/hash changes
+  // Re-apply cache on storage events (multi-tab)
   window.addEventListener('storage', (e) => { if (e.key === CACHE_KEY) applyCacheToTable(); });
-  window.addEventListener('hashchange', () => setTimeout(applyCacheToTable, 60));
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(applyCacheToTable, 60); });
 
-  // =====================================================================
-  // Minimal UI refresh hardener — respond to our own 'orders-updated' ping
-  // =====================================================================
-  (() => {
-    function robustFindRowByOrderId(orderId) {
-      if (!orderId) return null;
-      let row = document.querySelector(`tr[data-oid="${CSS.escape(orderId)}"]`)
-            || document.querySelector(`tr[data-order-id="${CSS.escape(orderId)}"]`);
-      if (row) return row;
-      const rows = document.querySelectorAll('table tbody tr');
-      for (const r of rows) {
-        const cells = r.querySelectorAll('td, [data-col]');
-        for (const c of cells) {
-          if ((c.textContent || '').trim().includes(orderId)) return r;
-        }
-      }
-      return null;
+  // Respond to our own "orders-updated" ping
+  window.addEventListener('message', (e) => {
+    if (e?.data?.type === 'orders-updated') {
+      requestAnimationFrame(() => setTimeout(() => { applyCacheToTable(); }, 60));
     }
-    function writeCell(row, selList, text) {
-      if (!row || text == null) return;
-      for (const sel of selList) {
-        const el = row.querySelector(sel);
-        if (el) { el.textContent = String(text); return; }
-      }
-    }
-    function fmtMoney(cents, currency) {
-      if (!(Number.isFinite(cents))) return '';
-      const amt = cents / 100;
-      return `${currency || 'KES'} ${amt.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2})}`;
-    }
-    function updateRowFromModal() {
-      const orderId = (document.getElementById('orderEditId')?.value || '').trim();
-      if (!orderId) return;
-      const row = robustFindRowByOrderId(orderId);
-      if (!row) return;
-
-      const status   = (document.getElementById('orderEditStatus')?.value || '').trim();
-      const driverNm = (document.getElementById('orderEditDriverInput')?.value || '').trim();
-      const currency = (document.getElementById('orderEditCurrencyInput')?.value || 'KES').trim();
-
-      const toCents = (v) => {
-        if (!v) return null;
-        const n = Number(String(v).replace(/[^\d.]/g,''));
-        return Number.isFinite(n) ? Math.round(n * 100) : null;
-      };
-      const totalCts   = toCents(document.getElementById('orderEditTotalInput')?.value);
-      const depositCts = toCents(document.getElementById('orderEditDepositInput')?.value);
-
-      if (status)   writeCell(row, ['[data-col="status"]','.col-status'], status);
-      if (driverNm) writeCell(row, ['[data-col="driver"]','.col-driver'], driverNm);
-      if (totalCts!=null)   writeCell(row, ['[data-col="total"]','.col-total'],   fmtMoney(totalCts, currency));
-      if (depositCts!=null) writeCell(row, ['[data-col="deposit"]','.col-deposit'], fmtMoney(depositCts, currency));
-      writeCell(row, ['[data-col="currency"]','.col-currency'], currency);
-
-      try { row.classList.add('just-saved'); setTimeout(()=>row.classList.remove('just-saved'), 900); } catch {}
-    }
-
-    window.addEventListener('message', (e) => {
-      if (e?.data?.type === 'orders-updated') {
-        requestAnimationFrame(() => setTimeout(() => { updateRowFromModal(); applyCacheToTable(); }, 60));
-      }
-    });
-  })();
+  });
 
 })();
