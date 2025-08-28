@@ -1,9 +1,9 @@
-/* === Step 6.5 Analysis Probes — ADDITIVE ONLY (v1.3) ===
+/* === Step 6.5 Analysis Probes — ADDITIVE ONLY (v1.4) ===
    No behavior changes. Emits console.debug logs when WS_DEBUG_ORDERS === true.
    Always logs a one-time console.info on load.
 */
 (() => {
-  console.info('[ORDERS][probes] script loaded v1.3');
+  console.info('[ORDERS][probes] script loaded v1.4');
 
   if (window.__WS_ORDERS_PROBES_INSTALLED__) {
     console.info('[ORDERS][probes] already installed, skipping re-init');
@@ -11,13 +11,16 @@
   }
   window.__WS_ORDERS_PROBES_INSTALLED__ = true;
 
+  // ---- Flag ----
   if (!('WS_DEBUG_ORDERS' in window)) window.WS_DEBUG_ORDERS = true;
   const ON = () => !!window.WS_DEBUG_ORDERS;
 
+  // ---- Logger + wrappers ----
   const now = () => new Date().toISOString().slice(11, 23);
   const post = (type, data = {}) => {
     if (!ON()) return;
     const msg = { t: now(), type, ...data };
+    // eslint-disable-next-line no-console
     console.debug('[ORDERS]', msg);
     try { localStorage.setItem('__ORD_LAST', JSON.stringify(msg)); } catch (_) {}
   };
@@ -32,18 +35,21 @@
     return { ctx, key, original, wrapped };
   };
 
-  // ---------- helpers exposed ----------
+  // ---- Small DOM helpers ----
   function extractText(el) {
     if (!el) return null;
-    // Prefer visible text of common wrappers
-    const t =
+    const text =
       el.querySelector?.('a,span,strong,em,div')?.textContent?.trim() ??
       el.textContent?.trim() ?? null;
-    return t || null;
+    return text || null;
   }
 
+  // ---- Public helper surface ----
   window.__ordersTrace = Object.assign(window.__ordersTrace || {}, {
     ev: post,
+    mark: (name) => performance.mark('ord:'+name),
+    measure: (name, a, b) => performance.measure('ord:'+name, 'ord:'+a, 'ord:'+b),
+
     debugRow(tr) {
       const cells = tr ? tr.querySelectorAll('td,th') : null;
       post('row:debug', {
@@ -54,13 +60,14 @@
         html0: cells?.[0]?.innerHTML?.slice?.(0, 120) || null
       });
     },
+
+    // Snapshot a row (semantic selectors + positional fallbacks)
     snapRow(tr) {
-      if (!tr) return {
-        orderId:null,total:null,deposit:null,currency:null,status:null,driver:null
-      };
+      if (!tr) return { orderId:null,total:null,deposit:null,currency:null,status:null,driver:null };
+
       const get = (sel) => tr?.querySelector(sel)?.textContent?.trim() || null;
 
-      // semantic selectors (future-proof)
+      // Prefer semantic selectors if present
       let orderId = tr?.dataset?.orderId || get('[data-col="orderNumber"]') || get('.order-number');
       let status  = get('[data-col="status"]')  || get('.order-status');
       let total   = get('[data-col="total"]')   || get('.order-total');
@@ -68,21 +75,21 @@
       let currency= get('[data-col="currency"]')|| get('.order-currency');
       let driver  = tr?.dataset?.driverId || get('[data-col="driver"]') || get('.order-driver');
 
-      // positional fallback (supports td or th)
+      // Positional fallback (supports td or th)
       const cells = tr.querySelectorAll('td,th');
       if (cells.length >= 6) {
         if (!orderId) orderId = extractText(cells[0]);
         if (!status)  status  = extractText(cells[4]);
         if (!total)   total   = extractText(cells[5]);
         if (!currency && total) {
-          // match "KES 2,500,000.00" or similar
+          // e.g., "KES 2,500,000.00"
           const m = total.match(/\b([A-Z]{3})\b/);
           if (m) currency = m[1];
         }
       }
-
       return { orderId, total, deposit, currency, status, driver };
     },
+
     async assertBackend(orderId, phone) {
       try {
         const r = await fetch(`/api/track?order=${encodeURIComponent(orderId)}&phone=${encodeURIComponent(phone||'')}`);
@@ -92,11 +99,42 @@
           total:o.total, deposit:o.deposit, currency:o.currency, status:o.status, items:(o.items||[]).length
         } : null });
         return o;
-      } catch (e) { post('assert:backend:error', { orderId, err: String(e) }); }
+      } catch (e) {
+        post('assert:backend:error', { orderId, err: String(e) });
+      }
     }
   });
 
-  // -------- breadcrumbs: storage + visibility ----------
+  // --- ADD: find a row by Order# text (column 1) ---
+  window.__ordersTrace.findRow = function findRowByOrderId(orderId) {
+    const tables = document.querySelectorAll(
+      '#ordersTable, table[data-orders], table.orders-table, [data-partial="orders"] table'
+    );
+    for (const tbl of tables) {
+      const rows = tbl.querySelectorAll('tbody tr, tr');
+      for (const tr of rows) {
+        const firstCell = tr.querySelector('td,th');
+        const text = firstCell?.textContent?.trim() || '';
+        if (!text) continue;
+        if (text === orderId || text.startsWith(orderId)) {
+          window.__ordersTrace.ev('row:found', { orderId, via: 'text-match', text });
+          return tr;
+        }
+      }
+    }
+    window.__ordersTrace.ev('row:notfound', { orderId, tables: [...tables].length });
+    return null;
+  };
+
+  // Convenience: find and snapshot in one call
+  window.__ordersTrace.findAndSnap = function(orderId) {
+    const tr = window.__ordersTrace.findRow(orderId);
+    const snap = window.__ordersTrace.snapRow(tr);
+    window.__ordersTrace.ev('row:snap', snap);
+    return snap;
+  };
+
+  // ---- Storage + visibility breadcrumbs ----
   addEventListener('storage', (e) => {
     if (e.key === 'ordersUpdatedAt') post('storage:ordersUpdatedAt', { newValue: e.newValue });
   });
@@ -104,7 +142,7 @@
     post('doc:visibility', { state: document.visibilityState });
   });
 
-  // -------- partial mount/unmount detection ----------
+  // ---- Partial mount/unmount detection ----
   const ORD_SEL = [
     '[data-partial="orders"]',
     '#orders', '.orders-partial', 'section.orders',
@@ -132,7 +170,7 @@
   try { obs.observe(document.body, { childList: true, subtree: true }); } catch (_) {}
   queueMicrotask(() => { const first = document.querySelector(ORD_SEL); if (first) markMount(first); });
 
-  // -------- anchors: edit open / defaults ----------
+  // ---- Anchors: edit open / defaults ----
   safe('OrdersEdit.openEditModal', (orig) => function wrappedOpenEdit(order, ...rest) {
     try { post('edit:open', { orderId: order?.orderNumber || order?.id }); } catch(_) {}
     return orig.apply(this, [order, ...rest]);
@@ -153,7 +191,7 @@
     });
   });
 
-  // -------- PATCH success ----------
+  // ---- PATCH success (wrap or intercept) ----
   let saveHooked = false;
   ['OrdersEdit.saveEdit','OrdersEdit.saveOrderPatch','OrdersEdit.submitEdit']
   .forEach((name) => {
@@ -191,7 +229,7 @@
     };
   }
 
-  // -------- row UI updated ----------
+  // ---- Row UI updated ----
   ['OrdersEdit.updateOrderRowUI','OrdersEdit.refreshRow','OrdersEdit.applyRowPatch']
   .forEach((name) => {
     safe(name, (orig) => function wrappedUpdateRow(tr, data, ...rest) {
@@ -201,6 +239,7 @@
     });
   });
 
+  // Fallback observer to catch silent updates
   let rowEmitScheduled = false, lastEmitAt = 0;
   const rowObs = new MutationObserver(() => {
     if (rowEmitScheduled) return;
@@ -218,7 +257,7 @@
   });
   try { rowObs.observe(document.body, { subtree: true, childList: true, characterData: true }); } catch(_) {}
 
-  // -------- view modal filled ----------
+  // ---- View modal filled ----
   ['OrdersEdit.openViewModal','OrdersEdit.showView','OrdersEdit.viewOrder']
   .forEach((name) => {
     safe(name, (orig) => function wrappedView(order, ...rest) {
