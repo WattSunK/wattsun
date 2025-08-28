@@ -231,6 +231,12 @@
     buildStatusOptions(orderLike.status || row.status);
     resetDriver("", orderLike.driverName || "");
 
+    // Clear money inputs immediately so the next order doesn't show stale values;
+    // hydrate will refill from /api/track below.
+    if (totalInp)   totalInp.value   = "";
+    if (depositInp) depositInp.value = "";
+    if (currInp)    currInp.value    = "";
+
     // do not overwrite previous input; hydrator will populate from /api/track
     openModalShell();
 
@@ -555,12 +561,12 @@
     const data = await fetchOrderFromTrack({ orderId, phone, email });
     if (!data) { if (itemsBody) itemsBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#ef4444">Failed to load</td></tr>`; return; }
 
-    // Fill status/notes/money/currency if inputs exist
-    if (statusSel && data.status) statusSel.value = data.status;
-    if (notesEl && typeof data.notes === "string") notesEl.value = data.notes;
-    if (totalInp && data.total != null) totalInp.value = String(data.total);
-    if (depositInp && data.deposit != null) depositInp.value = String(data.deposit);
-    if (currInp && data.currency) currInp.value = data.currency;
+    // Fill status/notes/money/currency if inputs exist (default only if inputs are empty)
+    if (statusSel && data.status) statusSel.value = statusSel.value || data.status;
+    if (notesEl && typeof data.notes === "string") { if (!notesEl.value) notesEl.value = data.notes; }
+    if (totalInp && (totalInp.value === "" || totalInp.value == null) && data.total != null) totalInp.value = String(data.total);
+    if (depositInp && (depositInp.value === "" || depositInp.value == null) && data.deposit != null) depositInp.value = String(data.deposit);
+    if (currInp && (currInp.value === "" || currInp.value == null) && data.currency) currInp.value = data.currency;
 
     renderItems(itemsBody, data.items || data.cart || [], data.currency);
   }
@@ -642,6 +648,10 @@
   window.addEventListener('storage', (e) => { if (e.key === CACHE_KEY) applyCacheToTable(); });
   window.addEventListener('hashchange', () => setTimeout(applyCacheToTable, 60));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(applyCacheToTable, 60); });
+  // EXTRA lifecycle hooks to keep inline values sticky across SPA/tab changes
+  on(window, "pageshow", () => setTimeout(applyCacheToTable, 30));
+  on(window, "focus",    () => setTimeout(applyCacheToTable, 30));
+  on(window, "popstate", () => setTimeout(applyCacheToTable, 60));
 
   // =====================================================================
   // Minimal UI refresh hardener — respond to our own 'orders-updated' ping
