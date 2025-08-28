@@ -283,3 +283,41 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', __wsSetupLiveListeners);
   else __wsSetupLiveListeners();
 })();
+// ===== Step 3 guardrails & probes (append-only, below Step 6.4 harness) =====
+(() => {
+  const DEBUG = localStorage.getItem('ordersDebug') === '1';
+  const log = (...a) => { if (DEBUG) console.log('[myorders-sync]', ...a); };
+
+  let inFlight = false, debTimer = null;
+
+  async function doRefetchPreservingUI() {
+    // Reuse the same preserving flow used by Step 6.4 harness
+    if (typeof fetchOrders === 'function') await fetchOrders();
+    if (typeof applyFilters === 'function') applyFilters();
+    if (typeof render === 'function') render();
+  }
+
+  function safeRefetch(reason){
+    log('refetch requested by', reason);
+    if (inFlight) { log('skip: in-flight'); return; }
+    clearTimeout(debTimer);
+    debTimer = setTimeout(async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try { log('REFETCH begin'); await doRefetchPreservingUI(); log('REFETCH done'); }
+      catch(e){ console.error('[myorders-sync] refetch failed:', e); }
+      finally { inFlight = false; }
+    }, 150);
+  }
+
+  // Add debounced listeners alongside the existing harness
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') safeRefetch('visibility');
+  });
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'ordersUpdatedAt') safeRefetch('storage');
+  });
+  window.addEventListener('message', (e) => {
+    if (e?.data?.type === 'orders-updated') safeRefetch('message');
+  });
+})();

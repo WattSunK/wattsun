@@ -93,14 +93,15 @@ async function runTrack({ phone, status, order, email }){
   const box=document.getElementById('track-result');
   box.style.display='none'; box.innerHTML='';
   try{
-    const body={ phone, status };
-    if(order) body.order = order;
-    if(email) body.email = email; // background email for server fallback
+    // ✅ Build GET /api/track?… URL (no POST)
+    const params = new URLSearchParams();
+    if (phone)  params.set('phone',  phone);
+    if (status) params.set('status', status);
+    if (order)  params.set('order',  order);
+    // (email is optional server hint; not needed on GET)
 
-    const res=await fetch('/api/track',{
-      method:'POST',
-      headers:{'Content-Type':'application/json', 'X-WS-Email': email || ''},
-      body:JSON.stringify(body)
+    const res = await fetch(`/api/track?${params.toString()}`, {
+      headers: { 'Accept': 'application/json' }
     });
 
     let data; try{ data=await res.json(); } catch{ data=[]; }
@@ -110,13 +111,17 @@ async function runTrack({ phone, status, order, email }){
       box.innerHTML='<p>No orders found for this phone'+(status?' and status':'')+'.</p>';
     }else{
       box.innerHTML = list.map(o=>`
-        <p><strong>Order Number:</strong> ${o.orderNumber}</p>
+        <p><strong>Order Number:</strong> ${o.orderNumber || o.order_id || o.id || '—'}</p>
         <p><strong>Status:</strong> ${o.status||'Pending'}</p>
         <p><strong>Last Updated:</strong> ${o.updatedAt?new Date(o.updatedAt).toLocaleString():'—'}</p>
         <p><strong>Customer:</strong> ${o.fullName||'—'}</p>
         <p><strong>Delivery Address:</strong> ${o.deliveryAddress||'—'}</p>
         <p><strong>Payment Type:</strong> ${o.paymentType||'—'}</p>
-        <p><strong>Net Value:</strong> ${typeof o.total==='number' ? ('KSh '+o.total.toLocaleString('en-KE',{minimumFractionDigits:2})) : (o.total||'—')}</p>
+        <p><strong>Net Value:</strong> ${
+          typeof o.total==='number'
+            ? ('KSh '+o.total.toLocaleString('en-KE',{minimumFractionDigits:2}))
+            : (o.total||'—')
+        }</p>
         <p><strong>Items:</strong><br>${(o.cart_summary||'').replaceAll('\\n','<br>')}</p>
         <hr>`).join('');
     }
@@ -181,6 +186,52 @@ document.addEventListener('DOMContentLoaded', ()=>{
   window.addEventListener('focus', kick);
   window.addEventListener('storage', (e)=>{ if(e.key==='ordersUpdatedAt') kick(); });
   window.addEventListener('message', (e)=>{ if(e?.data?.type==='orders-updated') kick(); });
+})();
+</script>
+<!-- Step 3 guardrails & probes (append-only, below Step 6.4 harness) -->
+<script>
+(() => {
+  const DEBUG = localStorage.getItem('ordersDebug') === '1';
+  const log = (...a) => { if (DEBUG) console.log('[orders-sync]', ...a); };
+
+  let inFlight = false, debTimer = null;
+
+  async function doRefetch() {
+    // Reuse the same refetch logic the harness uses
+    if (typeof window.runTrack !== 'function') return;
+    // reconstruct current inputs
+    const qs = new URLSearchParams(location.search);
+    const sess = (()=>{try{const raw=localStorage.getItem('wattsunUser')||localStorage.getItem('ws_user');return raw? (JSON.parse(raw).user||JSON.parse(raw)) : {};}catch{return{};}})();
+    const phone = (document.getElementById('track-phone')?.value || sess.phone || '').trim();
+    const status= document.getElementById('track-status')?.value || qs.get('status') || '';
+    const order = qs.get('order') || '';
+    const email = sess.email || '';
+    if (phone) await window.runTrack({ phone, status, order, email });
+  }
+
+  function safeRefetch(reason){
+    log('refetch requested by', reason);
+    if (inFlight) { log('skip: in-flight'); return; }
+    clearTimeout(debTimer);
+    debTimer = setTimeout(async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try { log('REFETCH begin'); await doRefetch(); log('REFETCH done'); }
+      catch(e){ console.error('[orders-sync] refetch failed:', e); }
+      finally { inFlight = false; }
+    }, 150);
+  }
+
+  // Rewire the same three triggers, but debounced/single-flight
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') safeRefetch('visibility');
+  });
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'ordersUpdatedAt') safeRefetch('storage');
+  });
+  window.addEventListener('message', (e) => {
+    if (e?.data?.type === 'orders-updated') safeRefetch('message');
+  });
 })();
 </script>
 
