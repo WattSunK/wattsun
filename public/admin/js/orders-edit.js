@@ -38,8 +38,8 @@
     return /^[A-Z]{3}$/.test(c) ? c : null;
   }
 
-  // ---------- modal elements (must match dashboard.html) ----------
-  const modal       = by("orderEditModal");            // container
+  // ---------- modal elements ----------
+  const modal       = by("orderEditModal");
   const saveBtn     = by("orderSaveBtn");
   const cancelBtn   = by("orderCancelBtn");
 
@@ -49,21 +49,19 @@
 
   // combobox (legacy)
   const driverWrap  = by("orderEditDriverWrap");
-  const driverIdH   = by("orderEditDriverId");         // hidden numeric id
-  const driverInp   = by("orderEditDriverInput");      // text input
-  const driverList  = by("orderEditDriverList");       // <ul> results
+  const driverIdH   = by("orderEditDriverId");
+  const driverInp   = by("orderEditDriverInput");
+  const driverList  = by("orderEditDriverList");
   const driverClear = by("orderEditDriverClear");
 
-  // money + items (display only; not saved by this file)
+  // money + items (display only)
   const totalInp    = by("orderEditTotalInput");
   const depositInp  = by("orderEditDepositInput");
   const currInp     = by("orderEditCurrencyInput");
   const itemsBody   = by("orderEditItemsBody");
 
-  // orders table (inline refresh)
   const ordersTbody = by("ordersTbody");
 
-  // state
   let currentId = null;
 
   // ---------- auth + fetch wrappers ----------
@@ -214,13 +212,11 @@
     currentId = id;
     if (idInput) idInput.value = id;
 
-    // seed from row / payload
     const row = readRowFields(id);
     buildStatusOptions(orderLike.status || row.status);
     resetDriver("", orderLike.driverName || row.driverName || "");
     notesEl && (notesEl.value = orderLike.notes || "");
 
-    // money: display only
     totalInp   && (totalInp.value   = "0");
     depositInp && (depositInp.value = "0");
     currInp    && (currInp.value    = "KES");
@@ -229,7 +225,7 @@
     openModalShell();
   }
 
-  // ---------- SAVE (PATCH-first with credentials) ----------
+  // ---------- SAVE ----------
   async function doSave() {
     if (!currentId) return;
 
@@ -245,12 +241,10 @@
 
     setSaving(true);
     try {
-      // Read optional money fields and include in PATCH
       const tCents = totalInp ? toCentsFromInput(totalInp.value) : null;
       const dCents = depositInp ? toCentsFromInput(depositInp.value) : null;
       const curr   = currInp ? normCurrency(currInp.value) : null;
 
-      // A) primary PATCH with new fields
       const bodyA = { status, note, driverId: driverVal };
       if (tCents !== null) bodyA.totalCents = tCents;
       if (dCents !== null) bodyA.depositCents = dCents;
@@ -258,7 +252,6 @@
 
       let r = await req("PATCH", `/api/admin/orders/${encodeURIComponent(currentId)}`, bodyA);
 
-      // B) alt legacy keys if A failed
       if (!r.ok) {
         const bodyB = { status, notes: note, driver_id: driverVal };
         if (tCents !== null) bodyB.totalCents = tCents;
@@ -267,7 +260,6 @@
         r = await req("PATCH", `/api/admin/orders/${encodeURIComponent(currentId)}`, bodyB);
       }
 
-      // C) split routes as last resort
       if (!r.ok) {
         const rs = await req("PUT", `/api/admin/orders/${encodeURIComponent(currentId)}/status`, { status, note });
         if (!rs.ok) {
@@ -280,17 +272,16 @@
         }
       }
 
-      // inline row refresh (status + driver name if present)
+      // best-effort inline update before broadcast
       const row = rowById(currentId);
+      row?.setAttribute?.('data-oid', currentId);
       row?.querySelector('[data-col="status"]')?.replaceChildren(document.createTextNode(status));
       if (driverVal !== null) {
-        // show the typed name as a best-effort (API doesn’t echo)
         const name = driverInp?.value || "";
         const cell = row?.querySelector('[data-col="driver"], .col-driver');
         if (cell) cell.textContent = name;
       }
 
-      // broadcast to other views (customer track, etc.)
       try {
         localStorage.setItem("ordersUpdatedAt", String(Date.now()));
         window.postMessage({ type: "orders-updated", orderId: currentId }, "*");
@@ -309,7 +300,6 @@
   cancelBtn?.addEventListener("click", (e) => { e.preventDefault(); closeModalShell(); });
   saveBtn?.addEventListener("click",  (e) => { e.preventDefault(); doSave(); });
 
-  // open via action buttons in the table (supports either selector)
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('[data-action="edit-order"], .btn-edit');
     if (!btn) return;
@@ -326,15 +316,14 @@
     openModal({ id: oid, orderNumber: oid, phone, email, status: statusText, driverName });
   });
 
-  // optional global hook
   if (typeof window.openOrderEdit !== "function") {
     window.openOrderEdit = (order) => openModal(order || {});
   }
 })();
 
 /* ==== Step 6.5 overlay enhancer (updated) ===================================
-   Hooks PATCH **or PUT** to any /api/admin/orders* URL and supports
-   JSON **and** x-www-form-urlencoded bodies. Also updates row & broadcasts.
+   Hooks PATCH/PUT to /api/admin/orders*, supports JSON & urlencoded,
+   then updates row & broadcasts.
 ============================================================================ */
 (() => {
   const ADMIN_ORDERS_RE = /\/api\/admin\/orders(\/|$)/i;
@@ -389,9 +378,10 @@
     const amount = cents / 100;
     return `${currency || 'KES'} ${amount.toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:2})}`;
   }
-  function updateRow(ctx) {
+  function updateRowNow(ctx) {
     const row = findRow(ctx.orderId);
-    if (!row) return;
+    if (!row) return false;
+    row.setAttribute('data-oid', ctx.orderId);
     const set = (sel, text) => { const el = row.querySelector(sel); if (el) el.textContent = text; };
     if (ctx.statusValue) set('[data-col="status"], .col-status', ctx.statusValue);
     if (ctx.driverId != null) set('[data-col="driver"], .col-driver', String(ctx.driverId));
@@ -399,6 +389,25 @@
     if (ctx.depositCents != null) set('[data-col="deposit"], .col-deposit', fmtMoney(ctx.depositCents, ctx.currency));
     set('[data-col="currency"], .col-currency', ctx.currency);
     try { row.classList.add('just-saved'); setTimeout(() => row.classList.remove('just-saved'), 900); } catch {}
+    return true;
+  }
+  function updateRowResilient() {
+    const ctx = ctxFromModal();
+    if (!ctx.orderId) return;
+
+    // attempt immediately
+    if (updateRowNow(ctx)) return;
+
+    // survive a re-render for ~2s
+    const tbody = document.getElementById('ordersTbody') || document.querySelector('table tbody');
+    if (!tbody) return;
+    const deadline = Date.now() + 2000;
+    const obs = new MutationObserver(() => {
+      if (updateRowNow(ctx) || Date.now() > deadline) {
+        try { obs.disconnect(); } catch {}
+      }
+    });
+    try { obs.observe(tbody, { childList: true, subtree: true }); } catch {}
   }
   function signal() {
     try {
@@ -407,7 +416,7 @@
     } catch {}
   }
 
-  // Helper: parse & stringify urlencoded bodies
+  // urlencoded helpers
   function parseForm(bodyStr) {
     const params = new URLSearchParams(bodyStr || "");
     const obj = {};
@@ -420,8 +429,8 @@
     return p.toString();
   }
 
-  if (!window.__orders_edit_fetch_patched_v2__) {
-    window.__orders_edit_fetch_patched_v2__ = true;
+  if (!window.__orders_edit_fetch_patched_v3__) {
+    window.__orders_edit_fetch_patched_v3__ = true;
 
     const _fetch = window.fetch;
     window.fetch = async function(input, init = {}) {
@@ -466,7 +475,7 @@
 
       const res = await _fetch.apply(this, arguments);
       try {
-        if (res && res.ok) { updateRow(ctxFromModal()); signal(); }
+        if (res && res.ok) { updateRowResilient(); signal(); }
       } catch {}
       return res;
     };
@@ -474,8 +483,7 @@
 })();
 
 /* ==== Step 6.5 — minimal UI refresh hardener (tiny append) ==================
-   Listens for our own 'orders-updated' message and updates the table row
-   even if data attributes are missing; writes the **driver name**.
+   Also listens for 'orders-updated' and re-applies row patch after re-render.
 ============================================================================ */
 (() => {
   function robustFindRowByOrderId(orderId) {
@@ -510,6 +518,8 @@
     const row = robustFindRowByOrderId(orderId);
     if (!row) return;
 
+    row.setAttribute('data-oid', orderId);
+
     const status   = (document.getElementById('orderEditStatus')?.value || '').trim();
     const driverNm = (document.getElementById('orderEditDriverInput')?.value || '').trim();
     const currency = (document.getElementById('orderEditCurrencyInput')?.value || 'KES').trim();
@@ -532,6 +542,9 @@
   }
 
   window.addEventListener('message', (e) => {
-    if (e?.data?.type === 'orders-updated') updateRowFromModal();
+    if (e?.data?.type === 'orders-updated') {
+      // next tick + slight delay to allow any table refresh to finish
+      requestAnimationFrame(() => setTimeout(updateRowFromModal, 60));
+    }
   });
 })();
