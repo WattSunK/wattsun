@@ -1,9 +1,16 @@
-/* === Step 6.5 Analysis Probes — ADDITIVE ONLY ===
+/* === Step 6.5 Analysis Probes — ADDITIVE ONLY (v1.2) ===
    No behavior changes. Safe to include multiple times.
    Emits console.debug logs when window.WS_DEBUG_ORDERS === true.
+   Always prints a one-time console.info on load.
 */
 (() => {
-  if (window.__WS_ORDERS_PROBES_INSTALLED__) return;
+  // One-time "I'm here" (not gated by the flag)
+  console.info('[ORDERS][probes] script loaded');
+
+  if (window.__WS_ORDERS_PROBES_INSTALLED__) {
+    console.info('[ORDERS][probes] already installed, skipping re-init');
+    return;
+  }
   window.__WS_ORDERS_PROBES_INSTALLED__ = true;
 
   // ---- Toggle ----
@@ -35,17 +42,36 @@
     ev: post,
     mark: (name) => performance.mark('ord:' + name),
     measure: (name, a, b) => performance.measure('ord:' + name, 'ord:' + a, 'ord:' + b),
+
+    // --- Improved row snapshot: semantic selectors + positional fallbacks ---
     snapRow(tr) {
       const get = (sel) => tr?.querySelector(sel)?.textContent?.trim() || null;
-      return {
-        orderId: tr?.dataset?.orderId || get('[data-col="orderNumber"]'),
-        total:   get('[data-col="total"]'),
-        deposit: get('[data-col="deposit"]'),
-        currency:get('[data-col="currency"]'),
-        status:  get('[data-col="status"]'),
-        driver:  tr?.dataset?.driverId || get('[data-col="driver"]')
-      };
+
+      // Prefer semantic selectors if present
+      let orderId = tr?.dataset?.orderId || get('[data-col="orderNumber"]') || get('.order-number');
+      let status  = get('[data-col="status"]')  || get('.order-status');
+      let total   = get('[data-col="total"]')   || get('.order-total');
+      let deposit = get('[data-col="deposit"]') || get('.order-deposit');
+      let currency= get('[data-col="currency"]')|| get('.order-currency');
+      let driver  = tr?.dataset?.driverId || get('[data-col="driver"]') || get('.order-driver');
+
+      // Positional fallback (your current table):
+      // Columns: 1 Order#, 2 Customer, 3 Phone, 4 Email, 5 Status, 6 Total, 7 Placed, 8 Actions
+      const cells = tr?.querySelectorAll('td');
+      if (cells && cells.length >= 6) {
+        if (!orderId) orderId = cells[0]?.textContent?.trim() || null;
+        if (!status)  status  = cells[4]?.textContent?.trim() || null;
+        if (!total)   total   = cells[5]?.textContent?.trim() || null;
+        if (!currency && total) {
+          // Infer ISO currency (e.g., "KES 2,500,000.00")
+          const m = total.match(/\b([A-Z]{3})\b/);
+          if (m) currency = m[1];
+        }
+      }
+
+      return { orderId, total, deposit, currency, status, driver };
     },
+
     async assertBackend(orderId, phone) {
       try {
         const r = await fetch(`/api/track?order=${encodeURIComponent(orderId)}&phone=${encodeURIComponent(phone||'')}`);
@@ -69,39 +95,41 @@
     post('doc:visibility', { state: document.visibilityState });
   });
 
-  // ---- Anchor 1/2: partial mount/unmount (MutationObserver)
-  const isOrdersContainer = (el) => {
-    if (!el || el.nodeType !== 1) return false;
-    const idMatch = /orders/i.test(el.id || '');
-    const attrMatch = el.matches?.('[data-partial="orders"], [data-orders], .orders-partial, section.orders, #orders');
-    const tableMatch = el.matches?.('table[data-orders], table#orders, table.orders-table');
-    return !!(idMatch || attrMatch || tableMatch);
-  };
+  // ---- Anchor 1/2: partial mount/unmount (broader selectors)
+  const ORD_SEL = [
+    '[data-partial="orders"]',
+    '#orders', '.orders-partial', 'section.orders',
+    'table#ordersTable', 'table[data-orders]', 'table.orders-table',
+    '#ordersTable', '#ordersTbody'
+  ].join(',');
 
   let mountedCount = 0;
-  const markMount = () => post('partial:orders:mount', { n: ++mountedCount });
+  const seen = new WeakSet();
+  const markMount = (node) => {
+    if (seen.has(node)) return;
+    seen.add(node);
+    post('partial:orders:mount', { n: ++mountedCount });
+  };
   const markUnmount = () => post('partial:orders:unmount', { n: mountedCount });
 
   const obs = new MutationObserver((mut) => {
     for (const m of mut) {
       [...m.addedNodes].forEach((n) => {
-        if (isOrdersContainer(n) || (n.querySelector && n.querySelector('[data-partial="orders"], table[data-orders], #orders'))) {
-          markMount();
-        }
+        if (n.nodeType !== 1) return;
+        if (n.matches?.(ORD_SEL) || n.querySelector?.(ORD_SEL)) markMount(n);
       });
       [...m.removedNodes].forEach((n) => {
-        if (isOrdersContainer(n) || (n.querySelector && n.querySelector('[data-partial="orders"], table[data-orders], #orders'))) {
-          markUnmount();
-        }
+        if (n.nodeType !== 1) return;
+        if (n.matches?.(ORD_SEL) || n.querySelector?.(ORD_SEL)) markUnmount();
       });
     }
   });
   try { obs.observe(document.body, { childList: true, subtree: true }); } catch (_) {}
 
-  // Also fire once on first discoverable mount
+  // Fire once on first discoverable mount
   queueMicrotask(() => {
-    const first = document.querySelector('[data-partial="orders"], table[data-orders], #orders, .orders-partial');
-    if (first) markMount();
+    const first = document.querySelector(ORD_SEL);
+    if (first) markMount(first);
   });
 
   // ---- Anchor 3: Edit open (wrap common names)
@@ -180,7 +208,8 @@
     rowEmitScheduled = true;
     queueMicrotask(() => {
       rowEmitScheduled = false;
-      const tr = document.querySelector('table [data-order-id].editing, table [data-order-id].just-saved');
+      const tr = document.querySelector('table [data-order-id].editing, table [data-order-id].just-saved')
+             || document.querySelector('table#ordersTable tbody tr.selected');
       if (!tr) return;
       const nowTs = Date.now();
       if (nowTs - lastEmitAt < 250) return;
@@ -206,5 +235,6 @@
     });
   });
 
-  post('probes:ready', { mode: 'orders-edit' });
+  // Emit probes:ready a tick later so you can toggle the flag first
+  setTimeout(() => post('probes:ready', { mode: 'orders-edit' }), 0);
 })();
