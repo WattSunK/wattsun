@@ -9,7 +9,256 @@
 //
 // This file is APPEND-ONLY safe. It does not remove or rely on other app scripts.
 // -----------------------------------------------------------------------------
+// probe layer – additive only
 
+/* === Step 6.5 Analysis Probes — ADDITIVE ONLY ===
+   Safe to include multiple times. No behavior changes.
+   Emits console.debug logs when window.WS_DEBUG_ORDERS === true.
+*/
+(() => {
+  // idempotent guard
+  if (window.__WS_ORDERS_PROBES_INSTALLED__) return;
+  window.__WS_ORDERS_PROBES_INSTALLED__ = true;
+
+  // ---- Toggle ----
+  if (!('WS_DEBUG_ORDERS' in window)) window.WS_DEBUG_ORDERS = true;
+  const ON = () => !!window.WS_DEBUG_ORDERS;
+
+  // ---- Logger + helpers ----
+  const now = () => new Date().toISOString().slice(11, 23);
+  const post = (type, data = {}) => {
+    if (!ON()) return;
+    const msg = { t: now(), type, ...data };
+    // eslint-disable-next-line no-console
+    console.debug('[ORDERS]', msg);
+    try { localStorage.setItem('__ORD_LAST', JSON.stringify(msg)); } catch (_) {}
+  };
+  const safe = (fnName, wrap) => {
+    // return a wrapper if the symbol exists, otherwise noop
+    const parts = fnName.split('.');
+    let ctx = window, key = parts.pop();
+    for (const p of parts) ctx = ctx?.[p];
+    if (!ctx || !key || typeof ctx[key] !== 'function') return null;
+    const original = ctx[key];
+    const wrapped = wrap(original);
+    try { ctx[key] = wrapped; } catch (_) {}
+    return { ctx, key, original, wrapped };
+  };
+
+  // Public helper surface
+  window.__ordersTrace = Object.assign(window.__ordersTrace || {}, {
+    ev: post,
+    mark: (name) => performance.mark('ord:' + name),
+    measure: (name, a, b) => performance.measure('ord:' + name, 'ord:' + a, 'ord:' + b),
+    snapRow(tr) {
+      const get = (sel) => tr?.querySelector(sel)?.textContent?.trim() || null;
+      return {
+        orderId: tr?.dataset?.orderId || get('[data-col="orderNumber"]'),
+        total:   get('[data-col="total"]'),
+        deposit: get('[data-col="deposit"]'),
+        currency:get('[data-col="currency"]'),
+        status:  get('[data-col="status"]'),
+        driver:  tr?.dataset?.driverId || get('[data-col="driver"]')
+      };
+    },
+    async assertBackend(orderId, phone) {
+      try {
+        const r = await fetch(`/api/track?order=${encodeURIComponent(orderId)}&phone=${encodeURIComponent(phone||'')}`);
+        const j = await r.json();
+        const o = (j.orders || []).find(x => (x.orderNumber||x.id) === orderId) || null;
+        post('assert:backend', { orderId, got: o ? {
+          total:o.total, deposit:o.deposit, currency:o.currency, status:o.status, items:(o.items||[]).length
+        } : null });
+        return o;
+      } catch (e) {
+        post('assert:backend:error', { orderId, err: String(e) });
+      }
+    }
+  });
+
+  // ---- Storage + visibility breadcrumbs ----
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'ordersUpdatedAt') post('storage:ordersUpdatedAt', { newValue: e.newValue });
+  });
+  document.addEventListener('visibilitychange', () => {
+    post('doc:visibility', { state: document.visibilityState });
+  });
+
+  // ---- Anchor 1/2: partial mount/unmount detection ----
+  // Strategy: detect Orders table container appearance/disappearance.
+  const isOrdersContainer = (el) => {
+    if (!el || el.nodeType !== 1) return false;
+    const idMatch = /orders/i.test(el.id || '');
+    const attrMatch = el.matches?.('[data-partial="orders"], [data-orders], .orders-partial, section.orders, #orders');
+    const tableMatch = el.matches?.('table[data-orders], table#orders, table.orders-table');
+    return !!(idMatch || attrMatch || tableMatch);
+  };
+
+  let mountedCount = 0;
+  const markMount = () => post('partial:orders:mount', { n: ++mountedCount });
+  const markUnmount = () => post('partial:orders:unmount', { n: mountedCount });
+
+  // MutationObserver to spot mounts/unmounts
+  const obs = new MutationObserver((mut) => {
+    for (const m of mut) {
+      [...m.addedNodes].forEach((n) => {
+        if (isOrdersContainer(n) || (n.querySelector && n.querySelector('[data-partial="orders"], table[data-orders], #orders'))) {
+          markMount();
+        }
+      });
+      [...m.removedNodes].forEach((n) => {
+        if (isOrdersContainer(n) || (n.querySelector && n.querySelector('[data-partial="orders"], table[data-orders], #orders'))) {
+          markUnmount();
+        }
+      });
+    }
+  });
+  try { obs.observe(document.body, { childList: true, subtree: true }); } catch (_) {}
+
+  // Also fire once on first discoverable mount (e.g., SSR or immediate DOM)
+  queueMicrotask(() => {
+    const first = document.querySelector('[data-partial="orders"], table[data-orders], #orders, .orders-partial');
+    if (first) markMount();
+  });
+
+  // ---- Anchor 3/4: openEditModal + defaults ----
+  // Try common namespaces; adjust here if your code uses another name.
+  // e.g., window.OrdersEdit.openEditModal(order)
+  safe('OrdersEdit.openEditModal', (orig) => function wrappedOpenEdit(order, ...rest) {
+    try {
+      const orderId = order?.orderNumber || order?.id;
+      post('edit:open', { orderId });
+    } catch(_) {}
+    const res = orig.apply(this, [order, ...rest]);
+    return res;
+  });
+
+  // Hook a common "apply defaults" function if present
+  // e.g., OrdersEdit.applyMoneyDefaults(order) OR OrdersEdit.prefillEditForm(order)
+  const defaultsHooks = [
+    'OrdersEdit.applyMoneyDefaults',
+    'OrdersEdit.prefillEditForm',
+    'OrdersEdit.fillEditFields'
+  ];
+  defaultsHooks.forEach((name) => {
+    safe(name, (orig) => function wrappedDefaults(order, ...rest) {
+      const r = orig.apply(this, [order, ...rest]);
+      try {
+        const orderId = order?.orderNumber || order?.id;
+        // Try to read current inputs if available
+        const totalCents   = (document.querySelector('#edit-total')?.value ?? '').trim();
+        const depositCents = (document.querySelector('#edit-deposit')?.value ?? '').trim();
+        const currency     = (document.querySelector('#edit-currency')?.value ?? '').trim();
+        post('edit:defaults', { orderId, totalCents, depositCents, currency, source: '(filled)' });
+      } catch(_) {}
+      return r;
+    });
+  });
+
+  // ---- Anchor 5: PATCH success → patch:ok ----
+  // If you have a dedicated save function, wrap it; otherwise intercept fetch.
+  const saveHooks = [
+    'OrdersEdit.saveEdit',
+    'OrdersEdit.saveOrderPatch',
+    'OrdersEdit.submitEdit'
+  ];
+  let saveHooked = false;
+  saveHooks.forEach((name) => {
+    const h = safe(name, (orig) => async function wrappedSave(...args) {
+      const result = await orig.apply(this, args);
+      try {
+        // Try to extract the payload if your function keeps it in scope
+        const orderId = (args[0]?.orderId) || document.querySelector('#edit-order-id')?.value || null;
+        const totalCents   = (document.querySelector('#edit-total')?.value ?? '').trim();
+        const depositCents = (document.querySelector('#edit-deposit')?.value ?? '').trim();
+        const currency     = (document.querySelector('#edit-currency')?.value ?? '').trim();
+        const status       = (document.querySelector('#edit-status')?.value ?? '').trim();
+        const driverId     = (document.querySelector('#edit-driver')?.dataset?.driverId
+                              || document.querySelector('#edit-driver-id')?.value || '').trim();
+        post('patch:ok', { orderId, sent:{ totalCents, depositCents, currency, status, driverId } });
+      } catch(_) {}
+      return result;
+    });
+    if (h) saveHooked = true;
+  });
+
+  // If no dedicated save hook was found, intercept fetch() for PATCH /api/admin/orders/:id
+  if (!saveHooked) {
+    const _fetch = window.fetch;
+    window.fetch = async function wrappedFetch(input, init = {}) {
+      const url = typeof input === 'string' ? input : input?.url || '';
+      const method = (init?.method || 'GET').toUpperCase();
+      const isPatch = method === 'PATCH' && /\/api\/admin\/orders\//.test(url);
+      let bodyObj = null;
+      if (isPatch && init?.body) {
+        try { bodyObj = JSON.parse(init.body); } catch (_) {}
+      }
+      const resp = await _fetch.apply(this, arguments);
+      if (isPatch && resp.ok) {
+        const orderId = url.split('/').pop();
+        const payload = bodyObj || {};
+        post('patch:ok', { orderId, sent: payload });
+      }
+      return resp;
+    };
+  }
+
+  // ---- Anchor 6: after inline row UI update ----
+  // Try common row update functions
+  const rowHooks = [
+    'OrdersEdit.updateOrderRowUI',
+    'OrdersEdit.refreshRow',
+    'OrdersEdit.applyRowPatch'
+  ];
+  rowHooks.forEach((name) => {
+    safe(name, (orig) => function wrappedUpdateRow(tr, data, ...rest) {
+      const r = orig.apply(this, [tr, data, ...rest]);
+      try { post('row:update:ui', window.__ordersTrace.snapRow(tr)); } catch(_) {}
+      return r;
+    });
+  });
+
+  // Fallback: small observer to catch cell text changes and emit once per tick
+  let rowEmitScheduled = false, lastEmitAt = 0;
+  const rowObs = new MutationObserver(() => {
+    if (rowEmitScheduled) return;
+    rowEmitScheduled = true;
+    queueMicrotask(() => {
+      rowEmitScheduled = false;
+      const tr = document.querySelector('table [data-order-id].editing, table [data-order-id].just-saved');
+      if (!tr) return;
+      const nowTs = Date.now();
+      if (nowTs - lastEmitAt < 250) return;
+      lastEmitAt = nowTs;
+      post('row:update:ui', window.__ordersTrace.snapRow(tr));
+    });
+  });
+  try { rowObs.observe(document.body, { subtree: true, childList: true, characterData: true } ); } catch(_) {}
+
+  // ---- Anchor 7: View modal filled ----
+  const viewHooks = [
+    'OrdersEdit.openViewModal',
+    'OrdersEdit.showView',
+    'OrdersEdit.viewOrder'
+  ];
+  viewHooks.forEach((name) => {
+    safe(name, (orig) => function wrappedView(order, ...rest) {
+      const res = orig.apply(this, [order, ...rest]);
+      try {
+        const orderId = order?.orderNumber || order?.id;
+        const fields = ['status','total','deposit','currency'];
+        const fieldsPresent = fields.every(id => !!document.querySelector(`#view-${id}`));
+        const itemsCount = (order?.items || []).length;
+        post('view:open:filled', { orderId, fieldsPresent, itemsCount });
+      } catch(_) {}
+      return res;
+    });
+  });
+
+  // Expose a quick sanity ping
+  post('probes:ready', { mode: 'orders-edit', hooked:{ saveHooked } });
+})();
+// probe layer – additive only
 (() => {
   "use strict";
 
