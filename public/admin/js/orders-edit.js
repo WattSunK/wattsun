@@ -327,16 +327,22 @@
   on(saveBtn,   "click", (e) => { e.preventDefault(); doSave(); });
 
   // open via action buttons in the table (supports either selector)
+  // GUARDED: only hijack if our modal exists; else let original handler run.
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('[data-action="edit-order"], .btn-edit');
     if (!btn) return;
+
+    const modalEl = document.getElementById("orderEditModal");
+    const idEl    = document.getElementById("orderEditId");
+    if (!modalEl || !idEl) return; // do not preventDefault → allow site’s original JS
+
     e.preventDefault();
 
-    const oid   = btn.getAttribute("data-oid")   || "";
-    const tr = btn.closest("tr");
+    const oid   = btn.getAttribute("data-oid") || "";
+    const tr    = btn.closest("tr");
     const statusText = tr?.querySelectorAll('td')?.[4]?.textContent?.trim() || "";
     openModal({ id: oid, orderNumber: oid, status: statusText });
-  });
+  }, { capture: true });
 
   if (typeof window.openOrderEdit !== "function") {
     window.openOrderEdit = (order) => openModal(order || {});

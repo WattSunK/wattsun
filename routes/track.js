@@ -1,64 +1,25 @@
-// routes/track.js — Customer Tracking API (Step 6.5 ready)
-// - Reads legacy orders from JSON (ORDERS_PATH)
-// - GET /api/track?phone=... [&order=...] [&status=...] [&email=...]
-// - Merges admin overlay from SQLite (admin_order_meta), auto-detecting optional money columns
-//
-// Safe to mount:
-//   app.use("/api/track", require("./routes/track"));
+// routes/track.js
+// Public tracking endpoint: GET /api/track
+// Returns orders filtered by phone/email (+ optional status, order, pagination),
+// merged with admin overlay fields from SQLite (status, driverId, notes, totals, currency).
 
-const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
-
 const router = express.Router();
 
-// ---------- Config: DB path ----------
-const USERS_DB_PATH =
-  process.env.DB_PATH_USERS ||
-  process.env.SQLITE_DB ||
-  path.join(__dirname, "../data/dev/wattsun.dev.db");
+const ORDERS_JSON =
+  process.env.ORDERS_JSON ||
+  path.join(__dirname, "../orders.json"); // symlink points to data/dev/orders.dev.json
 
-// ---------- Legacy orders path resolver (no behavior changes elsewhere) ----------
-const CANDIDATE_ORDERS_PATHS = [
-  process.env.ORDERS_JSON,                    // explicit override via env
-  "/volume1/web/wattsun/orders.json",         // NAS path (correct in your prod box)
-  path.join(__dirname, "../data/orders.json") // repo/dev default
-].filter(Boolean);
-
-function resolveOrdersPath() {
-  for (const p of CANDIDATE_ORDERS_PATHS) {
-    try {
-      const st = fs.statSync(p);
-      if (st.isFile() && st.size > 0) return p;
-    } catch {}
-  }
-  // fallback (may not exist; visible in _diag)
-  return CANDIDATE_ORDERS_PATHS[0];
+// ---------- helpers ----------
+function normalizePhone(p) {
+  if (!p) return "";
+  const digits = String(p).replace(/[^\d]/g, "");
+  // keep last 9 digits for Kenya
+  return digits.slice(-9);
 }
-
-const ORDERS_PATH = resolveOrdersPath();
-console.log("[track] ORDERS_PATH:", ORDERS_PATH);
-
-// ---------- Helpers: read + normalize legacy orders ----------
-function readOrders() {
-  try {
-    const raw = fs.readFileSync(ORDERS_PATH, "utf8");
-    const json = JSON.parse(raw);
-    if (Array.isArray(json)) return json;
-    if (Array.isArray(json.orders)) return json.orders;
-    return [];
-  } catch (e) {
-    console.error("[track] readOrders error:", e.message, "path=", ORDERS_PATH);
-    return [];
-  }
-}
-
-const onlyDigits = (s) => String(s || "").replace(/\D+/g, "");
-function last9(s) { return onlyDigits(s).slice(-9); }
-
-const normEmail = (e) => String(e || "").trim().toLowerCase();
-const ieq = (a, b) => String(a || "").toLowerCase() === String(b || "").toLowerCase();
 
 function shape(o) {
   return {
@@ -75,116 +36,85 @@ function shape(o) {
     email:           o.email ?? o.customerEmail ?? "",
     driverId:        o.driverId ?? o.driver_id ?? null,
     notes:           o.notes ?? o.note ?? "",
+    // NEW: include line items for modals/pages
+    items:           Array.isArray(o.items) ? o.items : (Array.isArray(o.cart) ? o.cart : []),
   };
+}
+
+function readOrders() {
+  try {
+    const txt = fs.readFileSync(ORDERS_JSON, "utf8");
+    return JSON.parse(txt);
+  } catch {
+    return [];
+  }
 }
 
 function findByPhone(all, phone) {
-  const q9 = last9(phone);
-  return all
-    .map(shape)
-    .filter(x => last9(x.phone) === q9);
+  const norm = normalizePhone(phone);
+  return all.filter((o) => normalizePhone(o.phone) === norm);
 }
-
 function findByEmail(all, email) {
-  const e = normEmail(email);
-  if (!e) return [];
-  return all
-    .map(shape)
-    .filter(x => ieq(x.email, e));
+  const e = String(email).trim().toLowerCase();
+  return all.filter((o) => String(o.email).trim().toLowerCase() === e);
 }
 
 function applyFilters(list, { status, order }) {
-  let out = list;
-  if (status) {
-    const s = String(status).trim();
-    out = out.filter(o => o.status === s);
-  }
-  if (order) {
-    const q = String(order).trim();
-    out = out.filter(o => String(o.orderNumber) === q);
-  }
-  // sort: most recent first if updatedAt present
-  out.sort((a,b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+  let out = list.map(shape);
+  if (status) out = out.filter((o) => o.status === String(status).trim());
+  if (order) out = out.filter((o) => String(o.orderNumber) === String(order).trim());
   return out;
 }
 
-// ---------- Overlay (admin_order_meta) ----------
-function openUsersDb() {
-  try {
-    return new sqlite3.Database(USERS_DB_PATH);
-  } catch (e) {
-    console.error("[track] DB open failed:", e.message, "path=", USERS_DB_PATH);
-    return null;
-  }
-}
-
-function getOverlayCols(db, cb) {
-  db.all("PRAGMA table_info(admin_order_meta)", (err, rows) => {
-    if (err) return cb(err, null);
-    const names = new Set((rows || []).map(r => r.name));
-    const cols = ["order_id", "status", "driver_id", "notes"]; // base columns
-    if (names.has("total_cents"))   cols.push("total_cents");
-    if (names.has("deposit_cents")) cols.push("deposit_cents");
-    if (names.has("currency"))      cols.push("currency");
-    cols.push("updated_at");
-    cb(null, cols);
-  });
-}
-
-function loadOverlay(ids = []) {
+async function mergeOverlay(orders) {
   return new Promise((resolve) => {
-    if (!ids.length) return resolve({});
-    const db = openUsersDb();
-    if (!db) return resolve({});
-    getOverlayCols(db, (e, cols) => {
-      if (e || !cols) { try { db.close(); } catch {} return resolve({}); }
-      const placeholders = ids.map(() => "?").join(",");
-      const sql = `SELECT ${cols.join(", ")} FROM admin_order_meta WHERE order_id IN (${placeholders})`;
-      const map = {};
-      db.all(sql, ids, (err, rows) => {
-        if (err) {
-          console.error("[track] overlay select error:", err.message);
-          try { db.close(); } catch {}
-          return resolve({});
-        }
-        for (const r of rows || []) map[r.order_id] = r;
-        try { db.close(); } catch {}
-        resolve(map);
-      });
+    const dbPath =
+      process.env.DB_PATH_USERS ||
+      process.env.SQLITE_DB ||
+      path.join(__dirname, "../data/dev/wattsun.dev.db");
+
+    const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
+      if (err) {
+        console.warn("[track] overlay DB open failed:", err.message);
+        resolve(orders);
+      }
     });
+    db.serialize(() => {
+      db.all(
+        `SELECT order_id,status,driver_id,notes,total_cents,deposit_cents,currency 
+         FROM admin_order_meta`,
+        (err, rows) => {
+          if (err) {
+            console.warn("[track] overlay read failed:", err.message);
+            resolve(orders);
+            return;
+          }
+          const map = {};
+          for (const r of rows) {
+            map[r.order_id] = r;
+          }
+          const merged = orders.map((o) => {
+            const ov = map[o.orderNumber];
+            if (!ov) return o;
+            return {
+              ...o,
+              status: ov.status || o.status,
+              driverId: ov.driver_id ?? ov.driverId,
+              notes: ov.notes ?? o.notes,
+              total: ov.total_cents != null ? Math.round(ov.total_cents / 100) : o.total,
+              deposit: ov.deposit_cents != null ? Math.round(ov.deposit_cents / 100) : o.deposit,
+              currency: ov.currency || o.currency,
+            };
+          });
+          resolve(merged);
+        }
+      );
+    });
+    db.close();
   });
 }
 
-async function mergeOverlay(list) {
-  const centsToUnits = (c) => {
-    const n = Number(c);
-    return Number.isFinite(n) ? Number((n / 100).toFixed(2)) : null;
-  };
-
-  try {
-    const ids = list.map(o => o.orderNumber).filter(Boolean);
-    const overlay = await loadOverlay(ids);
-    for (const o of list) {
-      const ov = overlay[o.orderNumber];
-      if (!ov) continue;
-
-      if (ov.status) o.status = ov.status;
-      if (typeof ov.driver_id !== "undefined") o.driverId = ov.driver_id;
-      if (typeof ov.notes === "string") o.notes = ov.notes;
-
-      if ("total_cents"   in ov) { const t = centsToUnits(ov.total_cents);   if (t !== null) o.total = t; }
-      if ("deposit_cents" in ov) { const d = centsToUnits(ov.deposit_cents); if (d !== null) o.deposit = d; }
-      if ("currency"      in ov && ov.currency) o.currency = ov.currency;
-
-      if (ov.updated_at && !o.updatedAt) o.updatedAt = ov.updated_at;
-    }
-  } catch (e) {
-    console.error("[track] overlay merge error:", e.message);
-  }
-  return list;
-}
-
-// ---------- Route ----------
+// ---------- route ----------
 router.get("/", async (req, res) => {
   try {
     const phone  = req.query.phone  || req.body?.phone  || req.headers["x-phone"];
@@ -192,7 +122,7 @@ router.get("/", async (req, res) => {
     const status = req.query.status || req.body?.status;
     const order  = req.query.order  || req.body?.order;
 
-    if (!phone && !email) {
+    if (!phone && !email && !order) {
       return res.status(400).json({ success: false, error: "Phone or Email required" });
     }
 
@@ -201,44 +131,33 @@ router.get("/", async (req, res) => {
     if (phone) list = findByPhone(all, phone);
     if (list.length === 0 && email) list = findByEmail(all, email);
 
+    // Normal path: apply filters
     let out = applyFilters(list, { status, order });
-    out = await mergeOverlay(out);
 
-    const payload = { success: true, total: out.length, orders: out };
-
-    // ---------- diagnostics (enable with ?_diag=1) ----------
-    if (String(req.query._diag || "") === "1") {
-      const diag = {};
-      diag.ORDERS_JSON_env = process.env.ORDERS_JSON || null;
-      try {
-        const st = fs.statSync(ORDERS_PATH);
-        diag.orders_path = ORDERS_PATH;
-        diag.orders_path_exists = true;
-        diag.orders_path_size = st.size;
-      } catch (e) {
-        diag.orders_path = ORDERS_PATH;
-        diag.orders_path_exists = false;
-        diag.orders_path_error = e.message;
-      }
-      diag.orders_total = Array.isArray(all) ? all.length : 0;
-      if (diag.orders_total > 0) {
-        diag.sample_keys = Object.keys(all[0]).slice(0, 12);
-      }
-      diag.phone_query = phone || null;
-      diag.phone_norm = phone ? last9(phone) : null;
-      diag.order_query = order || null;
-      diag.phone_filtered_count = list.length;
-      if (list[0]) {
-        diag.phone_filtered_first_order =
-          list[0].orderNumber || list[0].id || list[0].order_id;
-      }
-      payload.diag = diag;
+    // NEW: fallback if explicit order= but phone/email match yields none
+    if (out.length === 0 && order) {
+      const global = all.map(shape).filter(o => String(o.orderNumber) === String(order).trim());
+      out = status ? global.filter(o => o.status === String(status).trim()) : global;
     }
 
-    return res.json(payload);
+    out = await mergeOverlay(out);
+
+    // pagination
+    const page = parseInt(req.query.page || "1", 10);
+    const per  = parseInt(req.query.per  || "5", 10);
+    const start = (page - 1) * per;
+    const paged = out.slice(start, start + per);
+
+    res.json({
+      success: true,
+      page,
+      per,
+      total: out.length,
+      orders: paged,
+    });
   } catch (e) {
-    console.error("[track] route error:", e);
-    return res.status(500).json({ success: false, error: "Internal error" });
+    console.error("[track] failed:", e);
+    res.status(500).json({ success: false, error: e.message || String(e) });
   }
 });
 
