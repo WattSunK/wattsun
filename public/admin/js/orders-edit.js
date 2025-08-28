@@ -333,3 +333,219 @@
     window.openOrderEdit = (order) => openModal(order || {});
   }
 })();
+
+/* ==== Step 6.5 overlay enhancer (append-only) ===============================
+   Purpose:
+   - Inject totalCents, depositCents, currency into PATCH /api/admin/orders/:id
+   - Inline-update the edited row after a 200 OK (no full reload)
+   - Post a lightweight 'orders-updated' signal for listeners
+
+   Safe-by-default:
+   - Only runs for PATCH requests to /api/admin/orders
+   - No changes to existing code paths unless that PATCH occurs
+   - If the modal/fields aren't found, it becomes a no-op
+============================================================================ */
+
+(() => {
+  const API_MATCH = /\/api\/admin\/orders\/[^/]+$/i;
+
+  // ---- Helpers -------------------------------------------------------------
+  function centsFromMoneyInput(raw) {
+    if (raw == null) return null;
+    const s0 = String(raw);
+    const s1 = s0.replace(/[^\d.]/g, "").trim();
+    if (!s1) return null;
+    const m = s1.match(/^\d*(?:\.\d{0,})?/);
+    const num = m && m[0] ? Number(m[0]) : NaN;
+    if (!isFinite(num)) return null;
+    return Math.round(num * 100);
+  }
+
+  function pick(el, sel) { return el ? el.querySelector(sel) : null; }
+
+  function currentOrderContext() {
+    const modal =
+      document.querySelector('.orders-modal.show, .orders-modal[open], #orders-modal.show, [data-modal="order"].show, [data-modal="order"][open]') ||
+      document.getElementById("orderEditModal") ||
+      document.querySelector('.orders-modal, #orders-modal, [data-modal="order"]');
+
+    const ctx = { modal: modal || document };
+
+    ctx.orderId =
+      (pick(modal, '[name="orderNumber"]')?.value ||
+       pick(modal, '[data-field="orderNumber"]')?.textContent ||
+       pick(modal, '.order-number')?.textContent ||
+       document.getElementById('orderEditId')?.value ||
+       "").trim();
+
+    ctx.totalInput   = pick(modal, '#order-total, [name="total"], input[data-field="total"]')   || document.getElementById('orderEditTotalInput');
+    ctx.depositInput = pick(modal, '#order-deposit, [name="deposit"], input[data-field="deposit"]') || document.getElementById('orderEditDepositInput');
+    ctx.currencySel  = pick(modal, '#order-currency, [name="currency"], select[data-field="currency"]') || document.getElementById('orderEditCurrencyInput');
+
+    ctx.statusSel = pick(modal, '#order-status, [name="status"], select[data-field="status"]') || document.getElementById('orderEditStatus');
+    ctx.driverSel = pick(modal, '#order-driver, [name="driver"], select[data-field="driver"], input[data-field="driverId"]') || document.getElementById('orderEditDriverId');
+    ctx.notesEl   = pick(modal, '#order-notes, [name="notes"], textarea[data-field="notes"]') || document.getElementById('orderEditNotes');
+
+    ctx.totalCents   = centsFromMoneyInput(ctx.totalInput?.value ?? ctx.totalInput?.textContent);
+    ctx.depositCents = centsFromMoneyInput(ctx.depositInput?.value ?? ctx.depositInput?.textContent);
+    ctx.currency =
+      (ctx.currencySel?.value || ctx.currencySel?.textContent || '').trim() || 'KES';
+
+    ctx.statusValue =
+      (ctx.statusSel?.value || ctx.statusSel?.textContent || '').trim();
+
+    let driverRaw = ctx.driverSel?.value || ctx.driverSel?.getAttribute?.('data-driver-id') || ctx.driverSel?.textContent || '';
+    driverRaw = driverRaw.trim();
+    ctx.driverId = driverRaw ? (isNaN(Number(driverRaw)) ? driverRaw : Number(driverRaw)) : null;
+
+    ctx.notes = (ctx.notesEl?.value || ctx.notesEl?.textContent || '').trim();
+
+    return ctx;
+  }
+
+  function findRowByOrderId(orderId) {
+    if (!orderId) return null;
+    let row = document.querySelector(`tr[data-order-id="${CSS.escape(orderId)}"]`) ||
+              document.querySelector(`tr[data-oid="${CSS.escape(orderId)}"]`);
+    if (row) return row;
+
+    const rows = document.querySelectorAll('table tbody tr');
+    for (const r of rows) {
+      const tds = r.querySelectorAll('td');
+      for (const td of tds) {
+        if (td.textContent && td.textContent.includes(orderId)) return r;
+      }
+    }
+    return null;
+  }
+
+  function headerIndexByLabel(table, labelList) {
+    const ths = table.querySelectorAll('thead th');
+    for (let i = 0; i < ths.length; i++) {
+      const t = (ths[i].textContent || '').trim().toLowerCase();
+      if (labelList.some(lbl => t === lbl || t.includes(lbl))) return i;
+    }
+    return -1;
+  }
+
+  function formatMoney(cents, currency) {
+    if (cents == null || !isFinite(cents)) return '';
+    const amount = (cents / 100);
+    return `${currency || 'KES'} ${amount.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})}`;
+  }
+
+  function inlineUpdateRow(ctx) {
+    const row = findRowByOrderId(ctx.orderId);
+    if (!row) return;
+
+    const table = row.closest('table');
+    if (!table) return;
+
+    const idx = {
+      status:  headerIndexByLabel(table, ['status']),
+      driver:  headerIndexByLabel(table, ['driver']),
+      total:   headerIndexByLabel(table, ['total']),
+      deposit: headerIndexByLabel(table, ['deposit']),
+      currency:headerIndexByLabel(table, ['currency']),
+    };
+
+    const tds = row.querySelectorAll('td');
+
+    function setCell(which, text, fallbackLabel) {
+      const byCol = row.querySelector(`[data-col="${fallbackLabel}"]`);
+      if (byCol) { byCol.textContent = text; return; }
+      const i = idx[which];
+      if (i >= 0 && i < tds.length) tds[i].textContent = text;
+    }
+
+    if (ctx.statusValue) setCell('status', ctx.statusValue, 'status');
+    if (ctx.driverId != null) setCell('driver', String(ctx.driverId), 'driver');
+
+    if (ctx.totalCents != null) {
+      setCell('total', formatMoney(ctx.totalCents, ctx.currency), 'total');
+    }
+    if (ctx.depositCents != null) {
+      setCell('deposit', formatMoney(ctx.depositCents, ctx.currency), 'deposit');
+    }
+    if (ctx.currency) setCell('currency', ctx.currency, 'currency');
+
+    try {
+      row.classList.add('just-saved');
+      setTimeout(() => row.classList.remove('just-saved'), 1200);
+    } catch {}
+  }
+
+  function broadcastOrdersUpdated() {
+    try {
+      localStorage.setItem('ordersUpdatedAt', String(Date.now()));
+      window.postMessage?.({ type: 'orders-updated' }, '*');
+    } catch {}
+  }
+
+  if (!window.__orders_edit_fetch_patched__) {
+    window.__orders_edit_fetch_patched__ = true;
+
+    const _fetch = window.fetch;
+    window.fetch = async function(input, init = {}) {
+      try {
+        const url = (typeof input === 'string') ? input : (input?.url || '');
+        const method = (init.method || (typeof input !== 'string' ? input?.method : '') || 'GET').toUpperCase();
+
+        const isTarget = method === 'PATCH' && API_MATCH.test(url);
+        if (!isTarget) {
+          return _fetch.apply(this, arguments);
+        }
+
+        let body = init.body;
+        let json;
+        let contentType = '';
+
+        if (init.headers && typeof init.headers === 'object') {
+          if (init.headers.get) {
+            contentType = init.headers.get('Content-Type') || '';
+          } else {
+            contentType = String(init.headers['Content-Type'] || init.headers['content-type'] || '');
+          }
+        }
+
+        if (body && contentType.includes('application/json')) {
+          try { json = JSON.parse(body); } catch { json = null; }
+        }
+
+        const ctx = currentOrderContext();
+
+        if (json && (ctx.totalCents != null || ctx.depositCents != null || ctx.currency)) {
+          json.totalCents   = (ctx.totalCents   != null) ? ctx.totalCents   : json.totalCents   ?? null;
+          json.depositCents = (ctx.depositCents != null) ? ctx.depositCents : json.depositCents ?? null;
+          json.currency     = ctx.currency || json.currency || 'KES';
+
+          if (ctx.statusValue) json.status = json.status || ctx.statusValue;
+          if (ctx.driverId != null && json.driverId == null) json.driverId = ctx.driverId;
+          if (ctx.notes && !json.notes) json.notes = ctx.notes;
+
+          init.body = JSON.stringify(json);
+        }
+      } catch (e) {
+      }
+
+      const res = await _fetch.apply(this, arguments);
+
+      try {
+        if (res && res.ok) {
+          const ctx = currentOrderContext();
+          if (ctx.orderId) {
+            inlineUpdateRow(ctx);
+            broadcastOrdersUpdated();
+          }
+        }
+      } catch {}
+
+      return res;
+    };
+  }
+
+  document.addEventListener('click', (ev) => {
+    const el = ev.target.closest('[data-action="save-order"], .order-save, #order-save-btn');
+    if (!el) return;
+  });
+})();
