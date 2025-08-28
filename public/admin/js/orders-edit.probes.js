@@ -1,11 +1,9 @@
-/* === Step 6.5 Analysis Probes — ADDITIVE ONLY (v1.2) ===
-   No behavior changes. Safe to include multiple times.
-   Emits console.debug logs when window.WS_DEBUG_ORDERS === true.
-   Always prints a one-time console.info on load.
+/* === Step 6.5 Analysis Probes — ADDITIVE ONLY (v1.3) ===
+   No behavior changes. Emits console.debug logs when WS_DEBUG_ORDERS === true.
+   Always logs a one-time console.info on load.
 */
 (() => {
-  // One-time "I'm here" (not gated by the flag)
-  console.info('[ORDERS][probes] script loaded');
+  console.info('[ORDERS][probes] script loaded v1.3');
 
   if (window.__WS_ORDERS_PROBES_INSTALLED__) {
     console.info('[ORDERS][probes] already installed, skipping re-init');
@@ -13,16 +11,13 @@
   }
   window.__WS_ORDERS_PROBES_INSTALLED__ = true;
 
-  // ---- Toggle ----
   if (!('WS_DEBUG_ORDERS' in window)) window.WS_DEBUG_ORDERS = true;
   const ON = () => !!window.WS_DEBUG_ORDERS;
 
-  // ---- Logger + helpers ----
   const now = () => new Date().toISOString().slice(11, 23);
   const post = (type, data = {}) => {
     if (!ON()) return;
     const msg = { t: now(), type, ...data };
-    // eslint-disable-next-line no-console
     console.debug('[ORDERS]', msg);
     try { localStorage.setItem('__ORD_LAST', JSON.stringify(msg)); } catch (_) {}
   };
@@ -37,17 +32,35 @@
     return { ctx, key, original, wrapped };
   };
 
-  // Public helper surface (shared)
+  // ---------- helpers exposed ----------
+  function extractText(el) {
+    if (!el) return null;
+    // Prefer visible text of common wrappers
+    const t =
+      el.querySelector?.('a,span,strong,em,div')?.textContent?.trim() ??
+      el.textContent?.trim() ?? null;
+    return t || null;
+  }
+
   window.__ordersTrace = Object.assign(window.__ordersTrace || {}, {
     ev: post,
-    mark: (name) => performance.mark('ord:' + name),
-    measure: (name, a, b) => performance.measure('ord:' + name, 'ord:' + a, 'ord:' + b),
-
-    // --- Improved row snapshot: semantic selectors + positional fallbacks ---
+    debugRow(tr) {
+      const cells = tr ? tr.querySelectorAll('td,th') : null;
+      post('row:debug', {
+        cellCount: cells?.length || 0,
+        c0: extractText(cells?.[0]),
+        c4: extractText(cells?.[4]),
+        c5: extractText(cells?.[5]),
+        html0: cells?.[0]?.innerHTML?.slice?.(0, 120) || null
+      });
+    },
     snapRow(tr) {
+      if (!tr) return {
+        orderId:null,total:null,deposit:null,currency:null,status:null,driver:null
+      };
       const get = (sel) => tr?.querySelector(sel)?.textContent?.trim() || null;
 
-      // Prefer semantic selectors if present
+      // semantic selectors (future-proof)
       let orderId = tr?.dataset?.orderId || get('[data-col="orderNumber"]') || get('.order-number');
       let status  = get('[data-col="status"]')  || get('.order-status');
       let total   = get('[data-col="total"]')   || get('.order-total');
@@ -55,15 +68,14 @@
       let currency= get('[data-col="currency"]')|| get('.order-currency');
       let driver  = tr?.dataset?.driverId || get('[data-col="driver"]') || get('.order-driver');
 
-      // Positional fallback (your current table):
-      // Columns: 1 Order#, 2 Customer, 3 Phone, 4 Email, 5 Status, 6 Total, 7 Placed, 8 Actions
-      const cells = tr?.querySelectorAll('td');
-      if (cells && cells.length >= 6) {
-        if (!orderId) orderId = cells[0]?.textContent?.trim() || null;
-        if (!status)  status  = cells[4]?.textContent?.trim() || null;
-        if (!total)   total   = cells[5]?.textContent?.trim() || null;
+      // positional fallback (supports td or th)
+      const cells = tr.querySelectorAll('td,th');
+      if (cells.length >= 6) {
+        if (!orderId) orderId = extractText(cells[0]);
+        if (!status)  status  = extractText(cells[4]);
+        if (!total)   total   = extractText(cells[5]);
         if (!currency && total) {
-          // Infer ISO currency (e.g., "KES 2,500,000.00")
+          // match "KES 2,500,000.00" or similar
           const m = total.match(/\b([A-Z]{3})\b/);
           if (m) currency = m[1];
         }
@@ -71,7 +83,6 @@
 
       return { orderId, total, deposit, currency, status, driver };
     },
-
     async assertBackend(orderId, phone) {
       try {
         const r = await fetch(`/api/track?order=${encodeURIComponent(orderId)}&phone=${encodeURIComponent(phone||'')}`);
@@ -81,13 +92,11 @@
           total:o.total, deposit:o.deposit, currency:o.currency, status:o.status, items:(o.items||[]).length
         } : null });
         return o;
-      } catch (e) {
-        post('assert:backend:error', { orderId, err: String(e) });
-      }
+      } catch (e) { post('assert:backend:error', { orderId, err: String(e) }); }
     }
   });
 
-  // ---- Storage + visibility breadcrumbs ----
+  // -------- breadcrumbs: storage + visibility ----------
   addEventListener('storage', (e) => {
     if (e.key === 'ordersUpdatedAt') post('storage:ordersUpdatedAt', { newValue: e.newValue });
   });
@@ -95,7 +104,7 @@
     post('doc:visibility', { state: document.visibilityState });
   });
 
-  // ---- Anchor 1/2: partial mount/unmount (broader selectors)
+  // -------- partial mount/unmount detection ----------
   const ORD_SEL = [
     '[data-partial="orders"]',
     '#orders', '.orders-partial', 'section.orders',
@@ -105,11 +114,7 @@
 
   let mountedCount = 0;
   const seen = new WeakSet();
-  const markMount = (node) => {
-    if (seen.has(node)) return;
-    seen.add(node);
-    post('partial:orders:mount', { n: ++mountedCount });
-  };
+  const markMount = (node) => { if (!seen.has(node)) { seen.add(node); post('partial:orders:mount', { n: ++mountedCount }); } };
   const markUnmount = () => post('partial:orders:unmount', { n: mountedCount });
 
   const obs = new MutationObserver((mut) => {
@@ -125,20 +130,14 @@
     }
   });
   try { obs.observe(document.body, { childList: true, subtree: true }); } catch (_) {}
+  queueMicrotask(() => { const first = document.querySelector(ORD_SEL); if (first) markMount(first); });
 
-  // Fire once on first discoverable mount
-  queueMicrotask(() => {
-    const first = document.querySelector(ORD_SEL);
-    if (first) markMount(first);
-  });
-
-  // ---- Anchor 3: Edit open (wrap common names)
+  // -------- anchors: edit open / defaults ----------
   safe('OrdersEdit.openEditModal', (orig) => function wrappedOpenEdit(order, ...rest) {
     try { post('edit:open', { orderId: order?.orderNumber || order?.id }); } catch(_) {}
     return orig.apply(this, [order, ...rest]);
   });
 
-  // ---- Anchor 4: Defaults applied (first one that exists)
   ['OrdersEdit.applyMoneyDefaults','OrdersEdit.prefillEditForm','OrdersEdit.fillEditFields']
   .forEach((name) => {
     safe(name, (orig) => function wrappedDefaults(order, ...rest) {
@@ -154,7 +153,7 @@
     });
   });
 
-  // ---- Anchor 5: PATCH success (wrap save or intercept fetch)
+  // -------- PATCH success ----------
   let saveHooked = false;
   ['OrdersEdit.saveEdit','OrdersEdit.saveOrderPatch','OrdersEdit.submitEdit']
   .forEach((name) => {
@@ -192,7 +191,7 @@
     };
   }
 
-  // ---- Anchor 6: Row UI updated (wrap common names, with fallback observer)
+  // -------- row UI updated ----------
   ['OrdersEdit.updateOrderRowUI','OrdersEdit.refreshRow','OrdersEdit.applyRowPatch']
   .forEach((name) => {
     safe(name, (orig) => function wrappedUpdateRow(tr, data, ...rest) {
@@ -219,7 +218,7 @@
   });
   try { rowObs.observe(document.body, { subtree: true, childList: true, characterData: true }); } catch(_) {}
 
-  // ---- Anchor 7: View modal filled
+  // -------- view modal filled ----------
   ['OrdersEdit.openViewModal','OrdersEdit.showView','OrdersEdit.viewOrder']
   .forEach((name) => {
     safe(name, (orig) => function wrappedView(order, ...rest) {
@@ -235,6 +234,5 @@
     });
   });
 
-  // Emit probes:ready a tick later so you can toggle the flag first
   setTimeout(() => post('probes:ready', { mode: 'orders-edit' }), 0);
 })();
