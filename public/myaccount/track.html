@@ -54,6 +54,7 @@
   </div>
 
   <div id="track-result" class="result-box" style="display:none;"></div>
+  <div id="track-pager" class="muted" style="display:none; margin-top:8px;"></div>
 </div>
 
 <div class="account-section">
@@ -89,28 +90,44 @@ function getSession(){
 }
 function qs(){ return new URLSearchParams(location.search); }
 
-async function runTrack({ phone, status, order, email }){
-  const box=document.getElementById('track-result');
-  box.style.display='none'; box.innerHTML='';
+async function runTrack({ phone, status, order, email, page, per }){
+  const box   = document.getElementById('track-result');
+  const pager = document.getElementById('track-pager');
+
+  // defaults from URL → fallbacks
+  const q      = new URLSearchParams(location.search);
+  const curPg  = Number(page || q.get('page') || 1);
+  const curPer = Number(per  || q.get('per')  || 5);
+
+  box.style.display = 'none';  box.innerHTML  = '';
+  pager.style.display = 'none'; pager.innerHTML = '';
+
   try{
-    // ✅ Build GET /api/track?… URL (no POST)
+    // ✅ Build GET /api/track?phone=…&status=…&order=…&page=…&per=…
     const params = new URLSearchParams();
     if (phone)  params.set('phone',  phone);
     if (status) params.set('status', status);
     if (order)  params.set('order',  order);
-    // (email is optional server hint; not needed on GET)
+    params.set('page', String(curPg));
+    params.set('per',  String(curPer));
 
-    const res = await fetch(`/api/track?${params.toString()}`, {
-      headers: { 'Accept': 'application/json' }
-    });
+    const res  = await fetch(`/api/track?${params.toString()}`, { headers:{'Accept':'application/json'} });
+    const json = await res.json();
 
-    let data; try{ data=await res.json(); } catch{ data=[]; }
-    const list = Array.isArray(data) ? data : (data && Array.isArray(data.orders) ? data.orders : []);
+    // Normalize shape
+    const list  = Array.isArray(json) ? json
+                : Array.isArray(json?.orders) ? json.orders
+                : [];
+    const page  = Number(json?.page  ?? curPg);
+    const per   = Number(json?.per   ?? curPer);
+    const total = Number(json?.total ?? list.length);
+    const pages = Math.max(1, Math.ceil(total / Math.max(1, per)));
 
-    if(!list.length){
-      box.innerHTML='<p>No orders found for this phone'+(status?' and status':'')+'.</p>';
+    // Render results
+    if (!list.length){
+      box.innerHTML = '<p>No orders found for this phone'+(status?' and status':'')+'.</p>';
     }else{
-      box.innerHTML = list.map(o=>`
+      box.innerHTML = list.map(o => `
         <p><strong>Order Number:</strong> ${o.orderNumber || o.order_id || o.id || '—'}</p>
         <p><strong>Status:</strong> ${o.status||'Pending'}</p>
         <p><strong>Last Updated:</strong> ${o.updatedAt?new Date(o.updatedAt).toLocaleString():'—'}</p>
@@ -125,9 +142,42 @@ async function runTrack({ phone, status, order, email }){
         <p><strong>Items:</strong><br>${(o.cart_summary||'').replaceAll('\\n','<br>')}</p>
         <hr>`).join('');
     }
-    box.style.display='block';
+    box.style.display = 'block';
+
+    // Render pager
+    const start = total ? ((page-1)*per + 1) : 0;
+    const end   = Math.min(total, page*per);
+    pager.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span>Showing ${start || 0}–${end || 0} of ${total}</span>
+        <span style="flex:1"></span>
+        <button id="pgPrev" ${page<=1?'disabled':''}>‹ Prev</button>
+        <span>Page ${page} / ${pages}</span>
+        <button id="pgNext" ${page>=pages?'disabled':''}>Next ›</button>
+      </div>
+    `;
+    pager.style.display = 'block';
+
+    // Wire buttons (keeps current filters)
+    const applyPage = (nextPage) => {
+      const nextQS = new URLSearchParams(location.search);
+      if (status) nextQS.set('status', status); else nextQS.delete('status');
+      if (order)  nextQS.set('order',  order);  else nextQS.delete('order');
+      nextQS.set('page', String(nextPage));
+      nextQS.set('per',  String(per));
+      history.replaceState(null, '', `?${nextQS.toString()}`); // don’t hard reload
+      runTrack({ phone, status, order, email, page: nextPage, per });
+    };
+
+    const prev = document.getElementById('pgPrev');
+    const next = document.getElementById('pgNext');
+    if (prev) prev.onclick = () => { if (page>1)       applyPage(page-1); };
+    if (next) next.onclick = () => { if (page<pages)   applyPage(page+1); };
+
   }catch(e){
-    box.innerHTML='<p>Something went wrong. Please try again.</p>'; box.style.display='block';
+    box.innerHTML = '<p>Something went wrong. Please try again.</p>';
+    box.style.display = 'block';
+    console.error(e);
   }
 }
 
