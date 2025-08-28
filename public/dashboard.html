@@ -55,16 +55,23 @@
 
   <!-- Adapter + controllers + loader (RELATIVE paths) -->
   
-  <script src="./admin/js/endpoint-shim.js?v=2"></script>
-  <script src="/admin/js/admin-skin.js?v=1" defer></script>
-  <script src="./admin/js/admin-guard.js?v=1"></script>
-  <script src="/js/money.js"></script>
-  <script src="./admin/js/data-adapter.js?v=3"></script>
-  <script src="./admin/js/orders-controller.js?v=3" defer></script>
-  <script src="./admin/js/orders-edit.js?v=3" defer></script>
-  <script src="./admin/js/dashboard.js?v=3" defer></script>
-   <script src="./admin/js/admin-items.js?v=1" defer></script>
-  <script src="./admin/js/admin-users.js?v=1" defer></script>
+ <script src="./admin/js/endpoint-shim.js?v=2"></script>
+<script src="./admin/js/admin-skin.js?v=1" defer></script>
+<script src="./admin/js/admin-guard.js?v=1" defer></script>
+<script src="./js/money.js" defer></script>
+<script src="./admin/js/data-adapter.js?v=3" defer></script>
+<script src="./admin/js/orders-controller.js?v=3" defer></script>
+
+<!-- Load orders-edit ONCE -->
+<script src="./admin/js/orders-edit.js?v=3" defer></script>
+
+<!-- Probes come AFTER orders-edit -->
+<script src="./admin/js/orders-edit.probes.js?v=1" defer></script>
+
+<script src="./admin/js/dashboard.js?v=3" defer></script>
+<script src="./admin/js/admin-items.js?v=1" defer></script>
+<script src="./admin/js/admin-users.js?v=1" defer></script>
+
   
 <script type="module">
   async function bootProfile() {
