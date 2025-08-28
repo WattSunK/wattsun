@@ -1,13 +1,26 @@
-/* FULL FILE: /public/admin/js/orders-edit.js */
-/* (unchanged original content from your latest file up to the first IIFE end) */
+// /public/admin/js/orders-edit.js
+// Edit Order modal — combobox-only driver picker (markup lives in dashboard.html)
+//
+// AUTH on every request:
+//   - credentials:"include" (send cookies)
+//   - Authorization: Bearer <token> if ws_token/authToken/jwt/xToken exists
+//
+// Save strategy (compat, PATCH-first):
+//   A) PATCH /api/admin/orders/:id            { status, note, driverId }
+//   B) PATCH /api/admin/orders/:id            { status, notes, driver_id }   // alt legacy keys
+//   C) PUT   /api/admin/orders/:id/status     { status, note }               // last resort
+//      PUT   /api/admin/orders/:id/assign-driver { driverUserId }           // last resort (if driver chosen)
+
 (() => {
   "use strict";
 
+  // ---------- tiny DOM helpers ----------
   const $  = (sel, root = document) => root.querySelector(sel);
   const by = (id) => document.getElementById(id);
   const debounce = (fn, ms = 200) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
   const ALLOWED = ["Pending", "Processing", "Delivered", "Cancelled"];
 
+  // ----- money helpers -----
   function toCentsFromInput(v) {
     if (v == null || v === "") return null;
     if (typeof v === "number" && Number.isFinite(v)) return Math.round(v * 100);
@@ -25,7 +38,8 @@
     return /^[A-Z]{3}$/.test(c) ? c : null;
   }
 
-  const modal       = by("orderEditModal");
+  // ---------- modal elements (must match dashboard.html) ----------
+  const modal       = by("orderEditModal");            // container
   const saveBtn     = by("orderSaveBtn");
   const cancelBtn   = by("orderCancelBtn");
 
@@ -33,20 +47,26 @@
   const statusSel   = by("orderEditStatus");
   const notesEl     = by("orderEditNotes");
 
+  // combobox (legacy)
   const driverWrap  = by("orderEditDriverWrap");
-  const driverIdH   = by("orderEditDriverId");
-  const driverInp   = by("orderEditDriverInput");
-  const driverList  = by("orderEditDriverList");
+  const driverIdH   = by("orderEditDriverId");         // hidden numeric id
+  const driverInp   = by("orderEditDriverInput");      // text input
+  const driverList  = by("orderEditDriverList");       // <ul> results
   const driverClear = by("orderEditDriverClear");
 
+  // money + items (display only; not saved by this file)
   const totalInp    = by("orderEditTotalInput");
   const depositInp  = by("orderEditDepositInput");
   const currInp     = by("orderEditCurrencyInput");
   const itemsBody   = by("orderEditItemsBody");
 
+  // orders table (inline refresh)
   const ordersTbody = by("ordersTbody");
+
+  // state
   let currentId = null;
 
+  // ---------- auth + fetch wrappers ----------
   function readToken() {
     try {
       return (
@@ -74,6 +94,7 @@
   }
   async function readText(r) { try { return await r.text(); } catch { return ""; } }
 
+  // ---------- UI utils ----------
   function setSaving(on) {
     if (!saveBtn) return;
     saveBtn.disabled = !!on;
@@ -100,6 +121,7 @@
     statusSel.value = ALLOWED.includes(current) ? current : "Pending";
   }
 
+  // ---------- items table (display only) ----------
   function fillItemsTable(list, currency) {
     if (!itemsBody) return;
     itemsBody.innerHTML = "";
@@ -123,6 +145,7 @@
     }
   }
 
+  // ---------- driver combobox ----------
   async function queryDrivers(q) {
     const url = `/api/admin/users?type=Driver${q ? `&q=${encodeURIComponent(q)}` : ""}`;
     try {
@@ -169,29 +192,35 @@
   }
   wireDriverComboOnce();
 
-  function rowById(id) { return ordersTbody?.querySelector(`tr[data-oid="${CSS.escape(String(id))}"]`); }
+  // ---------- helpers to read table row values for seeding ----------
+  function rowById(id) {
+    return ordersTbody?.querySelector(`tr[data-oid="${CSS.escape(String(id))}"]`);
+  }
   function readRowFields(id) {
     const row = rowById(id);
     if (!row) return {};
     const phone  = row.querySelector('[data-col="phone"]')?.textContent?.trim()  || "";
     const email  = row.querySelector('[data-col="email"]')?.textContent?.trim()  || "";
     const status = row.querySelector('[data-col="status"]')?.textContent?.trim() || "Pending";
-    const total  = row.children?.[5]?.textContent || "";
+    const total  = row.children?.[5]?.textContent || ""; // display only
     const driverName = row.querySelector('[data-col="driver"], .col-driver')?.textContent?.trim() || "";
     return { phone, email, status, total, driverName };
   }
 
+  // ---------- modal open (exposed) ----------
   async function openModal(orderLike) {
     const id = orderLike?.id || orderLike?.orderNumber || orderLike?.order_id;
     if (!id) return alert("Missing order id");
     currentId = id;
     if (idInput) idInput.value = id;
 
+    // seed from row / payload
     const row = readRowFields(id);
     buildStatusOptions(orderLike.status || row.status);
     resetDriver("", orderLike.driverName || row.driverName || "");
     notesEl && (notesEl.value = orderLike.notes || "");
 
+    // money: display only
     totalInp   && (totalInp.value   = "0");
     depositInp && (depositInp.value = "0");
     currInp    && (currInp.value    = "KES");
@@ -200,6 +229,7 @@
     openModalShell();
   }
 
+  // ---------- SAVE (PATCH-first with credentials) ----------
   async function doSave() {
     if (!currentId) return;
 
@@ -215,16 +245,20 @@
 
     setSaving(true);
     try {
+      // Read optional money fields and include in PATCH
       const tCents = totalInp ? toCentsFromInput(totalInp.value) : null;
       const dCents = depositInp ? toCentsFromInput(depositInp.value) : null;
       const curr   = currInp ? normCurrency(currInp.value) : null;
 
+      // A) primary PATCH with new fields
       const bodyA = { status, note, driverId: driverVal };
       if (tCents !== null) bodyA.totalCents = tCents;
       if (dCents !== null) bodyA.depositCents = dCents;
       if (curr)            bodyA.currency = curr;
 
       let r = await req("PATCH", `/api/admin/orders/${encodeURIComponent(currentId)}`, bodyA);
+
+      // B) alt legacy keys if A failed
       if (!r.ok) {
         const bodyB = { status, notes: note, driver_id: driverVal };
         if (tCents !== null) bodyB.totalCents = tCents;
@@ -232,20 +266,31 @@
         if (curr)            bodyB.currency = curr;
         r = await req("PATCH", `/api/admin/orders/${encodeURIComponent(currentId)}`, bodyB);
       }
+
+      // C) split routes as last resort
       if (!r.ok) {
         const rs = await req("PUT", `/api/admin/orders/${encodeURIComponent(currentId)}/status`, { status, note });
-        if (driverVal !== null) await req("PUT", `/api/admin/orders/${encodeURIComponent(currentId)}/assign-driver`, { driverUserId: driverVal });
-        if (!rs.ok) throw new Error("Save failed");
+        if (!rs.ok) {
+          const msg = await readText(rs);
+          throw new Error(`Save failed on all routes. Last /status: ${rs.status} — ${msg || "(no body)"}`);
+        }
+        if (driverVal !== null) {
+          const rd = await req("PUT", `/api/admin/orders/${encodeURIComponent(currentId)}/assign-driver`, { driverUserId: driverVal });
+          if (!rd.ok) console.warn("[orders-edit] assign-driver failed:", rd.status, await readText(rd));
+        }
       }
 
+      // inline row refresh (status + driver name if present)
       const row = rowById(currentId);
       row?.querySelector('[data-col="status"]')?.replaceChildren(document.createTextNode(status));
       if (driverVal !== null) {
+        // show the typed name as a best-effort (API doesn’t echo)
         const name = driverInp?.value || "";
         const cell = row?.querySelector('[data-col="driver"], .col-driver');
         if (cell) cell.textContent = name;
       }
 
+      // broadcast to other views (customer track, etc.)
       try {
         localStorage.setItem("ordersUpdatedAt", String(Date.now()));
         window.postMessage({ type: "orders-updated", orderId: currentId }, "*");
@@ -260,9 +305,11 @@
     }
   }
 
+  // ---------- bindings ----------
   cancelBtn?.addEventListener("click", (e) => { e.preventDefault(); closeModalShell(); });
   saveBtn?.addEventListener("click",  (e) => { e.preventDefault(); doSave(); });
 
+  // open via action buttons in the table (supports either selector)
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('[data-action="edit-order"], .btn-edit');
     if (!btn) return;
@@ -279,14 +326,15 @@
     openModal({ id: oid, orderNumber: oid, phone, email, status: statusText, driverName });
   });
 
+  // optional global hook
   if (typeof window.openOrderEdit !== "function") {
     window.openOrderEdit = (order) => openModal(order || {});
   }
 })();
 
 /* ==== Step 6.5 overlay enhancer (updated) ===================================
-   Now hooks PATCH **or PUT** to any /api/admin/orders* URL and supports
-   JSON **and** x-www-form-urlencoded bodies.
+   Hooks PATCH **or PUT** to any /api/admin/orders* URL and supports
+   JSON **and** x-www-form-urlencoded bodies. Also updates row & broadcasts.
 ============================================================================ */
 (() => {
   const ADMIN_ORDERS_RE = /\/api\/admin\/orders(\/|$)/i;
@@ -347,7 +395,7 @@
     const set = (sel, text) => { const el = row.querySelector(sel); if (el) el.textContent = text; };
     if (ctx.statusValue) set('[data-col="status"], .col-status', ctx.statusValue);
     if (ctx.driverId != null) set('[data-col="driver"], .col-driver', String(ctx.driverId));
-    if (ctx.totalCents != null)   set('[data-col="total"], .col-total', fmtMoney(ctx.totalCents, ctx.currency));
+    if (ctx.totalCents != null)   set('[data-col="total"], .col-total',   fmtMoney(ctx.totalCents, ctx.currency));
     if (ctx.depositCents != null) set('[data-col="deposit"], .col-deposit', fmtMoney(ctx.depositCents, ctx.currency));
     set('[data-col="currency"], .col-currency', ctx.currency);
     try { row.classList.add('just-saved'); setTimeout(() => row.classList.remove('just-saved'), 900); } catch {}
@@ -423,4 +471,67 @@
       return res;
     };
   }
+})();
+
+/* ==== Step 6.5 — minimal UI refresh hardener (tiny append) ==================
+   Listens for our own 'orders-updated' message and updates the table row
+   even if data attributes are missing; writes the **driver name**.
+============================================================================ */
+(() => {
+  function robustFindRowByOrderId(orderId) {
+    if (!orderId) return null;
+    let row = document.querySelector(`tr[data-oid="${CSS.escape(orderId)}"]`)
+          || document.querySelector(`tr[data-order-id="${CSS.escape(orderId)}"]`);
+    if (row) return row;
+    const rows = document.querySelectorAll('table tbody tr');
+    for (const r of rows) {
+      const cells = r.querySelectorAll('td, [data-col]');
+      for (const c of cells) {
+        if ((c.textContent || '').trim().includes(orderId)) return r;
+      }
+    }
+    return null;
+  }
+  function writeCell(row, selList, text) {
+    if (!row || text == null) return;
+    for (const sel of selList) {
+      const el = row.querySelector(sel);
+      if (el) { el.textContent = String(text); return; }
+    }
+  }
+  function fmtMoney(cents, currency) {
+    if (!(Number.isFinite(cents))) return '';
+    const amt = cents / 100;
+    return `${currency || 'KES'} ${amt.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2})}`;
+  }
+  function updateRowFromModal() {
+    const orderId = (document.getElementById('orderEditId')?.value || '').trim();
+    if (!orderId) return;
+    const row = robustFindRowByOrderId(orderId);
+    if (!row) return;
+
+    const status   = (document.getElementById('orderEditStatus')?.value || '').trim();
+    const driverNm = (document.getElementById('orderEditDriverInput')?.value || '').trim();
+    const currency = (document.getElementById('orderEditCurrencyInput')?.value || 'KES').trim();
+
+    const toCents = (v) => {
+      if (!v) return null;
+      const n = Number(String(v).replace(/[^\d.]/g,''));
+      return Number.isFinite(n) ? Math.round(n * 100) : null;
+    };
+    const totalCts   = toCents(document.getElementById('orderEditTotalInput')?.value);
+    const depositCts = toCents(document.getElementById('orderEditDepositInput')?.value);
+
+    if (status)   writeCell(row, ['[data-col="status"]','.col-status'], status);
+    if (driverNm) writeCell(row, ['[data-col="driver"]','.col-driver'], driverNm);
+    if (totalCts!=null)   writeCell(row, ['[data-col="total"]','.col-total'],   fmtMoney(totalCts, currency));
+    if (depositCts!=null) writeCell(row, ['[data-col="deposit"]','.col-deposit'], fmtMoney(depositCts, currency));
+    writeCell(row, ['[data-col="currency"]','.col-currency'], currency);
+
+    try { row.classList.add('just-saved'); setTimeout(()=>row.classList.remove('just-saved'), 900); } catch {}
+  }
+
+  window.addEventListener('message', (e) => {
+    if (e?.data?.type === 'orders-updated') updateRowFromModal();
+  });
 })();
