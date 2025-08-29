@@ -8,6 +8,18 @@
 const express = require("express");
 const router = express.Router();
 
+// --- Step7 guard injected (2025-08-29) ---
+function requireAdmin(req, res, next) {
+  const u = (req.session && req.session.user) || null;
+  if (!u || (u.type !== "Admin" && u.role !== "Admin")) {
+    return res.status(403).json({ success:false, error:"Forbidden" });
+  }
+  next();
+}
+router.use(requireAdmin);
+// --- end guard ---
+
+
 // [v0.3 add] SQLite persistence
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
