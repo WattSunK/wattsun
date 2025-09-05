@@ -1,25 +1,15 @@
-#!/usr/bin/env bash
-set -euo pipefail
-BASE="/volume1/web/wattsun"
-DATA="$BASE/data/dev"
-STAMP="$(date +%F_%H%M%S)"
-OUT="$BASE/backups/sqlite_$STAMP"
-mkdir -p "$OUT"
+#!/bin/sh
+set -eu
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DATE=$(date +%F_%H%M%S)
+DEST="/volume1/backups/wattsun/$DATE"
+mkdir -p "$DEST"
 
-echo "→ Backing up SQLite + JSON to $OUT"
-
-# DBs
-for DB in "$DATA/wattsun.dev.db" "$DATA/inventory.dev.db"; do
-  if [ -f "$DB" ]; then
-    echo "  • DB: $(basename "$DB")"
-    sqlite3 "$DB" ".backup '$OUT/$(basename "$DB")'"
-  else
-    echo "  • DB missing: $DB"
-  fi
+for f in "$ROOT"/data/dev/*.dev.db "$ROOT"/data/dev/orders.dev.json; do
+  [ -e "$f" ] || continue
+  cp -a "$f" "$DEST"/
 done
 
-# JSONs (orders etc.)
-cp -a "$DATA"/*.json "$OUT/" 2>/dev/null || true
-
-echo "→ Result:"
-ls -lh "$OUT"
+# keep last 30 backups
+ls -1dt /volume1/backups/wattsun/* 2>/dev/null | awk 'NR>30' | xargs -r rm -rf
+echo "Backup complete -> $DEST"

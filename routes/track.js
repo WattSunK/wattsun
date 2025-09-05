@@ -1,4 +1,3 @@
-const sqlite3 = require("sqlite3").verbose();
 // routes/track.js
 // Public tracking endpoint: GET /api/track
 // Returns orders filtered by phone/email (+ optional status, order, pagination),
@@ -7,6 +6,7 @@ const sqlite3 = require("sqlite3").verbose();
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
+const sqlite3 = require("sqlite3").verbose();
 const router = express.Router();
 
 const ORDERS_JSON =

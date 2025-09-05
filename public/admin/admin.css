@@ -1787,24 +1787,3 @@ body {
 }
 /* admin.css */
 body.modal-open { overflow: hidden; }
-
-/* === Step7: modal sizing & filters row (2025-08-29) === */
-.modal-dialog {
-  max-width: 900px;            /* keep modals from stretching too wide */
-}
-.modal-body {
-  max-height: calc(100vh - 220px);
-  overflow: auto;              /* scroll inside modal body when tall */
-}
-
-/* Use on filter containers: class="filters-row" */
-.filters-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem;
-  align-items: center;
-}
-.filters-row > * {
-  flex: 0 1 auto;
-}
-/* === End Step7 block === */

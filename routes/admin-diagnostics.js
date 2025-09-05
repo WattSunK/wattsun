@@ -3,18 +3,6 @@
 const express = require("express");
 const router = express.Router();
 
-// --- Step7 guard injected (2025-08-29) ---
-function requireAdmin(req, res, next) {
-  const u = (req.session && req.session.user) || null;
-  if (!u || (u.type !== "Admin" && u.role !== "Admin")) {
-    return res.status(403).json({ success:false, error:"Forbidden" });
-  }
-  next();
-}
-router.use(requireAdmin);
-// --- end guard ---
-
-
 function getDb(req) {
   const db = req.app.get("db");
   if (!db) throw new Error("SQLite database handle not found (app.set('db', db))");

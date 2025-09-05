@@ -217,7 +217,9 @@ footer {
 </div>
 <script>
   function parsePrice(raw) {
-    return parseInt((raw || '').replace(/[^\d]/g, '')) || 0;
+    // Works for numbers like 27900 and strings like "KES 27,900"
+    const s = (typeof raw === 'number') ? String(raw) : String(raw || '');
+    return parseInt(s.replace(/[^\d]/g, ''), 10) || 0;
   }
 
   async function loadProducts() {
