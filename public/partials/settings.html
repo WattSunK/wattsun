@@ -187,15 +187,6 @@
       const sp = document.createElement('div'); sp.className = 'spacer';
       tb.appendChild(sp);
     }
-    return;
-  }
-  const h = document.querySelector('h1, h2, .card-header');
-  const host = h ? h.parentElement : document.body;
-  if (host) {
-    tb = document.createElement('div');
-    tb.className = 'settings-toolbar filters-bar';
-    tb.innerHTML = '<div class="group"><label>Settings</label><span style="color:#6b7280;font-size:12px;">Admin</span></div><div class="spacer"></div>';
-    if (h && h.nextSibling) { h.parentElement.insertBefore(tb, h.nextSibling); } else { host.prepend(tb); }
   }
 })();
 </script>

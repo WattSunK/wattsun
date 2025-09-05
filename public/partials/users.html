@@ -129,17 +129,40 @@
     </div>
   </div>
 
-<!-- Task0: map Users toolbar/pager to admin skin -->
+<!-- Task0: Visual morph to Dispatch-style card layout (non-destructive) -->
 <style>
-  .ws-admin-toolbar.filters-bar { /* adopt admin single-row look while preserving IDs */ }
-  .ws-pager-controls.pager { display:inline-flex; align-items:center; gap:6px; }
+  .ws-card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow:0 2px 10px rgba(17,24,39,.06); }
+  .ws-card > .ws-header { padding:14px 16px; border-bottom:1px solid #e5e7eb; font-weight:600; }
+  .ws-card > .ws-body { padding:14px 16px; }
 </style>
 <script>
 (function(){
-  const tb = document.querySelector('.ws-admin-toolbar');
-  if (tb) tb.classList.add('filters-bar');
-  const pagerControls = document.getElementById('users-pagination');
-  if (pagerControls) pagerControls.classList.add('pager');
+  const PARTIAL_ID = 'users';
+  const TITLE_FALLBACK = 'Users';
+  let applied = false;
+  function wrap(el, cls){ const w=document.createElement('div'); w.className=cls; el.parentNode.insertBefore(w, el); w.appendChild(el); return w; }
+  function morph(){ 
+    if (applied) return; applied = true;
+    const root = document.currentScript.parentElement || document.body;
+    const titleEl = root.querySelector('h1, h2, .page-title, .card-header');
+    const titleText = (titleEl ? titleEl.textContent.trim() : TITLE_FALLBACK);
+    const card = document.createElement('section'); card.className='ws-card card';
+    const header = document.createElement('div'); header.className='ws-header card-header'; header.textContent = titleText;
+    const body = document.createElement('div'); body.className='ws-body card-body';
+    const kids = Array.from(root.childNodes);
+    kids.forEach(n=>{ if(n===document.currentScript) return;
+                       if(n.nodeType===1 && n.tagName==='SCRIPT') return;
+                       if(titleEl && n===titleEl) return;
+                       body.appendChild(n); });
+    const tb = body.querySelector('.toolbar, .items-toolbar, .ws-admin-toolbar, .status-toolbar, .filters, .filters-bar');
+    if (tb) { tb.classList.add('filters-bar'); if(!tb.querySelector('.spacer')){const sp=document.createElement('div'); sp.className='spacer'; tb.appendChild(sp);} }
+    const table = body.querySelector('table'); if(table && !table.closest('.table-wrap')) wrap(table, 'table-wrap');
+    ['ordersPager','users-pagination','items-pagination'].forEach(id=>{ const pg=body.querySelector('#'+id); if(pg) pg.classList.add('pager'); });
+    card.appendChild(header); card.appendChild(body);
+    root.innerHTML=''; root.appendChild(card);
+  }
+  window.addEventListener('admin:partial-loaded', e=>{ if(e.detail && e.detail.id===PARTIAL_ID) morph(); });
+  setTimeout(morph, 0);
 })();
 </script>
 </section>
