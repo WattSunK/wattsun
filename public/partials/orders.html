@@ -1,82 +1,45 @@
-<!-- /public/partials/orders.html (Step 3 – corrected) -->
-<section class="ws-admin-orders">
-  <!-- NOTE: Inline <script> removed (controller handles data/pagination). -->
-  <div class="card">
-    <div class="card-h">
-      <h2>Orders</h2>
-      <div class="toolbar">
-        <label for="ordersSearch">Search</label>
-        <input id="ordersSearch" class="orders-input" type="search" placeholder="Search by name, phone, email, order #" />
-        <label for="ordersStatus">Status</label>
-        <select id="ordersStatus" class="orders-input">
-          <option value="">All</option>
-          <option value="Pending">Pending</option>
-          <option value="Processing">Processing</option>
-          <option value="Delivered">Delivered</option>
-          <option value="Cancelled">Cancelled</option>
-        </select>
-      </div>
-    </div>
+<section class="card">
+  <div class="card-header">Orders</div>
+  <div class="card-body">
+  <div class="filters-bar">
 
-    <div class="card-b">
-      <div class="orders-table-wrapper">
-        <table id="ordersTable" class="orders-table">
-          <thead>
-            <tr>
-              <th>Order #</th>
-              <th>Customer</th>
-              <th>Phone</th>
-              <th>Email</th>
-              <th>Status</th>
-              <th>Total</th>
-              <th>Placed</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="ordersTbody">
-            <!-- Populated by orders-controller.js -->
-          </tbody>
-        </table>
-      </div>
+<div class="group">
+  <label for="ordersSearch">Search</label>
+  <input id="ordersSearch" class="orders-input" type="search" placeholder="Search by name, phone, email…" />
+</div>
+<div class="group">
+  <label for="ordersStatus">Status</label>
+  <select id="ordersStatus">
+    <option value="">All</option>
+    <option>New</option>
+    <option>Processing</option>
+    <option>Confirmed</option>
+    <option>Delivered</option>
+    <option>Cancelled</option>
+  </select>
+</div>
+<div class="group">
+  <label for="per-orders">Per page</label>
+  <select id="per-orders"><option>10</option><option>25</option><option>50</option></select>
+</div>
 
-      <div id="ordersPager" class="pager"></div>
+    <div class="spacer"></div>
+    <div class="pager" id="ordersPager">
+      <button class="btn" aria-label="Previous" id="prev-ordersPager">‹</button>
+      <span class="page-indicator"><span id="page-ordersPager">1</span></span>
+      <button class="btn" aria-label="Next" id="next-ordersPager">›</button>
     </div>
   </div>
-
-<!-- Task0: Visual morph to Dispatch-style card layout (non-destructive) -->
-<style>
-  .ws-card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow:0 2px 10px rgba(17,24,39,.06); }
-  .ws-card > .ws-header { padding:14px 16px; border-bottom:1px solid #e5e7eb; font-weight:600; }
-  .ws-card > .ws-body { padding:14px 16px; }
-</style>
-<script>
-(function(){
-  const PARTIAL_ID = 'orders';
-  const TITLE_FALLBACK = 'Orders';
-  let applied = false;
-  function wrap(el, cls){ const w=document.createElement('div'); w.className=cls; el.parentNode.insertBefore(w, el); w.appendChild(el); return w; }
-  function morph(){ 
-    if (applied) return; applied = true;
-    const root = document.currentScript.parentElement || document.body;
-    const titleEl = root.querySelector('h1, h2, .page-title, .card-header');
-    const titleText = (titleEl ? titleEl.textContent.trim() : TITLE_FALLBACK);
-    const card = document.createElement('section'); card.className='ws-card card';
-    const header = document.createElement('div'); header.className='ws-header card-header'; header.textContent = titleText;
-    const body = document.createElement('div'); body.className='ws-body card-body';
-    const kids = Array.from(root.childNodes);
-    kids.forEach(n=>{ if(n===document.currentScript) return;
-                       if(n.nodeType===1 && n.tagName==='SCRIPT') return;
-                       if(titleEl && n===titleEl) return;
-                       body.appendChild(n); });
-    const tb = body.querySelector('.toolbar, .items-toolbar, .ws-admin-toolbar, .status-toolbar, .filters, .filters-bar');
-    if (tb) { tb.classList.add('filters-bar'); if(!tb.querySelector('.spacer')){const sp=document.createElement('div'); sp.className='spacer'; tb.appendChild(sp);} }
-    const table = body.querySelector('table'); if(table && !table.closest('.table-wrap')) wrap(table, 'table-wrap');
-    ['ordersPager','users-pagination','items-pagination'].forEach(id=>{ const pg=body.querySelector('#'+id); if(pg) pg.classList.add('pager'); });
-    card.appendChild(header); card.appendChild(body);
-    root.innerHTML=''; root.appendChild(card);
-  }
-  window.addEventListener('admin:partial-loaded', e=>{ if(e.detail && e.detail.id===PARTIAL_ID) morph(); });
-  setTimeout(morph, 0);
-})();
-</script>
+  <div class="table-wrap">
+    <table class="table" id="ordersTable">
+      <thead>
+        <tr>
+          <th>Order #</th><th>Customer</th><th>Phone</th><th>Email</th>
+          <th>Status</th><th>Total</th><th>Placed</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="ordersRows"><tr><td colspan="8" style="color:#6b7280;">(No data yet)</td></tr></tbody>
+    </table>
+  </div>
+  </div>
 </section>

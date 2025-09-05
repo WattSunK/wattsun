@@ -1,168 +1,40 @@
-<!-- Users — Admin Partial (Items-style) -->
-<section id="users-root" class="ws-admin-section">
-  <h2 class="ws-admin-title">Users</h2>
+<section class="card">
+  <div class="card-header">Users</div>
+  <div class="card-body">
+  <div class="filters-bar">
 
-  <!-- Toolbar -->
-  <div class="ws-admin-toolbar">
-    <button class="ws-btn ws-btn-primary" id="users-add-btn" data-users-action="open-create">
-      + Add User
-    </button>
+<div class="group">
+  <button class="btn" id="addUserBtn">+ Add User</button>
+</div>
+<div class="group">
+  <label for="userType">Type</label>
+  <select id="userType"><option value="">All Types</option><option>Admin</option><option>Driver</option><option>Customer</option></select>
+</div>
+<div class="group">
+  <label for="usersStatus">Status</label>
+  <select id="usersStatus"><option value="">All Status</option><option>Active</option><option>Inactive</option></select>
+</div>
+<div class="group">
+  <label for="usersSearch">Search</label>
+  <input id="usersSearch" type="search" placeholder="Search by name/email/phone" />
+</div>
+<div class="group">
+  <label for="per-users">Per page</label>
+  <select id="per-users"><option>10</option><option>25</option><option>50</option></select>
+</div>
 
-    <select id="users-type-filter" class="ws-select" aria-label="Filter by type">
-      <option value="">All Types</option>
-      <option>Admin</option>
-      <option>Driver</option>
-      <option>Customer</option>
-      <option>Installer</option>
-      <option>Manufacturer</option>
-      <option>User</option>
-    </select>
-
-    <select id="users-status-filter" class="ws-select" aria-label="Filter by status">
-      <option value="">All Status</option>
-      <option>Active</option>
-      <option>Inactive</option>
-    </select>
-
-    <input id="users-search-input" class="ws-input" type="search"
-           placeholder="Search by name/email/phone" autocomplete="off" />
-    <button class="ws-btn" data-users-action="search">🔎 Search</button>
-    <button class="ws-btn" data-users-action="clear">✖ Clear</button>
-
-    <div class="ws-spacer"></div>
-
-    <label class="ws-inline">
-      <span>Per page:</span>
-      <select id="users-per-page" class="ws-select">
-        <option value="10" selected>10</option>
-        <option value="25">25</option>
-        <option value="50">50</option>
-      </select>
-    </label>
-  </div>
-
-  <!-- Table (Items skin) -->
-  <div class="ws-table-wrap">
-    <table id="users-table" class="ws-table">
-      <thead>
-        <tr>
-          <th>SL NO.</th>
-          <th>NAME</th>
-          <th>EMAIL</th>
-          <th>PHONE</th>
-          <th>TYPE</th>
-          <th>ORDERS</th>
-          <th>STATUS</th>
-          <th>LAST ACTIVE</th>
-          <th>ACTION</th>
-        </tr>
-      </thead>
-      <tbody id="users-tbody">
-        <tr class="ws-empty"><td colspan="9">No users found</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Pager -->
-  <div class="ws-pager">
-    <div id="users-table-info" class="ws-pager-info">0–0 of 0</div>
-    <div id="users-pagination" class="ws-pager-controls"></div>
-  </div>
-
-  <!-- Users Modal (same skin as Items) -->
-  <div id="usersModal" class="ws-modal" style="display:none" aria-hidden="true"
-       role="dialog" aria-labelledby="users-modal-title">
-    <div class="ws-modal-backdrop" data-users-action="close"></div>
-    <div class="ws-dialog" role="document">
-      <div class="ws-dialog-header">
-        <h3 id="users-modal-title" class="ws-dialog-title">Edit User</h3>
-        <button class="ws-btn ws-btn-ghost ws-btn-xs" data-users-action="close" aria-label="Close">✖</button>
-      </div>
-
-      <div class="ws-dialog-body">
-        <form id="users-form" class="ws-form" novalidate>
-          <input type="hidden" id="u-id" />
-          <div class="ws-grid ws-grid-2">
-            <label class="ws-field">
-              <span>Name</span>
-              <input id="u-name" class="ws-input" type="text" required />
-            </label>
-            <label class="ws-field">
-              <span>Email</span>
-              <input id="u-email" class="ws-input" type="email" />
-            </label>
-            <label class="ws-field">
-              <span>Phone</span>
-              <input id="u-phone" class="ws-input" type="text" required />
-            </label>
-            <label class="ws-field">
-              <span>Type</span>
-              <select id="u-type" class="ws-select" required>
-                <option value="">Select…</option>
-                <option>Admin</option>
-                <option>Driver</option>
-                <option>Customer</option>
-                <option>Installer</option>
-                <option>Manufacturer</option>
-                <option>User</option>
-              </select>
-            </label>
-            <label class="ws-field">
-              <span>Status</span>
-              <select id="u-status" class="ws-select">
-                <option>Active</option>
-                <option>Inactive</option>
-              </select>
-            </label>
-            <label class="ws-field">
-              <span>Temp Password (optional)</span>
-              <input id="u-password" class="ws-input" type="text" placeholder="Leave blank to keep/unset" />
-            </label>
-          </div>
-        </form>
-      </div>
-
-      <div class="ws-dialog-footer">
-        <button class="ws-btn ws-btn-ghost" data-users-action="close">Cancel</button>
-        <button class="ws-btn ws-btn-primary" id="users-save-btn" data-users-action="save">Save</button>
-      </div>
+    <div class="spacer"></div>
+    <div class="pager" id="users-pagination">
+      <button class="btn" aria-label="Previous" id="prev-users-pagination">‹</button>
+      <span class="page-indicator"><span id="page-users-pagination">1</span></span>
+      <button class="btn" aria-label="Next" id="next-users-pagination">›</button>
     </div>
   </div>
-
-<!-- Task0: Visual morph to Dispatch-style card layout (non-destructive) -->
-<style>
-  .ws-card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow:0 2px 10px rgba(17,24,39,.06); }
-  .ws-card > .ws-header { padding:14px 16px; border-bottom:1px solid #e5e7eb; font-weight:600; }
-  .ws-card > .ws-body { padding:14px 16px; }
-</style>
-<script>
-(function(){
-  const PARTIAL_ID = 'users';
-  const TITLE_FALLBACK = 'Users';
-  let applied = false;
-  function wrap(el, cls){ const w=document.createElement('div'); w.className=cls; el.parentNode.insertBefore(w, el); w.appendChild(el); return w; }
-  function morph(){ 
-    if (applied) return; applied = true;
-    const root = document.currentScript.parentElement || document.body;
-    const titleEl = root.querySelector('h1, h2, .page-title, .card-header');
-    const titleText = (titleEl ? titleEl.textContent.trim() : TITLE_FALLBACK);
-    const card = document.createElement('section'); card.className='ws-card card';
-    const header = document.createElement('div'); header.className='ws-header card-header'; header.textContent = titleText;
-    const body = document.createElement('div'); body.className='ws-body card-body';
-    const kids = Array.from(root.childNodes);
-    kids.forEach(n=>{ if(n===document.currentScript) return;
-                       if(n.nodeType===1 && n.tagName==='SCRIPT') return;
-                       if(titleEl && n===titleEl) return;
-                       body.appendChild(n); });
-    const tb = body.querySelector('.toolbar, .items-toolbar, .ws-admin-toolbar, .status-toolbar, .filters, .filters-bar');
-    if (tb) { tb.classList.add('filters-bar'); if(!tb.querySelector('.spacer')){const sp=document.createElement('div'); sp.className='spacer'; tb.appendChild(sp);} }
-    const table = body.querySelector('table'); if(table && !table.closest('.table-wrap')) wrap(table, 'table-wrap');
-    ['ordersPager','users-pagination','items-pagination'].forEach(id=>{ const pg=body.querySelector('#'+id); if(pg) pg.classList.add('pager'); });
-    card.appendChild(header); card.appendChild(body);
-    root.innerHTML=''; root.appendChild(card);
-  }
-  window.addEventListener('admin:partial-loaded', e=>{ if(e.detail && e.detail.id===PARTIAL_ID) morph(); });
-  setTimeout(morph, 0);
-})();
-</script>
+  <div class="table-wrap">
+    <table class="table" id="usersTable">
+      <thead><tr><th>SL No.</th><th>Name</th><th>Email</th><th>Phone</th><th>Type</th><th>Orders</th><th>Status</th><th>Last Active</th><th>Action</th></tr></thead>
+      <tbody id="usersRows"><tr><td colspan="9" style="color:#6b7280;">(No data yet)</td></tr></tbody>
+    </table>
+  </div>
+  </div>
 </section>

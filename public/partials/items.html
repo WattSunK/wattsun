@@ -1,254 +1,33 @@
-<div id="items-root" class="container-fluid px-4">
-  <h2 class="mt-4">Items</h2>
+<section class="card">
+  <div class="card-header">Items</div>
+  <div class="card-body">
+  <div class="filters-bar">
 
-  <!-- Filters/toolbar (same elements; single row is enforced via CSS) -->
-  <div class="mb-3 d-flex align-items-center flex-wrap gap-2 items-toolbar">
-    <button id="btn-add-item" class="btn btn-outline-warning btn-sm">+ Add Item</button>
-    <button id="btn-manage-categories" class="btn btn-outline-warning btn-sm">Manage Categories</button>
+<div class="group">
+  <label for="itemsSearch">Search</label>
+  <input id="itemsSearch" type="search" placeholder="Search items…" />
+</div>
+<div class="group">
+  <label for="itemsStatus">Status</label>
+  <select id="itemsStatus"><option value="">All</option><option>Active</option><option>Hidden</option></select>
+</div>
+<div class="group">
+  <label for="per-items">Per page</label>
+  <select id="per-items"><option>10</option><option>25</option><option>50</option></select>
+</div>
 
-    <select id="category-filter" class="form-select form-select-sm w-auto">
-      <option value="">All Categories</option>
-    </select>
-
-    <input type="text" id="search-text" class="form-control form-control-sm w-auto" placeholder="Search by name or SKU">
-
-    <button id="search-button" class="btn btn-outline-warning btn-sm">Search</button>
-    <button id="clear-button" class="btn btn-outline-warning btn-sm">Clear</button>
-
-    <div class="ms-auto d-flex align-items-center gap-2">
-      <label for="items-per-page" class="form-label mb-0">Show</label>
-      <select id="items-per-page" class="form-select form-select-sm w-auto">
-        <option value="15" selected>15</option>
-        <option value="25">25</option>
-        <option value="50">50</option>
-        <option value="100">100</option>
-      </select>
-      <span>entries</span>
+    <div class="spacer"></div>
+    <div class="pager" id="items-pagination">
+      <button class="btn" aria-label="Previous" id="prev-items-pagination">‹</button>
+      <span class="page-indicator"><span id="page-items-pagination">1</span></span>
+      <button class="btn" aria-label="Next" id="next-items-pagination">›</button>
     </div>
   </div>
-
-  <!-- Table -->
-  <div class="table-responsive">
-    <table id="items-table" class="table table-bordered table-striped align-middle">
-      <thead class="table-warning">
-        <tr>
-          <th>SL. NO</th>
-          <th>IMAGE</th>
-          <th>ITEM NAME</th>
-          <th>SKU</th>
-          <th>CATEGORY</th>
-          <th>STOCK</th>
-          <th>UNIT PRICE</th>
-          <th>PRIORITY</th>
-          <th>STATUS</th>
-          <th>ACTION</th>
-        </tr>
-      </thead>
-      <tbody id="items-table-body"></tbody>
+  <div class="table-wrap">
+    <table class="table" id="itemsTable">
+      <thead><tr><th>SKU</th><th>Name</th><th>Price</th><th>Stock</th><th>Action</th></tr></thead>
+      <tbody id="itemsRows"><tr><td colspan="5" style="color:#6b7280;">(No data yet)</td></tr></tbody>
     </table>
   </div>
-
-  <!-- Pager -->
-  <div class="d-flex justify-content-between align-items-center mt-2">
-    <div id="items-table-info" class="small text-muted">Showing 0 to 0 of 0 entries</div>
-    <div class="pagination" id="items-pagination"></div>
   </div>
-</div>
-
-<!-- =============== EDIT ITEM MODAL (IDs preserved) =============== -->
-<div id="edit-item-modal-bg" class="modal-bg modal--md" style="display:none;">
-  <div id="edit-item-modal" class="modal">
-    <div class="modal-header p-3 border-bottom">
-      <h5 class="m-0">Edit Item</h5>
-      <button type="button" class="btn-close modal-close" aria-label="Close"></button>
-    </div>
-
-    <!-- Scrollable body so footer stays visible -->
-    <div class="modal-body" style="max-height:calc(100vh - 160px);overflow:auto;padding:16px;">
-      <form id="edit-item-form">
-        <div class="row g-3">
-          <div class="col-md-4">
-            <label class="form-label">SKU</label>
-            <input id="edit-sku" class="form-control" readonly>
-          </div>
-          <div class="col-md-8">
-            <label class="form-label">Name</label>
-            <input id="edit-name" class="form-control">
-          </div>
-
-          <div class="col-12">
-            <label class="form-label">Description</label>
-            <textarea id="edit-description" class="form-control" rows="2"></textarea>
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Price (KSH)</label>
-            <input id="edit-price" type="number" min="0" class="form-control">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Category</label>
-            <select id="edit-category" class="form-select">
-              <option value="">(unchanged)</option>
-            </select>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Image filename</label>
-            <input id="edit-image" class="form-control" placeholder="example.jpg">
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Warranty (months)</label>
-            <input id="edit-warranty" type="number" min="0" class="form-control">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Stock</label>
-            <input id="edit-stock" type="number" min="0" class="form-control">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Priority</label>
-            <input id="edit-priority" type="number" min="0" step="1" class="form-control" placeholder="0">
-          </div>
-
-          <div class="col-md-4 d-flex align-items-end">
-            <div class="form-check">
-              <input id="edit-status" class="form-check-input" type="checkbox">
-              <label class="form-check-label">Active</label>
-            </div>
-          </div>
-        </div>
-      </form>
-    </div>
-
-    <div class="modal-footer d-flex justify-content-end gap-2 p-3 border-top">
-      <button type="button" class="btn btn-outline-secondary modal-close">Cancel</button>
-      <!-- keep form submit semantics for existing JS -->
-      <button type="submit" form="edit-item-form" class="btn btn-warning">Save Changes</button>
-    </div>
-  </div>
-</div>
-
-<!-- =============== ADD ITEM MODAL (IDs preserved) =============== -->
-<div id="add-item-modal-bg" class="modal-bg modal--md" style="display:none;">
-  <div id="add-item-modal" class="modal">
-    <div class="modal-header p-3 border-bottom">
-      <h5 class="m-0">Add Item</h5>
-      <button type="button" class="btn-close modal-close" aria-label="Close"></button>
-    </div>
-
-    <div class="modal-body" style="max-height:calc(100vh - 160px);overflow:auto;padding:16px;">
-      <form id="add-item-form">
-        <div class="row g-3">
-          <div class="col-md-4">
-            <label class="form-label">SKU *</label>
-            <input id="add-sku" class="form-control" required>
-          </div>
-          <div class="col-md-8">
-            <label class="form-label">Name *</label>
-            <input id="add-name" class="form-control" required>
-          </div>
-
-          <div class="col-12">
-            <label class="form-label">Description *</label>
-            <textarea id="add-description" class="form-control" rows="2" required></textarea>
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Price (KSH) *</label>
-            <input id="add-price" type="number" min="0" class="form-control" required>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Category *</label>
-            <select id="add-category" class="form-select" required>
-              <option value="">Select...</option>
-            </select>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Image filename</label>
-            <input id="add-image" class="form-control" placeholder="example.jpg">
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Warranty (months)</label>
-            <input id="add-warranty" type="number" min="0" class="form-control">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Stock</label>
-            <input id="add-stock" type="number" min="0" class="form-control">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Priority</label>
-            <input id="add-priority" type="number" min="0" step="1" class="form-control" value="0">
-          </div>
-
-          <div class="col-md-4 d-flex align-items-end">
-            <div class="form-check">
-              <input id="add-active" class="form-check-input" type="checkbox" checked>
-              <label class="form-check-label">Active</label>
-            </div>
-          </div>
-        </div>
-      </form>
-    </div>
-
-    <div class="modal-footer d-flex justify-content-end gap-2 p-3 border-top">
-      <button type="button" class="btn btn-outline-secondary modal-close">Cancel</button>
-      <button type="submit" form="add-item-form" class="btn btn-warning">Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- =============== MANAGE CATEGORIES MODAL (IDs preserved) =============== -->
-<div id="manage-categories-modal" class="modal-bg modal--sm" style="display:none;">
-  <div class="modal">
-    <div class="modal-header p-3 border-bottom">
-      <h5 class="m-0">Categories</h5>
-      <button type="button" class="btn-close modal-close" aria-label="Close"></button>
-    </div>
-
-    <div class="modal-body" style="max-height:calc(100vh - 160px);overflow:auto;padding:16px;">
-      <ul id="categories-list" class="list-group small"></ul>
-    </div>
-
-    <div class="modal-footer d-flex justify-content-end gap-2 p-3 border-top">
-      <button type="button" class="btn btn-warning modal-close">Close</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- Task0: Visual morph to Dispatch-style card layout (non-destructive) -->
-<style>
-  .ws-card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow:0 2px 10px rgba(17,24,39,.06); }
-  .ws-card > .ws-header { padding:14px 16px; border-bottom:1px solid #e5e7eb; font-weight:600; }
-  .ws-card > .ws-body { padding:14px 16px; }
-</style>
-<script>
-(function(){
-  const PARTIAL_ID = 'items';
-  const TITLE_FALLBACK = 'Items';
-  let applied = false;
-  function wrap(el, cls){ const w=document.createElement('div'); w.className=cls; el.parentNode.insertBefore(w, el); w.appendChild(el); return w; }
-  function morph(){ 
-    if (applied) return; applied = true;
-    const root = document.currentScript.parentElement || document.body;
-    const titleEl = root.querySelector('h1, h2, .page-title, .card-header');
-    const titleText = (titleEl ? titleEl.textContent.trim() : TITLE_FALLBACK);
-    const card = document.createElement('section'); card.className='ws-card card';
-    const header = document.createElement('div'); header.className='ws-header card-header'; header.textContent = titleText;
-    const body = document.createElement('div'); body.className='ws-body card-body';
-    const kids = Array.from(root.childNodes);
-    kids.forEach(n=>{ if(n===document.currentScript) return;
-                       if(n.nodeType===1 && n.tagName==='SCRIPT') return;
-                       if(titleEl && n===titleEl) return;
-                       body.appendChild(n); });
-    const tb = body.querySelector('.toolbar, .items-toolbar, .ws-admin-toolbar, .status-toolbar, .filters, .filters-bar');
-    if (tb) { tb.classList.add('filters-bar'); if(!tb.querySelector('.spacer')){const sp=document.createElement('div'); sp.className='spacer'; tb.appendChild(sp);} }
-    const table = body.querySelector('table'); if(table && !table.closest('.table-wrap')) wrap(table, 'table-wrap');
-    ['ordersPager','users-pagination','items-pagination'].forEach(id=>{ const pg=body.querySelector('#'+id); if(pg) pg.classList.add('pager'); });
-    card.appendChild(header); card.appendChild(body);
-    root.innerHTML=''; root.appendChild(card);
-  }
-  window.addEventListener('admin:partial-loaded', e=>{ if(e.detail && e.detail.id===PARTIAL_ID) morph(); });
-  setTimeout(morph, 0);
-})();
-</script>
+</section>

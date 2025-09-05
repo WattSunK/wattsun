@@ -1,11 +1,18 @@
 <!-- public/partials/orders-modal.html -->
 <dialog id="orderEditDialog">
   <form method="dialog" class="ws-order-dialog" style="min-width:min(680px,95vw);border:none;">
-    <h3 style="margin:0 0 10px;">Edit Order</h3>
+    <div class="filters-bar" style="margin:0 0 10px;">
+      <div class="group"><label>Edit</label><span style="font-size:12px;color:#6b7280;">Order</span></div>
+      <div class="spacer"></div>
+      <div class="group">
+        <button value="cancel" class="btn" id="cancelEditBtn">Cancel</button>
+        <button id="editSaveBtn" class="btn btn-primary" type="submit">Save</button>
+      </div>
+    </div>
 
     <div class="grid" style="grid-template-columns:1fr 1fr; gap:12px;">
       <div>
-        <label>Status</label>
+        <label for="editStatus">Status</label>
         <select id="editStatus" required>
           <option value="Pending">Pending</option>
           <option value="Processing">Processing</option>
@@ -14,38 +21,13 @@
         </select>
       </div>
       <div>
-        <label>Driver</label>
-        <select id="editDriver">
-          <option value="">— None —</option>
-        </select>
+        <label for="editDriver">Driver</label>
+        <select id="editDriver"><option value="">— None —</option></select>
       </div>
       <div class="grid" style="grid-column:1/-1;">
-        <label>Internal Notes</label>
-        <textarea id="editNotes" rows="4" placeholder="Optional notes for internal use..."></textarea>
+        <label for="editNotes">Internal Notes</label>
+        <textarea id="editNotes" rows="4" placeholder="Optional notes..."></textarea>
       </div>
-    </div>
-
-    <div class="actions" style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
-      <button value="cancel" class="btn">Cancel</button>
-      <button id="editSaveBtn" class="btn btn-primary" type="button">Save</button>
     </div>
   </form>
 </dialog>
-
-
-<!-- Task0: Orders modal header/actions align to Light+Golden -->
-<script>
-(function(){
-  const dlg = document.querySelector('#orderEditDialog, dialog.ws-order-dialog, dialog#ordersModal, #ordersModal');
-  if (!dlg) return;
-  const form = dlg.querySelector('form');
-  if (!form) return;
-  if (form.querySelector('.filters-bar')) return;
-  const bar = document.createElement('div');
-  bar.className = 'filters-bar';
-  bar.innerHTML = '<div class="group"><label>Edit</label><span style="font-size:12px;color:#6b7280;">Order</span></div><div class="spacer"></div>';
-  const actions = form.querySelector('.actions, .modal-actions, footer');
-  if (actions) { actions.classList.add('group'); bar.appendChild(actions); }
-  form.insertBefore(bar, form.firstChild);
-})();
-</script>
