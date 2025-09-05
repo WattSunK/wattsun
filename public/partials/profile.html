@@ -47,4 +47,23 @@
       <button class="danger-btn" id="btnDeactivate" type="button">Deactivate Account</button>
     </div>
   </div>
+
+<!-- Task0: Profile inline hook for Light+Golden admin skin -->
+<style>
+  .profile-toolbar.filters-bar { margin-bottom: 12px; }
+  .form-actions { display:flex; gap:10px; }
+  .form-actions .spacer { flex:1 1 auto; }
+</style>
+<script>
+(function(){
+  const tb = document.querySelector('.profile-toolbar');
+  if (tb) tb.classList.add('filters-bar');
+  // Normalize any action row to sit on one line
+  const actions = document.querySelector('.form-actions');
+  if (actions && !actions.querySelector('.spacer')) {
+    const sp = document.createElement('div'); sp.className = 'spacer';
+    actions.prepend(sp);
+  }
+})();
+</script>
 </section>

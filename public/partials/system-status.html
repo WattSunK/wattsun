@@ -12,6 +12,18 @@
     <div class="sys-card sys-card--ghost" aria-hidden="true"></div>
     <div class="sys-card sys-card--ghost" aria-hidden="true"></div>
   </div>
+
+<!-- Task0: System Status inline hook for Light+Golden admin skin -->
+<style>
+  .status-toolbar.filters-bar { margin-bottom: 12px; }
+  .status-grid, .health-grid { gap: 12px; }
+</style>
+<script>
+(function(){
+  const tb = document.querySelector('.status-toolbar');
+  if (tb) tb.classList.add('filters-bar');
+})();
+</script>
 </section>
 
 <!-- Row 2: Three existing cards -->
