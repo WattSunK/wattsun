@@ -35,3 +35,40 @@ server.js.bak.*
 backups/
 # one-off patchers
 scripts/patch_*.js
+# local artifacts / backups
+*_backup_public_git_*.tgz
+cookies.txt
+logs.out
+
+# SQLite scratch / temp DBs
+*.db.pre-*
+*.db.bak
+data/**/*.db
+backups/**
+
+# OS trash
+.DS_Store
+Thumbs.db
+# --- local/temporary artifacts ---
+*.bak
+*.old
+*.orig
+*~
+*.tmp
+*.swp
+
+# backup tarballs & ad-hoc outputs
+_backup_public_git_*.tgz
+logs.out
+cookies.txt
+
+# sqlite short-lived copies from revert/restore
+*.db.pre-*
+*.db.bak
+
+# OS and misc
+.DS_Store
+Thumbs.db
+
+# temp restore folder
+_tmp_restore/
