@@ -128,4 +128,18 @@
       </div>
     </div>
   </div>
+
+<!-- Task0: map Users toolbar/pager to admin skin -->
+<style>
+  .ws-admin-toolbar.filters-bar { /* adopt admin single-row look while preserving IDs */ }
+  .ws-pager-controls.pager { display:inline-flex; align-items:center; gap:6px; }
+</style>
+<script>
+(function(){
+  const tb = document.querySelector('.ws-admin-toolbar');
+  if (tb) tb.classList.add('filters-bar');
+  const pagerControls = document.getElementById('users-pagination');
+  if (pagerControls) pagerControls.classList.add('pager');
+})();
+</script>
 </section>

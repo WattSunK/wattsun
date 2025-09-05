@@ -24,6 +24,32 @@
       </table>
     </div>
   </div>
+
+<!-- Task0: insert standard filters bar + pager for layout consistency -->
+<script>
+(function(){
+  try {
+    const header = document.querySelector('.card-header');
+    const search = document.getElementById('dispatchSearch');
+    const body = document.querySelector('.card-body');
+    if (header && search && body) {
+      const bar = document.createElement('div');
+      bar.className = 'filters-bar';
+      // group: search
+      const g1 = document.createElement('div'); g1.className = 'group';
+      const lab = document.createElement('label'); lab.textContent = 'Search';
+      const input = search; input.style.cssText=''; input.id='dispatchSearch'; input.setAttribute('placeholder','Search orders…');
+      g1.appendChild(lab); g1.appendChild(input);
+      // spacer + pager
+      const spacer = document.createElement('div'); spacer.className = 'spacer';
+      const pager = document.createElement('div'); pager.className = 'pager'; pager.id = 'pager-dispatch';
+      pager.innerHTML = '<button class="btn" id="prev-dispatch">‹</button><span class="page-indicator"><span id="page-dispatch">1</span></span><button class="btn" id="next-dispatch">›</button>';
+      bar.appendChild(g1); bar.appendChild(spacer); bar.appendChild(pager);
+      header.insertAdjacentElement('afterend', bar);
+    }
+  } catch(e){ console.warn('[dispatch] toolbar inject failed', e); }
+})();
+</script>
 </section>
 
 <!-- Items-style modal (single, centered) -->

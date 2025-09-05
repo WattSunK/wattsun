@@ -42,4 +42,23 @@
       <div id="ordersPager" class="pager"></div>
     </div>
   </div>
+
+<!-- Task0: map Orders toolbar/pager to admin skin (single-row filters + pager) -->
+<style>
+  .card-h { display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid #e5e7eb; }
+  .card-h h2 { margin:0; font-size:18px; font-weight:600; }
+  .card-h .toolbar.filters-bar { margin-left:auto; }
+  #ordersPager.pager { display:inline-flex; align-items:center; gap:6px; }
+  .orders-input { height:34px; padding:0 10px; border:1px solid #e5e7eb; border-radius:10px; }
+  .orders-table-wrapper { background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow:0 2px 10px rgba(17,24,39,.06); overflow:hidden; }
+</style>
+<script>
+(function(){
+  const tb = document.querySelector('.card-h .toolbar');
+  if (tb) tb.classList.add('filters-bar');
+  const pager = document.getElementById('ordersPager');
+  if (pager) pager.classList.add('pager');
+  // When loaded via shell, controller will listen for admin:partial-loaded; no emission here.
+})();
+</script>
 </section>

@@ -214,3 +214,21 @@
     </div>
   </div>
 </div>
+
+
+<!-- Task0: inline hook to map existing toolbar/pager to the new admin skin -->
+<style>
+  /* Minimal mapping only; no layout change other than single-row toolbar */
+  .items-toolbar { all: unset; display: flex; align-items: center; gap: 10px; }
+  .items-toolbar .ms-auto { margin-left: auto !important; }
+  #items-pagination.pager { display: inline-flex; align-items: center; gap: 6px; }
+</style>
+<script>
+(function(){
+  // Map existing toolbar to new skin classes
+  const tb = document.querySelector('.items-toolbar');
+  if (tb) tb.classList.add('filters-bar');
+  const pager = document.getElementById('items-pagination');
+  if (pager) pager.classList.add('pager');
+})();
+</script>
