@@ -172,6 +172,40 @@
       </div>
     </div>
   </div>
+
+<!-- Task0: Settings inline hook for Light+Golden admin skin -->
+<style>
+  .settings-toolbar.filters-bar { margin-bottom: 12px; }
+  .settings-toolbar .spacer { flex: 1 1 auto; }
+</style>
+<script>
+(function(){
+  // 1) If a toolbar already exists, map it to filters-bar
+  let tb = document.querySelector('.settings-toolbar');
+  if (tb) {
+    tb.classList.add('filters-bar');
+    // add a spacer if none exists so actions push right
+    if (!tb.querySelector('.spacer')) {
+      const sp = document.createElement('div'); sp.className = 'spacer';
+      tb.appendChild(sp);
+    }
+    return;
+  }
+  // 2) If no toolbar, build a minimal one below the first heading
+  const h = document.querySelector('h1, h2, .card-header');
+  const host = h ? h.parentElement : document.body;
+  if (host) {
+    tb = document.createElement('div');
+    tb.className = 'settings-toolbar filters-bar';
+    tb.innerHTML = '<div class="group"><label>Settings</label><span style="color:#6b7280;font-size:12px;">Admin</span></div><div class="spacer"></div>';
+    if (h && h.nextSibling) {
+      h.parentElement.insertBefore(tb, h.nextSibling);
+    } else {
+      host.prepend(tb);
+    }
+  }
+})();
+</script>
 </section>
 
 <style>
