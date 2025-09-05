@@ -1,7 +1,14 @@
 <!-- public/partials/orders-modal.html -->
 <dialog id="orderEditDialog">
   <form method="dialog" class="ws-order-dialog" style="min-width:min(680px,95vw);border:none;">
-    <h3 style="margin:0 0 10px;">Edit Order</h3>
+    <div class="filters-bar" style="margin:0 0 10px;">
+      <div class="group"><label>Edit</label><span style="font-size:12px;color:#6b7280;">Order</span></div>
+      <div class="spacer"></div>
+      <div class="group">
+        <button value="cancel" class="btn">Cancel</button>
+        <button id="editSaveBtn" class="btn btn-primary" type="button">Save</button>
+      </div>
+    </div>
 
     <div class="grid" style="grid-template-columns:1fr 1fr; gap:12px;">
       <div>
@@ -24,10 +31,15 @@
         <textarea id="editNotes" rows="4" placeholder="Optional notes for internal use..."></textarea>
       </div>
     </div>
-
-    <div class="actions" style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
-      <button value="cancel" class="btn">Cancel</button>
-      <button id="editSaveBtn" class="btn btn-primary" type="button">Save</button>
-    </div>
   </form>
 </dialog>
+<script>
+// keep original button IDs if another script expects them
+(function(){
+  const dlg = document.getElementById('orderEditDialog');
+  if (!dlg) return;
+  // If a different code path injects footer buttons, avoid duplicates:
+  const legacyActions = dlg.querySelector('.actions');
+  if (legacyActions) legacyActions.remove();
+})();
+</script>
