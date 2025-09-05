@@ -1,4 +1,4 @@
-/* WattSun Admin — Single Partial Loader */
+/* WattSun Admin — Single Partial Loader (execute inline scripts) */
 (() => {
   const VERSION = (window.__ADMIN_VERSION__ || "0");
   const contentEl = document.getElementById("admin-content");
@@ -9,23 +9,51 @@
     navLinks.forEach(a => a.classList.toggle("is-active", a === link));
   }
 
+  // Execute <script> tags inside a container that was set via innerHTML
+  function executeInlineScripts(scope) {
+    const scripts = Array.from(scope.querySelectorAll("script"));
+    for (const old of scripts) {
+      const s = document.createElement("script");
+      // Copy attributes (type, src, etc.)
+      for (const attr of old.attributes) s.setAttribute(attr.name, attr.value);
+      // Inline code
+      s.textContent = old.textContent;
+      // Replace in DOM to trigger execution
+      old.parentNode.replaceChild(s, old);
+    }
+  }
+
   async function loadPartial(id, url) {
     if (!contentEl) return;
     contentEl.setAttribute("aria-busy", "true");
     contentEl.innerHTML = `<div class="loading"><span class="spinner"></span><span>Loading…</span></div>`;
+
     const bust = url.includes("?") ? `&v=${VERSION}` : `?v=${VERSION}`;
     const finalUrl = `${url}${bust}`;
+
     try {
       const res = await fetch(finalUrl, { credentials: "same-origin" });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const html = await res.text();
       contentEl.innerHTML = html;
+
+      // IMPORTANT: run any inline scripts contained in the fragment
+      executeInlineScripts(contentEl);
+
       contentEl.removeAttribute("aria-busy");
       const evt = new CustomEvent('admin:partial-loaded', { detail: { id } });
       window.dispatchEvent(evt);
     } catch (err) {
       console.error("[admin-skin] failed to load partial", id, err);
-      contentEl.innerHTML = `<div class="card"><div class="card-header">Failed to load</div><div class="card-body"><p>Could not load <code>${id}</code>. Please check the Network tab.</p><pre style="white-space:pre-wrap;color:#b91c1c;">${String(err)}</pre></div></div>`;
+      contentEl.innerHTML = `
+        <div class="card">
+          <div class="card-header">Failed to load</div>
+          <div class="card-body">
+            <p>Could not load <code>${id}</code>. Please check the Network tab.</p>
+            <pre style="white-space:pre-wrap;color:#b91c1c;">${String(err)}</pre>
+          </div>
+        </div>
+      `;
       contentEl.removeAttribute("aria-busy");
     }
   }
@@ -47,7 +75,7 @@
     hardRefreshBtn.addEventListener('click', () => {
       const active = document.querySelector('.admin-nav .nav-link.is-active');
       const id = active?.getAttribute('data-partial') || 'system-status';
-      const url = active?.getAttribute('data-url') || '/public/partials/system-status.html';
+      const url = active?.getAttribute('data-url') || '/partials/system-status.html';
       loadPartial(id, url);
     });
   }
