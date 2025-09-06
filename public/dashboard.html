@@ -34,7 +34,11 @@
   <a href="#" class="nav-link"
      data-partial="settings" data-url="/partials/settings.html">Settings</a>
 
-  <!-- My Account is an existing external page  -->
+  <!-- Hidden helper link so the shell can load the customer orders page -->
+  <a href="#" class="nav-link" style="display:none"
+     data-partial="my-orders" data-url="/myaccount/myorders.html">My Orders</a>
+
+  <!-- Existing external link (optional, unchanged) -->
   <a href="/myaccount/myorders.html" class="nav-link">My Account</a>
 </nav>
 
@@ -56,10 +60,8 @@
     </section>
   </main>
 
-  <!-- Global Toasts container -->
   <div id="toasts" class="toasts" aria-live="polite" aria-atomic="true"></div>
 
-  <!-- Global Confirm Modal -->
   <dialog id="confirmModal" class="modal">
     <form method="dialog" class="modal-card">
       <div class="modal-title" id="confirmTitle">Confirm</div>
@@ -71,9 +73,7 @@
     </form>
   </dialog>
 
-  <!-- Global helpers for toasts and confirm -->
   <script>
-    // Toasts
     window.toast = (msg, type="info", ms=3000) => {
       const box = document.getElementById("toasts");
       const el = document.createElement("div");
@@ -84,8 +84,6 @@
       requestAnimationFrame(() => el.classList.add("show"));
       setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 250); }, ms);
     };
-
-    // Confirm modal
     window.askConfirm = (title, body) => new Promise((resolve) => {
       const dlg = document.getElementById('confirmModal');
       document.getElementById('confirmTitle').textContent = title || 'Confirm';
