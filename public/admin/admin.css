@@ -155,3 +155,18 @@ textarea.input {
 .banner { padding:10px 12px; border-radius:8px; display:flex; gap:10px; align-items:center; border: 1px solid transparent; }
 .banner.error { background:#fef2f2; border-color:#fecaca; color:#7f1d1d; }
 .banner .spacer { flex:1; }
+/* Secondary tabs (page-local) */
+.subtabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.subtab{
+  appearance:none;border:1px solid #f3c94a;background:#fff8e6;color:#7a5b00;
+  padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600;
+  box-shadow:0 1px 0 #f5e0a6 inset
+}
+.subtab:hover,.subtab:focus{outline:none;border-color:#d7a900;background:#fff3d1}
+.subtab.is-active{
+  background:#ffc400;color:#1f2937;border-color:#ffb100;box-shadow:inset 0 0 0 1px #ffb100
+}
+/* Panels */
+.tabpanels{background:#fff;border:1px solid var(--ws-border,#e5e7eb);border-radius:12px;box-shadow:var(--shadow-soft)}
+.tabpanel{padding:16px}
+.tabpanel[hidden]{display:none}
