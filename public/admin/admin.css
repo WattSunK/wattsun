@@ -170,3 +170,32 @@ textarea.input {
 .tabpanels{background:#fff;border:1px solid var(--ws-border,#e5e7eb);border-radius:12px;box-shadow:var(--shadow-soft)}
 .tabpanel{padding:16px}
 .tabpanel[hidden]{display:none}
+/* Global filters bar layout */
+.filters-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+/* Inputs in filters should look neat */
+.filters-bar input,
+.filters-bar select {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+/* Push pager/actions to the right */
+.filters-bar .spacer {
+  flex: 1;
+}
+
+/* Pager in same row */
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
