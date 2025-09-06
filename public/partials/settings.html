@@ -1,14 +1,124 @@
+<!-- Settings (top card) -->
 <section class="card">
   <div class="card-header">Settings</div>
   <div class="card-body">
-
-  <div class="filters-bar settings-toolbar">
-    <div class="group"><label>Settings</label><span style="font-size:12px;color:#6b7280;">Admin</span></div>
-    <div class="spacer"></div>
-  </div>
-  <div id="settingsBody">
-    <p style="color:#6b7280;">Settings controls go here.</p>
-  </div>
-
+    <div class="filters-bar settings-toolbar">
+      <div class="group">
+        <label>Settings</label>
+        <span style="font-size:12px;color:#6b7280;">Admin</span>
+      </div>
+      <div class="spacer"></div>
+      <button id="btnSettingsRefresh" class="btn small">Refresh</button>
+    </div>
+    <div id="settingsIntro" style="color:#6b7280;">
+      Adjust your account, notifications, and system integration options below.
+    </div>
   </div>
 </section>
+
+<!-- Settings cards (containers + grid come from admin.css) -->
+<div class="dash-cards">
+
+  <!-- Account & Security -->
+  <section class="card">
+    <div class="card-header">Account &amp; Security</div>
+    <div class="card-body">
+      <div><strong>Name</strong>: <span id="setName">Admin (Admin)</span></div>
+      <div><strong>Email</strong>: <span id="setEmail">admin@example.com</span></div>
+      <div><strong>Role</strong>: <span id="setRole">Administrator</span></div>
+
+      <div class="actions">
+        <button class="btn" id="btnChangePassword">Change Password</button>
+        <button class="btn" id="btnUpdateProfile">Update Profile</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Notifications -->
+  <section class="card">
+    <div class="card-header">Notifications</div>
+    <div class="card-body">
+      <div>
+        <label>
+          <input type="checkbox" id="notifyOrders" checked />
+          Email me when new orders are placed
+        </label>
+      </div>
+      <div>
+        <label>
+          <input type="checkbox" id="notifyDispatch" checked />
+          Email me on dispatch status changes
+        </label>
+      </div>
+      <div>
+        <label>
+          <input type="checkbox" id="notifySystem" />
+          Email me about system health alerts
+        </label>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="btnSaveNotifications">Save</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Integrations -->
+  <section class="card">
+    <div class="card-header">Integrations</div>
+    <div class="card-body">
+      <div><strong>Cloudflare Tunnel</strong>: <span id="intTunnel">Connected</span></div>
+      <div><strong>Mail (SMTP)</strong>: <span id="intMail">Configured</span></div>
+      <div><strong>Webhooks</strong>: <span id="intHooks">0 endpoints</span></div>
+
+      <div class="actions">
+        <button class="btn" id="btnManageIntegrations">Manage</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Danger Zone (added) -->
+  <section class="card">
+    <div class="card-header">Danger Zone</div>
+    <div class="card-body">
+      <style>
+        /* Scoped to this partial: light emphasis for destructive actions */
+        .danger-note { color:#b91c1c; font-weight:600; }
+        .btn-danger { background:#fef2f2; border:1px solid #fecaca; }
+        .btn-danger:hover { background:#fee2e2; }
+      </style>
+
+      <p class="danger-note">Caution: these actions are irreversible.</p>
+      <div class="actions">
+        <button class="btn btn-danger" id="btnClearCache">Clear Server Cache</button>
+        <button class="btn btn-danger" id="btnResetEmails">Reset Email Settings</button>
+        <button class="btn btn-danger" id="btnDeleteTestData">Delete Test Data</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  (function () {
+    // Simple confirms for Danger Zone actions (wire to real endpoints later)
+    const ask = (msg, fn) => { if (confirm(msg)) fn?.(); };
+
+    document.getElementById('btnClearCache')?.addEventListener('click', () =>
+      ask('Clear server cache now?', () => console.log('[settings] clear cache requested'))
+    );
+    document.getElementById('btnResetEmails')?.addEventListener('click', () =>
+      ask('Reset email (SMTP) settings to defaults?', () => console.log('[settings] reset SMTP requested'))
+    );
+    document.getElementById('btnDeleteTestData')?.addEventListener('click', () =>
+      ask('Delete ALL test data? This cannot be undone.', () => console.log('[settings] delete test data requested'))
+    );
+
+    // Non-destructive actions (placeholders)
+    document.getElementById('btnChangePassword')?.addEventListener('click', () => console.log('[settings] change password'));
+    document.getElementById('btnUpdateProfile')?.addEventListener('click', () => console.log('[settings] update profile'));
+    document.getElementById('btnSaveNotifications')?.addEventListener('click', () => console.log('[settings] save notifications'));
+    document.getElementById('btnManageIntegrations')?.addEventListener('click', () => console.log('[settings] manage integrations'));
+    document.getElementById('btnSettingsRefresh')?.addEventListener('click', () => location.reload());
+  })();
+</script>
