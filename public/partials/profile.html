@@ -1,12 +1,14 @@
-<!-- Profile with Hybrid Tabs (Orders -> /myaccount/myorders.html) -->
+<!-- Profile with Local Tabs (Orders embedded as a panel) -->
 <nav class="subtabs" role="tablist" aria-label="Account sections">
   <button class="subtab is-active" role="tab" aria-selected="true" data-tab="profile">Profile</button>
-  <button class="subtab" role="tab" aria-selected="false" data-route="/myaccount/myorders.html">Orders</button>
+  <button class="subtab" role="tab" aria-selected="false" data-tab="orders">Orders</button>
   <button class="subtab" role="tab" aria-selected="false" data-tab="addresses">Delivery Addresses</button>
   <button class="subtab" role="tab" aria-selected="false" data-tab="payments">Payment Methods</button>
   <button class="subtab" role="tab" aria-selected="false" data-tab="emails">Email Settings</button>
 </nav>
+
 <div class="tabpanels">
+  <!-- PROFILE -->
   <section class="tabpanel" role="tabpanel" data-tabpanel="profile">
     <section class="card">
       <div class="card-header">My Account</div>
@@ -26,11 +28,26 @@
         <div class="actions">
           <button id="btnSaveProfile" class="btn btn-primary" type="button">Save Changes</button>
           <button class="btn" type="button">Cancel</button>
-          <a class="btn btn-ghost" href="#" onclick="toast('Password flow TBD','info');return false;">Change Password &gt;</a>
+          <a class="btn btn-ghost" href="#" onclick="toast && toast('Password flow TBD','info');return false;">Change Password &gt;</a>
         </div>
       </div>
     </section>
   </section>
+
+  <!-- ORDERS (LOCAL) -->
+  <section class="tabpanel" role="tabpanel" data-tabpanel="orders" hidden>
+    <style>[data-tabpanel="orders"] .ws-title { display:none; }</style>
+    <section class="card">
+      <div class="card-header">Orders</div>
+      <div class="card-body" id="ordersPanelHost">
+        <div class="skel skel-row" style="width:60%;margin:6px 0;"></div>
+        <div class="skel skel-row" style="width:40%;margin:6px 0;"></div>
+        <div class="skel skel-block" style="height:120px;"></div>
+      </div>
+    </section>
+  </section>
+
+  <!-- ADDRESSES -->
   <section class="tabpanel" role="tabpanel" data-tabpanel="addresses" hidden>
     <section class="card">
       <div class="card-header">Delivery Addresses</div>
@@ -42,6 +59,8 @@
       </div>
     </section>
   </section>
+
+  <!-- PAYMENTS -->
   <section class="tabpanel" role="tabpanel" data-tabpanel="payments" hidden>
     <section class="card">
       <div class="card-header">Payment Methods</div>
@@ -53,6 +72,8 @@
       </div>
     </section>
   </section>
+
+  <!-- EMAIL SETTINGS -->
   <section class="tabpanel" role="tabpanel" data-tabpanel="emails" hidden>
     <section class="card">
       <div class="card-header">Email Settings</div>
@@ -65,17 +86,11 @@
     </section>
   </section>
 </div>
+
 <script>
   (function(){
     const tabs   = [...document.querySelectorAll('.subtab')];
     const panels = [...document.querySelectorAll('.tabpanel')];
-
-    function goToPartial(url){
-      const match = [...document.querySelectorAll('.admin-nav .nav-link')]
-        .find(a => a.getAttribute('data-url') === url);
-      if (match) { match.click(); return; }
-      window.dispatchEvent(new CustomEvent('admin:navigate', { detail: { url } }));
-    }
 
     function activateLocal(name){
       tabs.forEach(t => {
@@ -85,33 +100,79 @@
       });
       panels.forEach(p => p.hidden = (p.dataset.tabpanel !== name));
       const u = new URL(location.href); u.searchParams.set('tab', name); history.replaceState({}, '', u);
+      if (name === 'orders') loadOrdersIntoPanel();
     }
 
     tabs.forEach(btn => {
-      const route = btn.dataset.route;
       const local = btn.dataset.tab;
-      btn.addEventListener('click', () => {
-        if (route) goToPartial(route);
-        else if (local) activateLocal(local);
-      });
+      btn.addEventListener('click', () => activateLocal(local));
     });
 
-    const initial = new URL(location.href).searchParams.get('tab') || 'profile';
-    activateLocal(initial);
-
+    // Lightweight profile save stub (wire to /api/users/me later)
     const save = document.getElementById('btnSaveProfile');
     if (save) {
       save.addEventListener('click', async () => {
         save.classList.add('is-loading'); save.disabled = true;
         try {
-          await new Promise(r => setTimeout(r, 600));
-          toast('Profile saved', 'success'); window.markFormClean?.();
+          await new Promise(r => setTimeout(r, 400));
+          toast && toast('Profile saved', 'success'); window.markFormClean?.();
         } catch (e) {
-          toast('Could not save profile', 'error');
+          toast && toast('Could not save profile', 'error');
         } finally {
           save.classList.remove('is-loading'); save.disabled = false;
         }
       });
     }
+
+    // --- Orders panel lazy loader ---
+    let ordersLoaded = false;
+
+    async function ensureScript(src) {
+      if ([...document.scripts].some(s => s.src.endsWith(src))) return;
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = resolve; s.onerror = reject;
+        document.body.appendChild(s);
+      });
+    }
+
+    async function loadOrdersIntoPanel() {
+      if (ordersLoaded) return;
+      const host = document.getElementById('ordersPanelHost');
+      if (!host) return;
+
+      try {
+        const res = await fetch('/myaccount/myorders.html', { credentials:'same-origin' });
+        const html = await res.text();
+        const doc  = new DOMParser().parseFromString(html, 'text/html');
+
+        const section = doc.querySelector('section.ws-orders') || doc.body;
+        host.innerHTML = ''; host.appendChild(section);
+
+        // Ensure /js/myorders.js is present, then init
+        if (typeof window.initMyOrders !== 'function') {
+          await ensureScript('/js/myorders.js');
+        }
+        if (typeof window.initMyOrders === 'function') {
+          window.initMyOrders();
+        }
+
+        ordersLoaded = true;
+      } catch (e) {
+        host.innerHTML = `
+          <div class="banner error">
+            Couldn’t load your orders.
+            <div class="spacer"></div>
+            <button class="btn small" onclick="location.reload()">Retry</button>
+          </div>`;
+        toast && toast('Failed to load orders', 'error');
+        console.error(e);
+      }
+    }
+
+    // On load, honor ?tab=...; default to profile
+    const initial = new URL(location.href).searchParams.get('tab') || 'profile';
+    activateLocal(initial);
+    if (initial === 'orders') loadOrdersIntoPanel();
   })();
 </script>
