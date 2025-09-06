@@ -1,17 +1,39 @@
-<!-- System Status -->
+<!-- System Status (top card) -->
 <section class="card">
   <div class="card-header">System Status</div>
   <div class="card-body">
-    <div class="status-board">
+    <!-- Local styles ONLY for the status board UI -->
+    <style>
+      .status-board { display: flex; flex-direction: column; gap: 10px; }
+      .status-line { display: flex; align-items: center; gap: 10px; }
+      .status-label { min-width: 140px; font-weight: 600; }
+      .pill {
+        flex: 1;
+        background: rgba(0,0,0,.03);
+        border-radius: 10px;
+        padding: 8px 12px;
+        display: flex; align-items: center; gap: 8px;
+      }
+      .dot { width: 10px; height: 10px; border-radius: 50%; background: #c9c9c9; }
+      .dot.ok { background: #2ecc71; }     /* green */
+      .dot.bad { background: #e74c3c; }    /* red   */
+      .status-meta { margin-top: 6px; font-size: .9rem; color: #666; }
+    </style>
+
+    <div class="status-board" aria-live="polite">
       <div class="status-line">
         <span class="status-label">Backend API:</span>
-        <span class="dot" id="apiDot"></span>
-        <span id="apiText">Checking...</span>
+        <div class="pill">
+          <span class="dot" id="apiDot"></span>
+          <span id="apiText">Checking...</span>
+        </div>
       </div>
       <div class="status-line">
         <span class="status-label">Cloudflare Tunnel:</span>
-        <span class="dot" id="tunnelDot"></span>
-        <span id="tunnelText">Checking...</span>
+        <div class="pill">
+          <span class="dot" id="tunnelDot"></span>
+          <span id="tunnelText">Checking...</span>
+        </div>
       </div>
       <div class="status-meta">
         Last checked: <span id="statusChecked">—</span> — auto-refreshes every 30s
@@ -20,7 +42,7 @@
   </div>
 </section>
 
-<!-- Dashboard cards row -->
+<!-- Dashboard cards row (containers/grid come from admin.css) -->
 <div class="dash-cards">
   <!-- Recent Orders -->
   <section class="card">
@@ -86,7 +108,7 @@
 </div>
 
 <script>
-  // Lightweight status checker (30s); safe with your existing skin
+  // Lightweight status checker (30s); containers come from admin.css
   (function(){
     const $ = (id) => document.getElementById(id);
     async function ping(url, dotId, txtId, okText, badText){
@@ -100,8 +122,8 @@
         txt.textContent = ok ? okText : badText;
       }catch(_){
         const dot = $(dotId), txt = $(txtId);
-        if (dot) { dot.classList.remove('ok'); dot.classList.add('bad'); }
-        if (txt) txt.textContent = badText;
+        if (dot){ dot.classList.remove('ok'); dot.classList.add('bad'); }
+        if (txt){ txt.textContent = badText; }
       }
     }
     async function check(){
@@ -112,7 +134,7 @@
     check();
     setInterval(check, 30000);
 
-    // Optional: wire card buttons to left-nav sections if present
+    // Optional: route buttons to left-nav sections
     function navTo(partial){
       const link = document.querySelector('.admin-nav .nav-link[data-partial="'+partial+'"]');
       if (link) link.click();
