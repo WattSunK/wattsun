@@ -1,14 +1,120 @@
+<!-- Account header / identity card -->
 <section class="card">
-  <div class="card-header">Profile</div>
   <div class="card-body">
+    <style>
+      /* Scoped to the profile partial */
+      .profile-header { display:flex; align-items:center; gap:16px; }
+      .profile-avatar {
+        width:56px; height:56px; border-radius:50%;
+        display:flex; align-items:center; justify-content:center;
+        font-weight:700;
+        background:#f3f4f6; color:#374151;
+      }
+      .profile-meta { display:flex; flex-direction:column; gap:4px; }
+      .role-badge {
+        display:inline-flex; align-items:center; gap:6px;
+        padding:2px 8px; border-radius:999px;
+        font-size:12px; font-weight:600;
+        background:#e8f5e9; color:#166534;  /* subtle green */
+      }
+      .profile-sub { font-size:12px; color:#6b7280; }
+      .btn-danger { background:#fef2f2; border:1px solid #fecaca; }
+      .btn-danger:hover { background:#fee2e2; }
+    </style>
 
-  <div class="filters-bar">
-    <div class="group"><label>Your Profile</label><span style="font-size:12px;color:#6b7280;">Admin</span></div>
-    <div class="spacer"></div>
-  </div>
-  <div id="profileBody">
-    <p style="color:#6b7280;">Profile form goes here.</p>
-  </div>
-
+    <div class="profile-header">
+      <div class="profile-avatar" aria-hidden="true">W</div>
+      <div class="profile-meta">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <strong id="profDisplayName">WattSun Solar</strong>
+          <span class="role-badge" id="profRole">Admin</span>
+        </div>
+        <div class="profile-sub" id="profEmailLine">mainakamunyu@gmail.com</div>
+        <div class="profile-sub" id="profLastLogin">Last login: —</div>
+      </div>
+      <div class="spacer"></div>
+    </div>
   </div>
 </section>
+
+<!-- My Account form -->
+<section class="card">
+  <div class="card-header">My Account</div>
+  <div class="card-body">
+
+    <div class="form-group">
+      <label for="profName"><strong>Name</strong></label>
+      <input id="profName" class="input" type="text" value="WattSun Solar" />
+    </div>
+
+    <div class="form-group">
+      <label for="profEmail"><strong>Email</strong></label>
+      <input id="profEmail" class="input" type="email" value="mainakamunyu@gmail.com" />
+    </div>
+
+    <div class="form-group">
+      <label for="profPhone"><strong>Phone</strong></label>
+      <input id="profPhone" class="input" type="tel" value="+254722761212" />
+    </div>
+
+    <div class="form-group">
+      <label><strong>Password</strong></label>
+      <a id="linkChangePw" href="#" style="font-size:14px;">Change Password &gt;</a>
+    </div>
+
+    <div class="actions" style="gap:10px; margin-top:10px;">
+      <button id="btnSaveProfile" class="btn">Save Changes</button>
+      <button id="btnCancelProfile" class="btn">Cancel</button>
+    </div>
+
+    <div style="height:14px"></div>
+
+    <button id="btnDeactivate" class="btn btn-danger">Deactivate Account</button>
+  </div>
+</section>
+
+<script>
+  (function () {
+    const q = (s) => document.querySelector(s);
+
+    // Prefill the header from form values so it stays in sync
+    const syncHeader = () => {
+      q('#profDisplayName').textContent = q('#profName')?.value || '—';
+      q('#profEmailLine').textContent = q('#profEmail')?.value || '—';
+      const name = q('#profName')?.value?.trim() || '';
+      const initial = name ? name[0].toUpperCase() : 'U';
+      const av = document.querySelector('.profile-avatar');
+      if (av) av.textContent = initial;
+    };
+    ['#profName', '#profEmail'].forEach(sel => q(sel)?.addEventListener('input', syncHeader));
+    syncHeader();
+
+    // Buttons (placeholders; wire to your endpoints)
+    q('#btnSaveProfile')?.addEventListener('click', () => {
+      const payload = {
+        name: q('#profName')?.value,
+        email: q('#profEmail')?.value,
+        phone: q('#profPhone')?.value
+      };
+      console.log('[profile] save', payload);
+      alert('Profile saved.'); // replace with real API call
+    });
+
+    q('#btnCancelProfile')?.addEventListener('click', () => {
+      location.reload(); // simple cancel; you can revert fields if you keep originals
+    });
+
+    q('#linkChangePw')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      // Route to your password change flow or open a modal:
+      alert('Open change-password flow (placeholder).');
+    });
+
+    q('#btnDeactivate')?.addEventListener('click', () => {
+      if (confirm('Deactivate your account? This cannot be undone.')) {
+        console.log('[profile] deactivate requested');
+        alert('Deactivate requested (placeholder).');
+      }
+    });
+  })();
+</script>
