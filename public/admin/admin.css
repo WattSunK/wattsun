@@ -93,7 +93,7 @@ textarea.input {
   color: #111827;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
-.input { max-width: 480px; }
+
 .input:focus,
 select.input:focus,
 textarea.input:focus {
@@ -118,3 +118,4 @@ textarea.input {
   box-sizing: border-box; /* padding/border included in width */
   max-width: 100%;     /* never overflow card */
 }
+.input { max-width: 480px; }
