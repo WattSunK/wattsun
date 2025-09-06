@@ -1,0 +1,44 @@
+<!-- UI Kit: quick sandbox for UX primitives -->
+<section class="card">
+  <div class="card-header">UI Kit — Toasts & Confirm</div>
+  <div class="card-body">
+    <div class="actions" style="gap:8px">
+      <button class="btn" onclick="toast('Saved changes', 'success')">Toast: Success</button>
+      <button class="btn" onclick="toast('Something went wrong', 'error')">Toast: Error</button>
+      <button class="btn" onclick="askConfirm('Delete item?', 'This cannot be undone.').then(ok=>toast(ok?'Deleted':'Cancelled','info'))">Open Confirm</button>
+      <button class="btn is-loading">Saving…</button>
+    </div>
+  </div>
+</section>
+
+<div class="dash-cards" style="margin-top:12px">
+  <section class="card">
+    <div class="card-header">Skeletons</div>
+    <div class="card-body">
+      <div class="skel skel-row" style="width:60%"></div>
+      <div class="skel skel-row" style="width:40%"></div>
+      <div class="skel skel-block"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header">Empty State</div>
+    <div class="card-body">
+      <div class="empty">
+        <div class="title">No records yet</div>
+        <div>Add your first record to get started.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header">Error Banner</div>
+    <div class="card-body">
+      <div class="banner error">
+        Couldn’t load data.
+        <div class="spacer"></div>
+        <button class="btn small" onclick="location.reload()">Retry</button>
+      </div>
+    </div>
+  </section>
+</div>

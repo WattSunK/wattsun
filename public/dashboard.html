@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WattSun Admin</title>
-  <link href="/admin/admin.css?v=20250906-01" rel="stylesheet" />
+  <link href="/admin/admin.css?v=20250906-02" rel="stylesheet" />
 </head>
 <body class="admin-shell">
   <aside class="admin-sidebar">
@@ -56,7 +56,57 @@
     </section>
   </main>
 
-  <script>window.__ADMIN_VERSION__ = "20250906-01";</script>
-  <script src="/admin/js/admin-skin.js?v=20250906-01"></script>
+  <!-- Global Toasts container -->
+  <div id="toasts" class="toasts" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Global Confirm Modal -->
+  <dialog id="confirmModal" class="modal">
+    <form method="dialog" class="modal-card">
+      <div class="modal-title" id="confirmTitle">Confirm</div>
+      <div class="modal-body"  id="confirmBody">Are you sure?</div>
+      <div class="modal-actions">
+        <button id="confirmCancel" class="btn small" value="cancel">Cancel</button>
+        <button id="confirmOk" class="btn small">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Global helpers for toasts and confirm -->
+  <script>
+    // Toasts
+    window.toast = (msg, type="info", ms=3000) => {
+      const box = document.getElementById("toasts");
+      const el = document.createElement("div");
+      el.className = `toast ${type}`;
+      el.role = "status";
+      el.innerText = msg;
+      box.appendChild(el);
+      requestAnimationFrame(() => el.classList.add("show"));
+      setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 250); }, ms);
+    };
+
+    // Confirm modal
+    window.askConfirm = (title, body) => new Promise((resolve) => {
+      const dlg = document.getElementById('confirmModal');
+      document.getElementById('confirmTitle').textContent = title || 'Confirm';
+      document.getElementById('confirmBody').textContent  = body  || 'Are you sure?';
+      const ok = document.getElementById('confirmOk');
+      const cancel = document.getElementById('confirmCancel');
+      const onOk = () => { cleanup(); dlg.close(); resolve(true); };
+      const onCancel = () => { cleanup(); dlg.close(); resolve(false); };
+      const cleanup = () => {
+        ok.removeEventListener('click', onOk);
+        cancel.removeEventListener('click', onCancel);
+        dlg.removeEventListener('cancel', onCancel);
+      };
+      ok.addEventListener('click', onOk);
+      cancel.addEventListener('click', onCancel);
+      dlg.addEventListener('cancel', onCancel);
+      dlg.showModal();
+    });
+  </script>
+
+  <script>window.__ADMIN_VERSION__ = "20250906-02";</script>
+  <script src="/admin/js/admin-skin.js?v=20250906-02"></script>
 </body>
 </html>
