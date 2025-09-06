@@ -1,23 +1,28 @@
-<section class="ws-admin-section">
-  <h2 class="ws-admin-title">My Orders</h2>
-  <div class="ws-admin-filters">
-    <div class="ws-admin-filter-left"><select class="ws-admin-input"><option value="">Order Type</option></select></div>
-    <div class="ws-admin-filter-right"><input class="ws-admin-input" type="search" placeholder="Search" /></div>
-  </div>
-  <div class="ws-admin-card">
-    <table class="ws-admin-table">
-      <thead><tr><th>SL NO.</th><th>ORDER ID</th><th>ORDER TYPE</th><th>ORDER DATE/TIME</th><th>STATUS</th><th>NET VALUE</th><th>ACTION</th></tr></thead>
-      <tbody><tr><td colspan="7">No data available.</td></tr></tbody>
-    </table>
-    <div class="ws-admin-table-meta">
-      <div>Showing 0 of 0 entries</div>
-      <div class="ws-admin-pager">
-        <button class="ws-admin-page">First</button>
-        <button class="ws-admin-page">Previous</button>
-        <span class="ws-admin-page-num">1</span>
-        <button class="ws-admin-page">Next</button>
-        <button class="ws-admin-page">Last</button>
-      </div>
+<section class="card">
+  <div class="card-header">My Orders</div>
+  <div class="card-body">
+    <div class="table-wrap">
+      <table class="table orders-table">
+        <thead>
+          <tr>
+            <th>SL NO.</th>
+            <th>ORDER ID</th>
+            <th>ORDER TYPE</th>
+            <th>ORDER DATE/TIME</th>
+            <th>STATUS</th>
+            <th>NET VALUE</th>
+            <th>ACTION</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="7" style="text-align:center;">
+            <div class="skel skel-row" style="width:60%;margin:6px auto;"></div>
+            <div class="skel skel-row" style="width:40%;margin:6px auto;"></div>
+          </td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </section>
+<script src="/partials/myorders.js?v=2"></script>
+<script>initMyOrders && initMyOrders();</script>

@@ -1,115 +1,126 @@
-<!-- Account header / identity card -->
-<section class="card">
-  <div class="card-body">
-    <style>
-      /* Scoped to profile partial */
-      .profile-header { display:flex; align-items:center; gap:16px; }
-      .profile-avatar {
-        width:56px; height:56px; border-radius:50%;
-        display:flex; align-items:center; justify-content:center;
-        font-weight:700;
-        background:#f3f4f6; color:#374151;
-      }
-      .profile-meta { display:flex; flex-direction:column; gap:4px; }
-      .role-badge {
-        display:inline-flex; align-items:center; gap:6px;
-        padding:2px 8px; border-radius:999px;
-        font-size:12px; font-weight:600;
-        background:#e8f5e9; color:#166534;
-      }
-      .profile-sub { font-size:12px; color:#6b7280; }
-      .btn-danger { background:#fef2f2; border:1px solid #fecaca; }
-      .btn-danger:hover { background:#fee2e2; }
-    </style>
+<!-- Profile with Hybrid Tabs -->
+<nav class="subtabs" role="tablist" aria-label="Account sections">
+  <button class="subtab is-active" role="tab" aria-selected="true" data-tab="profile">Profile</button>
+  <button class="subtab" role="tab" aria-selected="false" data-route="/partials/myorders.html">Orders</button>
+  <button class="subtab" role="tab" aria-selected="false" data-tab="addresses">Delivery Addresses</button>
+  <button class="subtab" role="tab" aria-selected="false" data-tab="payments">Payment Methods</button>
+  <button class="subtab" role="tab" aria-selected="false" data-tab="emails">Email Settings</button>
+</nav>
 
-    <div class="profile-header">
-      <div class="profile-avatar" aria-hidden="true">W</div>
-      <div class="profile-meta">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <strong id="profDisplayName">WattSun Solar</strong>
-          <span class="role-badge" id="profRole">Admin</span>
+<div class="tabpanels">
+  <!-- PROFILE (local) -->
+  <section class="tabpanel" role="tabpanel" data-tabpanel="profile">
+    <section class="card">
+      <div class="card-header">My Account</div>
+      <div class="card-body">
+        <div class="form-group">
+          <label for="profName"><strong>Name</strong></label>
+          <input id="profName" class="input" type="text" placeholder="Your name">
         </div>
-        <div class="profile-sub" id="profEmailLine">mainakamunyu@gmail.com</div>
-        <div class="profile-sub" id="profLastLogin">Last login: —</div>
+        <div class="form-group">
+          <label for="profEmail"><strong>Email</strong></label>
+          <input id="profEmail" class="input" type="email" placeholder="you@example.com">
+        </div>
+        <div class="form-group">
+          <label for="profPhone"><strong>Phone</strong></label>
+          <input id="profPhone" class="input" type="tel" placeholder="+254...">
+        </div>
+        <div class="actions">
+          <button id="btnSaveProfile" class="btn btn-primary" type="button">Save Changes</button>
+          <button class="btn" type="button">Cancel</button>
+          <a class="btn btn-ghost" href="#" onclick="toast('Password flow TBD','info');return false;">Change Password &gt;</a>
+        </div>
       </div>
-      <div class="spacer"></div>
-    </div>
-  </div>
-</section>
+    </section>
+  </section>
 
-<!-- My Account form -->
-<section class="card">
-  <div class="card-header">My Account</div>
-  <div class="card-body">
+  <!-- ADDRESSES (local) -->
+  <section class="tabpanel" role="tabpanel" data-tabpanel="addresses" hidden>
+    <section class="card">
+      <div class="card-header">Delivery Addresses</div>
+      <div class="card-body">
+        <div class="empty">
+          <div class="title">No addresses yet</div>
+          <div>Add a delivery address to get started.</div>
+        </div>
+      </div>
+    </section>
+  </section>
 
-    <div class="form-group">
-      <label for="profName"><strong>Name</strong></label>
-      <input id="profName" class="input" type="text" value="WattSun Solar" />
-    </div>
+  <!-- PAYMENTS (local) -->
+  <section class="tabpanel" role="tabpanel" data-tabpanel="payments" hidden>
+    <section class="card">
+      <div class="card-header">Payment Methods</div>
+      <div class="card-body">
+        <div class="empty">
+          <div class="title">No payment methods</div>
+          <div>Add a card or mobile money method to save time at checkout.</div>
+        </div>
+      </div>
+    </section>
+  </section>
 
-    <div class="form-group">
-      <label for="profEmail"><strong>Email</strong></label>
-      <input id="profEmail" class="input" type="email" value="mainakamunyu@gmail.com" />
-    </div>
-
-    <div class="form-group">
-      <label for="profPhone"><strong>Phone</strong></label>
-      <input id="profPhone" class="input" type="tel" value="+254722761212" />
-    </div>
-
-    <div class="form-group">
-      <label><strong>Password</strong></label>
-      <a id="linkChangePw" href="#" style="font-size:14px;">Change Password &gt;</a>
-    </div>
-
-    <div class="actions" style="gap:10px; margin-top:10px;">
-      <button id="btnSaveProfile" class="btn">Save Changes</button>
-      <button id="btnCancelProfile" class="btn">Cancel</button>
-    </div>
-
-    <div style="height:14px"></div>
-    <button id="btnDeactivate" class="btn btn-danger">Deactivate Account</button>
-  </div>
-</section>
+  <!-- EMAIL SETTINGS (local) -->
+  <section class="tabpanel" role="tabpanel" data-tabpanel="emails" hidden>
+    <section class="card">
+      <div class="card-header">Email Settings</div>
+      <div class="card-body">
+        <div class="empty">
+          <div class="title">Preferences</div>
+          <div>Pick the notifications you want to receive.</div>
+        </div>
+      </div>
+    </section>
+  </section>
+</div>
 
 <script>
-  (function () {
-    const q = (s) => document.querySelector(s);
+  (function(){
+    const tabs   = [...document.querySelectorAll('.subtab')];
+    const panels = [...document.querySelectorAll('.tabpanel')];
 
-    // Sync header avatar + text with form
-    const syncHeader = () => {
-      q('#profDisplayName').textContent = q('#profName')?.value || '—';
-      q('#profEmailLine').textContent = q('#profEmail')?.value || '—';
-      const name = q('#profName')?.value?.trim() || '';
-      const initial = name ? name[0].toUpperCase() : 'U';
-      const av = document.querySelector('.profile-avatar');
-      if (av) av.textContent = initial;
-    };
-    ['#profName', '#profEmail'].forEach(sel => q(sel)?.addEventListener('input', syncHeader));
-    syncHeader();
+    function goToPartial(url){
+      const match = [...document.querySelectorAll('.admin-nav .nav-link')]
+        .find(a => a.getAttribute('data-url') === url);
+      if (match) { match.click(); return; }
+      window.dispatchEvent(new CustomEvent('admin:navigate', { detail: { url } }));
+    }
 
-    q('#btnSaveProfile')?.addEventListener('click', () => {
-      const payload = {
-        name: q('#profName')?.value,
-        email: q('#profEmail')?.value,
-        phone: q('#profPhone')?.value
-      };
-      console.log('[profile] save', payload);
-      alert('Profile saved.');
+    function activateLocal(name){
+      tabs.forEach(t => {
+        const on = t.dataset.tab === name;
+        t.classList.toggle('is-active', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      panels.forEach(p => p.hidden = (p.dataset.tabpanel !== name));
+      const u = new URL(location.href); u.searchParams.set('tab', name); history.replaceState({}, '', u);
+    }
+
+    tabs.forEach(btn => {
+      const route = btn.dataset.route;
+      const local = btn.dataset.tab;
+      btn.addEventListener('click', () => {
+        if (route) goToPartial(route);
+        else if (local) activateLocal(local);
+      });
     });
 
-    q('#btnCancelProfile')?.addEventListener('click', () => location.reload());
+    const initial = new URL(location.href).searchParams.get('tab') || 'profile';
+    activateLocal(initial);
 
-    q('#linkChangePw')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      alert('Open change-password flow (placeholder).');
-    });
-
-    q('#btnDeactivate')?.addEventListener('click', () => {
-      if (confirm('Deactivate your account? This cannot be undone.')) {
-        console.log('[profile] deactivate requested');
-        alert('Deactivate requested.');
-      }
-    });
+    const save = document.getElementById('btnSaveProfile');
+    if (save) {
+      save.addEventListener('click', async () => {
+        save.classList.add('is-loading'); save.disabled = true;
+        try {
+          await new Promise(r => setTimeout(r, 600));
+          toast('Profile saved', 'success'); window.markFormClean?.();
+        } catch (e) {
+          toast('Could not save profile', 'error');
+        } finally {
+          save.classList.remove('is-loading'); save.disabled = false;
+        }
+      });
+    }
   })();
 </script>
