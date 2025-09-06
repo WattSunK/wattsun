@@ -109,3 +109,12 @@ textarea.input[disabled] {
   color: #9ca3af;
   cursor: not-allowed;
 }
+/* Make all admin inputs span their container */
+.input,
+select.input,
+textarea.input {
+  display: block;
+  width: 100%;         /* take full available width */
+  box-sizing: border-box; /* padding/border included in width */
+  max-width: 100%;     /* never overflow card */
+}

@@ -11,7 +11,7 @@
       <button id="btnSettingsRefresh" class="btn small">Refresh</button>
     </div>
     <div id="settingsIntro" style="color:#6b7280;">
-      Configure your company information, user management, notifications, integrations, appearance, and system controls.
+      Configure company info, user management, notifications, integrations, appearance, and system controls.
     </div>
   </div>
 </section>
@@ -23,20 +23,25 @@
   <section class="card">
     <div class="card-header">Company Information</div>
     <div class="card-body">
-      <label for="companyName"><strong>Company Name</strong></label>
-      <input id="companyName" type="text" class="input" value="WattSun Solar" />
+      <div class="form-group">
+        <label for="companyName"><strong>Company Name</strong></label>
+        <input id="companyName" type="text" class="input" value="WattSun Solar" />
+      </div>
 
-      <div style="height:10px"></div>
-      <label for="supportEmail"><strong>Support Email</strong></label>
-      <input id="supportEmail" type="email" class="input" value="support@wattsun.co.ke" />
+      <div class="form-group">
+        <label for="supportEmail"><strong>Support Email</strong></label>
+        <input id="supportEmail" type="email" class="input" value="support@wattsun.co.ke" />
+      </div>
 
-      <div style="height:10px"></div>
-      <label for="supportPhone"><strong>Support Phone</strong></label>
-      <input id="supportPhone" type="tel" class="input" value="+254700123456" />
+      <div class="form-group">
+        <label for="supportPhone"><strong>Support Phone</strong></label>
+        <input id="supportPhone" type="tel" class="input" value="+254700123456" />
+      </div>
 
-      <div style="height:10px"></div>
-      <label for="physicalAddress"><strong>Physical Address</strong></label>
-      <input id="physicalAddress" type="text" class="input" value="Nairobi, Kenya" />
+      <div class="form-group">
+        <label for="physicalAddress"><strong>Physical Address</strong></label>
+        <input id="physicalAddress" type="text" class="input" value="Nairobi, Kenya" />
+      </div>
     </div>
   </section>
 
@@ -44,24 +49,30 @@
   <section class="card">
     <div class="card-header">User Management</div>
     <div class="card-body">
-      <label style="display:flex;align-items:center;gap:8px;">
-        <input id="enforceStrongPw" type="checkbox" /> Enforce strong passwords
-      </label>
+      <div class="form-group" style="margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input id="enforceStrongPw" type="checkbox" />
+          Enforce strong passwords
+        </label>
+      </div>
 
-      <div style="height:10px"></div>
-      <label for="sessionTimeout"><strong>Session Timeout</strong></label>
-      <select id="sessionTimeout" class="input">
-        <option>15 minutes</option>
-        <option>30 minutes</option>
-        <option selected>1 hour</option>
-        <option>2 hours</option>
-        <option>8 hours</option>
-      </select>
+      <div class="form-group">
+        <label for="sessionTimeout"><strong>Session Timeout</strong></label>
+        <select id="sessionTimeout" class="input">
+          <option>15 minutes</option>
+          <option>30 minutes</option>
+          <option selected>1 hour</option>
+          <option>2 hours</option>
+          <option>8 hours</option>
+        </select>
+      </div>
 
-      <div style="height:10px"></div>
-      <label style="display:flex;align-items:center;gap:8px;">
-        <input id="allowPwReset" type="checkbox" /> Allow Password Reset
-      </label>
+      <div class="form-group" style="margin-top:8px">
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input id="allowPwReset" type="checkbox" />
+          Allow Password Reset
+        </label>
+      </div>
     </div>
   </section>
 
@@ -69,29 +80,35 @@
   <section class="card">
     <div class="card-header">Notifications</div>
     <div class="card-body">
-      <label style="display:flex;align-items:center;gap:8px;">
-        <input id="notifOrderPlaced" type="checkbox" checked /> Order Placed Email
-      </label>
+      <div class="form-group" style="margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input id="notifOrderPlaced" type="checkbox" checked />
+          Order Placed Email
+        </label>
+      </div>
 
-      <div style="height:8px"></div>
-      <label style="display:flex;align-items:center;gap:8px;">
-        <input id="notifOrderDelivered" type="checkbox" checked /> Order Delivered Email
-      </label>
+      <div class="form-group" style="margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input id="notifOrderDelivered" type="checkbox" checked />
+          Order Delivered Email
+        </label>
+      </div>
 
-      <div style="height:12px"></div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <label style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-          <input id="notifLowStock" type="checkbox" checked /> Low Stock Alerts
+      <div class="form-group" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input id="notifLowStock" type="checkbox" checked />
+          Low Stock Alerts
         </label>
         <label for="lowStockThreshold" style="display:flex;align-items:center;gap:6px;">
-          <input id="lowStockThreshold" class="input" type="number" min="1" value="10" style="width:80px" />
+          <input id="lowStockThreshold" class="input" type="number" min="1" value="10" style="width:90px" />
           <span>threshold</span>
         </label>
       </div>
 
-      <div style="height:10px"></div>
-      <label for="notifEmailTo"><strong>Send notifications to</strong></label>
-      <input id="notifEmailTo" type="email" class="input" value="alerts@wattsun.co.ke" />
+      <div class="form-group">
+        <label for="notifEmailTo"><strong>Send notifications to</strong></label>
+        <input id="notifEmailTo" type="email" class="input" value="alerts@wattsun.co.ke" />
+      </div>
     </div>
   </section>
 
@@ -99,24 +116,29 @@
   <section class="card">
     <div class="card-header">Integrations</div>
     <div class="card-body">
-      <label for="paybill"><strong>Paybill Number</strong></label>
-      <input id="paybill" type="text" class="input" value="123456" />
+      <div class="form-group">
+        <label for="paybill"><strong>Paybill Number</strong></label>
+        <input id="paybill" type="text" class="input" value="123456" />
+      </div>
 
-      <div style="height:10px"></div>
-      <label for="apiKey"><strong>API Key</strong></label>
-      <input id="apiKey" type="password" class="input" value="********" />
+      <div class="form-group">
+        <label for="apiKey"><strong>API Key</strong></label>
+        <input id="apiKey" type="password" class="input" value="********" />
+      </div>
 
-      <div style="height:10px"></div>
-      <label for="smsGateway"><strong>SMS Gateway</strong></label>
-      <select id="smsGateway" class="input">
-        <option selected>Africa's Talking</option>
-        <option>Twilio</option>
-        <option>Infobip</option>
-      </select>
+      <div class="form-group">
+        <label for="smsGateway"><strong>SMS Gateway</strong></label>
+        <select id="smsGateway" class="input">
+          <option selected>Africa's Talking</option>
+          <option>Twilio</option>
+          <option>Infobip</option>
+        </select>
+      </div>
 
-      <div style="height:10px"></div>
-      <label for="smsSenderId"><strong>Sender ID</strong></label>
-      <input id="smsSenderId" type="text" class="input" value="WattSun" />
+      <div class="form-group">
+        <label for="smsSenderId"><strong>Sender ID</strong></label>
+        <input id="smsSenderId" type="text" class="input" value="WattSun" />
+      </div>
     </div>
   </section>
 
@@ -124,16 +146,19 @@
   <section class="card">
     <div class="card-header">Appearance</div>
     <div class="card-body">
-      <label for="logoUpload"><strong>Logo Upload</strong></label>
-      <input id="logoUpload" type="file" class="input" />
+      <div class="form-group">
+        <label for="logoUpload"><strong>Logo Upload</strong></label>
+        <input id="logoUpload" type="file" class="input" />
+      </div>
 
-      <div style="height:10px"></div>
-      <label for="themeSelect"><strong>Theme</strong></label>
-      <select id="themeSelect" class="input">
-        <option selected>Light</option>
-        <option>Dark</option>
-        <option>System</option>
-      </select>
+      <div class="form-group">
+        <label for="themeSelect"><strong>Theme</strong></label>
+        <select id="themeSelect" class="input">
+          <option selected>Light</option>
+          <option>Dark</option>
+          <option>System</option>
+        </select>
+      </div>
 
       <div class="actions">
         <button id="btnSaveAppearance" class="btn">Save</button>
@@ -178,14 +203,20 @@
   (function(){
     const confirmDo = (msg, fn) => { if (confirm(msg)) fn?.(); };
 
+    // Header
     document.getElementById('btnSettingsRefresh')?.addEventListener('click', () => location.reload());
+
+    // Appearance
     document.getElementById('btnSaveAppearance')?.addEventListener('click', () => alert('Appearance saved.'));
+
+    // System Controls
     document.getElementById('btnBackup')?.addEventListener('click', () => alert('Backup started.'));
     document.getElementById('restoreFile')?.addEventListener('change', (e) => {
       if (e.target.files?.length) alert('Restore uploaded: ' + e.target.files[0].name);
     });
     document.getElementById('btnExport')?.addEventListener('click', () => alert('Export started.'));
 
+    // Danger Zone
     document.getElementById('btnClearCache')?.addEventListener('click', () =>
       confirmDo('Clear server cache now?', () => console.log('[settings] clear cache'))
     );
