@@ -79,3 +79,33 @@ body.admin-shell { margin:0; display:grid; grid-template-columns:260px 1fr; grid
 /* Small helpers used inside cards */
 .card .actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
 .card .links   { margin-top: 8px;  font-size: .95rem; }
+/* Global form inputs for Admin */
+.input,
+select.input,
+textarea.input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--ws-border, #d1d5db);
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.4;
+  background-color: #fff;
+  color: #111827;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input:focus,
+select.input:focus,
+textarea.input:focus {
+  outline: none;
+  border-color: #f59e0b; /* golden theme */
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.input[disabled],
+select.input[disabled],
+textarea.input[disabled] {
+  background-color: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
