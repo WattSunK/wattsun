@@ -1,8 +1,8 @@
 // routes/admin-orders.js
-// Step 6.5 — Persist ALL editable fields (status, driver, notes, total/deposit/currency)
-// - Adds overlay columns: total_cents, deposit_cents, currency (idempotent)
-// - PATCH /api/admin/orders/:id accepts camel/snake/legacy keys and normalizes legacy totals
-// - Partial update: only modifies provided fields
+// Admin Orders (SQL-only list + overlay PATCH)
+// - Adds GET / (paginated list with filters)
+// - Keeps PATCH /:id overlay updates (status, driver, notes, totals)
+// - Removes runtime DDL to reduce boot-time redundancy
 
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
@@ -21,29 +21,6 @@ const DB_PATH =
 const db = new sqlite3.Database(DB_PATH, (err) => {
   if (err) console.error("[admin-orders] DB open error:", err.message, "path=", DB_PATH);
   else console.log("[admin-orders] DB connected:", DB_PATH);
-});
-
-// ---- Ensure overlay table & columns (idempotent) ----
-db.serialize(() => {
-  db.run(
-    `CREATE TABLE IF NOT EXISTS admin_order_meta (
-       order_id       TEXT PRIMARY KEY,
-       status         TEXT NOT NULL,
-       driver_id      INTEGER,
-       notes          TEXT,
-       updated_at     TEXT NOT NULL DEFAULT (datetime('now'))
-     )`,
-    (err) => err && console.error("[admin-orders] ensure table error:", err.message)
-  );
-  db.all("PRAGMA table_info(admin_order_meta)", (err, rows) => {
-    if (err) { console.error("[admin-orders] pragma error:", err.message); return; }
-    const have = new Set((rows || []).map(r => r.name));
-    const ddl = [];
-    if (!have.has("total_cents"))   ddl.push("ALTER TABLE admin_order_meta ADD COLUMN total_cents INTEGER");
-    if (!have.has("deposit_cents")) ddl.push("ALTER TABLE admin_order_meta ADD COLUMN deposit_cents INTEGER");
-    if (!have.has("currency"))      ddl.push("ALTER TABLE admin_order_meta ADD COLUMN currency TEXT");
-    ddl.forEach(sql => db.run(sql, e => e && console.error("[admin-orders] add-col error:", e.message, "sql=", sql)));
-  });
 });
 
 // ---- Helpers ----
@@ -95,6 +72,62 @@ function pickCentsFromBody(body, keyCamel, keySnake, legacyKey) {
   }
   return { provided: false, value: null };
 }
+
+// ---- GET /api/admin/orders?q&status&from&to&page=1&per=10 ----
+router.get("/", (req, res) => {
+  const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+  const per  = Math.min(Math.max(parseInt(req.query.per  || "10", 10), 1), 100);
+  const q      = (req.query.q || "").trim();
+  const status = (req.query.status || "").trim();
+  const from   = (req.query.from || "").trim();
+  const to     = (req.query.to   || "").trim();
+
+  const where = [];
+  const params = [];
+
+  if (q) {
+    const like = `%${q}%`;
+    where.push("(orderNumber LIKE ? OR fullName LIKE ? OR phone LIKE ? OR email LIKE ?)");
+    params.push(like, like, like, like);
+  }
+  if (status) { where.push("status = ?"); params.push(status); }
+  if (from)   { where.push("datetime(createdAt) >= datetime(?)"); params.push(from); }
+  if (to)     { where.push("datetime(createdAt) <= datetime(?)"); params.push(to); }
+
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const offset = (page - 1) * per;
+
+  const sqlCount = `SELECT COUNT(*) AS c FROM orders ${whereSql};`;
+  const sqlList  = `
+    SELECT id, orderNumber, fullName, phone, email, status, totalCents, createdAt
+    FROM orders
+    ${whereSql}
+    ORDER BY datetime(createdAt) DESC
+    LIMIT ? OFFSET ?;`;
+
+  db.get(sqlCount, params, (e1, row) => {
+    if (e1) return res.status(500).json({ success:false, error:{code:"db_count_failed", message:e1.message} });
+    const total = row?.c || 0;
+    const listParams = params.slice(); listParams.push(per, offset);
+    db.all(sqlList, listParams, (e2, rows) => {
+      if (e2) return res.status(500).json({ success:false, error:{code:"db_list_failed", message:e2.message} });
+      res.json({
+        success: true,
+        page, per, total,
+        orders: (rows || []).map(r => ({
+          id: r.id,
+          orderNumber: r.orderNumber,
+          fullName: r.fullName,
+          phone: r.phone,
+          email: r.email,
+          status: r.status,
+          totalCents: Number.isInteger(r.totalCents) ? r.totalCents : parseInt(r.totalCents || 0, 10),
+          createdAt: r.createdAt
+        }))
+      });
+    });
+  });
+});
 
 // ---- PATCH /api/admin/orders/:id ----
 router.patch("/:id", (req, res) => {
@@ -180,6 +213,7 @@ router.patch("/:id", (req, res) => {
   });
 });
 
+// Local diag
 router.get("/_diag/ping", (_req, res) => res.json({ success: true, time: new Date().toISOString() }));
 
 module.exports = router;
