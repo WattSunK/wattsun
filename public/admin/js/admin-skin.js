@@ -222,3 +222,112 @@
     window.toast && toast(`Unknown create type: ${type}`, "error");
   });
 })();
+
+// --- Topbar Home/Logout: resilient injector (idempotent) ---
+(function(){
+  function ensureTopbarButtons(root){
+    try {
+      var bar = root && root.querySelector ? root.querySelector('.topbar-actions') : document.querySelector('.topbar-actions');
+      if (!bar) return;
+      // If already present, done.
+      var hasHome = !!document.getElementById('btn-home');
+      var hasLogout = !!document.getElementById('btn-logout');
+      if (hasHome && hasLogout) return;
+
+      // Create Home
+      if (!hasHome) {
+        var home = document.createElement('a');
+        home.id = 'btn-home';
+        home.className = 'btn';
+        home.href = '/public/index.html';
+        home.title = 'Go to site Home';
+        home.textContent = 'Home';
+        // Prefer to insert before Refresh if exists
+        var refresh = bar.querySelector('#hard-refresh');
+        if (refresh && refresh.parentNode === bar) {
+          bar.insertBefore(home, refresh);
+        } else {
+          bar.appendChild(home);
+        }
+      }
+
+      // Create Logout
+      if (!hasLogout) {
+        var logout = document.createElement('button');
+        logout.id = 'btn-logout';
+        logout.type = 'button';
+        logout.className = 'btn btn-danger';
+        logout.title = 'Log out';
+        logout.textContent = 'Logout';
+        var refresh2 = bar.querySelector('#hard-refresh');
+        if (refresh2 && refresh2.parentNode === bar) {
+          bar.insertBefore(logout, refresh2);
+        } else {
+          bar.appendChild(logout);
+        }
+      }
+    } catch(e) { /* no-op */ }
+  }
+
+  // Run once DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ ensureTopbarButtons(); }, { once:true });
+  } else {
+    ensureTopbarButtons();
+  }
+
+  // Observe mutations to re-ensure after partial reloads
+  try {
+    var obsTarget = document.body;
+    var mo = new MutationObserver(function(muts){
+      for (var i=0;i<muts.length;i++){
+        var m = muts[i];
+        if (m.type === 'childList') {
+          // If a new topbar-actions appears or children changed, re-ensure
+          if ([].some.call(m.addedNodes || [], function(n){ return n.querySelector && n.querySelector('.topbar-actions'); })) {
+            ensureTopbarButtons(document);
+          }
+          if (m.target && m.target.classList && m.target.classList.contains('topbar-actions')) {
+            ensureTopbarButtons(document);
+          }
+        }
+      }
+    });
+    mo.observe(obsTarget, { childList: true, subtree: true });
+  } catch(e) { /* ignore */ }
+})();
+
+// --- Safe Logout wiring (append-only, non-breaking) ---
+(function () {
+  function wireLogout() {
+    var btn = document.getElementById('btn-logout');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      try { if (window.localStorage && localStorage.clear) localStorage.clear(); } catch (e) {}
+      try { if (window.sessionStorage && sessionStorage.clear) sessionStorage.clear(); } catch (e) {}
+      try {
+        var names = ['connect.sid','sid'];
+        var all = (document.cookie || '').split(';');
+        for (var i=0;i<all.length;i++) {
+          var kv = all[i].split('=');
+          var name = (kv[0] || '').trim();
+          if (names.indexOf(name) !== -1) {
+            document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+          }
+        }
+      } catch (e) {}
+      window.location.href = '/public/index.html';
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireLogout);
+  } else {
+    wireLogout();
+  }
+  // Also rewire if the button is re-inserted later
+  document.addEventListener('click', function(e){
+    if (e && e.target && e.target.id === 'btn-logout') {
+      // handler is already attached by addEventListener; this is a safeguard.
+    }
+  });
+})();

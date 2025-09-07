@@ -278,3 +278,6 @@ a.btn, a.btn:link, a.btn:visited { color: inherit; text-decoration: none; }
 a.btn:hover, a.btn:focus { text-decoration: none; }
 a.btn { display: inline-flex; align-items: center; justify-content: center; }
 
+
+.btn-danger{background:#ef4444;border-color:#ef4444;color:#fff;}
+.btn-danger:hover{background:#dc2626;border-color:#dc2626;}
