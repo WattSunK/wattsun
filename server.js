@@ -1,11 +1,11 @@
-// server.js (patched to support admin Save in Orders)
+// server.js (patched admin gate + session normalize)
 //
-// - Caches the latest /api/orders payload in memory (app.locals.orders)
-// - Adds POST /api/update-order  (updates status/payment/amount/deposit in-memory)
-// - Adds POST /api/update-order-status (legacy alias)
-// - Leaves your existing routes intact
+// - Admin gate now accepts either user.type === "Admin" OR user.role === "Admin"
+// - Removes debug console.log from requireAdmin
+// - Adds tiny middleware to normalize session fields (role/type) once per request
+// - Leaves routes and other behavior unchanged
 
-const path = require("path");                 // keep only once
+const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 const express = require("express");
 const http = require("http");
@@ -14,11 +14,7 @@ const nodemailer = require("nodemailer");
 const session = require("express-session");
 require("dotenv").config();
 
-const app = express(); // ← create app first
-
-require("dotenv").config();
-
-// const app = express(); // ← keep this line (REMOVED DUPLICATE)
+const app = express();
 
 // --- Mailer (Nodemailer) ---
 // Safe fallback: if SMTP_* env is not set, use JSON transport so /api/contact and /api/test-email won’t crash.
@@ -28,12 +24,14 @@ const transporter = nodemailer.createTransport(
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT || 587),
         secure: String(process.env.SMTP_PORT) === "465", // true for 465
-        auth: (process.env.SMTP_USER && process.env.SMTP_PASS)
-          ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-          : undefined,
+        auth:
+          process.env.SMTP_USER && process.env.SMTP_PASS
+            ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+            : undefined,
       }
     : { jsonTransport: true }
 );
+
 // Default to the *users* DB; allow override via env
 const DB_PATH =
   process.env.SQLITE_DB ||
@@ -49,7 +47,6 @@ const sqliteDb = new sqlite3.Database(DB_PATH, (err) => {
   }
 });
 app.set("db", sqliteDb);
-
 
 // Knex (your existing DB)
 const db = knex({
@@ -71,18 +68,32 @@ app.use(
   })
 );
 
-// === 6.5.5 — Admin gate (INSERTION) ==========================
+// --- Session normalizer (maps role/type both ways so checks remain stable) ---
+app.use((req, _res, next) => {
+  const u = req.session && req.session.user;
+  if (u) {
+    if (!u.role && u.type) u.role = u.type;
+    if (!u.type && u.role) u.type = u.role;
+  }
+  next();
+});
+
+// === Admin gate (supports role OR type, keeps /_diag open) ===================
 function requireAdmin(req, res, next) {
   // Keep diagnostics open if this file mounts _diag under /api/admin
   if (req.path && req.path.startsWith("/_diag")) return next();
+
   const u = req.session?.user || req.user || null;
-  console.log("[requireAdmin] session user:", u);
-  if (!u || (u.type !== "Admin" && u.type !== "Admin")) {
-    return res.status(403).json({ success:false, error:{ code:"FORBIDDEN", message:"Admin access required." } });
+  const isAdmin = !!u && (u.type === "Admin" || u.role === "Admin");
+  if (!isAdmin) {
+    return res.status(403).json({
+      success: false,
+      error: { code: "FORBIDDEN", message: "Admin access required." },
+    });
   }
   next();
 }
-// =============================================================
+// ============================================================================
 
 // Mounted routes (unchanged)
 app.use("/api/signup", require("./routes/signup"));
@@ -91,18 +102,17 @@ app.use("/api/myorders", require("./routes/myorders"));
 app.use("/api/items", require("./routes/items")(db));
 app.use("/api/categories", require("./routes/categories")(db));
 
-// (INSERTION) Gate all /api/admin/* below with one line:
+// Gate all /api/admin/* below with one line:
 app.use("/api/admin", requireAdmin);
 app.use("/api/admin/orders", require("./routes/admin-orders")); // NEW (PATCH)
-const adminOrdersMeta = require('./routes/admin-orders-meta');
-app.use("/api/admin/users",  require("./routes/admin-users"));  // NEW (GET drivers)
+const adminOrdersMeta = require("./routes/admin-orders-meta");
+app.use("/api/admin/users", require("./routes/admin-users")); // NEW (GET drivers)
 app.use("/api/admin/_diag", require("./routes/admin-diagnostics"));
 app.use("/api/admin/dispatch", require("./routes/admin-dispatch"));
 app.use("/api", require("./routes/calculator"));
 app.use("/api", require("./routes/users"));
 app.use("/api", require("./routes/login"));
 app.use("/api", require("./routes/reset"));
-
 
 // --- Wrap /api/orders to cache the latest list in memory ---
 const ordersRouter = require("./routes/orders");
@@ -122,7 +132,7 @@ app.use(
           req.app.locals.orders = data.orders;
           req.app.locals.ordersWrap = data;
         }
-      } catch (e) {
+      } catch (_e) {
         // swallow
       }
       return origJson(data);
@@ -135,19 +145,20 @@ app.use(
 // Keep existing route
 app.use("/api/track", require("./routes/track"));
 
-app.use('/api/admin/orders/meta', adminOrdersMeta);
+app.use("/api/admin/orders/meta", adminOrdersMeta);
+
 // Health check
-app.get("/api/health", (req, res) => {
+app.get("/api/health", (_req, res) => {
   res.status(200).send("OK");
 });
 
 // Test route
-app.get("/api/test", (req, res) => {
+app.get("/api/test", (_req, res) => {
   res.send("✅ Test route works");
 });
 
 // Root route
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
@@ -162,7 +173,9 @@ app.post("/api/order", (req, res) => {
     !Array.isArray(cart) ||
     cart.length === 0
   ) {
-    return res.status(400).json({ error: "Missing required fields or cart" });
+    return res
+      .status(400)
+      .json({ error: "Missing required fields or cart" });
   }
   console.log("✅ Order received:", req.body);
   res.status(200).json({ success: true });
@@ -180,7 +193,12 @@ app.post("/api/contact", async (req, res) => {
     return res.status(400).json({ error: "Missing required fields" });
   }
   try {
-    await db("messages").insert({ name, email, message, created_at: new Date() });
+    await db("messages").insert({
+      name,
+      email,
+      message,
+      created_at: new Date(),
+    });
     const adminEmail = await getAdminEmail();
     if (!adminEmail) throw new Error("Admin email not configured");
 
@@ -218,7 +236,7 @@ WattSun Solar Team`,
   }
 });
 
-app.get("/api/admin/email", async (req, res) => {
+app.get("/api/admin/email", async (_req, res) => {
   try {
     const email = await getAdminEmail();
     if (!email) {
@@ -249,7 +267,7 @@ app.put("/api/admin/email", async (req, res) => {
 });
 
 // SMTP test
-app.get("/api/test-email", async (req, res) => {
+app.get("/api/test-email", async (_req, res) => {
   try {
     await transporter.sendMail({
       from: `"WattSun SMTP Test" <${process.env.SMTP_USER}>`,
@@ -326,13 +344,17 @@ app.post("/api/update-order-status", (req, res) => {
   return res.json({ ok: true, updated: true, order: o });
 });
 
-(function checkDbAtEnd(){
+(function checkDbAtEnd() {
   try {
     const db = app.get("db");
     if (!db) return console.warn("[EndCheck] no db handle on app");
     db.all("PRAGMA database_list", [], (e, rows) => {
       if (e) console.warn("[EndCheck] PRAGMA failed:", e.message);
-      else console.log("[EndCheck] final sqlite main file:", (rows||[]).find(r=>r.name==="main")?.file);
+      else
+        console.log(
+          "[EndCheck] final sqlite main file:",
+          (rows || []).find((r) => r.name === "main")?.file
+        );
     });
   } catch (e) {
     console.warn("[EndCheck] check failed:", e.message);
