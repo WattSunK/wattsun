@@ -1,45 +1,80 @@
 <section class="card">
-  <div class="card-header">Orders</div>
-  <div class="card-body">
-  <div class="filters-bar">
+  <div class="card-header card-header--tight">
+    <h2 class="h2">Orders</h2>
+    <div class="spacer"></div>
+    <button id="btnAddOrder_orders" class="btn btn-primary">Add Order</button>
+  </div>
 
-<div class="group">
-  <label for="ordersSearch">Search</label>
-  <input id="ordersSearch" class="orders-input" type="search" placeholder="Search by name, phone, email…" />
-</div>
-<div class="group">
-  <label for="ordersStatus">Status</label>
-  <select id="ordersStatus">
-    <option value="">All</option>
-    <option>New</option>
-    <option>Processing</option>
-    <option>Confirmed</option>
-    <option>Delivered</option>
-    <option>Cancelled</option>
-  </select>
-</div>
-<div class="group">
-  <label for="per-orders">Per page</label>
-  <select id="per-orders"><option>10</option><option>25</option><option>50</option></select>
-</div>
+  <div class="filters-bar">
+    <div class="group">
+      <label>Status</label>
+      <select id="ordersStatus" class="input">
+        <option value="">All</option>
+        <option>Pending</option>
+        <option>Processing</option>
+        <option>Delivered</option>
+        <option>Cancelled</option>
+      </select>
+    </div>
+
+    <div class="group">
+      <label>From</label>
+      <input id="ordersFrom" class="input" type="date">
+    </div>
+
+    <div class="group">
+      <label>To</label>
+      <input id="ordersTo" class="input" type="date">
+    </div>
 
     <div class="spacer"></div>
-    <div class="pager" id="ordersPager">
-      <button class="btn" aria-label="Previous" id="prev-ordersPager">‹</button>
-      <span class="page-indicator"><span id="page-ordersPager">1</span></span>
-      <button class="btn" aria-label="Next" id="next-ordersPager">›</button>
+
+    <div class="group">
+      <label>Search</label>
+      <input id="ordersSearch" class="input" type="search" placeholder="Find order…">
+    </div>
+
+    <button id="ordersSearchBtn" class="btn">Search</button>
+    <button id="ordersClearBtn" class="btn btn-ghost">Clear</button>
+  </div>
+
+  <div class="card-body card-body--tight">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Order #</th>
+            <th>Customer</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Total</th>
+            <th style="text-align:center;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="ordersRows">
+          <tr><td colspan="8" class="muted">(No data yet)</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
-  <div class="table-wrap">
-    <table class="table" id="ordersTable">
-      <thead>
-        <tr>
-          <th>Order #</th><th>Customer</th><th>Phone</th><th>Email</th>
-          <th>Status</th><th>Total</th><th>Placed</th><th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="ordersRows"><tr><td colspan="8" style="color:#6b7280;">(No data yet)</td></tr></tbody>
-    </table>
-  </div>
+
+  <div class="filters-bar">
+    <div id="ordersMeta" class="group">Showing 0 of 0 entries</div>
+    <div class="spacer"></div>
+    <div class="pager" id="ordersPager">
+      <button class="btn" id="ordersFirst">First</button>
+      <button class="btn" id="ordersPrev">Previous</button>
+      <span class="page-indicator" id="ordersPageNum">1</span>
+      <button class="btn" id="ordersNext">Next</button>
+      <button class="btn" id="ordersLast">Last</button>
+    </div>
   </div>
 </section>
+
+<script>
+(function(){
+  document.getElementById('btnAddOrder_orders')?.addEventListener('click', () => {
+    window.dispatchEvent(new CustomEvent('admin:create', { detail: { type: 'order', source: 'orders' } }));
+  });
+})();
+</script>

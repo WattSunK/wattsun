@@ -1,33 +1,69 @@
 <section class="card">
-  <div class="card-header">Items</div>
-  <div class="card-body">
-  <div class="filters-bar">
+  <div class="card-header card-header--tight">
+    <h2 class="h2">Items</h2>
+    <div class="spacer"></div>
+    <button id="btnAddItem" class="btn btn-primary">Add Item</button>
+  </div>
 
-<div class="group">
-  <label for="itemsSearch">Search</label>
-  <input id="itemsSearch" type="search" placeholder="Search items…" />
-</div>
-<div class="group">
-  <label for="itemsStatus">Status</label>
-  <select id="itemsStatus"><option value="">All</option><option>Active</option><option>Hidden</option></select>
-</div>
-<div class="group">
-  <label for="per-items">Per page</label>
-  <select id="per-items"><option>10</option><option>25</option><option>50</option></select>
-</div>
+  <div class="filters-bar">
+    <div class="group">
+      <label>Status</label>
+      <select id="itemsStatus" class="input">
+        <option value="">All</option>
+        <option>Active</option>
+        <option>Out of stock</option>
+        <option>Archived</option>
+      </select>
+    </div>
 
     <div class="spacer"></div>
-    <div class="pager" id="items-pagination">
-      <button class="btn" aria-label="Previous" id="prev-items-pagination">‹</button>
-      <span class="page-indicator"><span id="page-items-pagination">1</span></span>
-      <button class="btn" aria-label="Next" id="next-items-pagination">›</button>
+
+    <div class="group">
+      <label>Search</label>
+      <input id="itemsSearch" class="input" type="search" placeholder="Find item…">
+    </div>
+
+    <button id="itemsSearchBtn" class="btn">Search</button>
+    <button id="itemsClearBtn" class="btn btn-ghost">Clear</button>
+  </div>
+
+  <div class="card-body card-body--tight">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>SKU</th>
+            <th>Title</th>
+            <th>Price</th>
+            <th>Stock</th>
+            <th>Updated</th>
+            <th style="text-align:center;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="itemsRows">
+          <tr><td colspan="5" class="muted">(No data yet)</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
-  <div class="table-wrap">
-    <table class="table" id="itemsTable">
-      <thead><tr><th>SKU</th><th>Name</th><th>Price</th><th>Stock</th><th>Action</th></tr></thead>
-      <tbody id="itemsRows"><tr><td colspan="5" style="color:#6b7280;">(No data yet)</td></tr></tbody>
-    </table>
-  </div>
+
+  <div class="filters-bar">
+    <div id="itemsMeta" class="group">Showing 0 of 0 entries</div>
+    <div class="spacer"></div>
+    <div class="pager" id="items-pagination">
+      <button class="btn" id="itemsFirst">First</button>
+      <button class="btn" id="itemsPrev">Previous</button>
+      <span class="page-indicator" id="itemsPageNum">1</span>
+      <button class="btn" id="itemsNext">Next</button>
+      <button class="btn" id="itemsLast">Last</button>
+    </div>
   </div>
 </section>
+
+<script>
+(function(){
+  document.getElementById('btnAddItem')?.addEventListener('click', () => {
+    window.dispatchEvent(new CustomEvent('admin:create', { detail: { type: 'item', source: 'items' } }));
+  });
+})();
+</script>

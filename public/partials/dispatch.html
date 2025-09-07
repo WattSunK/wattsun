@@ -2,13 +2,15 @@
   <div class="card-header card-header--tight">
     <h2 class="h2">Dispatch</h2>
     <div class="spacer"></div>
-    <input id="dispatchSearch" class="input input--search" placeholder="Search orders…">
+    <!-- Primary action lives on the right -->
+    <button id="btnAddOrder_dispatch" class="btn btn-primary">Add Order</button>
   </div>
 
+  <!-- Filters row (no floating search button) -->
   <div class="filters-bar">
     <div class="group">
       <label>Search</label>
-      <input id="dispatchSearchDup" class="input" placeholder="Search orders…">
+      <input id="dispatchSearch" class="input" placeholder="Search orders…">
     </div>
     <div class="spacer"></div>
     <div class="pager" id="pager-dispatch">
@@ -39,6 +41,7 @@
   </div>
 </section>
 
+<!-- Modal kept unchanged (invoked from "View" actions) -->
 <div id="dispatchModalOverlay" class="modal-backdrop">
   <div id="dispatchModalDialog" class="modal-card">
     <div class="modal-header">
@@ -54,21 +57,13 @@
 
 <script>
 (function(){
+  // Global-safe "Add Order" dispatch: let the shell decide what to do
+  document.getElementById('btnAddOrder_dispatch')?.addEventListener('click', () => {
+    window.dispatchEvent(new CustomEvent('admin:create', { detail: { type: 'order', source: 'dispatch' } }));
+  });
+
   const TBODY  = document.getElementById('dispatchTbody');
   const SEARCH = document.getElementById('dispatchSearch');
-  const SEARCH_DUP = document.getElementById('dispatchSearchDup');
-
-  function syncSearch(from, to){
-    from?.addEventListener('input', () => { if (to && to.value !== from.value) to.value = from.value; filterNow(); });
-  }
-  syncSearch(SEARCH, SEARCH_DUP);
-  syncSearch(SEARCH_DUP, SEARCH);
-
-  const OVERLAY = document.getElementById('dispatchModalOverlay');
-  const TITLE   = document.getElementById('dv-title');
-  const BODY    = document.getElementById('dv-body');
-  const CLOSE_X = document.getElementById('dv-close-x');
-  const CLOSE_B = document.getElementById('dv-close-btn');
 
   if (!window.WattSunAdminData) {
     TBODY.innerHTML = '<tr><td colspan="6" class="danger" style="text-align:center">Adapter missing.</td></tr>';
@@ -92,9 +87,7 @@
     return d ? (d.fullName || d.name || d.email || ('#' + (d.id ?? d.userId ?? d.driverId))) : 'Unassigned';
   }
 
-  function getOrderId(o) {
-    return String(o.id || o.orderNumber || '');
-  }
+  function getOrderId(o) { return String(o.id || o.orderNumber || ''); }
 
   function currentDriverId(o) {
     const oid = getOrderId(o);
@@ -157,7 +150,7 @@
   }
 
   function filterNow() {
-    const q = (SEARCH?.value || SEARCH_DUP?.value || '').trim().toLowerCase();
+    const q = (SEARCH?.value || '').trim().toLowerCase();
     if (!q) return render(rows);
     const filtered = rows.filter(o => {
       const hay = [o.id, o.orderNumber, o.fullName, o.email, o.phone, o.status, currentDriverLabel(o)]
@@ -166,6 +159,13 @@
     });
     render(filtered);
   }
+
+  // Modal
+  const OVERLAY = document.getElementById('dispatchModalOverlay');
+  const TITLE   = document.getElementById('dv-title');
+  const BODY    = document.getElementById('dv-body');
+  const CLOSE_X = document.getElementById('dv-close-x');
+  const CLOSE_B = document.getElementById('dv-close-btn');
 
   function showModal(o) {
     TITLE.textContent = `Order ${getOrderId(o)}`;
@@ -227,7 +227,7 @@
     if (!btn) return;
     const role = btn.getAttribute('data-role');
     const orderId = btn.getAttribute('data-oid');
-    const select = TBODY.querySelector(f'select[data-role="driver-select"][data-oid="{orderId}"]');
+    const select = TBODY.querySelector(`select[data-role="driver-select"][data-oid="${orderId}"]`);
     const selected = select ? select.value : "";
 
     if (role === 'assign') {
@@ -298,7 +298,6 @@
   }
 
   SEARCH?.addEventListener('input', () => { clearTimeout(SEARCH._t); SEARCH._t = setTimeout(filterNow, 150); });
-  SEARCH_DUP?.addEventListener('input', () => { clearTimeout(SEARCH_DUP._t); SEARCH_DUP._t = setTimeout(filterNow, 150); });
 
   load();
 })();
