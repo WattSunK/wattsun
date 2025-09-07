@@ -1,8 +1,10 @@
 // routes/admin-orders.js
-// Admin Orders (SQL-only list + overlay PATCH)
-// - GET / → paginated list with filters, overlay-aware (LEFT JOIN admin_order_meta)
-// - PATCH /:id → overlay updates (status, driver, notes, totals)
-// - Removes runtime DDL to reduce boot-time redundancy
+// Admin Orders (SQL list + overlay PATCH + single GET)
+// - GET /           → paginated list with filters, overlay-aware (LEFT JOIN admin_order_meta)
+// - GET /:id        → single order with items, overlay-aware
+// - PATCH /:id      → overlay updates (status, driver, notes, totals)
+//
+// Note: DB path resolved relative to this file; can be overridden by env.
 
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
@@ -12,7 +14,7 @@ const router = express.Router();
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
 
-// ---- DB path hardened (works regardless of process.cwd()) ----
+// ---- DB path ----
 const DB_PATH =
   process.env.DB_PATH_USERS ||
   process.env.SQLITE_DB ||
@@ -86,20 +88,20 @@ router.get("/", (req, res) => {
   const where = [];
   const params = [];
 
-  // free-text across common fields (orders table)
+  // free-text search
   if (q) {
     const like = `%${q}%`;
     where.push("(o.orderNumber LIKE ? OR o.fullName LIKE ? OR o.phone LIKE ? OR o.email LIKE ?)");
     params.push(like, like, like, like);
   }
 
-  // status filter must be overlay-aware
+  // overlay-aware status filter
   if (status) {
     where.push("COALESCE(aom.status, o.status) = ?");
     params.push(status);
   }
 
-  // date range on orders.createdAt
+  // date range on createdAt
   if (from) { where.push("datetime(o.createdAt) >= datetime(?)"); params.push(from); }
   if (to)   { where.push("datetime(o.createdAt) <  datetime(?)"); params.push(to); }
 
@@ -131,7 +133,7 @@ router.get("/", (req, res) => {
       aom.driver_id                                 AS driverId,
       aom.notes                                     AS notes,
 
-      -- originals (optional for debugging/UI fallbacks)
+      -- originals (optional)
       o.status       AS originalStatus,
       o.totalCents   AS originalTotalCents
 
@@ -158,7 +160,6 @@ router.get("/", (req, res) => {
       res.json({
         success: true,
         page, per, total,
-        // expose overlay-aware fields the UI can render directly
         orders: (rows || []).map(r => ({
           id: r.id,
           orderNumber: r.orderNumber,
@@ -179,13 +180,69 @@ router.get("/", (req, res) => {
           driverId: r.driverId ?? null,
           notes: r.notes,
 
-          // originals (optional; can be omitted if not needed by UI)
           originalStatus: r.originalStatus,
           originalTotalCents: Number.isInteger(r.originalTotalCents)
             ? r.originalTotalCents
             : parseInt(r.originalTotalCents || 0, 10),
         }))
       });
+    });
+  });
+});
+
+// ---- GET /api/admin/orders/:id ----
+// Returns one order + items, overlay-aware.
+router.get("/:id", (req, res) => {
+  const id = String(req.params.id || "").trim();
+  if (!id) return res.status(400).json({ success:false, error:{code:"MISSING_ORDER_ID"} });
+
+  const sqlOrder = `
+    SELECT
+      o.id,
+      o.orderNumber,
+      o.fullName,
+      o.phone,
+      o.email,
+      o.address,
+      o.createdAt,
+
+      COALESCE(aom.status,        o.status)     AS status,
+      COALESCE(aom.total_cents,   o.totalCents) AS totalCents,
+      COALESCE(aom.deposit_cents, 0)            AS depositCents,
+      aom.currency                               AS currency,
+      aom.driver_id                               AS driverId,
+      aom.notes                                   AS notes,
+
+      -- originals (for reference if needed by UI)
+      o.status       AS originalStatus,
+      o.totalCents   AS originalTotalCents
+
+    FROM orders o
+    LEFT JOIN admin_order_meta aom ON aom.order_id = o.id
+    WHERE o.id = ?
+    LIMIT 1;
+  `;
+
+  const sqlItems = `
+    SELECT id, order_id AS orderId, sku, name, qty, priceCents, depositCents, image
+    FROM order_items
+    WHERE order_id = ?
+    ORDER BY id ASC;
+  `;
+
+  db.get(sqlOrder, [id], (e1, order) => {
+    if (e1) {
+      console.error("admin/orders(:id) order error:", e1);
+      return res.status(500).json({ success:false, error:{code:"db_order_failed", message:e1.message} });
+    }
+    if (!order) return res.status(404).json({ success:false, error:{code:"NOT_FOUND"} });
+
+    db.all(sqlItems, [id], (e2, items = []) => {
+      if (e2) {
+        console.error("admin/orders(:id) items error:", e2);
+        return res.status(500).json({ success:false, error:{code:"db_items_failed", message:e2.message} });
+      }
+      res.json({ success:true, order: { ...order, items } });
     });
   });
 });
