@@ -1,40 +1,73 @@
 <section class="card">
-  <div class="card-header">Users</div>
-  <div class="card-body">
-  <div class="filters-bar">
-
-<div class="group">
-  <button class="btn" id="addUserBtn">+ Add User</button>
-</div>
-<div class="group">
-  <label for="userType">Type</label>
-  <select id="userType"><option value="">All Types</option><option>Admin</option><option>Driver</option><option>Customer</option></select>
-</div>
-<div class="group">
-  <label for="usersStatus">Status</label>
-  <select id="usersStatus"><option value="">All Status</option><option>Active</option><option>Inactive</option></select>
-</div>
-<div class="group">
-  <label for="usersSearch">Search</label>
-  <input id="usersSearch" type="search" placeholder="Search by name/email/phone" />
-</div>
-<div class="group">
-  <label for="per-users">Per page</label>
-  <select id="per-users"><option>10</option><option>25</option><option>50</option></select>
-</div>
-
+  <div class="card-header card-header--tight">
+    <h2 class="h2">Users</h2>
     <div class="spacer"></div>
-    <div class="pager" id="users-pagination">
-      <button class="btn" aria-label="Previous" id="prev-users-pagination">‹</button>
-      <span class="page-indicator"><span id="page-users-pagination">1</span></span>
-      <button class="btn" aria-label="Next" id="next-users-pagination">›</button>
+    <button class="btn btn-primary" id="addUserBtn">+ Add User</button>
+  </div>
+
+  <div class="card-body">
+    <div class="filters-bar">
+      <div class="group">
+        <label for="userType">Type</label>
+        <select id="userType">
+          <option value="">All Types</option>
+          <option>Admin</option>
+          <option>Driver</option>
+          <option>Customer</option>
+        </select>
+      </div>
+
+      <div class="group">
+        <label for="usersStatus">Status</label>
+        <select id="usersStatus">
+          <option value="">All Status</option>
+          <option>Active</option>
+          <option>Inactive</option>
+        </select>
+      </div>
+
+      <div class="group">
+        <label for="usersSearch">Search</label>
+        <input id="usersSearch" type="search" placeholder="Search by name/email/phone" />
+      </div>
+
+      <div class="group">
+        <label for="per-users">Per page</label>
+        <select id="per-users">
+          <option>10</option>
+          <option>25</option>
+          <option>50</option>
+        </select>
+      </div>
+
+      <div class="spacer"></div>
+
+      <div class="pager" id="users-pagination">
+        <button class="btn" aria-label="Previous" id="prev-users-pagination">‹</button>
+        <span class="page-indicator"><span id="page-users-pagination">1</span></span>
+        <button class="btn" aria-label="Next" id="next-users-pagination">›</button>
+      </div>
     </div>
-  </div>
-  <div class="table-wrap">
-    <table class="table" id="usersTable">
-      <thead><tr><th>SL No.</th><th>Name</th><th>Email</th><th>Phone</th><th>Type</th><th>Orders</th><th>Status</th><th>Last Active</th><th>Action</th></tr></thead>
-      <tbody id="usersRows"><tr><td colspan="9" style="color:#6b7280;">(No data yet)</td></tr></tbody>
-    </table>
-  </div>
+
+    <div class="table-wrap">
+      <table class="table" id="usersTable">
+        <thead>
+          <tr>
+            <th>SL No.</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Type</th>
+            <th>Orders</th>
+            <th>Status</th>
+            <th>Last Active</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="usersRows">
+          <tr><td colspan="9" style="color:#6b7280;">(No data yet)</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </section>
