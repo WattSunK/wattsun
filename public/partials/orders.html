@@ -1,4 +1,4 @@
-<section class="card">
+<section class="card" id="ordersSection">
   <div class="card-header card-header--tight">
     <h2 class="h2">Orders</h2>
     <div class="spacer"></div>
@@ -42,6 +42,7 @@
   </div>
 
   <div class="table-wrap">
+    <!-- IDs expected by the controller -->
     <table id="ordersTable" class="table">
       <thead>
         <tr>
@@ -50,7 +51,7 @@
           <th>Status</th>
           <th>Created</th>
           <th>Total</th>
-          <th>Action</th>
+          <th style="text-align:center;">Action</th>
         </tr>
       </thead>
       <tbody id="ordersTbody">
@@ -73,11 +74,34 @@
 </section>
 
 <script>
-(function(){
+(function () {
+  // "Add Order" button -> bubble to admin shell
   document.getElementById('btnAddOrder_orders')?.addEventListener('click', () => {
     window.dispatchEvent(new CustomEvent('admin:create', {
       detail: { type: 'order', source: 'orders' }
     }));
   });
+
+  // Signal to the admin loader that this partial is mounted
+  const emitLoaded = () => {
+    window.dispatchEvent(new CustomEvent('admin:partial-loaded', {
+      detail: { partial: 'orders', section: document.getElementById('ordersSection') }
+    }));
+  };
+
+  // Nudge the orders controller to (re)boot now that the DOM is present
+  const forceBoot = () => {
+    try { window.__WS_ORDERS_FORCE_BOOT?.(); } catch (e) { /* silent */ }
+  };
+
+  // Next tick to ensure controllers/listeners are attached
+  setTimeout(() => { emitLoaded(); forceBoot(); }, 0);
+
+  // Also try on visibility and focus (helps in SPA/partial timing)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') setTimeout(forceBoot, 0);
+  }, { once: true });
+
+  window.addEventListener('focus', () => setTimeout(forceBoot, 0), { once: true });
 })();
 </script>
