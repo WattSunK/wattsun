@@ -21,6 +21,7 @@
     const id = setTimeout(() => ctrl.abort(), ms);
     return { signal: ctrl.signal, done: () => clearTimeout(id) };
   }
+
   async function fetchJSON(url, opts = {}, to = CONFIG.timeoutMs) {
     const a = abortable(to);
     try {
@@ -34,6 +35,7 @@
       a.done();
     }
   }
+
   const toInt = (n, f = 0) => (Number.isFinite(+n) ? +n : f);
   const toISO = (d) => {
     if (!d) return null;

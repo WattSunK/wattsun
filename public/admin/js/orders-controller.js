@@ -1,9 +1,7 @@
 // public/admin/js/orders-controller.js
 // Admin Orders list controller — aligned to the new contract & UI.
-// - Uses WattSunAdminData.orders.get() (server pagination optional; UI paginates client-side for responsiveness).
-// - Filters: status + search (id/orderNumber/name/phone/email).
-// - Renders totals from totalCents with currency (default KES).
-// - Emits `orders:view` and supports `[data-action="edit-order"]` buttons.
+// Adds a tiny auto-detect so if the Orders table/tbody don't have the
+// expected IDs, we assign them (no HTML changes required).
 
 (function () {
   "use strict";
@@ -35,6 +33,23 @@
     q: "",
     status: ""   // "All" or empty = no filter
   };
+
+  // ---------- auto-detect table/tbody and assign IDs if missing ----------
+  function ensureOrdersIds() {
+    let table = document.querySelector(SEL.table);
+    let tbody = document.querySelector(SEL.tbody);
+    if (table && tbody) return;
+
+    // Try: the first table inside the "Orders" card/section
+    const card = [...document.querySelectorAll('section,.card,.panel,main,div')]
+      .find(x => x && /(^|\s)Orders(\s|$)/i.test(x.querySelector('h2,h3,h4,header,legend,summary')?.textContent || ""));
+    table = table || card?.querySelector('table') || document.querySelector('table');
+    if (!table) return;
+
+    tbody = tbody || table.querySelector('tbody') || table.appendChild(document.createElement('tbody'));
+    if (!table.id) table.id = SEL.table.slice(1);
+    if (!tbody.id) tbody.id = SEL.tbody.slice(1);
+  }
 
   // ----- formatting -----
   function fmtMoney(cents, currency = "KES") {
@@ -169,8 +184,6 @@
     document.addEventListener("click", (e) => {
       const b = e.target.closest(".btn-edit");
       if (!b) return;
-      // No-op here; button attributes are enough for the editor binder.
-      // We also emit a convenience event for other listeners.
       const id = b.getAttribute("data-oid") || "";
       const phone = b.getAttribute("data-phone") || "";
       const email = b.getAttribute("data-email") || "";
@@ -188,18 +201,20 @@
   }
 
   function boot() {
+    ensureOrdersIds();        // <-- ensures #ordersTable/#ordersTbody exist
     if (!$(SEL.table) || !$(SEL.tbody)) return;
     wire();
     fetchOnce().catch(err => console.error("[Orders] load failed:", err));
   }
 
+  // Start now, or when the partial arrives
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
   } else {
     boot();
   }
 
-  // Re-init if the Orders partial is mounted (admin shell emits this)
+  // Also react to admin shell events if emitted
   window.addEventListener("admin:partial-loaded", (e) => {
     if (e?.detail?.name === "orders") boot();
   });
