@@ -232,7 +232,6 @@
       try { if (window.localStorage && localStorage.clear) localStorage.clear(); } catch (e) {}
       try { if (window.sessionStorage && sessionStorage.clear) sessionStorage.clear(); } catch (e) {}
       try {
-        // Conservative cookie clearing: common session names only
         var names = ['connect.sid','sid'];
         var all = (document.cookie || '').split(';');
         for (var i=0;i<all.length;i++) {
