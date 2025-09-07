@@ -1,4 +1,7 @@
-/* WattSun Admin Skin — Light + Golden */
+/* WattSun Admin Skin — Light + Golden (consolidated) */
+/* ==================================================================
+   Design tokens
+   ================================================================== */
 :root {
   --ws-bg: #f9fafb;
   --ws-panel: #ffffff;
@@ -13,49 +16,75 @@
   --shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
   --shadow-soft: 0 2px 10px rgba(17, 24, 39, 0.06);
 }
-body.admin-shell { margin:0; display:grid; grid-template-columns:260px 1fr; grid-template-rows:100vh; background:var(--ws-bg); color:var(--ws-text); font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;}
-.admin-sidebar { background:linear-gradient(180deg,var(--ws-gold-50),#fff); border-right:1px solid var(--ws-border); padding:20px 16px;}
+
+/* ==================================================================
+   Shell layout
+   ================================================================== */
+body.admin-shell {
+  margin:0;
+  display:grid;
+  grid-template-columns:260px 1fr;
+  grid-template-rows:100vh;
+  background:var(--ws-bg);
+  color:var(--ws-text);
+  font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
+}
+
+.admin-sidebar {
+  background:linear-gradient(180deg,var(--ws-gold-50),#fff);
+  border-right:1px solid var(--ws-border);
+  padding:20px 16px;
+}
 .brand { display:flex;align-items:center;gap:10px;margin-bottom:16px;}
 .brand-logo { width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:var(--ws-gold);color:#fff;font-size:18px;box-shadow:var(--shadow-soft);}
 .brand-title { font-weight:700;letter-spacing:.3px;}
 .admin-nav { display:grid;gap:6px;}
-.nav-link { display:block;padding:10px 12px;border-radius:10px;color:var(--ws-text);text-decoration:none;border:1px solid transparent;transition:background .18s ease,border-color .18s ease;}
+.nav-link {
+  display:block;padding:10px 12px;border-radius:10px;color:var(--ws-text);
+  text-decoration:none;border:1px solid transparent;transition:background .18s ease,border-color .18s ease;
+}
 .nav-link:is(:hover,:focus) { background:var(--ws-gold-50);border-color:var(--ws-border);outline:none;}
 .nav-link.is-active { background:#fff;border-color:var(--ws-gold);box-shadow:inset 0 0 0 1px var(--ws-gold);}
+
 .admin-main { display:grid;grid-template-rows:auto 1fr;min-width:0;}
 .admin-topbar { display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--ws-panel);border-bottom:1px solid var(--ws-border);}
 .page-title { margin:0;font-size:18px;font-weight:700;}
 .topbar-actions { display:flex;gap:10px;}
 .admin-content { padding:18px;overflow:auto;}
+
+/* ==================================================================
+   Globals: buttons, focus, helpers
+   ================================================================== */
 .loading { display:flex;align-items:center;gap:10px;color:var(--ws-muted);}
 .spinner { width:16px;height:16px;border-radius:50%;border:2px solid var(--ws-border);border-top-color:var(--ws-gold);animation:s 1s linear infinite;}
-@keyframes s { to{ transform:rotate(360deg);}}
-.btn { appearance:none;border:1px solid var(--ws-border);background:#fff;padding:8px 12px;border-radius:10px;cursor:pointer;box-shadow:var(--shadow-soft);}
-.btn:hover { border-color:var(--ws-gold);}
-.btn-ghost { background:transparent;}
-.btn-primary { background:var(--ws-gold);border-color:var(--ws-gold);color:#fff;}
-.btn-primary:hover { background:var(--ws-gold-600);border-color:var(--ws-gold-600);}
-.filters-bar { display:flex;align-items:center;gap:10px;flex-wrap:nowrap;background:var(--ws-panel);border:1px solid var(--ws-border);border-radius:var(--radius);padding:10px;margin-bottom:12px;box-shadow:var(--shadow-soft);}
-.filters-bar .group { display:inline-flex;align-items:center;gap:8px;}
-.filters-bar .group label { color:var(--ws-muted);font-size:12px;}
-.filters-bar input[type="text"],.filters-bar input[type="search"],.filters-bar select { height:34px;padding:0 10px;border:1px solid var(--ws-border);border-radius:10px;background:#fff;min-width:160px;}
-.filters-bar .spacer { flex:1 1 auto;}
-.filters-bar .pager { display:inline-flex;align-items:center;gap:6px;}
-.pager button { height:34px;min-width:34px;border-radius:10px;}
-.pager .page-indicator { padding:0 8px;color:var(--ws-muted);}
-.table-wrap { background:var(--ws-panel);border:1px solid var(--ws-border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
-.table { width:100%;border-collapse:separate;border-spacing:0;}
-.table thead th { text-align:left;padding:12px;background:#fff9ed;color:#5b4b1a;border-bottom:1px solid var(--ws-border);font-weight:700;}
-.table tbody td { padding:10px 12px;border-bottom:1px solid var(--ws-border);}
-.table tbody tr:hover { background:#fffdfa;}
+@keyframes s { to{ transform:rotate(360deg);} }
+
+.btn { appearance:none;border:1px solid var(--ws-border);background:#fff;padding:8px 12px;border-radius:10px;cursor:pointer;box-shadow:var(--shadow-soft); }
+.btn:hover { border-color:var(--ws-gold); }
+.btn-ghost { background:transparent; }
+.btn-primary { background:var(--ws-gold);border-color:var(--ws-gold);color:#fff; }
+.btn-primary:hover { background:var(--ws-gold-600);border-color:var(--ws-gold-600); }
+.btn.small, .btn-sm { padding:6px 10px; border-radius:8px; font-size:13px; }
+
 :focus-visible { outline:2px solid var(--ws-focus);outline-offset:2px;}
 .sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,1px,1px);white-space:nowrap;border:0;}
-/* --- Card shell (global) --- */
+
+.muted{color:var(--ws-muted)}
+.danger{color:#ef4444}
+.vspace-8{height:8px}
+.mx-auto{margin-left:auto;margin-right:auto}
+.my-6{margin-top:6px;margin-bottom:6px}
+.w-60{width:60%}.w-40{width:40%}
+.w-90{width:90px}
+
+/* ==================================================================
+   Cards
+   ================================================================== */
 .card {
-  background: var(--ws-panel, #fff);
-  border: 1px solid var(--ws-border, #e5e7eb);
-  border-radius: var(--radius, 12px);
-  box-shadow: var(--shadow-soft, 0 2px 10px rgba(17,24,39,.06));
+  background: var(--ws-panel);
+  border: 1px solid var(--ws-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
 }
 .card-header {
   padding: 12px 16px;
@@ -65,62 +94,107 @@ body.admin-shell { margin:0; display:grid; grid-template-columns:260px 1fr; grid
   padding: 12px 16px 16px;
 }
 
-/* --- Dashboard 3-card layout (global) --- */
+.card-header--tight{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border-bottom:1px solid var(--ws-border)}
+.card-body--tight{padding:0 12px 12px}
+.h2{margin:0;font-size:18px;font-weight:600}
+
+/* Small helpers used inside cards */
+.card .actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+.card .links   { margin-top: 8px;  font-size: .95rem; }
+
+/* ==================================================================
+   Dashboard 3-card layout
+   ================================================================== */
 .dash-cards {
   display: grid;
   gap: 16px;
-  grid-template-columns: 1fr;      /* 1 column on mobile */
+  grid-template-columns: 1fr;
   margin-top: 12px;
 }
 @media (min-width: 1000px) {
   .dash-cards { grid-template-columns: 1fr 1fr 1fr; }
 }
 
-/* Small helpers used inside cards */
-.card .actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
-.card .links   { margin-top: 8px;  font-size: .95rem; }
-/* Global form inputs for Admin */
+/* ==================================================================
+   Tables
+   ================================================================== */
+.table-wrap { background:var(--ws-panel);border:1px solid var(--ws-border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+.table { width:100%;border-collapse:separate;border-spacing:0;}
+.table thead th { text-align:left;padding:12px;background:#fff9ed;color:#5b4b1a;border-bottom:1px solid var(--ws-border);font-weight:700;}
+.table tbody td { padding:10px 12px;border-bottom:1px solid var(--ws-border);}
+.table tbody tr:hover { background:#fffdfa;}
+
+/* ==================================================================
+   Forms / Inputs
+   ================================================================== */
 .input,
 select.input,
 textarea.input {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--ws-border, #d1d5db);
-  border-radius: 6px;
-  font-size: 14px;
-  line-height: 1.4;
-  background-color: #fff;
-  color: #111827;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  display:block;
+  width:100%;
+  max-width:480px;
+  box-sizing:border-box;
+  padding:8px 10px;
+  border:1px solid var(--ws-border);
+  border-radius:6px;
+  font-size:14px;
+  line-height:1.4;
+  background-color:#fff;
+  color:#111827;
+  transition:border-color .2s, box-shadow .2s;
+}
+.input:focus, select.input:focus, textarea.input:focus {
+  outline:none;
+  border-color:#f59e0b;
+  box-shadow:0 0 0 2px rgba(245,158,11,.2);
 }
 
-.input:focus,
-select.input:focus,
-textarea.input:focus {
-  outline: none;
-  border-color: #f59e0b; /* golden theme */
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+.form-group{margin:8px 0}
+.form-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.actions{display:flex;gap:10px}
+.help{color:var(--ws-muted)}
+
+/* Input variations */
+.input--search{padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;width:240px}
+.select--driver{min-width:200px;padding:6px 8px;border:1px solid #d1d5db;border-radius:8px;background:#fff}
+
+/* ==================================================================
+   Filters Bar + Pager (single source of truth)
+   ================================================================== */
+.filters-bar {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  background:var(--ws-panel);
+  border:1px solid var(--ws-border);
+  border-radius:var(--radius);
+  padding:10px;
+  margin:12px 0;
+  box-shadow:var(--shadow-soft);
+}
+.filters-bar .group{display:grid;gap:4px}
+.filters-bar .group label{ color:var(--ws-muted); font-size:12px; }
+.filters-bar .spacer{flex:1}
+.filters-bar input[type="text"],
+.filters-bar input[type="search"],
+.filters-bar input[type="date"],
+.filters-bar select {
+  padding:6px 10px;
+  border:1px solid var(--ws-border);
+  border-radius:10px;
+  background:#fff;
+  min-width:160px;
+  font-size:.95rem;
 }
 
-.input[disabled],
-select.input[disabled],
-textarea.input[disabled] {
-  background-color: #f9fafb;
-  color: #9ca3af;
-  cursor: not-allowed;
-}
-/* Make all admin inputs span their container */
-.input,
-select.input,
-textarea.input {
-  display: block;
-  width: 100%;         /* take full available width */
-  box-sizing: border-box; /* padding/border included in width */
-  max-width: 100%;     /* never overflow card */
-}
-.input { max-width: 480px; }
+.pager{display:flex;align-items:center;gap:8px}
+.page-indicator{min-width:2ch;text-align:center}
+.pager button { height:34px;min-width:34px;border-radius:10px; }
 
-/* --- Toasts --- */
+/* ==================================================================
+   Toasts
+   ================================================================== */
 .toasts { position: fixed; right: 16px; bottom: 16px; display:flex; flex-direction:column; gap:8px; z-index: 9999; }
 .toast { opacity: 0; transform: translateY(8px); transition: .25s; padding: 10px 12px; border-radius: 8px; background:#1f2937; color:#fff; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
 .toast.show { opacity: 1; transform: translateY(0); }
@@ -128,14 +202,28 @@ textarea.input {
 .toast.error   { background:#7f1d1d; }
 .toast.info    { background:#1f2937; }
 
-/* --- Modal (Confirm) --- */
+/* ==================================================================
+   Modal (native <dialog> confirm) — existing
+   ================================================================== */
 .modal::backdrop { background: rgba(0,0,0,.35); }
 .modal-card { width: min(560px, 94vw); background:#fff; border-radius:12px; padding:16px; border:1px solid var(--ws-border); box-shadow: var(--shadow); }
 .modal-title { font-weight:700; margin-bottom:8px; }
 .modal-body { color:#4b5563; margin-bottom:12px; }
 .modal-actions { display:flex; justify-content:flex-end; gap:8px; }
 
-/* --- Skeletons & Spinners --- */
+/* ==================================================================
+   Modal (overlay style) — used by Dispatch details
+   ================================================================== */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;display:none;align-items:flex-start;justify-content:center}
+.modal-backdrop.is-open{display:flex}
+.modal-card{width:96%;max-width:640px;margin-top:6%;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);overflow:hidden;border:1px solid var(--ws-border)}
+.modal-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--ws-border)}
+/* (re-use .modal-body, .modal-footer from above confirm modal) */
+.modal-footer{display:flex;justify-content:flex-end;gap:10px;padding:12px 16px;border-top:1px solid var(--ws-border)}
+
+/* ==================================================================
+   Skeletons & loading
+   ================================================================== */
 .skel { background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 37%, #f3f4f6 63%); background-size: 400% 100%; animation: skel 1.4s ease infinite; border-radius:8px; }
 @keyframes skel { 0%{background-position:100% 50%} 100%{background-position:0 50%} }
 .skel-row { height: 14px; margin:8px 0; }
@@ -148,14 +236,19 @@ textarea.input {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* --- Empty state & Error banner --- */
+/* ==================================================================
+   Empty state & banners
+   ================================================================== */
 .empty { padding:24px; text-align:center; color:var(--ws-muted); }
 .empty .title { font-weight:700; margin-bottom:6px; }
 
 .banner { padding:10px 12px; border-radius:8px; display:flex; gap:10px; align-items:center; border: 1px solid transparent; }
 .banner.error { background:#fef2f2; border-color:#fecaca; color:#7f1d1d; }
 .banner .spacer { flex:1; }
-/* Secondary tabs (page-local) */
+
+/* ==================================================================
+   Secondary (page-local) tabs used in Profile
+   ================================================================== */
 .subtabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
 .subtab{
   appearance:none;border:1px solid #f3c94a;background:#fff8e6;color:#7a5b00;
@@ -166,36 +259,15 @@ textarea.input {
 .subtab.is-active{
   background:#ffc400;color:#1f2937;border-color:#ffb100;box-shadow:inset 0 0 0 1px #ffb100
 }
-/* Panels */
-.tabpanels{background:#fff;border:1px solid var(--ws-border,#e5e7eb);border-radius:12px;box-shadow:var(--shadow-soft)}
+.tabpanels{background:#fff;border:1px solid var(--ws-border);border-radius:12px;box-shadow:var(--shadow-soft)}
 .tabpanel{padding:16px}
 .tabpanel[hidden]{display:none}
-/* Global filters bar layout */
-.filters-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
 
-/* Inputs in filters should look neat */
-.filters-bar input,
-.filters-bar select {
-  padding: 6px 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 0.95rem;
-}
-
-/* Push pager/actions to the right */
-.filters-bar .spacer {
-  flex: 1;
-}
-
-/* Pager in same row */
-.pager {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+/* ==================================================================
+   Orders modal grid helpers
+   ================================================================== */
+.ws-order-dialog{min-width:min(680px,95vw);border:none}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-full{grid-column:1/-1}
+.grid--order-info{display:grid;grid-template-columns:160px 1fr;row-gap:8px;column-gap:12px}
+.label-muted{color:#6b7280}
