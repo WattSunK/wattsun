@@ -76,7 +76,7 @@ function requireAdmin(req, res, next) {
   // Keep diagnostics open if this file mounts _diag under /api/admin
   if (req.path && req.path.startsWith("/_diag")) return next();
   const u = req.session?.user || req.user || null;
-  if (!u || (u.type !== "Admin" && u.role !== "Admin")) {
+  if (!u || (u.type !== "Admin" && u.type !== "Admin")) {
     return res.status(403).json({ success:false, error:{ code:"FORBIDDEN", message:"Admin access required." } });
   }
   next();
