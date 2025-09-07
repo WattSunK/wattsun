@@ -272,6 +272,9 @@ textarea.input {
 .grid--order-info{display:grid;grid-template-columns:160px 1fr;row-gap:8px;column-gap:12px}
 .label-muted{color:#6b7280}
 
-/* Safe add: Logout button color override only */
-.btn-danger { background:#ef4444; border-color:#ef4444; color:#fff; }
-.btn-danger:hover { background:#dc2626; border-color:#dc2626; }
+
+/* Normalize anchor buttons to match <button class="btn"> */
+a.btn, a.btn:link, a.btn:visited { color: inherit; text-decoration: none; }
+a.btn:hover, a.btn:focus { text-decoration: none; }
+a.btn { display: inline-flex; align-items: center; justify-content: center; }
+
