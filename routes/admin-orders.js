@@ -1,7 +1,7 @@
 // routes/admin-orders.js
 // Admin Orders (SQL-only list + overlay PATCH)
-// - Adds GET / (paginated list with filters)
-// - Keeps PATCH /:id overlay updates (status, driver, notes, totals)
+// - GET / → paginated list with filters, overlay-aware (LEFT JOIN admin_order_meta)
+// - PATCH /:id → overlay updates (status, driver, notes, totals)
 // - Removes runtime DDL to reduce boot-time redundancy
 
 const express = require("express");
@@ -74,6 +74,7 @@ function pickCentsFromBody(body, keyCamel, keySnake, legacyKey) {
 }
 
 // ---- GET /api/admin/orders?q&status&from&to&page=1&per=10 ----
+// Overlay-aware list: COALESCE(aom.*, o.*)
 router.get("/", (req, res) => {
   const page = Math.max(parseInt(req.query.page || "1", 10), 1);
   const per  = Math.min(Math.max(parseInt(req.query.per  || "10", 10), 1), 100);
@@ -85,44 +86,104 @@ router.get("/", (req, res) => {
   const where = [];
   const params = [];
 
+  // free-text across common fields (orders table)
   if (q) {
     const like = `%${q}%`;
-    where.push("(orderNumber LIKE ? OR fullName LIKE ? OR phone LIKE ? OR email LIKE ?)");
+    where.push("(o.orderNumber LIKE ? OR o.fullName LIKE ? OR o.phone LIKE ? OR o.email LIKE ?)");
     params.push(like, like, like, like);
   }
-  if (status) { where.push("status = ?"); params.push(status); }
-  if (from)   { where.push("datetime(createdAt) >= datetime(?)"); params.push(from); }
-  if (to)     { where.push("datetime(createdAt) <= datetime(?)"); params.push(to); }
+
+  // status filter must be overlay-aware
+  if (status) {
+    where.push("COALESCE(aom.status, o.status) = ?");
+    params.push(status);
+  }
+
+  // date range on orders.createdAt
+  if (from) { where.push("datetime(o.createdAt) >= datetime(?)"); params.push(from); }
+  if (to)   { where.push("datetime(o.createdAt) <  datetime(?)"); params.push(to); }
 
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const offset = (page - 1) * per;
 
-  const sqlCount = `SELECT COUNT(*) AS c FROM orders ${whereSql};`;
+  const sqlCount = `
+    SELECT COUNT(DISTINCT o.id) AS c
+    FROM orders o
+    LEFT JOIN admin_order_meta aom ON aom.order_id = o.id
+    ${whereSql};
+  `;
+
   const sqlList  = `
-    SELECT id, orderNumber, fullName, phone, email, status, totalCents, createdAt
-    FROM orders
+    SELECT
+      o.id,
+      o.orderNumber,
+      o.fullName,
+      o.phone,
+      o.email,
+      o.address,
+      o.createdAt,
+
+      -- overlay-aware projections
+      COALESCE(aom.status,         o.status)     AS displayStatus,
+      COALESCE(aom.total_cents,    o.totalCents) AS displayTotalCents,
+      COALESCE(aom.deposit_cents,  0)            AS displayDepositCents,
+      aom.currency                                 AS displayCurrency,
+      aom.driver_id                                 AS driverId,
+      aom.notes                                     AS notes,
+
+      -- originals (optional for debugging/UI fallbacks)
+      o.status       AS originalStatus,
+      o.totalCents   AS originalTotalCents
+
+    FROM orders o
+    LEFT JOIN admin_order_meta aom ON aom.order_id = o.id
     ${whereSql}
-    ORDER BY datetime(createdAt) DESC
-    LIMIT ? OFFSET ?;`;
+    ORDER BY datetime(o.createdAt) DESC
+    LIMIT ? OFFSET ?;
+  `;
 
   db.get(sqlCount, params, (e1, row) => {
-    if (e1) return res.status(500).json({ success:false, error:{code:"db_count_failed", message:e1.message} });
+    if (e1) {
+      console.error("admin/orders count error:", e1);
+      return res.status(500).json({ success:false, error:{code:"db_count_failed", message:e1.message} });
+    }
     const total = row?.c || 0;
     const listParams = params.slice(); listParams.push(per, offset);
+
     db.all(sqlList, listParams, (e2, rows) => {
-      if (e2) return res.status(500).json({ success:false, error:{code:"db_list_failed", message:e2.message} });
+      if (e2) {
+        console.error("admin/orders list error:", e2);
+        return res.status(500).json({ success:false, error:{code:"db_list_failed", message:e2.message} });
+      }
       res.json({
         success: true,
         page, per, total,
+        // expose overlay-aware fields the UI can render directly
         orders: (rows || []).map(r => ({
           id: r.id,
           orderNumber: r.orderNumber,
           fullName: r.fullName,
           phone: r.phone,
           email: r.email,
-          status: r.status,
-          totalCents: Number.isInteger(r.totalCents) ? r.totalCents : parseInt(r.totalCents || 0, 10),
-          createdAt: r.createdAt
+          address: r.address,
+          createdAt: r.createdAt,
+
+          status: r.displayStatus,
+          totalCents: Number.isInteger(r.displayTotalCents)
+            ? r.displayTotalCents
+            : parseInt(r.displayTotalCents || 0, 10),
+          depositCents: Number.isInteger(r.displayDepositCents)
+            ? r.displayDepositCents
+            : parseInt(r.displayDepositCents || 0, 10),
+          currency: r.displayCurrency || null,
+          driverId: r.driverId ?? null,
+          notes: r.notes,
+
+          // originals (optional; can be omitted if not needed by UI)
+          originalStatus: r.originalStatus,
+          originalTotalCents: Number.isInteger(r.originalTotalCents)
+            ? r.originalTotalCents
+            : parseInt(r.originalTotalCents || 0, 10),
         }))
       });
     });
