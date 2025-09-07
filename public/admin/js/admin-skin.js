@@ -222,3 +222,33 @@
     window.toast && toast(`Unknown create type: ${type}`, "error");
   });
 })();
+
+// --- Safe Logout wiring (append-only, non-breaking) ---
+(function () {
+  function wireLogout() {
+    var btn = document.getElementById('btn-logout');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      try { if (window.localStorage && localStorage.clear) localStorage.clear(); } catch (e) {}
+      try { if (window.sessionStorage && sessionStorage.clear) sessionStorage.clear(); } catch (e) {}
+      try {
+        // Conservative cookie clearing: common session names only
+        var names = ['connect.sid','sid'];
+        var all = (document.cookie || '').split(';');
+        for (var i=0;i<all.length;i++) {
+          var kv = all[i].split('=');
+          var name = (kv[0] || '').trim();
+          if (names.indexOf(name) !== -1) {
+            document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+          }
+        }
+      } catch (e) {}
+      window.location.href = '/public/index.html';
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireLogout, { once:true });
+  } else {
+    wireLogout();
+  }
+})();
