@@ -5,6 +5,7 @@
     <button id="btnAddOrder_orders" class="btn btn-primary">Add Order</button>
   </div>
 
+  <!-- Filters -->
   <div class="filters-bar">
     <div class="group">
       <label>Status</label>
@@ -12,7 +13,10 @@
         <option value="">All</option>
         <option>Pending</option>
         <option>Processing</option>
+        <option>Confirmed</option>
+        <option>Dispatched</option>
         <option>Delivered</option>
+        <option>Closed</option>
         <option>Cancelled</option>
       </select>
     </div>
@@ -41,8 +45,8 @@
     </div>
   </div>
 
+  <!-- Table -->
   <div class="table-wrap">
-    <!-- IDs expected by the controller -->
     <table id="ordersTable" class="table">
       <thead>
         <tr>
@@ -60,6 +64,7 @@
     </table>
   </div>
 
+  <!-- Pager / Meta -->
   <div class="filters-bar">
     <div id="ordersMeta" class="group">Showing 0 of 0 entries</div>
     <div class="spacer"></div>
@@ -75,33 +80,37 @@
 
 <script>
 (function () {
-  // "Add Order" button -> bubble to admin shell
+  // "Add Order" button -> bubble to admin shell (optional handler your shell listens for)
   document.getElementById('btnAddOrder_orders')?.addEventListener('click', () => {
     window.dispatchEvent(new CustomEvent('admin:create', {
       detail: { type: 'order', source: 'orders' }
     }));
   });
 
-  // Signal to the admin loader that this partial is mounted
-  const emitLoaded = () => {
-    window.dispatchEvent(new CustomEvent('admin:partial-loaded', {
-      detail: { partial: 'orders', section: document.getElementById('ordersSection') }
-    }));
+  // Tell controllers the Orders partial is mounted
+  window.dispatchEvent(new CustomEvent('admin:partial-loaded', {
+    detail: { partial: 'orders', section: document.getElementById('ordersSection') }
+  }));
+
+  // Retry until the controller is defined, then force a boot
+  const tryBoot = () => {
+    if (typeof window.__WS_ORDERS_FORCE_BOOT === 'function') {
+      try { window.__WS_ORDERS_FORCE_BOOT(); } catch (_) {}
+    } else {
+      setTimeout(tryBoot, 100);
+    }
   };
+  tryBoot();
 
-  // Nudge the orders controller to (re)boot now that the DOM is present
-  const forceBoot = () => {
-    try { window.__WS_ORDERS_FORCE_BOOT?.(); } catch (e) { /* silent */ }
-  };
-
-  // Next tick to ensure controllers/listeners are attached
-  setTimeout(() => { emitLoaded(); forceBoot(); }, 0);
-
-  // Also try on visibility and focus (helps in SPA/partial timing)
+  // Extra nudges in case of timing races
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') setTimeout(forceBoot, 0);
-  }, { once: true });
+    if (document.visibilityState === 'visible') {
+      setTimeout(() => window.__WS_ORDERS_FORCE_BOOT?.(), 0);
+    }
+  });
 
-  window.addEventListener('focus', () => setTimeout(forceBoot, 0), { once: true });
+  window.addEventListener('focus', () => {
+    setTimeout(() => window.__WS_ORDERS_FORCE_BOOT?.(), 0);
+  });
 })();
 </script>
