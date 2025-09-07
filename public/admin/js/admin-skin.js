@@ -5,6 +5,29 @@
   const navLinks = Array.from(document.querySelectorAll(".admin-nav .nav-link"));
   const hardRefreshBtn = document.getElementById("hard-refresh");
 
+
+// ------------------------------------------------
+// Global Logout (clears storage + cookies)
+// ------------------------------------------------
+const logoutBtn = document.getElementById('btn-logout');
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', () => {
+    try { localStorage.clear(); } catch (e) {}
+    try { sessionStorage.clear(); } catch (e) {}
+    try {
+      document.cookie.split(';').forEach(c => {
+        const eq = c.indexOf('=');
+        const name = (eq > -1 ? c.slice(0, eq) : c).trim();
+        if (!name) return;
+        // expire cookie for root path
+        document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+      });
+    } catch (e) {}
+    window.location.href = '/public/index.html';
+  });
+}
+
+
   // -------------------------------
   // Helpers
   // -------------------------------

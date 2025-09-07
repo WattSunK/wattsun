@@ -67,6 +67,11 @@ body.admin-shell {
 .btn.small, .btn-sm { padding:6px 10px; border-radius:8px; font-size:13px; }
 
 :focus-visible { outline:2px solid var(--ws-focus);outline-offset:2px;}
+
+/* Added: danger variant for Logout */
+.btn-danger { background:#ef4444; border-color:#ef4444; color:#fff; }
+.btn-danger:hover { background:#dc2626; border-color:#dc2626; }
+
 .sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,1px,1px);white-space:nowrap;border:0;}
 
 .muted{color:var(--ws-muted)}
