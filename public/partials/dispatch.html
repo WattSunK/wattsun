@@ -1,13 +1,26 @@
 <section class="card">
-  <div class="card-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border-bottom:1px solid #f0f0f0">
-    <h2 style="margin:0;font-size:18px;font-weight:600">Dispatch</h2>
-    <div style="margin-left:auto">
-      <input id="dispatchSearch" placeholder="Search orders…" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;width:240px">
+  <div class="card-header card-header--tight">
+    <h2 class="h2">Dispatch</h2>
+    <div class="spacer"></div>
+    <input id="dispatchSearch" class="input input--search" placeholder="Search orders…">
+  </div>
+
+  <div class="filters-bar">
+    <div class="group">
+      <label>Search</label>
+      <input id="dispatchSearchDup" class="input" placeholder="Search orders…">
+    </div>
+    <div class="spacer"></div>
+    <div class="pager" id="pager-dispatch">
+      <button class="btn" id="prev-dispatch">‹</button>
+      <span class="page-indicator" id="page-dispatch">1</span>
+      <button class="btn" id="next-dispatch">›</button>
     </div>
   </div>
-  <div class="card-body" style="padding:0 12px 12px">
+
+  <div class="card-body card-body--tight">
     <div class="table-responsive">
-      <table class="table" id="dispatchTable" style="width:100%">
+      <table class="table" id="dispatchTable">
         <thead>
           <tr>
             <th>Order ID</th>
@@ -19,53 +32,22 @@
           </tr>
         </thead>
         <tbody id="dispatchTbody">
-          <tr><td colspan="6" style="text-align:center;color:#6b7280">Loading…</td></tr>
+          <tr><td colspan="6" class="muted" style="text-align:center">Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
-
-<!-- Task0: insert standard filters bar + pager for layout consistency -->
-<script>
-(function(){
-  try {
-    const header = document.querySelector('.card-header');
-    const search = document.getElementById('dispatchSearch');
-    const body = document.querySelector('.card-body');
-    if (header && search && body) {
-      const bar = document.createElement('div');
-      bar.className = 'filters-bar';
-      // group: search
-      const g1 = document.createElement('div'); g1.className = 'group';
-      const lab = document.createElement('label'); lab.textContent = 'Search';
-      const input = search; input.style.cssText=''; input.id='dispatchSearch'; input.setAttribute('placeholder','Search orders…');
-      g1.appendChild(lab); g1.appendChild(input);
-      // spacer + pager
-      const spacer = document.createElement('div'); spacer.className = 'spacer';
-      const pager = document.createElement('div'); pager.className = 'pager'; pager.id = 'pager-dispatch';
-      pager.innerHTML = '<button class="btn" id="prev-dispatch">‹</button><span class="page-indicator"><span id="page-dispatch">1</span></span><button class="btn" id="next-dispatch">›</button>';
-      bar.appendChild(g1); bar.appendChild(spacer); bar.appendChild(pager);
-      header.insertAdjacentElement('afterend', bar);
-    }
-  } catch(e){ console.warn('[dispatch] toolbar inject failed', e); }
-})();
-</script>
 </section>
 
-<!-- Items-style modal (single, centered) -->
-<div id="dispatchModalOverlay"
-     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:flex-start;justify-content:center;">
-  <div id="dispatchModalDialog"
-       style="width:96%;max-width:640px;margin-top:6%;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);overflow:hidden">
-    <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #f0f0f0">
-      <h3 id="dv-title" style="margin:0;font-size:18px;font-weight:600">Order</h3>
-      <button type="button" id="dv-close-x" aria-label="Close" style="font-size:22px;line-height:1;border:none;background:transparent;cursor:pointer">&times;</button>
+<div id="dispatchModalOverlay" class="modal-backdrop">
+  <div id="dispatchModalDialog" class="modal-card">
+    <div class="modal-header">
+      <h3 id="dv-title" class="h2">Order</h3>
+      <button type="button" id="dv-close-x" aria-label="Close" class="btn btn-ghost">&times;</button>
     </div>
-    <div id="dv-body" class="modal-body" style="padding:16px">
-      <!-- populated by JS -->
-    </div>
-    <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:12px 16px;border-top:1px solid #f0f0f0">
-      <button type="button" id="dv-close-btn" class="btn" style="padding:8px 14px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer">Close</button>
+    <div id="dv-body" class="modal-body"></div>
+    <div class="modal-footer">
+      <button type="button" id="dv-close-btn" class="btn btn-outline">Close</button>
     </div>
   </div>
 </div>
@@ -74,27 +56,30 @@
 (function(){
   const TBODY  = document.getElementById('dispatchTbody');
   const SEARCH = document.getElementById('dispatchSearch');
+  const SEARCH_DUP = document.getElementById('dispatchSearchDup');
 
-  // Modal bits
+  function syncSearch(from, to){
+    from?.addEventListener('input', () => { if (to && to.value !== from.value) to.value = from.value; filterNow(); });
+  }
+  syncSearch(SEARCH, SEARCH_DUP);
+  syncSearch(SEARCH_DUP, SEARCH);
+
   const OVERLAY = document.getElementById('dispatchModalOverlay');
   const TITLE   = document.getElementById('dv-title');
   const BODY    = document.getElementById('dv-body');
   const CLOSE_X = document.getElementById('dv-close-x');
   const CLOSE_B = document.getElementById('dv-close-btn');
 
-  // Guard: adapter required
   if (!window.WattSunAdminData) {
-    TBODY.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#ef4444">Adapter missing.</td></tr>';
+    TBODY.innerHTML = '<tr><td colspan="6" class="danger" style="text-align:center">Adapter missing.</td></tr>';
     return;
   }
   const Data = window.WattSunAdminData;
 
-  // State
-  let rows = [];               // normalized orders (adapter output)
-  let drivers = [];            // list of driver users
-  let assignments = Object.create(null); // { [orderId]: driver_id|null }
+  let rows = [];
+  let drivers = [];
+  let assignments = Object.create(null);
 
-  // ------ Utils ------
   function currencyKES(val) {
     if (typeof val === 'number') return 'KSh ' + val.toLocaleString();
     if (typeof val === 'string' && val) return val;
@@ -111,7 +96,6 @@
     return String(o.id || o.orderNumber || '');
   }
 
-  // Current driver considering overlay assignments, then order raw
   function currentDriverId(o) {
     const oid = getOrderId(o);
     if (Object.prototype.hasOwnProperty.call(assignments, oid)) return assignments[oid];
@@ -121,11 +105,8 @@
 
   function currentDriverLabel(o) {
     const id = currentDriverId(o);
-    if (id == null || id === '') {
-      // fallback to any embedded name
-      const r = o.raw || {};
-      return r?.driver?.name || r?.driverName || r?.driver_fullname || 'Unassigned';
-    }
+    const r = o.raw || {};
+    if (id == null || id === '') return r?.driver?.name || r?.driverName || r?.driver_fullname || 'Unassigned';
     return driverLabelById(id);
   }
 
@@ -137,32 +118,22 @@
         const sel = (String(selectedId || '') === String(val)) ? ' selected' : '';
         return `<option value="${val}"${sel}>${name}</option>`;
       }));
-    return `<select class="select" data-oid="${orderId}" data-role="driver-select" style="min-width:200px;padding:6px 8px;border:1px solid #d1d5db;border-radius:8px;background:#fff">${opts.join("")}</select>`;
+    return `<select class="select select--driver" data-oid="${orderId}" data-role="driver-select">${opts.join("")}</select>`;
   }
 
   function actionButtonsHtml(orderId) {
     return `
       <div class="btn-group" style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-sm btn-outline" data-oid="${orderId}" data-role="assign"
-                style="padding:6px 10px;border:1px solid #10b981;border-radius:8px;background:#ecfdf5;cursor:pointer">
-          Assign
-        </button>
-        <button class="btn btn-sm btn-outline" data-oid="${orderId}" data-role="unassign"
-                style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">
-          Unassign
-        </button>
-        <button class="btn btn-sm btn-outline" data-view-id="${orderId}"
-                style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer">
-          View
-        </button>
+        <button class="btn btn-sm btn-positive" data-oid="${orderId}" data-role="assign">Assign</button>
+        <button class="btn btn-sm btn-outline" data-oid="${orderId}" data-role="unassign">Unassign</button>
+        <button class="btn btn-sm btn-outline" data-view-id="${orderId}">View</button>
       </div>
     `;
   }
 
-  // ------ Render ------
   function render(list) {
     if (!Array.isArray(list) || list.length === 0) {
-      TBODY.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6b7280">No orders.</td></tr>';
+      TBODY.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center">No orders.</td></tr>';
       return;
     }
     const frag = document.createDocumentFragment();
@@ -175,13 +146,9 @@
         <td style="white-space:nowrap">${orderId}</td>
         <td>${o.fullName || '—'}<br><small>${o.phone || ''} ${o.email || ''}</small></td>
         <td>${o.status || 'Pending'}</td>
-        <td>
-          ${driverSelectHtml(orderId, curDriverId)}
-        </td>
+        <td>${driverSelectHtml(orderId, curDriverId)}</td>
         <td>${created}</td>
-        <td>
-          ${actionButtonsHtml(orderId)}
-        </td>
+        <td>${actionButtonsHtml(orderId)}</td>
       `;
       frag.appendChild(tr);
     });
@@ -189,20 +156,17 @@
     TBODY.appendChild(frag);
   }
 
-  // ------ Filters ------
   function filterNow() {
-    const q = (SEARCH.value || '').trim().toLowerCase();
+    const q = (SEARCH?.value || SEARCH_DUP?.value || '').trim().toLowerCase();
     if (!q) return render(rows);
     const filtered = rows.filter(o => {
-      const hay = [
-        o.id, o.orderNumber, o.fullName, o.email, o.phone, o.status, currentDriverLabel(o)
-      ].filter(Boolean).join(' ').toLowerCase();
+      const hay = [o.id, o.orderNumber, o.fullName, o.email, o.phone, o.status, currentDriverLabel(o)]
+        .filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
     });
     render(filtered);
   }
 
-  // ------ Modal ------
   function showModal(o) {
     TITLE.textContent = `Order ${getOrderId(o)}`;
 
@@ -211,46 +175,45 @@
       const qty = (it.quantity != null && it.quantity !== '') ? ` × ${it.quantity}` : '';
       parts.push(`<li>${(it.name || '').replace(/</g,'&lt;')}${qty}</li>`);
     });
-    const itemsHTML = parts.length ? `<ul style="margin:6px 0 0 18px">${parts.join('')}</ul>` : '<em>No line items</em>';
+    const itemsHTML = parts.length ? `<ul class="ml-18 my-6">${parts.join('')}</ul>` : '<em>No line items</em>';
 
     let total = '—';
     if (typeof o.totalCents === 'number') total = 'KSh ' + (o.totalCents/100).toLocaleString();
     else if (typeof o.total === 'number') total = currencyKES(o.total);
 
     BODY.innerHTML = `
-      <div style="display:grid;grid-template-columns:160px 1fr;row-gap:8px;column-gap:12px">
-        <div style="color:#6b7280">Customer</div>
+      <div class="grid grid--order-info">
+        <div class="label-muted">Customer</div>
         <div>${o.fullName || '—'}<br><small>${o.phone || ''} ${o.email || ''}</small></div>
 
-        <div style="color:#6b7280">Status</div>
+        <div class="label-muted">Status</div>
         <div>${o.status || 'Pending'}</div>
 
-        <div style="color:#6b7280">Driver</div>
+        <div class="label-muted">Driver</div>
         <div>${currentDriverLabel(o)}</div>
 
-        <div style="color:#6b7280">Total</div>
+        <div class="label-muted">Total</div>
         <div>${total}</div>
 
-        <div style="color:#6b7280">Created</div>
+        <div class="label-muted">Created</div>
         <div>${o.createdAt ? new Date(o.createdAt).toLocaleString() : '—'}</div>
 
-        <div style="color:#6b7280">Items</div>
+        <div class="label-muted">Items</div>
         <div>${itemsHTML}</div>
 
-        <div style="color:#6b7280">Notes</div>
+        <div class="label-muted">Notes</div>
         <div>${(o.notes || '').toString().replace(/</g,'&lt;') || '—'}</div>
       </div>
     `;
 
-    OVERLAY.style.display = 'flex';
+    OVERLAY.classList.add('is-open');
   }
-  function closeModal() { OVERLAY.style.display = 'none'; }
+  function closeModal() { OVERLAY.classList.remove('is-open'); }
   CLOSE_X.addEventListener('click', closeModal);
   CLOSE_B.addEventListener('click', closeModal);
   OVERLAY.addEventListener('click', (e)=>{ if (e.target === OVERLAY) closeModal(); });
-  window.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && OVERLAY.style.display === 'flex') closeModal(); });
+  window.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && OVERLAY.classList.contains('is-open')) closeModal(); });
 
-  // ------ Events: row actions ------
   TBODY.addEventListener('click', async (e) => {
     const btnView = e.target.closest('[data-view-id]');
     if (btnView) {
@@ -264,35 +227,19 @@
     if (!btn) return;
     const role = btn.getAttribute('data-role');
     const orderId = btn.getAttribute('data-oid');
-    const select = TBODY.querySelector(`select[data-role="driver-select"][data-oid="${orderId}"]`);
+    const select = TBODY.querySelector(f'select[data-role="driver-select"][data-oid="{orderId}"]');
     const selected = select ? select.value : "";
 
     if (role === 'assign') {
       const driver_id = selected ? parseInt(selected, 10) : null;
-      if (!driver_id) {
-        alert('Please select a driver first.');
-        return;
-      }
+      if (!driver_id) { alert('Please select a driver first.'); return; }
       const ok = await saveAssignment(orderId, driver_id);
-      if (ok) {
-        assignments[orderId] = driver_id;
-        // Visual confirmation: keep selected; optional subtle flash
-        select.style.outline = '2px solid #10b981';
-        setTimeout(()=>{ select.style.outline=''; }, 500);
-        // re-filter to reflect driver label in search context
-        filterNow();
-      }
+      if (ok) { assignments[orderId] = driver_id; filterNow(); }
     }
 
     if (role === 'unassign') {
       const ok = await saveAssignment(orderId, null);
-      if (ok) {
-        assignments[orderId] = null;
-        if (select) select.value = '';
-        select?.style && (select.style.outline = '2px solid #d1d5db');
-        setTimeout(()=>{ select.style.outline=''; }, 500);
-        filterNow();
-      }
+      if (ok) { assignments[orderId] = null; if (select) select.value = ''; filterNow(); }
     }
   });
 
@@ -313,7 +260,6 @@
     }
   }
 
-  // ------ Data fetch ------
   async function fetchDrivers() {
     try {
       const r = await fetch(`/api/admin/users?type=Driver`);
@@ -339,32 +285,21 @@
 
   async function load() {
     try {
-      // orders
-      const { orders } = await Data.orders.get({ page: 1, per: 10000 });
+      const { orders } = await window.WattSunAdminData.orders.get({ page: 1, per: 10000 });
       rows = Array.isArray(orders) ? orders : [];
-
-      // drivers
       await fetchDrivers();
-
-      // assignments overlay
       const ids = rows.map(getOrderId).filter(Boolean);
       assignments = await fetchAssignments(ids);
-
       render(rows);
     } catch (e) {
       console.error('[Dispatch] load failed:', e);
-      TBODY.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#ef4444">Failed to load.</td></tr>';
+      TBODY.innerHTML = '<tr><td colspan="6" class="danger" style="text-align:center">Failed to load.</td></tr>';
     }
   }
 
-  // ------ Search ------
-  SEARCH?.addEventListener('input', () => {
-    // tiny debounce (150ms)
-    clearTimeout(SEARCH._t);
-    SEARCH._t = setTimeout(filterNow, 150);
-  });
+  SEARCH?.addEventListener('input', () => { clearTimeout(SEARCH._t); SEARCH._t = setTimeout(filterNow, 150); });
+  SEARCH_DUP?.addEventListener('input', () => { clearTimeout(SEARCH_DUP._t); SEARCH_DUP._t = setTimeout(filterNow, 150); });
 
-  // init
   load();
 })();
 </script>

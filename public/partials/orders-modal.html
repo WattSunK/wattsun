@@ -1,8 +1,10 @@
 <!-- public/partials/orders-modal.html -->
 <dialog id="orderEditDialog">
-  <form method="dialog" class="ws-order-dialog" style="min-width:min(680px,95vw);border:none;">
-    <div class="filters-bar" style="margin:0 0 10px;">
-      <div class="group"><label>Edit</label><span style="font-size:12px;color:#6b7280;">Order</span></div>
+  <form method="dialog" class="ws-order-dialog">
+    <div class="filters-bar">
+      <div class="group">
+        <label>Edit</label><span class="help">Order</span>
+      </div>
       <div class="spacer"></div>
       <div class="group">
         <button value="cancel" class="btn" id="cancelEditBtn">Cancel</button>
@@ -10,7 +12,7 @@
       </div>
     </div>
 
-    <div class="grid" style="grid-template-columns:1fr 1fr; gap:12px;">
+    <div class="grid grid-2">
       <div>
         <label for="editStatus">Status</label>
         <select id="editStatus" required>
@@ -24,7 +26,7 @@
         <label for="editDriver">Driver</label>
         <select id="editDriver"><option value="">— None —</option></select>
       </div>
-      <div class="grid" style="grid-column:1/-1;">
+      <div class="grid-full">
         <label for="editNotes">Internal Notes</label>
         <textarea id="editNotes" rows="4" placeholder="Optional notes..."></textarea>
       </div>

@@ -7,13 +7,8 @@
       .status-board { display: flex; flex-direction: column; gap: 10px; }
       .status-line { display: flex; align-items: center; gap: 10px; }
       .status-label { min-width: 140px; font-weight: 600; }
-      .pill {
-        flex: 1;
-        background: rgba(0,0,0,.03);
-        border-radius: 10px;
-        padding: 8px 12px;
-        display: flex; align-items: center; gap: 8px;
-      }
+      .pill { flex: 1; background: rgba(0,0,0,.03); border-radius: 10px; padding: 8px 12px;
+              display: flex; align-items: center; gap: 8px; }
       .dot { width: 10px; height: 10px; border-radius: 50%; background: #c9c9c9; }
       .dot.ok { background: #2ecc71; }     /* green */
       .dot.bad { background: #e74c3c; }    /* red   */
@@ -76,7 +71,7 @@
       <div>SKU: <span id="dashItemSku">J23456450.50</span></div>
       <div>STOCK: <span id="dashItemStock">9</span></div>
 
-      <div style="height:8px"></div>
+      <div class="vspace-8"></div>
       <div><strong>John Doe</strong></div>
       <div>Phone: <span id="dashItemPhone">+254 123456789</span></div>
       <div>Email: <span id="dashItemEmail">john@email.com</span></div>
@@ -96,7 +91,7 @@
       <div>Delivery #<span id="dashDispNo">80</span></div>
       <div>Order #123456 - Out for delivery</div>
 
-      <div style="height:8px"></div>
+      <div class="vspace-8"></div>
       <div><strong>Status</strong></div>
       <div id="dashDispStatus">Out for delivery</div>
 
@@ -134,7 +129,6 @@
     check();
     setInterval(check, 30000);
 
-    // Optional: route buttons to left-nav sections
     function navTo(partial){
       const link = document.querySelector('.admin-nav .nav-link[data-partial="'+partial+'"]');
       if (link) link.click();

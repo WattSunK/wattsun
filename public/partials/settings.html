@@ -5,21 +5,19 @@
     <div class="filters-bar settings-toolbar">
       <div class="group">
         <label>Settings</label>
-        <span style="font-size:12px;color:#6b7280;">Admin</span>
+        <span class="help">Admin</span>
       </div>
       <div class="spacer"></div>
       <button id="btnSettingsRefresh" class="btn small">Refresh</button>
     </div>
-    <div id="settingsIntro" style="color:#6b7280;">
+    <div id="settingsIntro" class="help">
       Configure company info, user management, notifications, integrations, appearance, and system controls.
     </div>
   </div>
 </section>
 
-<!-- Settings cards grid -->
 <div class="dash-cards">
 
-  <!-- Company Information -->
   <section class="card">
     <div class="card-header">Company Information</div>
     <div class="card-body">
@@ -45,12 +43,11 @@
     </div>
   </section>
 
-  <!-- User Management -->
   <section class="card">
     <div class="card-header">User Management</div>
     <div class="card-body">
-      <div class="form-group" style="margin-bottom:8px">
-        <label style="display:flex;align-items:center;gap:8px;">
+      <div class="form-group">
+        <label class="form-row">
           <input id="enforceStrongPw" type="checkbox" />
           Enforce strong passwords
         </label>
@@ -67,8 +64,8 @@
         </select>
       </div>
 
-      <div class="form-group" style="margin-top:8px">
-        <label style="display:flex;align-items:center;gap:8px;">
+      <div class="form-group">
+        <label class="form-row">
           <input id="allowPwReset" type="checkbox" />
           Allow Password Reset
         </label>
@@ -76,31 +73,30 @@
     </div>
   </section>
 
-  <!-- Notifications -->
   <section class="card">
     <div class="card-header">Notifications</div>
     <div class="card-body">
-      <div class="form-group" style="margin-bottom:8px">
-        <label style="display:flex;align-items:center;gap:8px;">
+      <div class="form-group">
+        <label class="form-row">
           <input id="notifOrderPlaced" type="checkbox" checked />
           Order Placed Email
         </label>
       </div>
 
-      <div class="form-group" style="margin-bottom:8px">
-        <label style="display:flex;align-items:center;gap:8px;">
+      <div class="form-group">
+        <label class="form-row">
           <input id="notifOrderDelivered" type="checkbox" checked />
           Order Delivered Email
         </label>
       </div>
 
-      <div class="form-group" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <label style="display:flex;align-items:center;gap:8px;">
+      <div class="form-group form-row">
+        <label class="form-row">
           <input id="notifLowStock" type="checkbox" checked />
           Low Stock Alerts
         </label>
-        <label for="lowStockThreshold" style="display:flex;align-items:center;gap:6px;">
-          <input id="lowStockThreshold" class="input" type="number" min="1" value="10" style="width:90px" />
+        <label for="lowStockThreshold" class="form-row">
+          <input id="lowStockThreshold" class="input w-90" type="number" min="1" value="10" />
           <span>threshold</span>
         </label>
       </div>
@@ -112,7 +108,6 @@
     </div>
   </section>
 
-  <!-- Integrations -->
   <section class="card">
     <div class="card-header">Integrations</div>
     <div class="card-body">
@@ -142,7 +137,6 @@
     </div>
   </section>
 
-  <!-- Appearance -->
   <section class="card">
     <div class="card-header">Appearance</div>
     <div class="card-body">
@@ -166,20 +160,18 @@
     </div>
   </section>
 
-  <!-- System Controls -->
   <section class="card">
     <div class="card-header">System Controls</div>
     <div class="card-body">
-      <div class="actions" style="gap:10px">
+      <div class="actions">
         <button id="btnBackup" class="btn">Backup Data</button>
-        <label class="btn" for="restoreFile" style="cursor:pointer;">Restore from Backup</label>
-        <input id="restoreFile" type="file" class="input" style="display:none" />
+        <label class="btn" for="restoreFile">Restore from Backup</label>
+        <input id="restoreFile" type="file" class="input" hidden />
         <button id="btnExport" class="btn">Export Data</button>
       </div>
     </div>
   </section>
 
-  <!-- Danger Zone -->
   <section class="card">
     <div class="card-header">Danger Zone</div>
     <div class="card-body">
@@ -189,7 +181,7 @@
         .btn-danger:hover { background:#fee2e2; }
       </style>
       <p class="danger-note">Caution: these actions are irreversible.</p>
-      <div class="actions" style="gap:10px">
+      <div class="actions">
         <button class="btn btn-danger" id="btnClearCache">Clear Server Cache</button>
         <button class="btn btn-danger" id="btnResetEmails">Reset Email Settings</button>
         <button class="btn btn-danger" id="btnDeleteTestData">Delete Test Data</button>
@@ -203,20 +195,13 @@
   (function(){
     const confirmDo = (msg, fn) => { if (confirm(msg)) fn?.(); };
 
-    // Header
     document.getElementById('btnSettingsRefresh')?.addEventListener('click', () => location.reload());
-
-    // Appearance
     document.getElementById('btnSaveAppearance')?.addEventListener('click', () => alert('Appearance saved.'));
-
-    // System Controls
     document.getElementById('btnBackup')?.addEventListener('click', () => alert('Backup started.'));
     document.getElementById('restoreFile')?.addEventListener('change', (e) => {
       if (e.target.files?.length) alert('Restore uploaded: ' + e.target.files[0].name);
     });
     document.getElementById('btnExport')?.addEventListener('click', () => alert('Export started.'));
-
-    // Danger Zone
     document.getElementById('btnClearCache')?.addEventListener('click', () =>
       confirmDo('Clear server cache now?', () => console.log('[settings] clear cache'))
     );
