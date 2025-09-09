@@ -115,19 +115,26 @@
   }
 
   function renderPager() {
-    const el = $(SEL.pager); if (!el) return;
-    const pages = Math.max(1, Math.ceil(State.view.length / State.per));
-    const cur   = Math.min(State.page, pages);
-    State.page  = cur;
-    const B = (n, l, dis = false, curp = false) => `<button type="button" class="pg-btn" data-page="${n}" ${dis ? 'disabled' : ''} ${curp ? 'aria-current="page"' : ''}>${l}</button>`;
-    let html = "";
-    html += B(1, "First", cur === 1);
-    html += B(Math.max(1, cur - 1), "Previous", cur === 1);
-    html += `<span class="pg-info"> ${cur} / ${pages} </span>`;
-    html += B(Math.min(pages, cur + 1), "Next", cur === pages);
-    html += B(pages, "Last", cur === pages);
-    el.innerHTML = html;
-  }
+  const el = $(SEL.pager); if (!el) return;
+  const pages = Math.max(1, Math.ceil(State.view.length / State.per));
+  const cur   = Math.min(State.page, pages);
+  State.page  = cur;
+
+  // add global button classes so admin.css styles them
+  const B = (n, label, disabled = false, current = false) =>
+    `<button type="button"
+             class="btn small pg-btn"
+             data-page="${n}"
+             ${disabled ? 'disabled' : ''}
+             ${current  ? 'aria-current="page"' : ''}>${label}</button>`;
+
+  el.innerHTML =
+      B(1, "First",    cur === 1) +
+      B(Math.max(1, cur - 1), "Previous", cur === 1) +
+      `<span class="pg-info"> ${cur} / ${pages} </span>` +
+      B(Math.min(pages, cur + 1), "Next",   cur === pages) +
+      B(pages, "Last",            cur === pages);
+}
 
   // ----- wiring -----
   function wire() {
