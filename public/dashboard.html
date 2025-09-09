@@ -13,35 +13,34 @@
       <div class="brand-title">WattSun Admin</div>
     </div>
     <nav class="admin-nav" aria-label="Admin Navigation">
-  <a href="#" class="nav-link is-active"
-     data-partial="system-status" data-url="/partials/system-status.html">System Status</a>
+      <a href="#" class="nav-link is-active"
+         data-partial="system-status" data-url="/partials/system-status.html">System Status</a>
 
-  <a href="#" class="nav-link"
-     data-partial="profile" data-url="/partials/profile.html">Profile</a>
+      <a href="#" class="nav-link"
+         data-partial="profile" data-url="/partials/profile.html">Profile</a>
 
-  <a href="#" class="nav-link"
-     data-partial="orders" data-url="/partials/orders.html">Orders</a>
+      <a href="#" class="nav-link"
+         data-partial="orders" data-url="/partials/orders.html">Orders</a>
 
-  <a href="#" class="nav-link"
-     data-partial="items" data-url="/partials/items.html">Items</a>
+      <a href="#" class="nav-link"
+         data-partial="items" data-url="/partials/items.html">Items</a>
 
-  <a href="#" class="nav-link"
-     data-partial="users" data-url="/partials/users.html">Users</a>
+      <a href="#" class="nav-link"
+         data-partial="users" data-url="/partials/users.html">Users</a>
 
-  <a href="#" class="nav-link"
-     data-partial="dispatch" data-url="/partials/dispatch.html">Dispatch</a>
+      <a href="#" class="nav-link"
+         data-partial="dispatch" data-url="/partials/dispatch.html">Dispatch</a>
 
-  <a href="#" class="nav-link"
-     data-partial="settings" data-url="/partials/settings.html">Settings</a>
+      <a href="#" class="nav-link"
+         data-partial="settings" data-url="/partials/settings.html">Settings</a>
 
-  <!-- Hidden helper link so the shell can load the customer orders page -->
-  <a href="#" class="nav-link" style="display:none"
-     data-partial="my-orders" data-url="/myaccount/myorders.html">My Orders</a>
+      <!-- Hidden helper link so the shell can load the customer orders page -->
+      <a href="#" class="nav-link" style="display:none"
+         data-partial="my-orders" data-url="/myaccount/myorders.html">My Orders</a>
 
-  <!-- Existing external link (optional, unchanged) -->
-  <a href="/myaccount/myorders.html" class="nav-link">My Account</a>
-</nav>
-
+      <!-- Existing external link (optional, unchanged) -->
+      <a href="/myaccount/myorders.html" class="nav-link">My Account</a>
+    </nav>
   </aside>
 
   <main class="admin-main">
@@ -69,6 +68,65 @@
       <div class="modal-actions">
         <button id="confirmCancel" class="btn small" value="cancel">Cancel</button>
         <button id="confirmOk" class="btn small">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Inline Orders Edit Modal (static, does not use data-partial) -->
+  <style>
+    #orderEditModal::backdrop { background: rgba(0,0,0,0.35); }
+    .oem-form { display:grid; gap:.75rem; min-width: 420px; }
+    .oem-row  { display:grid; grid-template-columns: 120px 1fr; align-items:center; gap:.5rem; }
+    .oem-actions { display:flex; justify-content:flex-end; gap:.5rem; margin-top:.5rem; }
+    .oem-note { font-size:.875rem; color:#666; }
+    @media (max-width:520px){ .oem-form{min-width: 280px;} .oem-row{grid-template-columns:1fr;} }
+  </style>
+  <dialog id="orderEditModal">
+    <form id="orderEditForm" method="dialog" class="oem-form">
+      <h3 style="margin:0;">Edit Order</h3>
+      <div class="oem-note">Order ID: <span id="oemOrderId">—</span></div>
+
+      <div class="oem-row">
+        <label for="orderStatus">Status</label>
+        <select id="orderStatus" name="status">
+          <option>Pending</option>
+          <option>Processing</option>
+          <option>Confirmed</option>
+          <option>Dispatched</option>
+          <option>Delivered</option>
+          <option>Closed</option>
+          <option>Cancelled</option>
+        </select>
+      </div>
+
+      <div class="oem-row">
+        <label for="orderDriver">Driver</label>
+        <input id="orderDriver" name="driver" placeholder="Driver name or ID" />
+      </div>
+
+      <div class="oem-row">
+        <label for="orderNotes">Notes</label>
+        <textarea id="orderNotes" name="notes" rows="3" placeholder="Internal notes"></textarea>
+      </div>
+
+      <div class="oem-row">
+        <label for="orderTotal">Total (cents)</label>
+        <input id="orderTotal" name="totalCents" type="number" min="0" step="1" />
+      </div>
+
+      <div class="oem-row">
+        <label for="orderDeposit">Deposit (cents)</label>
+        <input id="orderDeposit" name="depositCents" type="number" min="0" step="1" />
+      </div>
+
+      <div class="oem-row">
+        <label for="orderCurrency">Currency</label>
+        <input id="orderCurrency" name="currency" maxlength="3" placeholder="KES" />
+      </div>
+
+      <div class="oem-actions">
+        <button type="button" id="orderCancelBtn">Cancel</button>
+        <button type="submit" id="orderSaveBtn">Save</button>
       </div>
     </form>
   </dialog>
@@ -105,11 +163,11 @@
   </script>
 
   <script>window.__ADMIN_VERSION__ = "20250906-02";</script>
-  <script src="/admin/js/admin-skin.js?v=20250906-02"></script>
-  <script src="/admin/js/orders-edit.js?v=20250907-01"></script>
-  <script src="/admin/js/data-adapter.js?v=20250907"></script>
-<script src="/admin/js/orders-controller.js?v=20250907"></script>
 
-<div data-partial="/partials/orders-modal.html"></div>
+  <!-- Load order-sensitive scripts in correct order; defer preserves order and avoids blocking -->
+  <script src="/admin/js/admin-skin.js?v=20250906-02" defer></script>
+  <script src="/admin/js/data-adapter.js?v=20250907" defer></script>
+  <script src="/admin/js/orders-controller.js?v=20250907" defer></script>
+  <script src="/admin/js/orders-edit.js?v=20250907-01" defer></script>
 </body>
 </html>
