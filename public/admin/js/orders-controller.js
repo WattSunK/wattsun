@@ -116,24 +116,32 @@
 
   function renderPager() {
   const el = $(SEL.pager); if (!el) return;
+
   const pages = Math.max(1, Math.ceil(State.view.length / State.per));
   const cur   = Math.min(State.page, pages);
   State.page  = cur;
 
-  // add global button classes so admin.css styles them
-  const B = (n, label, disabled = false, current = false) =>
-    `<button type="button"
-             class="btn small pg-btn"
-             data-page="${n}"
-             ${disabled ? 'disabled' : ''}
-             ${current  ? 'aria-current="page"' : ''}>${label}</button>`;
+  // helper to output an a11y-disabled button that still looks “enabled” per theme
+  const B = (n, label, isDisabled = false, isCurrent = false) => {
+    if (isDisabled) {
+      return `<button type="button"
+                      class="btn small pg-btn"
+                      data-page="${n}"
+                      aria-disabled="true"
+                      tabindex="-1">${label}</button>`;
+    }
+    return `<button type="button"
+                    class="btn small pg-btn"
+                    data-page="${n}"
+                    ${isCurrent ? 'aria-current="page"' : ''}>${label}</button>`;
+  };
 
   el.innerHTML =
-      B(1, "First",    cur === 1) +
-      B(Math.max(1, cur - 1), "Previous", cur === 1) +
-      `<span class="pg-info"> ${cur} / ${pages} </span>` +
-      B(Math.min(pages, cur + 1), "Next",   cur === pages) +
-      B(pages, "Last",            cur === pages);
+    B(1, "First",            cur === 1) +
+    B(Math.max(1, cur - 1), "Previous",  cur === 1) +
+    `<span class="pg-info"> ${cur} / ${pages} </span>` +
+    B(Math.min(pages, cur + 1), "Next",  cur === pages) +
+    B(pages, "Last",           cur === pages);
 }
 
   // ----- wiring -----
