@@ -1,34 +1,92 @@
 <!-- public/partials/orders-modal.html -->
-<dialog id="orderEditDialog">
-  <form method="dialog" class="ws-order-dialog">
-    <div class="filters-bar">
-      <div class="group">
-        <label>Edit</label><span class="help">Order</span>
-      </div>
-      <div class="spacer"></div>
-      <div class="group">
-        <button value="cancel" class="btn" id="cancelEditBtn">Cancel</button>
-        <button id="editSaveBtn" class="btn btn-primary" type="submit">Save</button>
-      </div>
-    </div>
+<!-- Styled Edit Order modal (scoped styles, no global CSS changes). -->
 
-    <div class="grid grid-2">
-      <div>
-        <label for="editStatus">Status</label>
-        <select id="editStatus" required>
-          <option value="Pending">Pending</option>
-          <option value="Processing">Processing</option>
-          <option value="Delivered">Delivered</option>
-          <option value="Cancelled">Cancelled</option>
+<style>
+  /* Backdrop */
+  #orderEditModal::backdrop { background: rgba(0,0,0,.35); }
+
+  /* Dialog shell */
+  #orderEditModal {
+    border: 0;
+    padding: 0;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.18);
+    background: #fff;
+  }
+
+  /* Card & layout */
+  .ws-modal-card { 
+    padding: 18px 20px; 
+    display: grid; 
+    gap: 14px; 
+    min-width: min(720px, 95vw);
+    background: #fff;
+  }
+  .ws-modal-title { font-size: 18px; font-weight: 600; margin: 0; }
+  .oem-note { font-size: .9rem; color: #666; }
+  .ws-form { display: grid; gap: 10px; }
+  .ws-row { 
+    display:grid; 
+    grid-template-columns: 140px 1fr; 
+    align-items: center; 
+    gap: 10px; 
+  }
+  @media (max-width: 560px) { .ws-row { grid-template-columns: 1fr; } }
+
+  /* Inputs (respect site styles; ensure full-width and spacing) */
+  .ws-input, .ws-select, .ws-textarea { width: 100%; }
+
+  /* Footer actions */
+  .ws-actions { display:flex; justify-content:flex-end; gap: 8px; margin-top: 4px; }
+</style>
+
+<dialog id="orderEditModal">
+  <form id="orderEditForm" method="dialog" class="ws-modal-card">
+    <h3 class="ws-modal-title">Edit Order</h3>
+    <div class="oem-note">Order ID: <span id="oemOrderId">—</span></div>
+
+    <div class="ws-form">
+      <div class="ws-row">
+        <label for="orderStatus">Status</label>
+        <select id="orderStatus" name="status" class="ws-select" required>
+          <option>Pending</option>
+          <option>Processing</option>
+          <option>Confirmed</option>
+          <option>Dispatched</option>
+          <option>Delivered</option>
+          <option>Closed</option>
+          <option>Cancelled</option>
         </select>
       </div>
-      <div>
-        <label for="editDriver">Driver</label>
-        <select id="editDriver"><option value="">— None —</option></select>
+
+      <div class="ws-row">
+        <label for="orderDriver">Driver</label>
+        <input id="orderDriver" name="driver" placeholder="Driver name or ID" class="ws-input" />
       </div>
-      <div class="grid-full">
-        <label for="editNotes">Internal Notes</label>
-        <textarea id="editNotes" rows="4" placeholder="Optional notes..."></textarea>
+
+      <div class="ws-row">
+        <label for="orderNotes">Notes</label>
+        <textarea id="orderNotes" name="notes" rows="3" placeholder="Internal notes" class="ws-textarea"></textarea>
+      </div>
+
+      <div class="ws-row">
+        <label for="orderTotal">Total (cents)</label>
+        <input id="orderTotal" name="totalCents" type="number" min="0" step="1" class="ws-input" />
+      </div>
+
+      <div class="ws-row">
+        <label for="orderDeposit">Deposit (cents)</label>
+        <input id="orderDeposit" name="depositCents" type="number" min="0" step="1" class="ws-input" />
+      </div>
+
+      <div class="ws-row">
+        <label for="orderCurrency">Currency</label>
+        <input id="orderCurrency" name="currency" maxlength="3" placeholder="KES" class="ws-input" />
+      </div>
+
+      <div class="ws-actions">
+        <button type="button" id="orderCancelBtn" class="btn small">Cancel</button>
+        <button type="submit" id="orderSaveBtn" class="btn small">Save</button>
       </div>
     </div>
   </form>

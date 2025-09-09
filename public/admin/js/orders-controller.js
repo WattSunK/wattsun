@@ -229,20 +229,23 @@
   window.__WS_ORDERS_FORCE_BOOT = () => { booted = false; boot(); };
 
   // ----- lightweight viewer (unchanged) -----
-  function ensureViewDialog() {
-    let dlg = document.getElementById("orderViewDialog");
-    if (dlg) return dlg;
-    dlg = document.createElement("dialog");
-    dlg.id = "orderViewDialog";
-    dlg.innerHTML = `<form method="dialog" class="ws-order-dialog" style="min-width:min(680px,95vw);border:none;">
-      <h3 style="margin:0 0 10px;">Order</h3>
-      <div class="content" style="max-height:60vh; overflow:auto;"></div>
-      <div class="actions" style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
-        <button value="close" class="btn">Close</button>
-      </div></form>`;
-    document.body.appendChild(dlg);
-    return dlg;
-  }
+function ensureViewDialog() {
+  let dlg = document.getElementById("orderViewDialog");
+  if (dlg) return dlg;
+
+  dlg = document.createElement("dialog");
+  dlg.id = "orderViewDialog";
+  dlg.innerHTML = `
+    <form method="dialog" class="ws-modal-card">
+      <h3 class="ws-modal-title">Order</h3>
+      <div class="content"></div>
+      <div class="ws-actions">
+        <button value="close" class="btn small">Close</button>
+      </div>
+    </form>`;
+  document.body.appendChild(dlg);
+  return dlg;
+}
 
   window.addEventListener("orders:view", (e) => {
     const id = e.detail?.id;
