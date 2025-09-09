@@ -185,24 +185,27 @@
     });
   </script>
 
-  <!-- NEW: wire Home + Logout -->
+<!-- Wire Home + Logout (Home does NOT log out) -->
 
-<!-- Wire Home + Logout (force site root) -->
 <script>
   (function () {
     const homeBtn   = document.getElementById('btn-home');
     const logoutBtn = document.getElementById('btn-logout');
 
-    function goRoot(e) {
-      if (e) { e.preventDefault?.(); e.stopPropagation?.(); e.stopImmediatePropagation?.(); }
-      // Clear session for logout; harmless for Home
-      try { localStorage.removeItem('wattsunUser'); } catch {}
-      // Always go to the site root where index.html is served
-      location.replace('/');
+    function goHome(e) {
+      e?.preventDefault?.(); e?.stopPropagation?.(); e?.stopImmediatePropagation?.();
+      // Do NOT clear session here
+      location.replace('/'); // send to site root (where index.html is served)
     }
 
-    homeBtn?.addEventListener('click', goRoot, true);   // capture = true to win over other listeners
-    logoutBtn?.addEventListener('click', goRoot, true);
+    function doLogout(e) {
+      e?.preventDefault?.(); e?.stopPropagation?.(); e?.stopImmediatePropagation?.();
+      try { localStorage.removeItem('wattsunUser'); } catch {}
+      location.replace('/'); // then go to site root
+    }
+
+    homeBtn?.addEventListener('click', goHome, true);   // capture=true to override other listeners
+    logoutBtn?.addEventListener('click', doLogout, true);
   })();
 </script>
 
