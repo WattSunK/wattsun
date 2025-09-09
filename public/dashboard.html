@@ -186,23 +186,31 @@
   </script>
 
   <!-- NEW: wire Home + Logout -->
-  <script>
+
+<script>
   (function () {
-    const homeBtn = document.getElementById('btn-home');
+    const homeBtn   = document.getElementById('btn-home');
     const logoutBtn = document.getElementById('btn-logout');
 
-    if (homeBtn) {
-      homeBtn.addEventListener('click', () => {
-        window.location.href = '/';
-      });
+    // If app is being served from /public/, go there; otherwise use /
+    const ROOT = (document.querySelector('base')?.getAttribute('href')?.startsWith('/public/')
+                  || location.pathname.startsWith('/public/'))
+                 ? '/public/' : '/';
+
+    function goHome(e) {
+      e?.preventDefault?.();
+      // replace() so Back won't return to the admin page
+      location.replace(ROOT);
     }
 
-    if (logoutBtn) {
-      logoutBtn.addEventListener('click', () => {
-        try { localStorage.removeItem('wattsunUser'); } catch (e) {}
-        window.location.href = '/';
-      });
+    function doLogout(e) {
+      e?.preventDefault?.();
+      try { localStorage.removeItem('wattsunUser'); } catch {}
+      location.replace(ROOT);
     }
+
+    homeBtn?.addEventListener('click', goHome);
+    logoutBtn?.addEventListener('click', doLogout);
   })();
 </script>
 
