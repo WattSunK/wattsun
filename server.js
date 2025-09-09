@@ -106,7 +106,7 @@ app.use("/api/categories", require("./routes/categories")(db));
 app.use("/api/admin", requireAdmin);
 app.use("/api/admin/orders", require("./routes/admin-orders")); // NEW (PATCH)
 const adminOrdersMeta = require("./routes/admin-orders-meta");
-app.use("/api/admin/users", require("./routes/admin-users")); // NEW (GET drivers)
+app.use("/api/admin", require("./routes/admin-users"));
 app.use("/api/admin/_diag", require("./routes/admin-diagnostics"));
 app.use("/api/admin/dispatch", require("./routes/admin-dispatch"));
 app.use("/api", require("./routes/calculator"));
