@@ -6,12 +6,13 @@
 
   const ALLOWED_STATUSES = ["Pending", "Confirmed", "Dispatched", "Delivered", "Closed", "Cancelled"];
 
-  const dlg      = document.getElementById("orderEditDialog");
-  const btnSave  = document.getElementById("editSaveBtn");
-  const btnCancel= document.getElementById("cancelEditBtn");
-  const selStatus= document.getElementById("editStatus");
-  const selDriver= document.getElementById("editDriver");
-  const txtNotes = document.getElementById("editNotes");
+const dlg       = document.getElementById("orderEditModal") || document.getElementById("orderEditDialog");
+const btnSave   = document.getElementById("orderSaveBtn")   || document.getElementById("editSaveBtn");
+const btnCancel = document.getElementById("orderCancelBtn") || document.getElementById("cancelEditBtn");
+const selStatus = document.getElementById("orderStatus")    || document.getElementById("editStatus");
+const selDriver = document.getElementById("orderDriver")    || document.getElementById("editDriver");
+const txtNotes  = document.getElementById("orderNotes")     || document.getElementById("editNotes");
+
 
   if (!dlg || !btnSave || !btnCancel || !selStatus || !selDriver || !txtNotes) {
     console.warn("[orders-edit] Missing expected modal elements; skipping binder.");
@@ -41,23 +42,7 @@
     selStatus.value = ALLOWED_STATUSES.includes(current) ? current : "Pending";
   }
 
-  async function loadDrivers(selectedId) {
-    selDriver.innerHTML = `<option value="">— None —</option>`;
-    try {
-      const r = await fetch(`/api/admin/users?type=Driver`, { credentials: "include" });
-      const j = await r.json().catch(() => ({}));
-      const users = Array.isArray(j?.users) ? j.users : [];
-      for (const u of users) {
-        const opt = document.createElement("option");
-        opt.value = String(u.id);
-        opt.textContent = u.name || u.fullName || u.email || `Driver #${u.id}`;
-        selDriver.appendChild(opt);
-      }
-      if (selectedId != null && selectedId !== "") selDriver.value = String(selectedId);
-    } catch (e) { console.warn("[orders-edit] failed to load drivers", e); }
-  }
-
-  async function apiGetOrder(id) {
+    async function apiGetOrder(id) {
     const r = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, { credentials: "include" });
     if (!r.ok) throw new Error(`GET failed: ${r.status}`);
     const j = await r.json();
@@ -77,6 +62,32 @@
     if (!j?.success) throw new Error("Save failed");
     return j.order || payload;
   }
+// --- Drivers cache + loader (5 min cache)
+let _driversCache = null, _driversAt = 0;
+
+async function loadDrivers(selectedId) {
+  if (!selDriver) return;
+  selDriver.innerHTML = `<option value="">— Select driver —</option>`;
+  const now = Date.now();
+  if (_driversCache && (now - _driversAt) < 5 * 60 * 1000) {
+    return renderDrivers(_driversCache, selectedId);
+  }
+  try {
+    const r = await fetch(`/api/admin/users?type=Driver&page=1&per=1000`, { credentials: "include" });
+    if (!r.ok) throw new Error(`Drivers fetch failed: ${r.status}`);
+    const j = await r.json();
+    const users = Array.isArray(j?.users) ? j.users : [];
+    _driversCache = users; _driversAt = now;
+    renderDrivers(users, selectedId);
+  } catch (e) {
+    console.error("[orders-edit] loadDrivers", e);
+    selDriver.innerHTML = `<option value="">(No drivers found)</option>`;
+  }
+}
+function renderDrivers(users, selectedId) {
+  selDriver.innerHTML = `<option value="">— Select driver —</option>` +
+    users.map(u => `<option value="${u.id}" ${Number(u.id)===Number(selectedId)?"selected":""}>${u.name || u.email || `Driver #${u.id}`} ${u.phone?`(${u.phone})`:""}</option>`).join("");
+}
 
   async function openFor(id) {
     if (!id) return;
@@ -87,7 +98,12 @@
     openDialog();
     try {
       const o = await apiGetOrder(id);
-      initial = { status: o.status || o.originalStatus || "Pending", driverId: o.driverId ?? "", notes: o.notes || "" };
+      initial = {
+  status: o.status || o.originalStatus || "Pending",
+  driverId: (o.driverId ?? o.driver_id ?? null),
+  notes: o.notes || ""
+};
+
       buildStatusOptions(initial.status);
       txtNotes.value = initial.notes;
       await loadDrivers(initial.driverId);
@@ -99,27 +115,57 @@
   }
 
   async function doSave() {
-    if (!currentId) return;
-    const status   = selStatus.value;
-    const driverId = selDriver.value ? parseInt(selDriver.value, 10) : null;
-    const notes    = (txtNotes.value || "").trim();
-    if (!ALLOWED_STATUSES.includes(status)) return toast("Please select a valid status.", "error");
-    const payload = { status };
-    if (driverId !== null && Number.isInteger(driverId)) payload.driverId = driverId;
-    if (notes !== initial.notes) payload.notes = notes;
-    if (Object.keys(payload).length === 1 && status === initial.status) { closeDialog(); return; }
-    setSaving(true);
-    try {
-      await apiPatchOrder(currentId, payload);
-      if (typeof window.refreshOrderRow === "function") window.refreshOrderRow(currentId, { status });
-      closeDialog();
-      toast("Order updated.", "success");
-    } catch (e) {
-      console.error("[orders-edit] save failed", e);
-      toast("Failed to save changes.", "error");
-    } finally { setSaving(false); }
+  if (!currentId) return;
+
+  const status   = selStatus.value;
+  const notes    = (txtNotes.value || "").trim();
+  const selected = selDriver.value;
+  const driverId = selected ? Number.parseInt(selected, 10) : null;
+
+  // build minimal PATCH from diffs
+  const payload = {};
+
+  if (ALLOWED_STATUSES.includes(status) && status !== initial.status) {
+    payload.status = status;
   }
 
+  // send driverId whenever it changed (including clearing to null)
+  if (driverId !== (initial.driverId ?? null)) {
+    if (driverId !== null && !Number.isInteger(driverId)) {
+      return toast("Invalid driver selection.", "error");
+    }
+    payload.driverId = driverId; // allow null to clear
+  }
+
+  if (notes !== initial.notes) {
+    payload.notes = notes;
+  }
+
+  // nothing changed? just close
+  if (!Object.keys(payload).length) { closeDialog(); return; }
+
+  setSaving(true);
+  try {
+    await apiPatchOrder(currentId, payload);
+
+    // refresh row with everything that changed (not just status)
+    if (typeof window.refreshOrderRow === "function") {
+      window.refreshOrderRow(currentId, payload);
+    }
+
+    // lightweight cross-tab/update signal
+    try { localStorage.setItem("ordersUpdatedAt", new Date().toISOString()); } catch {}
+    try { window.postMessage({ type: "orders-updated", id: currentId }, window.origin || "*"); } catch {}
+
+    toast("Order updated.", "success");
+    closeDialog();
+  } catch (e) {
+    console.error("[orders-edit] save failed", e);
+    toast("Failed to save changes.", "error");
+  } finally {
+    setSaving(false);
+  }
+}
   btnCancel.addEventListener("click", (e) => { e.preventDefault(); closeDialog(); });
   btnSave.addEventListener("click",   (e) => { e.preventDefault(); doSave(); });
 
