@@ -31,13 +31,6 @@
       <a href="#" class="nav-link"
          data-partial="dispatch" data-url="/partials/dispatch.html">Dispatch</a>
 
-      <a href="#" class="nav-link"
-         data-partial="settings" data-url="/partials/settings.html">Settings</a>
-
-      <!-- Hidden helper link so the shell can load the customer orders page -->
-      <a href="#" class="nav-link" style="display:none"
-         data-partial="my-orders" data-url="/myaccount/myorders.html">My Orders</a>
-
       <!-- Existing external link (optional, unchanged) -->
       <a href="/myaccount/myorders.html" class="nav-link">My Account</a>
     </nav>
@@ -64,72 +57,53 @@
   <dialog id="confirmModal" class="modal">
     <form method="dialog" class="modal-card">
       <div class="modal-title" id="confirmTitle">Confirm</div>
-      <div class="modal-body"  id="confirmBody">Are you sure?</div>
+      <div class="modal-body" id="confirmBody">Are you sure?</div>
       <div class="modal-actions">
         <button id="confirmCancel" class="btn small" value="cancel">Cancel</button>
-        <button id="confirmOk" class="btn small">OK</button>
+        <button id="confirmOk" class="btn small" value="ok">OK</button>
       </div>
     </form>
   </dialog>
 
-  <!-- Inline Orders Edit Modal (static, does not use data-partial) -->
-  <style>
-    #orderEditModal::backdrop { background: rgba(0,0,0,0.35); }
-    .oem-form { display:grid; gap:.75rem; min-width: 420px; }
-    .oem-row  { display:grid; grid-template-columns: 120px 1fr; align-items:center; gap:.5rem; }
-    .oem-actions { display:flex; justify-content:flex-end; gap:.5rem; margin-top:.5rem; }
-    .oem-note { font-size:.875rem; color:#666; }
-    @media (max-width:520px){ .oem-form{min-width: 280px;} .oem-row{grid-template-columns:1fr;} }
-  </style>
-  <dialog id="orderEditModal">
-    <form id="orderEditForm" method="dialog" class="oem-form">
-      <h3 style="margin:0;">Edit Order</h3>
-      <div class="oem-note">Order ID: <span id="oemOrderId">—</span></div>
-
-      <div class="oem-row">
-        <label for="orderStatus">Status</label>
-        <select id="orderStatus" name="status">
-          <option>Pending</option>
-          <option>Processing</option>
-          <option>Confirmed</option>
-          <option>Dispatched</option>
-          <option>Delivered</option>
-          <option>Closed</option>
-          <option>Cancelled</option>
-        </select>
+  <!-- Existing Edit Order dialog -->
+  <dialog id="orderEditModal" class="modal">
+    <form method="dialog" class="modal-card" id="orderEditForm">
+      <div class="modal-title">Edit Order</div>
+      <div class="modal-body">
+        <!-- … existing edit fields … -->
+        <div class="oem-row">
+          <label for="orderStatus">Status</label>
+          <select id="orderStatus" name="status">
+            <option>Pending</option>
+            <option>Confirmed</option>
+            <option>Processing</option>
+            <option>Dispatched</option>
+            <option>Completed</option>
+            <option>Cancelled</option>
+          </select>
+        </div>
+        <div class="oem-row">
+          <label for="orderTotal">Total (cents)</label>
+          <input id="orderTotal" name="totalCents" type="number" min="0" step="1" />
+        </div>
+        <div class="oem-row">
+          <label for="orderDeposit">Deposit (cents)</label>
+          <input id="orderDeposit" name="depositCents" type="number" min="0" step="1" />
+        </div>
+        <div class="oem-row">
+          <label for="orderCurrency">Currency</label>
+          <input id="orderCurrency" name="currency" maxlength="3" placeholder="KES" />
+        </div>
       </div>
-
-      <div class="oem-row">
-        <label for="orderDriver">Driver</label>
-        <input id="orderDriver" name="driver" placeholder="Driver name or ID" />
-      </div>
-
-      <div class="oem-row">
-        <label for="orderNotes">Notes</label>
-        <textarea id="orderNotes" name="notes" rows="3" placeholder="Internal notes"></textarea>
-      </div>
-
-      <div class="oem-row">
-        <label for="orderTotal">Total (cents)</label>
-        <input id="orderTotal" name="totalCents" type="number" min="0" step="1" />
-      </div>
-
-      <div class="oem-row">
-        <label for="orderDeposit">Deposit (cents)</label>
-        <input id="orderDeposit" name="depositCents" type="number" min="0" step="1" />
-      </div>
-
-      <div class="oem-row">
-        <label for="orderCurrency">Currency</label>
-        <input id="orderCurrency" name="currency" maxlength="3" placeholder="KES" />
-      </div>
-
-      <div class="oem-actions">
+      <div class="modal-actions">
         <button type="button" id="orderCancelBtn">Cancel</button>
         <button type="submit" id="orderSaveBtn">Save</button>
       </div>
     </form>
   </dialog>
+
+  <!-- Add Order modal include -->
+  <!--#include file="/public/partials/orders-add.html" -->
 
   <script>
     window.toast = (msg, type="info", ms=3000) => {
@@ -144,19 +118,11 @@
     };
     window.askConfirm = (title, body) => new Promise((resolve) => {
       const dlg = document.getElementById('confirmModal');
+      const onClose = (e) => { dlg.removeEventListener('close', onClose); resolve(dlg.returnValue === 'ok'); };
+      const onCancel = (e) => { dlg.returnValue = 'cancel'; };
       document.getElementById('confirmTitle').textContent = title || 'Confirm';
-      document.getElementById('confirmBody').textContent  = body  || 'Are you sure?';
-      const ok = document.getElementById('confirmOk');
-      const cancel = document.getElementById('confirmCancel');
-      const onOk = () => { cleanup(); dlg.close(); resolve(true); };
-      const onCancel = () => { cleanup(); dlg.close(); resolve(false); };
-      const cleanup = () => {
-        ok.removeEventListener('click', onOk);
-        cancel.removeEventListener('click', onCancel);
-        dlg.removeEventListener('cancel', onCancel);
-      };
-      ok.addEventListener('click', onOk);
-      cancel.addEventListener('click', onCancel);
+      document.getElementById('confirmBody').textContent = body || 'Are you sure?';
+      dlg.addEventListener('close', onClose, { once: true });
       dlg.addEventListener('cancel', onCancel);
       dlg.showModal();
     });
@@ -164,10 +130,11 @@
 
   <script>window.__ADMIN_VERSION__ = "20250906-02";</script>
 
-  <!-- Load order-sensitive scripts in correct order; defer preserves order and avoids blocking -->
+  <!-- Load order-sensitive scripts in correct order -->
   <script src="/admin/js/admin-skin.js?v=20250906-02" defer></script>
   <script src="/admin/js/data-adapter.js?v=20250907" defer></script>
   <script src="/admin/js/orders-controller.js?v=20250907" defer></script>
   <script src="/admin/js/orders-edit.js?v=20250907-01" defer></script>
+  <script src="/admin/js/orders-add.js?v=20250909-01" defer></script>
 </body>
 </html>
