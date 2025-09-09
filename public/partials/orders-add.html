@@ -2,7 +2,7 @@
 <!-- Admin “Add Order” Modal (first version) -->
 <!-- Uses existing admin.css styles; no new CSS introduced. -->
 
-<div id="orderAddModal" class="ws-modal hidden" role="dialog" aria-modal="true" aria-labelledby="oa_title">
+<div id="orderAddModal" class="ws-modal hidden" role="dialog" aria-modal="true" aria-labelledby="oa_title" tabindex="-1">
   <div class="ws-modal__backdrop" data-oa-close></div>
 
   <div class="ws-modal__card">
@@ -23,7 +23,7 @@
           <div class="ws-grid">
             <label class="ws-field">
               <span>Customer Name</span>
-              <input id="oa_fullName" name="fullName" type="text" placeholder="John Doe" autocomplete="name" required />
+              <input id="oa_fullName" name="fullName" type="text" placeholder="John Doe" autocomplete="name" required autofocus />
             </label>
 
             <label class="ws-field">
@@ -45,7 +45,7 @@
           <div class="ws-grid">
             <label class="ws-field">
               <span>Status</span>
-              <select id="oa_status" name="status">
+              <select id="oa_status" name="status" required>
                 <option value="Pending" selected>Pending</option>
                 <option value="Confirmed">Confirmed</option>
                 <option value="Processing">Processing</option>
@@ -57,7 +57,7 @@
 
             <label class="ws-field">
               <span>Currency</span>
-              <select id="oa_currency" name="currency">
+              <select id="oa_currency" name="currency" required>
                 <option value="KES" selected>KES</option>
                 <option value="USD">USD</option>
               </select>
@@ -115,7 +115,8 @@
 
     <div class="ws-modal__footer">
       <button class="btn small ghost" type="button" data-oa-close>Cancel</button>
-      <button id="oa_submit" class="btn small" type="button">Save</button>
+      <!-- Important: submit to trigger binder's form.submit handler -->
+      <button id="oa_submit" class="btn small" type="submit" form="orderAddForm">Save</button>
     </div>
   </div>
 </div>
