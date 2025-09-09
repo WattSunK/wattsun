@@ -1,10 +1,9 @@
 // routes/admin-orders.js
-// Admin Orders (overlay-aware list + single GET + PATCH w/ base-order check)
-// Adds fallback to computed items totals when overlay/base totals are empty.
-//
-// - GET /                → paginated list (JOIN aom + items totals fallback)
-// - GET /:idOrNumber     → single, overlay-aware + items (with items totals fallback)
-// - PATCH /:idOrNumber   → upsert overlay; verifies base order exists
+// Admin Orders (overlay-aware list + single GET + PATCH + ADR status route)
+// - GET    /                 → paginated list (JOIN aom + items totals fallback)
+// - GET    /:idOrNumber      → single, overlay-aware + items (with items totals fallback)
+// - PATCH  /:idOrNumber      → upsert overlay; verifies base order exists; appends status history on change
+// - PUT    /:idOrNumber/status → ADR endpoint: update status + optional note; appends history
 //
 // Safe to drop in.
 
@@ -85,6 +84,71 @@ function resolveOrder(db, idOrNumber, cb) {
   db.get(sql, [key, key], (e, row) => (e ? cb(e) : cb(null, row || null)));
 }
 
+// Get current effective status (overlay wins)
+function getEffectiveStatus(orderId) {
+  return new Promise((resolve, reject) => {
+    const sql = `SELECT COALESCE(a.status, o.status) AS eff
+                 FROM orders o
+                 LEFT JOIN admin_order_meta a ON a.order_id = o.id
+                 WHERE o.id = ? LIMIT 1;`;
+    db.get(sql, [orderId], (e, row) => (e ? reject(e) : resolve(row ? row.eff : null)));
+  });
+}
+
+// Append a status history row
+function appendStatusHistory(orderId, newStatus, note, changedBy) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      `INSERT INTO order_status_history (order_id, status, changedBy, note)
+       VALUES (?, ?, ?, ?)`,
+      [orderId, newStatus, changedBy ?? null, note ?? null],
+      function (e) {
+        if (e) return reject(e);
+        resolve({ id: this.lastID, order_id: orderId, status: newStatus, note: note ?? null, changedBy: changedBy ?? null });
+      }
+    );
+  });
+}
+
+// Upsert overlay helper (returns minimal order payload)
+function upsertOverlay({ id, status, driverId, notes, totalCents, depositCents, currency }) {
+  return new Promise((resolve, reject) => {
+    db.get("SELECT 1 FROM admin_order_meta WHERE order_id = ?", [id], (selErr, row) => {
+      if (selErr) return reject(selErr);
+
+      if (!row) {
+        const insertSql = `
+          INSERT INTO admin_order_meta
+            (order_id, status, driver_id, notes, total_cents, deposit_cents, currency, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`;
+        db.run(
+          insertSql,
+          [id, status ?? "Pending", driverId ?? null, notes ?? "", totalCents ?? null, depositCents ?? null, currency ?? "KES"],
+          function (insErr) {
+            if (insErr) return reject(insErr);
+            resolve({ id, status: status ?? "Pending", driverId: driverId ?? null, notes: notes ?? "", totalCents: totalCents ?? null, depositCents: depositCents ?? null, currency: currency ?? "KES" });
+          }
+        );
+      } else {
+        const sets = [], args = [];
+        if (status !== undefined)       { sets.push("status = ?");         args.push(status); }
+        if (driverId !== undefined)     { sets.push("driver_id = ?");      args.push(driverId); }
+        if (notes !== undefined)        { sets.push("notes = ?");          args.push(notes); }
+        if (totalCents !== undefined)   { sets.push("total_cents = ?");    args.push(totalCents); }
+        if (depositCents !== undefined) { sets.push("deposit_cents = ?");  args.push(depositCents); }
+        if (currency !== undefined)     { sets.push("currency = ?");       args.push(currency); }
+        if (sets.length === 0) return resolve({ id });
+        sets.push("updated_at = datetime('now')");
+        args.push(id);
+        db.run(`UPDATE admin_order_meta SET ${sets.join(", ")} WHERE order_id = ?`, args, function (updErr) {
+          if (updErr) return reject(updErr);
+          resolve({ id, status, driverId, notes, totalCents, depositCents, currency });
+        });
+      }
+    });
+  });
+}
+
 // ---- GET /api/admin/orders?q&status&from&to&page&per ----
 router.get("/", (req, res) => {
   const page = Math.max(parseInt(req.query.page || "1", 10), 1);
@@ -144,8 +208,8 @@ router.get("/", (req, res) => {
     LEFT JOIN admin_order_meta aom ON aom.order_id = o.id
     LEFT JOIN (
       SELECT order_id,
-             SUM(priceCents)                           AS items_total_cents,
-             SUM(COALESCE(depositCents, 0))           AS items_deposit_cents
+             SUM(priceCents)                         AS items_total_cents,
+             SUM(COALESCE(depositCents, 0))         AS items_deposit_cents
       FROM order_items
       GROUP BY order_id
     ) it ON it.order_id = o.id
@@ -268,9 +332,44 @@ router.get("/:idOrNumber", (req, res) => {
   });
 });
 
+// ---- ADR: PUT /api/admin/orders/:idOrNumber/status ----
+router.put("/:idOrNumber/status", async (req, res) => {
+  try {
+    const idOrNumber = req.params.idOrNumber;
+    const note = trimOrEmpty(req.body?.note ?? "");
+
+    const statusInput = normalizeStatus(req.body?.status);
+    const status = statusInput == null ? null : safeStatus(statusInput);
+    if (!status) {
+      return res.status(422).json({ success:false, error:{ code: "VALIDATION_STATUS_INVALID", message: `Status must be one of: ${ALLOWED_STATUSES.join(", ")}` } });
+    }
+
+    // Resolve base order
+    const ord = await new Promise((resolve, reject) => resolveOrder(db, idOrNumber, (e, row) => e ? reject(e) : resolve(row)));
+    if (!ord) return res.status(404).json({ success:false, error:{ code:"ORDER_NOT_FOUND", message:"Base order not found" } });
+
+    const id = String(ord.id);
+    const before = await getEffectiveStatus(id);
+
+    // Upsert overlay with new status and optional note (notes preserved if empty)
+    await upsertOverlay({ id, status, notes: note === "" ? undefined : note });
+
+    // Append history only if changed
+    const changedBy = req.session?.user?.id || null;
+    if (before !== status) {
+      await appendStatusHistory(id, status, note || null, changedBy);
+    }
+
+    return res.json({ success:true, order:{ id, orderNumber: ord.orderNumber, status }, history:{ status, changedBy, note: note || null } });
+  } catch (e) {
+    console.error("[admin-orders:PUT status]", e);
+    return res.status(500).json({ success:false, error:{ code:"SERVER", message:"Failed to update status" } });
+  }
+});
+
 // ---- PATCH /api/admin/orders/:idOrNumber ----
 router.patch("/:idOrNumber", (req, res) => {
-  resolveOrder(db, req.params.idOrNumber, (e0, ord) => {
+  resolveOrder(db, req.params.idOrNumber, async (e0, ord) => {
     if (e0) {
       console.error("[admin-orders] resolve error:", e0);
       return res.status(500).json({ success:false, error:{code:"DB_ERROR", message:"Database error"} });
@@ -307,59 +406,30 @@ router.patch("/:idOrNumber", (req, res) => {
     const providedDeposit   = depositPick.provided;
     const providedCurrency  = (currencyRaw !== undefined);
 
-    db.get("SELECT 1 FROM admin_order_meta WHERE order_id = ?", [id], (selErr, row) => {
-      if (selErr) { console.error("[admin-orders] select error:", selErr.message);
-        return res.status(500).json({ success: false, error: { code: "DB_ERROR", message: "Database error" } }); }
+    try {
+      const before = await getEffectiveStatus(id);
 
-      if (!row) {
-        const statusForInsert  = status || "Pending";
-        const driverForInsert  = providedDriverId ? dId : null;
-        const notesForInsert   = notesProvided ? notes : "";
-        const totalForInsert   = providedTotal   ? totalPick.value   : null;
-        const depositForInsert = providedDeposit ? depositPick.value : null;
-        const currencyForInsert = providedCurrency && currency ? currency : "KES";
+      const overlayResult = await upsertOverlay({
+        id,
+        status: providedStatus ? status : undefined,
+        driverId: providedDriverId ? dId : undefined,
+        notes: notesProvided ? notes : undefined,
+        totalCents: providedTotal ? totalPick.value : undefined,
+        depositCents: providedDeposit ? depositPick.value : undefined,
+        currency: providedCurrency ? (currency || null) : undefined,
+      });
 
-        const insertSql = `
-          INSERT INTO admin_order_meta
-            (order_id, status, driver_id, notes, total_cents, deposit_cents, currency, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-        `;
-        db.run(insertSql,
-          [id, statusForInsert, driverForInsert, notesForInsert, totalForInsert, depositForInsert, currencyForInsert],
-          function (insErr) {
-            if (insErr) { console.error("[admin-orders] insert error:", insErr.message);
-              return res.status(500).json({ success: false, error: { code: "DB_ERROR", message: "Database error" } });
-            }
-            return res.json({ success: true, order: { id, status: statusForInsert, driverId: driverForInsert, notes: notesForInsert, totalCents: totalForInsert, depositCents: depositForInsert, currency: currencyForInsert }, message: "Order updated" });
-          }
-        );
-      } else {
-        const sets = [], args = [];
-        if (providedStatus)   { sets.push("status = ?");        args.push(status); }
-        if (providedDriverId) { sets.push("driver_id = ?");     args.push(dId);    }
-        if (notesProvided)    { sets.push("notes = ?");         args.push(notes);  }
-        if (providedTotal)    { sets.push("total_cents = ?");   args.push(totalPick.value); }
-        if (providedDeposit)  { sets.push("deposit_cents = ?"); args.push(depositPick.value); }
-        if (providedCurrency) { sets.push("currency = ?");      args.push(currency || null); }
-        if (sets.length === 0) return res.status(400).json({ success: false, error: { code: "EMPTY_UPDATE", message: "Provide at least one of: status, driverId, notes, total/deposit/currency." } });
-
-        sets.push("updated_at = datetime('now')"); args.push(id);
-        const updateSql = `UPDATE admin_order_meta SET ${sets.join(", ")} WHERE order_id = ?`;
-        db.run(updateSql, args, function (updErr) {
-          if (updErr) { console.error("[admin-orders] update error:", updErr.message);
-            return res.status(500).json({ success: false, error: { code: "DB_ERROR", message: "Database error" } }); }
-          return res.json({ success: true, order: {
-            id,
-            status:        providedStatus   ? status               : null,
-            driverId:      providedDriverId ? dId                  : null,
-            notes:         notesProvided    ? notes                : undefined,
-            totalCents:    providedTotal    ? totalPick.value      : undefined,
-            depositCents:  providedDeposit  ? depositPick.value    : undefined,
-            currency:      providedCurrency ? (currency || null)   : undefined
-          }, message: "Order updated" });
-        });
+      // Append history if status changed
+      const changedBy = req.session?.user?.id || null;
+      if (providedStatus && status && before !== status) {
+        await appendStatusHistory(id, status, notesProvided ? (notes || null) : null, changedBy);
       }
-    });
+
+      return res.json({ success: true, order: overlayResult, message: "Order updated" });
+    } catch (err) {
+      console.error("[admin-orders] PATCH error:", err);
+      return res.status(500).json({ success: false, error: { code: "DB_ERROR", message: "Database error" } });
+    }
   });
 });
 
