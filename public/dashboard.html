@@ -187,30 +187,22 @@
 
   <!-- NEW: wire Home + Logout -->
 
+<!-- Wire Home + Logout (force site root) -->
 <script>
   (function () {
     const homeBtn   = document.getElementById('btn-home');
     const logoutBtn = document.getElementById('btn-logout');
 
-    // If app is being served from /public/, go there; otherwise use /
-    const ROOT = (document.querySelector('base')?.getAttribute('href')?.startsWith('/public/')
-                  || location.pathname.startsWith('/public/'))
-                 ? '/public/' : '/';
-
-    function goHome(e) {
-      e?.preventDefault?.();
-      // replace() so Back won't return to the admin page
-      location.replace(ROOT);
-    }
-
-    function doLogout(e) {
-      e?.preventDefault?.();
+    function goRoot(e) {
+      if (e) { e.preventDefault?.(); e.stopPropagation?.(); e.stopImmediatePropagation?.(); }
+      // Clear session for logout; harmless for Home
       try { localStorage.removeItem('wattsunUser'); } catch {}
-      location.replace(ROOT);
+      // Always go to the site root where index.html is served
+      location.replace('/');
     }
 
-    homeBtn?.addEventListener('click', goHome);
-    logoutBtn?.addEventListener('click', doLogout);
+    homeBtn?.addEventListener('click', goRoot, true);   // capture = true to win over other listeners
+    logoutBtn?.addEventListener('click', goRoot, true);
   })();
 </script>
 
