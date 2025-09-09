@@ -104,9 +104,9 @@
           <td data-col="status">${status}</td>
           <td data-col="created">${when}</td>
           <td data-col="total">${total}</td>
-          <td data-col="action">
-            <button type="button" class="btn-view" data-oid="${id}">View</button>
-            <button type="button" class="btn-edit" data-action="edit-order" data-oid="${id}" data-phone="${o.phone || ''}" data-email="${o.email || ''}">Edit</button>
+          <td data-col="action" style="text-align:center;">
+            <button type="button" class="btn btn-sm btn-view" data-oid="${id}">View</button>
+            <button type="button" class="btn btn-sm btn-edit" data-action="edit-order" data-oid="${id}" data-phone="${o.phone || ''}" data-email="${o.email || ''}">Edit</button>
           </td>
         </tr>`;
     }).join("");
@@ -163,6 +163,14 @@
         const id = eb.getAttribute("data-oid") || "";
         const phone = eb.getAttribute("data-phone") || "";
         const email = eb.getAttribute("data-email") || "";
+        // If the modal exists, open it directly (keeps compat with your binder)
+        const dlg = document.getElementById('orderEditModal');
+        if (dlg) {
+          const idEl = document.getElementById('oemOrderId');
+          if (idEl) idEl.textContent = id;
+          try { dlg.showModal(); } catch { dlg.open = true; }
+        }
+        // Also emit the event for any external save handler
         window.dispatchEvent(new CustomEvent("orders:edit", { detail: { id, phone, email } }));
       }
     });
