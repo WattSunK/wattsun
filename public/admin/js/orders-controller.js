@@ -1,7 +1,9 @@
 // public/admin/js/orders-controller.js
-// Admin Orders list controller — aligned to the new contract & UI.
-// Adds a tiny auto-detect so if the Orders table/tbody don't have the
-// expected IDs, we assign them (no HTML changes required).
+// Admin Orders list controller — robust boot + adapter compatibility
+// - Works with Data.orders.list() OR .get()
+// - Boots when the Orders partial lands (detail.partial or detail.name)
+// - Exposes window.__WS_ORDERS_FORCE_BOOT()
+// - Auto-assigns #ordersTable/#ordersTbody if missing (no HTML edits needed)
 
 (function () {
   "use strict";
@@ -12,7 +14,7 @@
   }
   const Data = window.WattSunAdminData;
 
-  // ----- selectors (single status select; drop legacy duplicates) -----
+  // ----- selectors -----
   const SEL = {
     table:  "#ordersTable",
     tbody:  "#ordersTbody",
@@ -29,40 +31,38 @@
     raw: [],
     view: [],
     page: 1,
-    per: 10,     // UI page size (client-side)
+    per: 10,
     q: "",
-    status: ""   // "All" or empty = no filter
+    status: ""
   };
+
+  // prevent duplicate wiring/boot
+  let booted = false;
 
   // ---------- auto-detect table/tbody and assign IDs if missing ----------
   function ensureOrdersIds() {
     let table = document.querySelector(SEL.table);
     let tbody = document.querySelector(SEL.tbody);
-    if (table && tbody) return;
+    if (table && tbody) return true;
 
-    // Try: the first table inside the "Orders" card/section
+    // Try: the first table inside an element whose header contains "Orders"
     const card = [...document.querySelectorAll('section,.card,.panel,main,div')]
-      .find(x => x && /(^|\s)Orders(\s|$)/i.test(x.querySelector('h2,h3,h4,header,legend,summary')?.textContent || ""));
+      .find(x => x && /(^|\s)Orders(\s|$)/i.test(x.querySelector('h1,h2,h3,h4,header,legend,summary')?.textContent || ""));
     table = table || card?.querySelector('table') || document.querySelector('table');
-    if (!table) return;
+    if (!table) return false;
 
     tbody = tbody || table.querySelector('tbody') || table.appendChild(document.createElement('tbody'));
     if (!table.id) table.id = SEL.table.slice(1);
     if (!tbody.id) tbody.id = SEL.tbody.slice(1);
+    return true;
   }
 
   // ----- formatting -----
   function fmtMoney(cents, currency = "KES") {
     if (!Number.isFinite(cents)) return "—";
     try {
-      return new Intl.NumberFormat("en-KE", {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 0
-      }).format(cents / 100);
-    } catch {
-      return `${currency} ${(cents / 100).toLocaleString("en-KE")}`;
-    }
+      return new Intl.NumberFormat("en-KE", { style: "currency", currency, maximumFractionDigits: 0 }).format(cents / 100);
+    } catch { return `${currency} ${(cents/100).toLocaleString('en-KE')}`; }
   }
 
   // ----- filter + sort -----
@@ -72,20 +72,14 @@
     let arr = [...State.raw];
 
     if (q) {
-      arr = arr.filter(o =>
-        [o.id, o.orderNumber, o.fullName, o.phone, o.email]
-          .some(v => String(v || "").toLowerCase().includes(q))
-      );
+      arr = arr.filter(o => [o.id, o.orderNumber, o.fullName, o.phone, o.email]
+        .some(v => String(v || "").toLowerCase().includes(q)));
     }
     if (st && st !== "all") {
       arr = arr.filter(o => String(o.status || "").toLowerCase() === st);
     }
 
-    // newest first by createdAt
-    arr.sort((a, b) =>
-      (b.createdAt ? +new Date(b.createdAt) : 0) -
-      (a.createdAt ? +new Date(a.createdAt) : 0)
-    );
+    arr.sort((a, b) => (b.createdAt ? +new Date(b.createdAt) : 0) - (a.createdAt ? +new Date(a.createdAt) : 0));
 
     State.view = arr;
     const maxPage = Math.max(1, Math.ceil(arr.length / State.per));
@@ -94,9 +88,7 @@
 
   // ----- render -----
   function renderRows() {
-    const tbody = $(SEL.tbody);
-    if (!tbody) return;
-
+    const tbody = $(SEL.tbody); if (!tbody) return;
     const start = (State.page - 1) * State.per;
     const end   = start + State.per;
     const rows  = State.view.slice(start, end).map(o => {
@@ -105,7 +97,6 @@
       const when  = o.createdAt ? new Date(o.createdAt).toLocaleString() : "—";
       const total = fmtMoney(o.totalCents, o.currency);
       const status= o.status || "Pending";
-
       return `
         <tr data-oid="${id}">
           <td data-col="order">${id}</td>
@@ -115,10 +106,7 @@
           <td data-col="total">${total}</td>
           <td data-col="action">
             <button type="button" class="btn-view" data-oid="${id}">View</button>
-            <button type="button" class="btn-edit" data-action="edit-order"
-                    data-oid="${id}" data-phone="${o.phone || ''}" data-email="${o.email || ''}">
-              Edit
-            </button>
+            <button type="button" class="btn-edit" data-action="edit-order" data-oid="${id}" data-phone="${o.phone || ''}" data-email="${o.email || ''}">Edit</button>
           </td>
         </tr>`;
     }).join("");
@@ -127,15 +115,11 @@
   }
 
   function renderPager() {
-    const el = $(SEL.pager);
-    if (!el) return;
+    const el = $(SEL.pager); if (!el) return;
     const pages = Math.max(1, Math.ceil(State.view.length / State.per));
     const cur   = Math.min(State.page, pages);
     State.page  = cur;
-
-    const B = (n, l, dis = false, curp = false) =>
-      `<button type="button" class="pg-btn" data-page="${n}" ${dis ? "disabled" : ""} ${curp ? 'aria-current="page"' : ""}>${l}</button>`;
-
+    const B = (n, l, dis = false, curp = false) => `<button type="button" class="pg-btn" data-page="${n}" ${dis ? 'disabled' : ''} ${curp ? 'aria-current="page"' : ''}>${l}</button>`;
     let html = "";
     html += B(1, "First", cur === 1);
     html += B(Math.max(1, cur - 1), "Previous", cur === 1);
@@ -153,73 +137,75 @@
 
     on(s, "input", debounce(() => {
       State.q = (s.value || "").trim();
-      State.page = 1;
-      applyFilters(); renderRows(); renderPager();
+      State.page = 1; applyFilters(); renderRows(); renderPager();
     }, 200));
 
     on(st, "change", () => {
       State.status = (st.value || "").trim();
-      State.page = 1;
-      applyFilters(); renderRows(); renderPager();
+      State.page = 1; applyFilters(); renderRows(); renderPager();
     });
 
     on(p, "click", (e) => {
-      const b = e.target.closest("button.pg-btn");
-      if (!b) return;
-      const n = parseInt(b.dataset.page, 10);
-      if (!Number.isFinite(n)) return;
-      State.page = n;
-      renderRows(); renderPager();
+      const b = e.target.closest("button.pg-btn"); if (!b) return;
+      const n = parseInt(b.dataset.page, 10); if (!Number.isFinite(n)) return;
+      State.page = n; renderRows(); renderPager();
     });
 
-    // View
     document.addEventListener("click", (e) => {
-      const b = e.target.closest(".btn-view");
-      if (!b) return;
-      const id = b.getAttribute("data-oid");
-      window.dispatchEvent(new CustomEvent("orders:view", { detail: { id } }));
-    });
-
-    // Edit (orders-edit.js listens to [data-action="edit-order"])
-    document.addEventListener("click", (e) => {
-      const b = e.target.closest(".btn-edit");
-      if (!b) return;
-      const id = b.getAttribute("data-oid") || "";
-      const phone = b.getAttribute("data-phone") || "";
-      const email = b.getAttribute("data-email") || "";
-      window.dispatchEvent(new CustomEvent("orders:edit", { detail: { id, phone, email } }));
+      const vb = e.target.closest(".btn-view");
+      if (vb) {
+        const id = vb.getAttribute("data-oid");
+        window.dispatchEvent(new CustomEvent("orders:view", { detail: { id } }));
+        return;
+      }
+      const eb = e.target.closest(".btn-edit");
+      if (eb) {
+        const id = eb.getAttribute("data-oid") || "";
+        const phone = eb.getAttribute("data-phone") || "";
+        const email = eb.getAttribute("data-email") || "";
+        window.dispatchEvent(new CustomEvent("orders:edit", { detail: { id, phone, email } }));
+      }
     });
   }
 
   // ----- data load -----
   async function fetchOnce() {
-    // Ask server for up to 10k; paginate client-side for smooth UI.
-    const { orders } = await Data.orders.get({ page: 1, per: 10000 });
+    // Use whichever function the adapter exposes
+    const apiFn = Data?.orders && (Data.orders.list || Data.orders.get);
+    if (typeof apiFn !== 'function') throw new Error('WattSunAdminData.orders.list/get not found');
+    const result = await apiFn.call(Data.orders, { page: 1, per: 10000 });
+    const orders = (result && (result.orders || result)) || [];
     State.raw = Array.isArray(orders) ? orders : [];
     State.page = 1;
     applyFilters(); renderRows(); renderPager();
   }
 
   function boot() {
-    ensureOrdersIds();        // <-- ensures #ordersTable/#ordersTbody exist
-    if (!$(SEL.table) || !$(SEL.tbody)) return;
+    if (booted) return; // single-boot guard
+    if (!ensureOrdersIds() || !$(SEL.table) || !$(SEL.tbody)) return; // wait until partial present
+    booted = true;
     wire();
     fetchOnce().catch(err => console.error("[Orders] load failed:", err));
   }
 
-  // Start now, or when the partial arrives
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
+  // Try now; if tbody not present yet, watch and boot once
+  if (document.querySelector(SEL.tbody)) {
     boot();
+  } else {
+    const mo = new MutationObserver(() => { if (document.querySelector(SEL.tbody)) { mo.disconnect(); boot(); } });
+    mo.observe(document.body, { childList: true, subtree: true });
   }
 
-  // Also react to admin shell events if emitted
+  // Also react to admin shell events the partial emits (support both keys)
   window.addEventListener("admin:partial-loaded", (e) => {
-    if (e?.detail?.name === "orders") boot();
+    const name = e?.detail?.partial || e?.detail?.name;
+    if (name === "orders") boot();
   });
 
-  // ----- lightweight viewer (kept minimal) -----
+  // Manual hook for console or other scripts
+  window.__WS_ORDERS_FORCE_BOOT = () => { booted = false; boot(); };
+
+  // ----- lightweight viewer (unchanged) -----
   function ensureViewDialog() {
     let dlg = document.getElementById("orderViewDialog");
     if (dlg) return dlg;
@@ -265,11 +251,9 @@
     try { dlg.showModal(); } catch { dlg.setAttribute("open", "true"); }
   });
 
-  // Expose minimal hook for inline refresh after a PATCH
+  // Expose minimal row refresh helper
   window.refreshOrderRow = function (id, patch = {}) {
-    const idx = State.raw.findIndex(o =>
-      String(o.id) === String(id) || String(o.orderNumber) === String(id)
-    );
+    const idx = State.raw.findIndex(o => String(o.id) === String(id) || String(o.orderNumber) === String(id));
     if (idx === -1) return;
     State.raw[idx] = { ...State.raw[idx], ...patch };
     applyFilters(); renderRows(); renderPager();
