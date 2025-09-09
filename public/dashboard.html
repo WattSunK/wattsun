@@ -40,6 +40,10 @@
     <header class="admin-topbar">
       <h1 class="page-title">Dashboard</h1>
       <div class="topbar-actions">
+        <!-- NEW: Home + Logout buttons -->
+        <button id="btn-home" class="btn btn-ghost" type="button" title="Go to Home">Home</button>
+        <button id="btn-logout" class="btn btn-ghost" type="button" title="Log out">Logout</button>
+        <!-- Existing -->
         <button id="hard-refresh" class="btn btn-ghost" type="button" title="Hard refresh">Refresh</button>
       </div>
     </header>
@@ -66,94 +70,94 @@
     </form>
   </dialog>
 
-    <!-- Edit Order (styled like the rest of admin) -->
-<dialog id="orderEditModal" class="modal">
-  <form method="dialog" class="modal-card" id="orderEditForm">
-    <div class="modal-title">Edit Order</div>
+  <!-- Edit Order (styled like the rest of admin) -->
+  <dialog id="orderEditModal" class="modal">
+    <form method="dialog" class="modal-card" id="orderEditForm">
+      <div class="modal-title">Edit Order</div>
 
-    <div class="modal-body">
-      <div class="oem-group">
-        <div class="oem-row">
-          <label for="orderStatus">Status</label>
-          <select id="orderStatus" name="status">
-            <option>Pending</option>
-            <option>Confirmed</option>
-            <option>Processing</option>
-            <option>Dispatched</option>
-            <option>Completed</option>
-            <option>Cancelled</option>
-          </select>
-        </div>
+      <div class="modal-body">
+        <div class="oem-group">
+          <div class="oem-row">
+            <label for="orderStatus">Status</label>
+            <select id="orderStatus" name="status">
+              <option>Pending</option>
+              <option>Confirmed</option>
+              <option>Processing</option>
+              <option>Dispatched</option>
+              <option>Completed</option>
+              <option>Cancelled</option>
+            </select>
+          </div>
 
-        <div class="oem-row">
-          <label for="orderTotal">Total (cents)</label>
-          <input id="orderTotal" name="totalCents" type="number" min="0" step="1" />
-        </div>
+          <div class="oem-row">
+            <label for="orderTotal">Total (cents)</label>
+            <input id="orderTotal" name="totalCents" type="number" min="0" step="1" />
+          </div>
 
-        <div class="oem-row">
-          <label for="orderDeposit">Deposit (cents)</label>
-          <input id="orderDeposit" name="depositCents" type="number" min="0" step="1" />
-        </div>
+          <div class="oem-row">
+            <label for="orderDeposit">Deposit (cents)</label>
+            <input id="orderDeposit" name="depositCents" type="number" min="0" step="1" />
+          </div>
 
-        <div class="oem-row">
-          <label for="orderCurrency">Currency</label>
-          <input id="orderCurrency" name="currency" maxlength="3" placeholder="KES" />
-        </div>
+          <div class="oem-row">
+            <label for="orderCurrency">Currency</label>
+            <input id="orderCurrency" name="currency" maxlength="3" placeholder="KES" />
+          </div>
 
-        <div class="oem-row">
-          <label for="orderNotes">Notes</label>
-          <textarea id="orderNotes" name="notes" rows="3" placeholder="Internal note (optional)"></textarea>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-actions">
-      <button type="button" class="btn small" id="orderCancelBtn">Cancel</button>
-      <button type="submit" class="btn small" id="orderSaveBtn">Save</button>
-    </div>
-  </form>
-</dialog>
-
-<!-- View Order (styled like the rest of admin) -->
-<dialog id="orderViewModal" class="modal">
-  <form method="dialog" class="modal-card" id="orderViewForm">
-    <div class="modal-title">Order</div>
-
-    <div class="modal-body" id="orderViewBody">
-      <div class="oem-group">
-        <div class="oem-row"><strong>Order #</strong> <span id="ov_orderId">—</span></div>
-        <div class="oem-row"><strong>Status</strong>  <span id="ov_status">—</span></div>
-        <div class="oem-row"><strong>Customer</strong><span id="ov_customer">—</span></div>
-        <div class="oem-row"><strong>Phone</strong>   <span id="ov_phone">—</span></div>
-        <div class="oem-row"><strong>Email</strong>   <span id="ov_email">—</span></div>
-        <div class="oem-row"><strong>Placed</strong>  <span id="ov_createdAt">—</span></div>
-        <div class="oem-row"><strong>Total</strong>   <span id="ov_total">—</span></div>
-      </div>
-
-      <div class="oem-group">
-        <div class="ws-table-wrap">
-          <table class="ws-table" aria-label="Items">
-            <thead>
-              <tr>
-                <th style="width: 20%;">SKU</th>
-                <th>Name</th>
-                <th style="width: 10%;">Qty</th>
-                <th style="width: 15%;">Price</th>
-              </tr>
-            </thead>
-            <tbody id="ov_itemsBody">
-              <tr><td colspan="4">No items</td></tr>
-            </tbody>
-          </table>
+          <div class="oem-row">
+            <label for="orderNotes">Notes</label>
+            <textarea id="orderNotes" name="notes" rows="3" placeholder="Internal note (optional)"></textarea>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="modal-actions">
-      <button type="submit" class="btn small">Close</button>
-    </div>
-  </form>
-</dialog>
+      <div class="modal-actions">
+        <button type="button" class="btn small" id="orderCancelBtn">Cancel</button>
+        <button type="submit" class="btn small" id="orderSaveBtn">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- View Order (styled like the rest of admin) -->
+  <dialog id="orderViewModal" class="modal">
+    <form method="dialog" class="modal-card" id="orderViewForm">
+      <div class="modal-title">Order</div>
+
+      <div class="modal-body" id="orderViewBody">
+        <div class="oem-group">
+          <div class="oem-row"><strong>Order #</strong> <span id="ov_orderId">—</span></div>
+          <div class="oem-row"><strong>Status</strong>  <span id="ov_status">—</span></div>
+          <div class="oem-row"><strong>Customer</strong><span id="ov_customer">—</span></div>
+          <div class="oem-row"><strong>Phone</strong>   <span id="ov_phone">—</span></div>
+          <div class="oem-row"><strong>Email</strong>   <span id="ov_email">—</span></div>
+          <div class="oem-row"><strong>Placed</strong>  <span id="ov_createdAt">—</span></div>
+          <div class="oem-row"><strong>Total</strong>   <span id="ov_total">—</span></div>
+        </div>
+
+        <div class="oem-group">
+          <div class="ws-table-wrap">
+            <table class="ws-table" aria-label="Items">
+              <thead>
+                <tr>
+                  <th style="width: 20%;">SKU</th>
+                  <th>Name</th>
+                  <th style="width: 10%;">Qty</th>
+                  <th style="width: 15%;">Price</th>
+                </tr>
+              </thead>
+              <tbody id="ov_itemsBody">
+                <tr><td colspan="4">No items</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="submit" class="btn small">Close</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- Add Order modal include -->
   <!--#include file="/public/partials/orders-add.html" -->
@@ -179,6 +183,27 @@
       dlg.addEventListener('cancel', onCancel);
       dlg.showModal();
     });
+  </script>
+
+  <!-- NEW: wire Home + Logout -->
+  <script>
+    (function () {
+      const homeBtn = document.getElementById('btn-home');
+      const logoutBtn = document.getElementById('btn-logout');
+
+      if (homeBtn) {
+        homeBtn.addEventListener('click', () => {
+          window.location.href = '/index.html';
+        });
+      }
+
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+          try { localStorage.removeItem('wattsunUser'); } catch (e) {}
+          window.location.href = '/index.html';
+        });
+      }
+    })();
   </script>
 
   <script>window.__ADMIN_VERSION__ = "20250906-02";</script>
