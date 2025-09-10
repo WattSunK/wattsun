@@ -1,28 +1,59 @@
 // public/admin/js/orders-add.js
-// Binder for the Admin “Add Order” <dialog id="orderAddModal">.
-// - Opens from any element with data-modal-target="#orderAddModal"
-// - Validates required fields
-// - Collects optional items (SKU + Qty)
+// Binder for the Admin “Add Order” modal.
+// - Opens from any element with data-modal-target="#orderAddModal" (and also [data-action="add-order"] as a convenience)
+// - If the modal isn't present (e.g., SSI include not processed), it fetches and injects /public/partials/orders-add.html
+// - Validates required fields, collects optional items (SKU + Qty)
 // - POSTs to /api/admin/orders (credentials included)
 // - On success: toast → close → refresh list via window.__WS_ORDERS_FORCE_BOOT?.()
-// - Uses native dialog.showModal()/close() to match dashboard.html
+// - Works with either <dialog id="orderAddModal"> or <div id="orderAddModal" class="ws-modal hidden">
 
 (function () {
+  const PARTIAL_URL = "/public/partials/orders-add.html";
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  const dlg = document.getElementById("orderAddModal");
-  const form = document.getElementById("orderAddForm");
+  // --- Helpers to always get the latest nodes (after injection) ---
+  const getDlg  = () => document.getElementById("orderAddModal");
+  const getForm = () => document.getElementById("orderAddForm");
 
-  function showDialog() {
-    if (!dlg) return console.warn("orderAddModal not found");
-    if (typeof dlg.showModal === "function") dlg.showModal();
+  // Inject the modal partial if it's not already present
+  let ensuring = null;
+  async function ensureModal() {
+    if (getDlg()) return getDlg();
+    if (ensuring) return ensuring;
+
+    ensuring = (async () => {
+      const res = await fetch(PARTIAL_URL, { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to load ${PARTIAL_URL}: ${res.status}`);
+      const html = await res.text();
+      const tpl = document.createElement("template");
+      tpl.innerHTML = html.trim();
+      document.body.appendChild(tpl.content);
+      const dlg = getDlg();
+      if (!dlg) throw new Error("orders-add.html injected but #orderAddModal not found");
+      wireCloseHandlers(dlg);
+      return dlg;
+    })();
+
+    return ensuring;
+  }
+
+  function isDialog(el) {
+    return el && el.nodeName === "DIALOG";
+  }
+
+  async function showDialog() {
+    const dlg = await ensureModal();
+    if (!dlg) return console.warn("orderAddModal not found after ensureModal()");
+    if (isDialog(dlg) && typeof dlg.showModal === "function") dlg.showModal();
     else dlg.classList.remove("hidden");
     $("#oa_fullName")?.focus();
   }
+
   function closeDialog() {
+    const dlg = getDlg();
     if (!dlg) return;
-    if (typeof dlg.close === "function") dlg.close();
+    if (isDialog(dlg) && typeof dlg.close === "function") dlg.close();
     else dlg.classList.add("hidden");
   }
 
@@ -59,28 +90,30 @@
     if (!body) return;
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><input type=\"text\" class=\"oa_item_sku\" placeholder=\"SKU\" /></td>
-      <td><input type=\"number\" class=\"oa_item_qty\" min=\"1\" value=\"1\" /></td>
-      <td><button class=\"btn small ghost oa_row_remove\" type=\"button\">Remove</button></td>
+      <td><input type="text" class="oa_item_sku" placeholder="SKU" /></td>
+      <td><input type="number" class="oa_item_qty" min="1" value="1" /></td>
+      <td><button class="btn small ghost oa_row_remove" type="button">Remove</button></td>
     `;
     body.appendChild(tr);
   }
 
   async function handleSubmit(e) {
-    e?.preventDefault?.(); // prevent <form method="dialog"> auto-close
+    e?.preventDefault?.(); // prevent auto-close for method="dialog"
+    await ensureModal();   // make sure form is present
+    const form = getForm();
 
-    const fullName = $("#oa_fullName")?.value.trim();
-    const phone = $("#oa_phone")?.value.trim();
-    const email = $("#oa_email")?.value.trim();
-    const status = $("#oa_status")?.value || "Pending";
-    const currency = $("#oa_currency")?.value || "KES";
-    const totalCents = normaliseCents($("#oa_totalCents")?.value);
+    const fullName     = $("#oa_fullName")?.value.trim();
+    const phone        = $("#oa_phone")?.value.trim();
+    const email        = $("#oa_email")?.value.trim();
+    const status       = $("#oa_status")?.value || "Pending";
+    const currency     = $("#oa_currency")?.value || "KES";
+    const totalCents   = normaliseCents($("#oa_totalCents")?.value);
     const depositCents = normaliseCents($("#oa_depositCents")?.value);
-    const notes = $("#oa_notes")?.value.trim();
-    const items = collectItems();
+    const notes        = $("#oa_notes")?.value.trim();
+    const items        = collectItems();
 
     if (!fullName) return toast("Customer name is required.", "error");
-    if (!phone) return toast("Phone is required.", "error");
+    if (!phone)    return toast("Phone is required.", "error");
 
     const payload = {
       fullName,
@@ -88,7 +121,7 @@
       email: email || undefined,
       status,
       currency,
-      totalCents: totalCents ?? undefined,
+      totalCents:   totalCents   ?? undefined,
       depositCents: depositCents ?? undefined,
       notes: notes || undefined,
       items: items.length ? items : undefined,
@@ -121,57 +154,80 @@
     }
   }
 
+  function wireCloseHandlers(dialogEl) {
+    // Click on backdrop for <div.ws-modal>
+    dialogEl.addEventListener("click", (e) => {
+      if (e.target && (e.target === dialogEl || e.target.hasAttribute("data-oa-close"))) {
+        e.preventDefault();
+        closeDialog();
+      }
+    });
+  }
+
   function wire() {
-    // Open from any element that targets this dialog
-    document.addEventListener("click", (e) => {
+    // Openers: data-modal-target="#orderAddModal" and data-action="add-order"
+    document.addEventListener("click", async (e) => {
       const t = e.target;
       if (!(t instanceof Element)) return;
 
       // Open
-      if (t.getAttribute("data-modal-target") === "#orderAddModal") {
+      if (
+        t.getAttribute("data-modal-target") === "#orderAddModal" ||
+        t.getAttribute("data-action") === "add-order"
+      ) {
         e.preventDefault();
-        showDialog();
+        await showDialog();
         return;
       }
 
-      // Close buttons inside dialog
-      if (t.hasAttribute("data-oa-close")) {
-        e.preventDefault();
-        closeDialog();
-        return;
-      }
-
-      // Add/remove item rows
-      if (t.id === "oa_addRow") {
-        e.preventDefault();
-        addItemRow();
-        return;
-      }
+      // Remove row
       if (t.classList.contains("oa_row_remove")) {
         e.preventDefault();
         const tr = t.closest("tr");
         tr?.parentElement?.removeChild(tr);
         return;
       }
+
+      // Add row
+      if (t.id === "oa_addRow") {
+        e.preventDefault();
+        addItemRow();
+        return;
+      }
     });
 
     // Submit via Save button or Enter on form
-    $("#oa_submit")?.addEventListener("click", handleSubmit);
-    form?.addEventListener("submit", handleSubmit);
+    document.addEventListener("click", (e) => {
+      const t = e.target;
+      if (t instanceof Element && t.id === "oa_submit") {
+        e.preventDefault();
+        handleSubmit(e);
+      }
+    });
 
-    // Escape closes both native <dialog> and <div class="ws-modal"> fallback
+    document.addEventListener("submit", (e) => {
+      const form = e.target;
+      if (form && form.id === "orderAddForm") {
+        e.preventDefault();
+        handleSubmit(e);
+      }
+    });
+
+    // Escape closes
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
+      const dlg = getDlg();
       if (!dlg) return;
-      if (typeof dlg.close === "function") dlg.close();
+      if (isDialog(dlg) && typeof dlg.close === "function") dlg.close();
       else dlg.classList.add("hidden");
     });
 
-    // Expose for diagnostics if needed
+    // Expose small API for diagnostics
     window.wattsunOrdersAdd = {
       open: showDialog,
       close: closeDialog,
       submit: handleSubmit,
+      ensure: ensureModal,
     };
   }
 
