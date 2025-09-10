@@ -115,56 +115,45 @@
     loadPartial(partialId, link.getAttribute("data-url"));
     history.replaceState({ id: partialId }, "", `#${partialId}`);
     return true;
-    }
-
-  async function ensureOrdersModal() {
-    // If the dialog already exists, we’re done.
-    if (document.getElementById("orderEditDialog")) return true;
-
-    try {
-      // Fetch and inject the modal partial once.
-      const res = await fetch(`/partials/orders-modal.html?v=${VERSION}`, { credentials: "same-origin" });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      const html = await res.text();
-
-      // Create a container, inject, and execute inline scripts if any.
-      const wrap = document.createElement("div");
-      wrap.innerHTML = html;
-      document.body.appendChild(wrap);
-      executeInlineScripts(wrap);
-
-      return !!document.getElementById("orderEditDialog");
-    } catch (err) {
-      console.error("[admin-skin] ensureOrdersModal failed:", err);
-      return false;
-    }
   }
 
+  // -------------------------------
+  // EDIT 1: Disable legacy injector (no-op)
+  // -------------------------------
+  function ensureOrdersModal() {
+    // Legacy injector disabled: we no longer fetch /partials/orders-modal.html
+    // View/Edit live inline in dashboard; Add is handled by orders-add.html + orders-add.js.
+    return true;
+  }
+
+  // -------------------------------
+  // EDIT 2: Open Add using the new flow (never touch View/Edit)
+  // -------------------------------
   async function openOrderCreate() {
-    const ok = await ensureOrdersModal();
-    if (!ok) {
-      window.toast && toast("Create Order UI not available", "error");
+    // Prefer the dedicated Add module if available
+    if (window.wattsunOrdersAdd && typeof window.wattsunOrdersAdd.open === "function") {
+      window.wattsunOrdersAdd.open();
       return;
     }
-    const dlg = /** @type {HTMLDialogElement|null} */ (document.getElementById("orderEditDialog"));
-    if (!dlg) return;
 
-    // Reset basic fields if present
-    const status = dlg.querySelector("#editStatus");
-    const driver = dlg.querySelector("#editDriver");
-    const notes  = dlg.querySelector("#editNotes");
-
-    if (status) status.value = "Pending";
-    if (driver) driver.value = "";
-    if (notes)  notes.value = "";
-
-    dlg.setAttribute("data-mode", "create");
-    // If <dialog>, use showModal(); otherwise fall back to open attribute
-    if (typeof dlg.showModal === "function") {
-      dlg.showModal();
-    } else {
-      dlg.setAttribute("open", "");
+    // Try a page trigger that existing code wires up
+    const trigger =
+      document.querySelector('[data-action="add-order"]') ||
+      document.querySelector('[data-modal-target="#orderAddModal"]');
+    if (trigger) {
+      trigger.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      return;
     }
+
+    // Fallback: open the modal directly if present
+    const add = document.getElementById("orderAddModal");
+    if (add) {
+      if (typeof add.showModal === "function") add.showModal();
+      else add.classList.remove("hidden");
+      return;
+    }
+
+    window.toast && toast("Add Order UI not available", "error");
   }
 
   // Handle create intents when a partial finishes loading (useful when we route first)
@@ -195,7 +184,7 @@
     if (!type) return;
 
     if (type === "order") {
-      // Strategy: navigate to Orders, ensure modal, open in create mode.
+      // Strategy: navigate to Orders, then open the Add modal via the new flow.
       pendingCreateIntent = { type, source };
       const ok = navigateTo("orders");
       if (!ok) {
