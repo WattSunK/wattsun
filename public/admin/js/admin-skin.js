@@ -1,5 +1,13 @@
 /* WattSun Admin — Single Partial Loader + Global Create Actions */
 (() => {
+  // ------------------------------------------------------------
+  // A) Fingerprint: confirm the patched file is actually running
+  // ------------------------------------------------------------
+  if (!window.__ADMIN_SKIN_PATCHED__) {
+    window.__ADMIN_SKIN_PATCHED__ = "legacy-guard-2025-09-10";
+    try { console.info("[admin-skin] Patched build active:", window.__ADMIN_SKIN_PATCHED__); } catch (_){}
+  }
+
   const VERSION = (window.__ADMIN_VERSION__ || "0");
   const contentEl = document.getElementById("admin-content");
   const navLinks = Array.from(document.querySelectorAll(".admin-nav .nav-link"));
@@ -118,16 +126,18 @@
   }
 
   // -------------------------------
-  // EDIT 1: Disable legacy injector (no-op)
+  // B) Disable legacy injector (no-op)
   // -------------------------------
   function ensureOrdersModal() {
-    // Legacy injector disabled: we no longer fetch /partials/orders-modal.html
+    // Legacy injector disabled: we no longer fetch /public/partials/orders-modal.html
     // View/Edit live inline in dashboard; Add is handled by orders-add.html + orders-add.js.
     return true;
   }
+  // Keep a harmless stub so other code doesn't explode
+  window.ensureOrdersModal = ensureOrdersModal;
 
   // -------------------------------
-  // EDIT 2: Open Add using the new flow (never touch View/Edit)
+  // Open Add using the new flow (never touch View/Edit)
   // -------------------------------
   async function openOrderCreate() {
     // Prefer the dedicated Add module if available
@@ -153,7 +163,7 @@
       return;
     }
 
-    window.toast && toast("Add Order UI not available", "error");
+    if (typeof window.toast === "function") window.toast("Add Order UI not available", "error");
   }
 
   // Handle create intents when a partial finishes loading (useful when we route first)
@@ -161,15 +171,11 @@
     const id = e.detail?.id;
     if (!pendingCreateIntent) return;
 
-    // If we navigated to Orders because of "order" creation, open the dialog now.
     if (pendingCreateIntent.type === "order" && id === "orders") {
-      // Delay a tick to allow any inline scripts to attach listeners.
       setTimeout(() => openOrderCreate(), 0);
       pendingCreateIntent = null;
     }
 
-    // For "item", you may want to open a similar modal or reveal a create panel
-    // Here we simply emit a page-scoped event that Items code can listen to.
     if (pendingCreateIntent?.type === "item" && id === "items") {
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent("items:create"));
@@ -184,11 +190,9 @@
     if (!type) return;
 
     if (type === "order") {
-      // Strategy: navigate to Orders, then open the Add modal via the new flow.
       pendingCreateIntent = { type, source };
       const ok = navigateTo("orders");
       if (!ok) {
-        // If navigation isn’t possible (link missing), try opening directly.
         openOrderCreate();
         pendingCreateIntent = null;
       }
@@ -196,20 +200,95 @@
     }
 
     if (type === "item") {
-      // Strategy: navigate to Items. Items code can listen for "items:create".
       pendingCreateIntent = { type, source };
       const ok = navigateTo("items");
       if (!ok) {
-        // As a fallback just notify
-        window.toast && toast("Open Item creator", "info");
+        if (typeof window.toast === "function") window.toast("Open Item creator", "info");
         pendingCreateIntent = null;
       }
       return;
     }
 
-    // Unknown type
-    window.toast && toast(`Unknown create type: ${type}`, "error");
+    if (typeof window.toast === "function") window.toast(`Unknown create type: ${type}`, "error");
   });
+
+  // ------------------------------------------------------------
+  // C) Legacy guard: block or remove old combined modal injection
+  // ------------------------------------------------------------
+
+  // C1) Remove duplicate/legacy modals if something appends them
+  (function legacyModalObserver(){
+    const isLegacyBundleNode = (node) => {
+      if (!(node instanceof Element)) return false;
+      // Heuristics: old bundle used these ids/classes/tag shapes.
+      // Keep this conservative: we only remove if it would create duplicates.
+      const legacyIds = ["orderViewDialog", "orderEditDialog"]; // historic ids
+      for (const id of legacyIds) {
+        if (node.id === id) return true;
+        if (node.querySelector && node.querySelector(`#${id}`)) return true;
+      }
+      // Also detect duplicate of current IDs, but only if one already exists
+      const currentIds = ["orderViewModal", "orderEditModal"];
+      for (const id of currentIds) {
+        if (node.id === id) {
+          if (document.getElementById(id)) return true; // duplicate
+        }
+        if (node.querySelector && node.querySelector(`#${id}`)) {
+          if (document.getElementById(id)) return true; // duplicate contained within appended fragment
+        }
+      }
+      return false;
+    };
+
+    const pruneIfLegacy = (node) => {
+      if (!(node instanceof Element)) return;
+      if (!isLegacyBundleNode(node)) return;
+
+      // If this would create duplicates, remove the newcomer
+      const ids = ["orderViewModal", "orderEditModal", "orderViewDialog", "orderEditDialog"];
+      const dup = ids.some(id => {
+        const countNow = document.querySelectorAll(`#${id}`).length;
+        const countWithNode =
+          countNow + (node.id === id ? 1 : (node.querySelector ? node.querySelectorAll(`#${id}`).length : 0));
+        return countWithNode > 1;
+      });
+
+      if (dup) {
+        try {
+          node.remove();
+          console.warn("[admin-skin] Removed legacy/duplicate orders modal markup injected at runtime.");
+        } catch (_){}
+      }
+    };
+
+    const mo = new MutationObserver((muts) => {
+      for (const m of muts) {
+        (m.addedNodes || []).forEach(pruneIfLegacy);
+        if (m.target) pruneIfLegacy(m.target);
+      }
+    });
+    try { mo.observe(document.documentElement || document.body, { childList: true, subtree: true }); } catch (_){}
+  })();
+
+  // C2) Soft-patch fetch for the exact legacy bundle URL only
+  (function patchFetchForLegacyModal(){
+    const LEGACY_URL = "/public/partials/orders-modal.html";
+    if (!("fetch" in window)) return;
+    const origFetch = window.fetch.bind(window);
+    window.fetch = function(input, init) {
+      try {
+        const url = (typeof input === "string") ? input : (input && input.url ? input.url : "");
+        if (url && (url.indexOf(LEGACY_URL) !== -1)) {
+          console.warn("[admin-skin] Blocked fetch of legacy orders-modal.html");
+          const headers = new Headers({ "Content-Type": "text/html; charset=utf-8" });
+          const body = "<!-- blocked legacy modal -->";
+          return Promise.resolve(new Response(body, { status: 200, headers }));
+        }
+      } catch (_){}
+      return origFetch(input, init);
+    };
+  })();
+
 })();
 
 // --- Topbar Home/Logout: resilient injector (idempotent) ---
