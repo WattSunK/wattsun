@@ -1,304 +1,83 @@
-<section class="card">
-  <div class="card-header card-header--tight">
-    <h2 class="h2">Dispatch</h2>
-    <div class="spacer"></div>
-    <!-- Primary action lives on the right -->
-    <button id="btnAddOrder_dispatch" class="btn btn-primary">Add Order</button>
-  </div>
-
-  <!-- Filters row (no floating search button) -->
-  <div class="filters-bar">
-    <div class="group">
-      <label>Search</label>
-      <input id="dispatchSearch" class="input" placeholder="Search orders…">
+<section class="card" id="dispatch-root" aria-labelledby="dispatch-title">
+  <header class="card-header">
+    <h2 id="dispatch-title" class="card-title">Dispatches</h2>
+    <div class="actions">
+      <button id="dispatch-refresh" class="btn" type="button" title="Refresh">Refresh</button>
     </div>
-    <div class="spacer"></div>
-    <div class="pager" id="pager-dispatch">
-      <button class="btn" id="prev-dispatch">‹</button>
-      <span class="page-indicator" id="page-dispatch">1</span>
-      <button class="btn" id="next-dispatch">›</button>
-    </div>
-  </div>
+  </header>
 
-  <div class="card-body card-body--tight">
-    <div class="table-responsive">
-      <table class="table" id="dispatchTable">
+  <div class="card-body">
+    <!-- Filters -->
+    <form id="dispatch-filters" class="filters row" autocomplete="off">
+      <div class="col">
+        <label for="f-q" class="label">Search</label>
+        <input id="f-q" name="q" class="input" placeholder="Order ID contains…" />
+      </div>
+      <div class="col">
+        <label for="f-status" class="label">Status</label>
+        <select id="f-status" name="status" class="input">
+          <option value="">Any</option>
+          <option>Created</option>
+          <option>Assigned</option>
+          <option>InTransit</option>
+          <option>Delivered</option>
+          <option>Canceled</option>
+        </select>
+      </div>
+      <div class="col">
+        <label for="f-driverId" class="label">Driver ID</label>
+        <input id="f-driverId" name="driverId" class="input" inputmode="numeric" pattern="\\d*" placeholder="e.g. 6" />
+      </div>
+      <div class="col">
+        <label for="f-date" class="label">Planned date</label>
+        <input id="f-date" name="planned_date" class="input" type="date" />
+      </div>
+      <div class="col col--compact">
+        <label for="f-per" class="label">Per</label>
+        <select id="f-per" name="per" class="input">
+          <option>10</option>
+          <option selected>20</option>
+          <option>50</option>
+          <option>100</option>
+        </select>
+      </div>
+      <div class="col col--compact" style="align-self:end">
+        <button class="btn" type="submit">Apply</button>
+      </div>
+    </form>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table class="table" id="dispatch-table" aria-describedby="dispatch-caption">
+        <caption id="dispatch-caption" class="sr-only">Dispatch list</caption>
         <thead>
           <tr>
-            <th>Order ID</th>
-            <th>Customer</th>
+            <th>ID</th>
+            <th>Order</th>
             <th>Status</th>
             <th>Driver</th>
-            <th>Created</th>
-            <th>Action</th>
+            <th>Planned</th>
+            <th>Updated</th>
           </tr>
         </thead>
-        <tbody id="dispatchTbody">
-          <tr><td colspan="6" class="muted" style="text-align:center">Loading…</td></tr>
+        <tbody id="dispatch-tbody">
+          <tr class="empty"><td colspan="6">No dispatches yet.</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Pager -->
+    <div class="pager row" id="dispatch-pager" aria-live="polite">
+      <div class="col">
+        <span id="dispatch-total">0</span> total
+      </div>
+      <div class="col col--right">
+        <button id="dispatch-prev" class="btn" type="button" disabled>Prev</button>
+        <span id="dispatch-page">1</span>
+        <button id="dispatch-next" class="btn" type="button" disabled>Next</button>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- Modal kept unchanged (invoked from "View" actions) -->
-<div id="dispatchModalOverlay" class="modal-backdrop">
-  <div id="dispatchModalDialog" class="modal-card">
-    <div class="modal-header">
-      <h3 id="dv-title" class="h2">Order</h3>
-      <button type="button" id="dv-close-x" aria-label="Close" class="btn btn-ghost">&times;</button>
-    </div>
-    <div id="dv-body" class="modal-body"></div>
-    <div class="modal-footer">
-      <button type="button" id="dv-close-btn" class="btn btn-outline">Close</button>
-    </div>
-  </div>
-</div>
-
-<script>
-(function(){
-  // Global-safe "Add Order" dispatch: let the shell decide what to do
-  document.getElementById('btnAddOrder_dispatch')?.addEventListener('click', () => {
-    window.dispatchEvent(new CustomEvent('admin:create', { detail: { type: 'order', source: 'dispatch' } }));
-  });
-
-  const TBODY  = document.getElementById('dispatchTbody');
-  const SEARCH = document.getElementById('dispatchSearch');
-
-  if (!window.WattSunAdminData) {
-    TBODY.innerHTML = '<tr><td colspan="6" class="danger" style="text-align:center">Adapter missing.</td></tr>';
-    return;
-  }
-  const Data = window.WattSunAdminData;
-
-  let rows = [];
-  let drivers = [];
-  let assignments = Object.create(null);
-
-  function currencyKES(val) {
-    if (typeof val === 'number') return 'KSh ' + val.toLocaleString();
-    if (typeof val === 'string' && val) return val;
-    if (typeof val === 'number' && isFinite(val)) return 'KSh ' + val.toLocaleString();
-    return '—';
-  }
-
-  function driverLabelById(id) {
-    const d = drivers.find(x => String(x.id ?? x.userId ?? x.driverId) === String(id));
-    return d ? (d.fullName || d.name || d.email || ('#' + (d.id ?? d.userId ?? d.driverId))) : 'Unassigned';
-  }
-
-  function getOrderId(o) { return String(o.id || o.orderNumber || ''); }
-
-  function currentDriverId(o) {
-    const oid = getOrderId(o);
-    if (Object.prototype.hasOwnProperty.call(assignments, oid)) return assignments[oid];
-    const r = o.raw || {};
-    return r.driver_id ?? r.driverUserId ?? o.driverUserId ?? null;
-  }
-
-  function currentDriverLabel(o) {
-    const id = currentDriverId(o);
-    const r = o.raw || {};
-    if (id == null || id === '') return r?.driver?.name || r?.driverName || r?.driver_fullname || 'Unassigned';
-    return driverLabelById(id);
-  }
-
-  function driverSelectHtml(orderId, selectedId) {
-    const opts = ['<option value="">-- Select driver --</option>']
-      .concat(drivers.map(d => {
-        const val = d.id ?? d.userId ?? d.driverId;
-        const name = d.fullName || d.name || d.email || ('Driver ' + val);
-        const sel = (String(selectedId || '') === String(val)) ? ' selected' : '';
-        return `<option value="${val}"${sel}>${name}</option>`;
-      }));
-    return `<select class="select select--driver" data-oid="${orderId}" data-role="driver-select">${opts.join("")}</select>`;
-  }
-
-  function actionButtonsHtml(orderId) {
-    return `
-      <div class="btn-group" style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-sm btn-positive" data-oid="${orderId}" data-role="assign">Assign</button>
-        <button class="btn btn-sm btn-outline" data-oid="${orderId}" data-role="unassign">Unassign</button>
-        <button class="btn btn-sm btn-outline" data-view-id="${orderId}">View</button>
-      </div>
-    `;
-  }
-
-  function render(list) {
-    if (!Array.isArray(list) || list.length === 0) {
-      TBODY.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center">No orders.</td></tr>';
-      return;
-    }
-    const frag = document.createDocumentFragment();
-    list.forEach(o => {
-      const tr = document.createElement('tr');
-      const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : '—';
-      const orderId = getOrderId(o);
-      const curDriverId = currentDriverId(o);
-      tr.innerHTML = `
-        <td style="white-space:nowrap">${orderId}</td>
-        <td>${o.fullName || '—'}<br><small>${o.phone || ''} ${o.email || ''}</small></td>
-        <td>${o.status || 'Pending'}</td>
-        <td>${driverSelectHtml(orderId, curDriverId)}</td>
-        <td>${created}</td>
-        <td>${actionButtonsHtml(orderId)}</td>
-      `;
-      frag.appendChild(tr);
-    });
-    TBODY.innerHTML = '';
-    TBODY.appendChild(frag);
-  }
-
-  function filterNow() {
-    const q = (SEARCH?.value || '').trim().toLowerCase();
-    if (!q) return render(rows);
-    const filtered = rows.filter(o => {
-      const hay = [o.id, o.orderNumber, o.fullName, o.email, o.phone, o.status, currentDriverLabel(o)]
-        .filter(Boolean).join(' ').toLowerCase();
-      return hay.includes(q);
-    });
-    render(filtered);
-  }
-
-  // Modal
-  const OVERLAY = document.getElementById('dispatchModalOverlay');
-  const TITLE   = document.getElementById('dv-title');
-  const BODY    = document.getElementById('dv-body');
-  const CLOSE_X = document.getElementById('dv-close-x');
-  const CLOSE_B = document.getElementById('dv-close-btn');
-
-  function showModal(o) {
-    TITLE.textContent = `Order ${getOrderId(o)}`;
-
-    const parts = [];
-    (o.items || o.cart || []).forEach(it => {
-      const qty = (it.quantity != null && it.quantity !== '') ? ` × ${it.quantity}` : '';
-      parts.push(`<li>${(it.name || '').replace(/</g,'&lt;')}${qty}</li>`);
-    });
-    const itemsHTML = parts.length ? `<ul class="ml-18 my-6">${parts.join('')}</ul>` : '<em>No line items</em>';
-
-    let total = '—';
-    if (typeof o.totalCents === 'number') total = 'KSh ' + (o.totalCents/100).toLocaleString();
-    else if (typeof o.total === 'number') total = currencyKES(o.total);
-
-    BODY.innerHTML = `
-      <div class="grid grid--order-info">
-        <div class="label-muted">Customer</div>
-        <div>${o.fullName || '—'}<br><small>${o.phone || ''} ${o.email || ''}</small></div>
-
-        <div class="label-muted">Status</div>
-        <div>${o.status || 'Pending'}</div>
-
-        <div class="label-muted">Driver</div>
-        <div>${currentDriverLabel(o)}</div>
-
-        <div class="label-muted">Total</div>
-        <div>${total}</div>
-
-        <div class="label-muted">Created</div>
-        <div>${o.createdAt ? new Date(o.createdAt).toLocaleString() : '—'}</div>
-
-        <div class="label-muted">Items</div>
-        <div>${itemsHTML}</div>
-
-        <div class="label-muted">Notes</div>
-        <div>${(o.notes || '').toString().replace(/</g,'&lt;') || '—'}</div>
-      </div>
-    `;
-
-    OVERLAY.classList.add('is-open');
-  }
-  function closeModal() { OVERLAY.classList.remove('is-open'); }
-  CLOSE_X.addEventListener('click', closeModal);
-  CLOSE_B.addEventListener('click', closeModal);
-  OVERLAY.addEventListener('click', (e)=>{ if (e.target === OVERLAY) closeModal(); });
-  window.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && OVERLAY.classList.contains('is-open')) closeModal(); });
-
-  TBODY.addEventListener('click', async (e) => {
-    const btnView = e.target.closest('[data-view-id]');
-    if (btnView) {
-      const id = btnView.getAttribute('data-view-id');
-      const o  = rows.find(r => getOrderId(r) === String(id));
-      if (o) showModal(o);
-      return;
-    }
-
-    const btn = e.target.closest('button[data-role]');
-    if (!btn) return;
-    const role = btn.getAttribute('data-role');
-    const orderId = btn.getAttribute('data-oid');
-    const select = TBODY.querySelector(`select[data-role="driver-select"][data-oid="${orderId}"]`);
-    const selected = select ? select.value : "";
-
-    if (role === 'assign') {
-      const driver_id = selected ? parseInt(selected, 10) : null;
-      if (!driver_id) { alert('Please select a driver first.'); return; }
-      const ok = await saveAssignment(orderId, driver_id);
-      if (ok) { assignments[orderId] = driver_id; filterNow(); }
-    }
-
-    if (role === 'unassign') {
-      const ok = await saveAssignment(orderId, null);
-      if (ok) { assignments[orderId] = null; if (select) select.value = ''; filterNow(); }
-    }
-  });
-
-  async function saveAssignment(orderId, driver_id) {
-    try {
-      const res = await fetch(`/api/admin/dispatch/${encodeURIComponent(orderId)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driver_id })
-      });
-      const j = await res.json();
-      if (!res.ok || !j || j.success === false) throw new Error(j?.error?.message || 'Failed');
-      return true;
-    } catch (err) {
-      console.error('[Dispatch] assign error:', err);
-      alert('Failed to save assignment.');
-      return false;
-    }
-  }
-
-  async function fetchDrivers() {
-    try {
-      const r = await fetch(`/api/admin/users?type=Driver`);
-      const j = await r.json();
-      drivers = (j && (j.users || j)) || [];
-    } catch (e) {
-      console.warn('[Dispatch] drivers fetch failed:', e);
-      drivers = [];
-    }
-  }
-
-  async function fetchAssignments(ids) {
-    if (!ids || !ids.length) return {};
-    try {
-      const r = await fetch(`/api/admin/dispatch?ids=${encodeURIComponent(ids.join(','))}`);
-      const j = await r.json();
-      return (j && j.assignments) || {};
-    } catch (e) {
-      console.warn('[Dispatch] assignments fetch failed:', e);
-      return {};
-    }
-  }
-
-  async function load() {
-    try {
-      const { orders } = await window.WattSunAdminData.orders.get({ page: 1, per: 10000 });
-      rows = Array.isArray(orders) ? orders : [];
-      await fetchDrivers();
-      const ids = rows.map(getOrderId).filter(Boolean);
-      assignments = await fetchAssignments(ids);
-      render(rows);
-    } catch (e) {
-      console.error('[Dispatch] load failed:', e);
-      TBODY.innerHTML = '<tr><td colspan="6" class="danger" style="text-align:center">Failed to load.</td></tr>';
-    }
-  }
-
-  SEARCH?.addEventListener('input', () => { clearTimeout(SEARCH._t); SEARCH._t = setTimeout(filterNow, 150); });
-
-  load();
-})();
-</script>
+<script src="/admin/js/admin-dispatch.js?v=20250911-01" defer></script>
