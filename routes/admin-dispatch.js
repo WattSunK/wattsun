@@ -1,153 +1,147 @@
-// public/admin/js/admin-dispatch.js
-// Step 4: UI list only (no create/assign yet).
-(function () {
-  const API = "/api/admin/dispatches";
-  const qs = (sel, el = document) => el.querySelector(sel);
-  const qsa = (sel, el = document) => Array.from(el.querySelectorAll(sel));
+// routes/admin-dispatch.js
+// Admin Dispatch routes
+// • This router does NOT include an internal requireAdmin.
+// • Mounted in server.js like:
+//     app.use('/api/admin/dispatches', require('./routes/admin-dispatch'));
 
-  function getFormData(form) {
-    const data = new FormData(form);
-    const obj = {};
-    for (const [k, v] of data.entries()) {
-      if (v !== "") obj[k] = v;
+const express = require("express");
+const sqlite3 = require("sqlite3").verbose();
+const path = require("path");
+
+const router = express.Router();
+
+// DB path from env or default
+const DB_PATH =
+  process.env.DB_PATH_USERS ||
+  process.env.SQLITE_DB ||
+  path.resolve(__dirname, "../data/dev/wattsun.dev.db");
+
+// Utility to run a SQL query with params, returning a Promise
+function allAsync(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows);
+    });
+  });
+}
+function getAsync(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+}
+function runAsync(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+}
+
+// --- Diagnostics -------------------------------------------------------------
+
+router.get("/_diag/ping", (req, res) => {
+  res.json({ success: true, time: new Date().toISOString() });
+});
+
+// --- List dispatches ---------------------------------------------------------
+
+router.get("/", async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const per = parseInt(req.query.per) || 10;
+  const offset = (page - 1) * per;
+
+  const db = new sqlite3.Database(DB_PATH);
+  try {
+    const totalRow = await getAsync(
+      db,
+      "SELECT COUNT(*) as cnt FROM dispatches"
+    );
+    const total = totalRow ? totalRow.cnt : 0;
+
+    const rows = await allAsync(
+      db,
+      `SELECT d.*, o.orderNumber, u.name as driverName
+       FROM dispatches d
+       LEFT JOIN orders o ON d.order_id = o.id
+       LEFT JOIN users u ON d.driver_id = u.id
+       ORDER BY d.updated_at DESC
+       LIMIT ? OFFSET ?`,
+      [per, offset]
+    );
+
+    res.json({ success: true, page, per, total, dispatches: rows });
+  } catch (err) {
+    console.error("[admin-dispatch:list]", err);
+    res
+      .status(500)
+      .json({ success: false, error: { code: "SQL_ERROR", message: err.message } });
+  } finally {
+    db.close();
+  }
+});
+
+// --- Create dispatch ---------------------------------------------------------
+
+router.post("/", async (req, res) => {
+  const { order_id, driver_id, status, planned_date, notes } = req.body;
+  const db = new sqlite3.Database(DB_PATH);
+  try {
+    const result = await runAsync(
+      db,
+      `INSERT INTO dispatches (order_id, driver_id, status, planned_date, notes)
+       VALUES (?, ?, ?, ?, ?)`,
+      [order_id, driver_id || null, status || "Created", planned_date || null, notes || null]
+    );
+    res.json({ success: true, id: result.lastID });
+  } catch (err) {
+    console.error("[admin-dispatch:create]", err);
+    res
+      .status(500)
+      .json({ success: false, error: { code: "SQL_ERROR", message: err.message } });
+  } finally {
+    db.close();
+  }
+});
+
+// --- Update dispatch ---------------------------------------------------------
+
+router.patch("/:id", async (req, res) => {
+  const id = req.params.id;
+  const { status, driver_id, notes, planned_date } = req.body;
+
+  const db = new sqlite3.Database(DB_PATH);
+  try {
+    const existing = await getAsync(db, "SELECT * FROM dispatches WHERE id = ?", [id]);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Dispatch not found" } });
     }
-    return obj;
+
+    await runAsync(
+      db,
+      `UPDATE dispatches
+       SET status = COALESCE(?, status),
+           driver_id = COALESCE(?, driver_id),
+           notes = COALESCE(?, notes),
+           planned_date = COALESCE(?, planned_date),
+           updated_at = datetime('now')
+       WHERE id = ?`,
+      [status, driver_id, notes, planned_date, id]
+    );
+
+    res.json({ success: true, id });
+  } catch (err) {
+    console.error("[admin-dispatch:update]", err);
+    res
+      .status(500)
+      .json({ success: false, error: { code: "SQL_ERROR", message: err.message } });
+  } finally {
+    db.close();
   }
+});
 
-  function stateFromURL() {
-    const u = new URL(location.href);
-    const s = {};
-    for (const k of ["q","status","driverId","planned_date","per","page"]) {
-      const v = u.searchParams.get(k);
-      if (v) s[k] = v;
-    }
-    if (!s.per) s.per = "20";
-    if (!s.page) s.page = "1";
-    return s;
-  }
-
-  function pushState(s) {
-    const u = new URL(location.href);
-    ["q","status","driverId","planned_date","per","page"].forEach(k => {
-      if (s[k]) u.searchParams.set(k, s[k]); else u.searchParams.delete(k);
-    });
-    history.replaceState(null, "", u.toString());
-  }
-
-  async function fetchList(params) {
-    const u = new URL(API, location.origin);
-    Object.entries(params).forEach(([k, v]) => v && u.searchParams.set(k, v));
-    const res = await fetch(u.toString(), { credentials: "include" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    // Contract: { success, page, per, total, dispatches: [] }
-    if (!json || json.success !== true || !Array.isArray(json.dispatches)) {
-      throw new Error("Bad response");
-    }
-    return json;
-  }
-
-  function renderTable(rows) {
-    const tbody = qs("#dispatch-tbody");
-    tbody.innerHTML = "";
-    if (!rows.length) {
-      const tr = document.createElement("tr");
-      tr.className = "empty";
-      const td = document.createElement("td");
-      td.colSpan = 6;
-      td.textContent = "No dispatches yet.";
-      tr.appendChild(td);
-      tbody.appendChild(tr);
-      return;
-    }
-    for (const r of rows) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${r.id}</td>
-        <td>${r.order_id ?? ""}</td>
-        <td>${r.status ?? ""}</td>
-        <td>${r.driver_id ?? ""}</td>
-        <td>${r.planned_date ?? ""}</td>
-        <td>${r.updated_at ?? ""}</td>
-      `;
-      tbody.appendChild(tr);
-    }
-  }
-
-  function renderPager(total, page, per) {
-    qs("#dispatch-total").textContent = String(total);
-    qs("#dispatch-page").textContent = String(page);
-    const maxPage = Math.max(1, Math.ceil(total / per));
-    const prevBtn = qs("#dispatch-prev");
-    const nextBtn = qs("#dispatch-next");
-    prevBtn.disabled = page <= 1;
-    nextBtn.disabled = page >= maxPage;
-  }
-
-  async function load(state) {
-    const json = await fetchList(state);
-    renderTable(json.dispatches);
-    renderPager(json.total, json.page, json.per);
-  }
-
-  function init() {
-    const root = qs("#dispatch-root");
-    if (!root) return; // not on this partial
-
-    // Seed filters from URL
-    const s = stateFromURL();
-    qs("#f-q").value = s.q || "";
-    qs("#f-status").value = s.status || "";
-    qs("#f-driverId").value = s.driverId || "";
-    qs("#f-date").value = s.planned_date || "";
-    qs("#f-per").value = s.per || "20";
-
-    // Wire filters submit
-    qs("#dispatch-filters").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const formState = getFormData(e.currentTarget);
-      formState.page = "1";
-      pushState(formState);
-      await load(formState);
-    });
-
-    // Refresh
-    qs("#dispatch-refresh").addEventListener("click", async () => {
-      const now = stateFromURL();
-      await load(now);
-    });
-
-    // Pager
-    qs("#dispatch-prev").addEventListener("click", async () => {
-      const now = stateFromURL();
-      const page = Math.max(1, (parseInt(now.page || "1", 10) - 1));
-      now.page = String(page);
-      pushState(now);
-      await load(now);
-    });
-    qs("#dispatch-next").addEventListener("click", async () => {
-      const now = stateFromURL();
-      const page = (parseInt(now.page || "1", 10) + 1);
-      now.page = String(page);
-      pushState(now);
-      await load(now);
-    });
-
-    // Initial load
-    load(s).catch(err => {
-      console.error("[dispatch:list] load failed", err);
-    });
-
-    // Let dashboard know the partial is ready (matches your pattern)
-    try {
-      window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { partial: "dispatch" } }));
-    } catch {}
-  }
-
-  // Init when script loads (partial is already in DOM)
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
-})();
+module.exports = router;
