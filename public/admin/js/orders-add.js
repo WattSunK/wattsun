@@ -1,6 +1,7 @@
 // public/admin/js/orders-add.js
 // Binder for the Admin “Add Order” modal.
 // - Opens from any element with data-modal-target="#orderAddModal" or [data-action="add-order"].
+// - Also opens when the page broadcasts window.dispatchEvent(new CustomEvent('admin:create', {detail:{type:'order'}}))
 // - If the modal isn't present (e.g., SSI include didn’t run), fetch and inject the partial.
 // - POSTs to /api/admin/orders (credentials included) on Save.
 
@@ -148,7 +149,7 @@
   }
 
   function wire() {
-    // Openers
+    // Openers via attributes
     document.addEventListener("click", async (e) => {
       const t = e.target instanceof Element ? e.target : null;
       if (!t) return;
@@ -176,6 +177,7 @@
       }
     });
 
+    // Submit buttons / forms
     document.addEventListener("click", (e) => {
       const t = e.target instanceof Element ? e.target : null;
       if (t && t.id === "oa_submit") {
@@ -192,12 +194,21 @@
       }
     });
 
+    // ESC to close
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       const dlg = getDlg();
       if (!dlg) return;
       if (isDialog(dlg) && typeof dlg.close === "function") dlg.close();
       else dlg.classList.add("hidden");
+    });
+
+    // 🔗 Option B: also honor the broadcast used by orders.html
+    // window.dispatchEvent(new CustomEvent('admin:create', { detail: { type: 'order', source: 'orders' } }))
+    window.addEventListener("admin:create", (e) => {
+      if (e?.detail?.type === "order") {
+        showDialog();
+      }
     });
 
     // expose a tiny API
