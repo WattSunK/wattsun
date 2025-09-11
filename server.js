@@ -105,10 +105,10 @@ app.use("/api/categories", require("./routes/categories")(db));
 // Gate all /api/admin/* below with one line:
 app.use("/api/admin", requireAdmin);
 app.use("/api/admin/orders", require("./routes/admin-orders")); // NEW (PATCH)
+app.use('/api/admin/dispatches', require('./routes/admin-dispatch'));
 const adminOrdersMeta = require("./routes/admin-orders-meta");
 app.use("/api/admin", require("./routes/admin-users"));
 app.use("/api/admin/_diag", require("./routes/admin-diagnostics"));
-app.use('/api/admin/dispatches', require('./routes/admin-dispatch'));
 app.use("/api", require("./routes/calculator"));
 app.use("/api", require("./routes/users"));
 app.use("/api", require("./routes/login"));
