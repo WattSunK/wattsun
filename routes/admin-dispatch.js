@@ -1,12 +1,7 @@
 // routes/admin-dispatch.js
 // Step 3: READ-ONLY scaffold for Dispatch list (SQL-only).
 // - GET /api/admin/dispatches            -> list with filters + pagination
-// - GET /api/admin/dispatches/_diag/ping -> simple ping
-//
-// Notes:
-// - Expects your auth middleware to populate req.user { type: "Admin", ... }.
-// - Uses SQLite; ensures PRAGMA foreign_keys=ON per-connection.
-// - Joins minimal Order fields so the UI doesn't need a second fetch.
+// - GET /api/admin/dispatches/_diag/ping -> simple ping (no internal guard; use mount-level guard)
 
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
@@ -14,25 +9,15 @@ const path = require('path');
 
 const router = express.Router();
 
-// --- Config: resolve DB path (env override → sane default) ---
+// --- Config: resolve DB path ---
 const DB_PATH =
   process.env.WATTSUN_DB ||
   path.resolve(__dirname, '..', 'data', 'dev', 'wattsun.dev.db');
 
-// --- Tiny Admin guard (keeps us independent of server.js) ---
-function requireAdmin(req, res, next) {
-  try {
-    if (req?.user?.type === 'Admin') return next();
-  } catch (_) {}
-  return res.status(403).json({ ok: false, error: 'Forbidden' });
-}
-
 // --- DB helper (per-call connection; ensures FKs=ON) ---
 function withDb(fn, resOnError) {
   const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READONLY, (err) => {
-    if (err) {
-      resOnError?.(err);
-    }
+    if (err && resOnError) resOnError(err);
   });
   db.serialize(() => db.run('PRAGMA foreign_keys = ON'));
   return {
@@ -50,65 +35,36 @@ function withDb(fn, resOnError) {
   };
 }
 
-// --- /_diag/ping for quick checks ---
-router.get('/_diag/ping', requireAdmin, (req, res) => {
+// --- /_diag/ping (guard is applied at mount level) ---
+router.get('/_diag/ping', (req, res) => {
   res.json({ success: true, time: new Date().toISOString() });
 });
 
 // --- GET / (list) -----------------------------------------------------------
-router.get('/', requireAdmin, (req, res) => {
-  // Filters
-  const {
-    q,                 // free-text (order_id prefix/contains)
-    status,            // Created|Assigned|InTransit|Delivered|Canceled
-    driverId,          // numeric user id
-    planned_date,      // YYYY-MM-DD
-    page = '1',
-    per  = '20'
-  } = req.query;
+router.get('/', (req, res) => {
+  const { q, status, driverId, planned_date, page = '1', per = '20' } = req.query;
 
-  // Pagination (safe coercion)
   const PER_MAX = 100;
   const perNum  = Math.min(Math.max(parseInt(per, 10) || 20, 1), PER_MAX);
   const pageNum = Math.max(parseInt(page, 10) || 1, 1);
   const offset  = (pageNum - 1) * perNum;
 
-  // WHERE builder
   const where = [];
   const params = [];
 
-  if (q && String(q).trim() !== '') {
-    where.push(`(d.order_id LIKE ?)`);                // prefix/contains search
-    params.push(`%${String(q).trim()}%`);
-  }
-  if (status && String(status).trim() !== '') {
-    where.push(`d.status = ?`);
-    params.push(String(status).trim());
-  }
-  if (driverId && /^\d+$/.test(String(driverId))) {
-    where.push(`d.driver_id = ?`);
-    params.push(parseInt(driverId, 10));
-  }
-  if (planned_date && /^\d{4}-\d{2}-\d{2}$/.test(String(planned_date))) {
-    where.push(`d.planned_date = ?`);
-    params.push(planned_date);
-  }
+  if (q && String(q).trim() !== '') { where.push(`(d.order_id LIKE ?)`); params.push(`%${String(q).trim()}%`); }
+  if (status && String(status).trim() !== '') { where.push(`d.status = ?`); params.push(String(status).trim()); }
+  if (driverId && /^\d+$/.test(String(driverId))) { where.push(`d.driver_id = ?`); params.push(parseInt(driverId, 10)); }
+  if (planned_date && /^\d{4}-\d{2}-\d{2}$/.test(String(planned_date))) { where.push(`d.planned_date = ?`); params.push(planned_date); }
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
-  // Count query
-  const SQL_COUNT = `
-    SELECT COUNT(*) AS n
-    FROM dispatches d
-    ${whereSql}
-  `;
+  const SQL_COUNT = `SELECT COUNT(*) AS n FROM dispatches d ${whereSql}`;
 
-  // List query (JOIN minimal order fields used in Admin)
   const SQL_LIST = `
     SELECT
       d.id, d.order_id, d.driver_id, d.status, d.planned_date, d.notes,
       d.created_at, d.updated_at,
-      -- Order fields (adjust to your schema safely)
       o.status        AS order_status,
       o.totalCents    AS order_totalCents,
       o.depositCents  AS order_depositCents,
@@ -123,9 +79,7 @@ router.get('/', requireAdmin, (req, res) => {
     LIMIT ? OFFSET ?
   `;
 
-  const handleError = (err) => {
-    return res.status(500).json({ ok: false, error: String(err && err.message || err) });
-  };
+  const handleError = (err) => res.status(500).json({ ok: false, error: String(err && err.message || err) });
 
   withDb((db, done) => {
     db.get(SQL_COUNT, params, (err, row) => {
@@ -159,13 +113,7 @@ router.get('/', requireAdmin, (req, res) => {
           }
         }));
 
-        res.json({
-          ok: true,
-          total,
-          page: pageNum,
-          per: perNum,
-          dispatches
-        });
+        res.json({ ok: true, total, page: pageNum, per: perNum, dispatches });
         done();
       });
     });
