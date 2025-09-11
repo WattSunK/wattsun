@@ -115,34 +115,26 @@
   }
 
   function renderPager() {
-  const el = $(SEL.pager); if (!el) return;
+    const el = $(SEL.pager); if (!el) return;
 
-  const pages = Math.max(1, Math.ceil(State.view.length / State.per));
-  const cur   = Math.min(State.page, pages);
-  State.page  = cur;
+    const pages = Math.max(1, Math.ceil(State.view.length / State.per));
+    const cur   = Math.min(State.page, pages);
+    State.page  = cur;
 
-  // helper to output an a11y-disabled button that still looks “enabled” per theme
-  const B = (n, label, isDisabled = false, isCurrent = false) => {
-    if (isDisabled) {
-      return `<button type="button"
-                      class="btn small pg-btn"
-                      data-page="${n}"
-                      aria-disabled="true"
-                      tabindex="-1">${label}</button>`;
-    }
-    return `<button type="button"
-                    class="btn small pg-btn"
-                    data-page="${n}"
-                    ${isCurrent ? 'aria-current="page"' : ''}>${label}</button>`;
-  };
+    const B = (n, label, isDisabled = false, isCurrent = false) => {
+      if (isDisabled) {
+        return `<button type="button" class="btn small pg-btn" data-page="${n}" aria-disabled="true" tabindex="-1">${label}</button>`;
+      }
+      return `<button type="button" class="btn small pg-btn" data-page="${n}" ${isCurrent ? 'aria-current="page"' : ''}>${label}</button>`;
+    };
 
-  el.innerHTML =
-    B(1, "First",            cur === 1) +
-    B(Math.max(1, cur - 1), "Previous",  cur === 1) +
-    `<span class="pg-info"> ${cur} / ${pages} </span>` +
-    B(Math.min(pages, cur + 1), "Next",  cur === pages) +
-    B(pages, "Last",           cur === pages);
-}
+    el.innerHTML =
+      B(1, "First",              cur === 1) +
+      B(Math.max(1, cur - 1),   "Previous",  cur === 1) +
+      `<span class="pg-info"> ${cur} / ${pages} </span>` +
+      B(Math.min(pages, cur + 1),"Next",     cur === pages) +
+      B(pages, "Last",           cur === pages);
+  }
 
   // ----- wiring -----
   function wire() {
@@ -178,14 +170,13 @@
         const id = eb.getAttribute("data-oid") || "";
         const phone = eb.getAttribute("data-phone") || "";
         const email = eb.getAttribute("data-email") || "";
-        // If the modal exists, open it directly (keeps compat with your binder)
+        // Open the new Edit modal if present
         const dlg = document.getElementById('orderEditModal');
         if (dlg) {
           const idEl = document.getElementById('oemOrderId');
           if (idEl) idEl.textContent = id;
           try { dlg.showModal(); } catch { dlg.open = true; }
         }
-        // Also emit the event for any external save handler
         window.dispatchEvent(new CustomEvent("orders:edit", { detail: { id, phone, email } }));
       }
     });
@@ -193,7 +184,6 @@
 
   // ----- data load -----
   async function fetchOnce() {
-    // Use whichever function the adapter exposes
     const apiFn = Data?.orders && (Data.orders.list || Data.orders.get);
     if (typeof apiFn !== 'function') throw new Error('WattSunAdminData.orders.list/get not found');
     const result = await apiFn.call(Data.orders, { page: 1, per: 10000 });
@@ -211,7 +201,6 @@
     fetchOnce().catch(err => console.error("[Orders] load failed:", err));
   }
 
-  // Try now; if tbody not present yet, watch and boot once
   if (document.querySelector(SEL.tbody)) {
     boot();
   } else {
@@ -219,62 +208,46 @@
     mo.observe(document.body, { childList: true, subtree: true });
   }
 
-  // Also react to admin shell events the partial emits (support both keys)
   window.addEventListener("admin:partial-loaded", (e) => {
     const name = e?.detail?.partial || e?.detail?.name;
     if (name === "orders") boot();
   });
 
-  // Manual hook for console or other scripts
   window.__WS_ORDERS_FORCE_BOOT = () => { booted = false; boot(); };
 
-  // ----- lightweight viewer (unchanged) -----
-function ensureViewDialog() {
-  let dlg = document.getElementById("orderViewDialog");
-  if (dlg) return dlg;
+  // ===== NEW VIEW HANDLER (uses modern #orderViewModal) =====
+  function openViewModalWithData(o) {
+    const dlg = document.getElementById("orderViewModal");
+    if (!dlg) { console.warn("[Orders] #orderViewModal not found"); return; }
 
-  dlg = document.createElement("dialog");
-  dlg.id = "orderViewDialog";
-  dlg.innerHTML = `
-    <form method="dialog" class="ws-modal-card">
-      <h3 class="ws-modal-title">Order</h3>
-      <div class="content"></div>
-      <div class="ws-actions">
-        <button value="close" class="btn small">Close</button>
-      </div>
-    </form>`;
-  document.body.appendChild(dlg);
-  return dlg;
-}
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = (val ?? "—"); };
+
+    set("ov_order",   o.orderNumber || o.id || "—");
+    set("ov_status",  o.status || "Pending");
+    set("ov_customer",o.fullName || "—");
+    set("ov_phone",   o.phone || "—");
+    set("ov_email",   o.email || "—");
+    set("ov_placed",  o.createdAt ? new Date(o.createdAt).toLocaleString() : "—");
+    set("ov_total",   fmtMoney(o.totalCents, o.currency));
+    set("ov_currency",o.currency || "—");
+    set("ov_driver",  o.driverName || o.driver || "—"); // optional if present
+
+    const body = document.getElementById("ov_itemsBody");
+    if (body) {
+      const items = (o.items || []).map(it =>
+        `<tr><td>${it.sku || "—"}</td><td>${it.name || "—"}</td><td>${it.qty || 1}</td><td>${fmtMoney((it.priceCents ?? 0), o.currency)}</td></tr>`
+      ).join("");
+      body.innerHTML = items || `<tr><td colspan="4">No items</td></tr>`;
+    }
+
+    try { dlg.showModal(); } catch { dlg.setAttribute("open", "true"); }
+  }
 
   window.addEventListener("orders:view", (e) => {
     const id = e.detail?.id;
     const o = State.raw.find(x => String(x.id) === String(id) || String(x.orderNumber) === String(id));
     if (!o) return;
-    const dlg = ensureViewDialog();
-    const c = dlg.querySelector(".content");
-
-    const items = (o.items || []).map(it =>
-      `<tr><td>${it.sku || "—"}</td><td>${it.name || "—"}</td><td>${it.qty || 1}</td><td>${fmtMoney((it.priceCents ?? 0), o.currency)}</td></tr>`
-    ).join("");
-
-    c.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div><strong>Order #</strong><div>${o.orderNumber || o.id || "—"}</div></div>
-        <div><strong>Status</strong><div>${o.status || "Pending"}</div></div>
-        <div><strong>Customer</strong><div>${o.fullName || "—"}</div></div>
-        <div><strong>Phone</strong><div>${o.phone || "—"}</div></div>
-        <div><strong>Email</strong><div>${o.email || "—"}</div></div>
-        <div><strong>Placed</strong><div>${o.createdAt ? new Date(o.createdAt).toLocaleString() : "—"}</div></div>
-        <div><strong>Total</strong><div>${fmtMoney(o.totalCents, o.currency)}</div></div>
-      </div>
-      <h4 style="margin:14px 0 6px;">Items</h4>
-      <table style="width:100%;border-collapse:collapse;">
-        <thead><tr><th>SKU</th><th>Name</th><th>Qty</th><th>Price</th></tr></thead>
-        <tbody>${items || `<tr><td colspan="4">No items</td></tr>`}</tbody>
-      </table>
-    `;
-    try { dlg.showModal(); } catch { dlg.setAttribute("open", "true"); }
+    openViewModalWithData(o);
   });
 
   // Expose minimal row refresh helper
