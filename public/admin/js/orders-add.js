@@ -1,14 +1,13 @@
 // public/admin/js/orders-add.js
 // Binder for the Admin “Add Order” modal.
 // - Opens from any element with data-modal-target="#orderAddModal" or [data-action="add-order"].
-// - Also opens when the page broadcasts window.dispatchEvent(new CustomEvent('admin:create', {detail:{type:'order'}}))
-// - If the modal isn't present (e.g., SSI include didn’t run), fetch and inject the partial
-//   from a list of candidate paths (tries each until one works).
+// - Opens when the page broadcasts 'admin:create' (we listen on *both* window and document).
+// - Opens when the legacy #btnAddOrder_orders button is clicked.
+// - If the modal isn't present, fetch and inject the partial from several candidate paths.
 // - POSTs to /api/admin/orders (credentials included) on Save.
 
 (function () {
-  // Candidate paths — we’ll try each until one returns 200,
-  // then remember the working one for the rest of the session.
+  // Candidate paths — we’ll try each until one returns 200, then remember it
   const PARTIAL_CANDIDATES = [
     "/partials/orders-add.html",
     "/public/partials/orders-add.html",
@@ -46,7 +45,6 @@
     if (ensuring) return ensuring;
 
     ensuring = (async () => {
-      // Resolve a working URL only once.
       if (!RESOLVED_PARTIAL_URL) {
         const { url, html } = await fetchFirstOk(PARTIAL_CANDIDATES);
         RESOLVED_PARTIAL_URL = url;
@@ -54,7 +52,6 @@
         tpl.innerHTML = html.trim();
         document.body.appendChild(tpl.content);
       } else {
-        // We’ve resolved before — just fetch once more to inject if missing.
         const res = await fetch(RESOLVED_PARTIAL_URL, { credentials: "include" });
         if (!res.ok) throw new Error(`Failed to load ${RESOLVED_PARTIAL_URL}: ${res.status}`);
         const html = await res.text();
@@ -76,7 +73,7 @@
 
   async function showDialog() {
     const dlg = await ensureModal();
-    if (!dlg) return console.warn("orderAddModal not found after ensureModal()");
+    if (!dlg) return;
     if (isDialog(dlg) && typeof dlg.showModal === "function") dlg.showModal();
     else dlg.classList.remove("hidden");
     $("#oa_fullName")?.focus();
@@ -192,28 +189,30 @@
   }
 
   function wire() {
-    // Openers via attributes
+    // Openers via attributes and legacy button id
     document.addEventListener("click", async (e) => {
-      const t = e.target instanceof Element ? e.target : null;
-      if (!t) return;
+      const el = e.target instanceof Element ? e.target : null;
+      if (!el) return;
 
-      if (
-        t.getAttribute("data-modal-target") === "#orderAddModal" ||
-        t.getAttribute("data-action") === "add-order"
-      ) {
+      const opener =
+        el.closest('[data-modal-target="#orderAddModal"]') ||
+        el.closest('[data-action="add-order"]') ||
+        el.closest('#btnAddOrder_orders'); // legacy id in orders.html
+
+      if (opener) {
         e.preventDefault();
         await showDialog();
         return;
       }
 
-      if (t.classList.contains("oa_row_remove")) {
+      if (el.classList.contains("oa_row_remove")) {
         e.preventDefault();
-        const tr = t.closest("tr");
+        const tr = el.closest("tr");
         tr?.parentElement?.removeChild(tr);
         return;
       }
 
-      if (t.id === "oa_addRow") {
+      if (el.id === "oa_addRow") {
         e.preventDefault();
         addItemRow();
         return;
@@ -246,13 +245,12 @@
       else dlg.classList.add("hidden");
     });
 
-    // Option B: also honor the broadcast used by orders.html
-    // window.dispatchEvent(new CustomEvent('admin:create', { detail: { type: 'order', source: 'orders' } }))
-    window.addEventListener("admin:create", (e) => {
-      if (e?.detail?.type === "order") {
-        showDialog();
-      }
-    });
+    // Honor the broadcast used by orders.html
+    const onCreate = (e) => {
+      if (e?.detail?.type === "order") showDialog();
+    };
+    window.addEventListener("admin:create", onCreate);
+    document.addEventListener("admin:create", onCreate);
 
     // expose a tiny API
     window.wattsunOrdersAdd = {
