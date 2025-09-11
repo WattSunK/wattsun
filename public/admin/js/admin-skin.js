@@ -117,8 +117,87 @@
     return true;
   }
 
-  // (…rest of your original file remains unchanged…)
+  // ---- SURGICAL EDIT #1: Disable legacy injector (no-op) ----
+  async function ensureOrdersModal() {
+    // Legacy injector disabled: do not fetch /public/partials/orders-modal.html
+    return true;
+  }
+  // keep harmless export if other code references it
+  window.ensureOrdersModal = ensureOrdersModal;
 
+  // ---- SURGICAL EDIT #2: Open Add using the new flow (never touch View/Edit) ----
+  async function openOrderCreate() {
+    // Prefer the dedicated Add module if available
+    if (window.wattsunOrdersAdd && typeof window.wattsunOrdersAdd.open === "function") {
+      window.wattsunOrdersAdd.open();
+      return;
+    }
+
+    // Try a page trigger that existing code wires up
+    const trigger =
+      document.querySelector('[data-action="add-order"]') ||
+      document.querySelector('[data-modal-target="#orderAddModal"]');
+    if (trigger) {
+      trigger.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      return;
+    }
+
+    // Fallback: open the modal directly if present
+    const add = document.getElementById("orderAddModal");
+    if (add) {
+      if (typeof add.showModal === "function") add.showModal();
+      else add.classList.remove("hidden");
+      return;
+    }
+
+    if (typeof window.toast === "function") window.toast("Add Order UI not available", "error");
+  }
+
+  // Handle create intents when a partial finishes loading (useful when we route first)
+  window.addEventListener("admin:partial-loaded", (e) => {
+    const id = e.detail?.id;
+    if (!pendingCreateIntent) return;
+
+    if (pendingCreateIntent.type === "order" && id === "orders") {
+      setTimeout(() => openOrderCreate(), 0);
+      pendingCreateIntent = null;
+    }
+
+    if (pendingCreateIntent?.type === "item" && id === "items") {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("items:create"));
+        pendingCreateIntent = null;
+      }, 0);
+    }
+  });
+
+  // Main global handler (buttons on pages fire this)
+  window.addEventListener("admin:create", (evt) => {
+    const { type, source } = evt.detail || {};
+    if (!type) return;
+
+    if (type === "order") {
+      pendingCreateIntent = { type, source };
+      const ok = navigateTo("orders");
+      if (!ok) {
+        openOrderCreate();
+        pendingCreateIntent = null;
+      }
+      return;
+    }
+
+    if (type === "item") {
+      pendingCreateIntent = { type, source };
+      const ok = navigateTo("items");
+      if (!ok) {
+        if (typeof window.toast === "function") window.toast("Open Item creator", "info");
+        pendingCreateIntent = null;
+      }
+      return;
+    }
+
+    if (typeof window.toast === "function") window.toast(`Unknown create type: ${type}`, "error");
+  });
 })();
 
 // --- Topbar Home/Logout: resilient injector (idempotent) ---
@@ -228,40 +307,4 @@
       // handler is already attached by addEventListener; this is a safeguard.
     }
   });
-})();
-
-/* --- WS hotfix: neutralize legacy orders modal injector (safe) --- */
-(function () {
-  // 1) If a legacy injector exists, replace it with a no-op.
-  try {
-    if (typeof window.ensureOrdersModal === "function") {
-      console.info("[ws] Disabling legacy ensureOrdersModal()");
-      window.ensureOrdersModal = function () { return true; };
-    }
-    // Some builds used another name; keep a spare guard:
-    if (typeof window.loadLegacyOrdersModal === "function") {
-      console.info("[ws] Disabling legacy loadLegacyOrdersModal()");
-      window.loadLegacyOrdersModal = function () { return true; };
-    }
-  } catch (e) {}
-
-  // 2) On DOM ready, remove any **duplicate** legacy modals if they’ve already been injected.
-  //    This is conservative: it only deletes *duplicates*, never the first/current ones.
-  function pruneDuplicateOrderModals() {
-    var ids = ["orderViewModal", "orderEditModal", "orderViewDialog", "orderEditDialog"];
-    ids.forEach(function (id) {
-      var nodes = Array.prototype.slice.call(document.querySelectorAll("#" + id));
-      if (nodes.length > 1) {
-        // keep the first, remove the rest
-        nodes.slice(1).forEach(function (n) { try { n.remove(); } catch (_) {} });
-        console.warn("[ws] Removed duplicate legacy orders modal:", id);
-      }
-    });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", pruneDuplicateOrderModals, { once: true });
-  } else {
-    pruneDuplicateOrderModals();
-  }
 })();
