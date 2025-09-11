@@ -2,35 +2,73 @@
 // Binder for the Admin “Add Order” modal.
 // - Opens from any element with data-modal-target="#orderAddModal" or [data-action="add-order"].
 // - Also opens when the page broadcasts window.dispatchEvent(new CustomEvent('admin:create', {detail:{type:'order'}}))
-// - If the modal isn't present (e.g., SSI include didn’t run), fetch and inject the partial.
+// - If the modal isn't present (e.g., SSI include didn’t run), fetch and inject the partial
+//   from a list of candidate paths (tries each until one works).
 // - POSTs to /api/admin/orders (credentials included) on Save.
 
 (function () {
-  // ✅ FIX: point to the actual served path to avoid 404
-  const PARTIAL_URL = "/public/partials/orders-add.html";
+  // Candidate paths — we’ll try each until one returns 200,
+  // then remember the working one for the rest of the session.
+  const PARTIAL_CANDIDATES = [
+    "/partials/orders-add.html",
+    "/public/partials/orders-add.html",
+    "/admin/partials/orders-add.html",
+  ];
+  let RESOLVED_PARTIAL_URL = null;
 
-  const $ = (sel, root = document) => root.querySelector(sel);
+  const $  = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
   const getDlg  = () => document.getElementById("orderAddModal");
   const getForm = () => document.getElementById("orderAddForm");
 
   let ensuring = null;
+
+  async function fetchFirstOk(urls) {
+    let lastErr;
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { credentials: "include" });
+        if (res.ok) {
+          const html = await res.text();
+          return { url, html };
+        }
+        lastErr = new Error(`Fetch ${url} -> ${res.status}`);
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr || new Error("No candidate URL succeeded for orders-add.html");
+  }
+
   async function ensureModal() {
     if (getDlg()) return getDlg();
     if (ensuring) return ensuring;
+
     ensuring = (async () => {
-      const res = await fetch(PARTIAL_URL, { credentials: "include" });
-      if (!res.ok) throw new Error(`Failed to load ${PARTIAL_URL}: ${res.status}`);
-      const html = await res.text();
-      const tpl = document.createElement("template");
-      tpl.innerHTML = html.trim();
-      document.body.appendChild(tpl.content);
+      // Resolve a working URL only once.
+      if (!RESOLVED_PARTIAL_URL) {
+        const { url, html } = await fetchFirstOk(PARTIAL_CANDIDATES);
+        RESOLVED_PARTIAL_URL = url;
+        const tpl = document.createElement("template");
+        tpl.innerHTML = html.trim();
+        document.body.appendChild(tpl.content);
+      } else {
+        // We’ve resolved before — just fetch once more to inject if missing.
+        const res = await fetch(RESOLVED_PARTIAL_URL, { credentials: "include" });
+        if (!res.ok) throw new Error(`Failed to load ${RESOLVED_PARTIAL_URL}: ${res.status}`);
+        const html = await res.text();
+        const tpl = document.createElement("template");
+        tpl.innerHTML = html.trim();
+        document.body.appendChild(tpl.content);
+      }
+
       const dlg = getDlg();
       if (!dlg) throw new Error("orders-add.html injected but #orderAddModal not found");
       wireCloseHandlers(dlg);
       return dlg;
     })();
+
     return ensuring;
   }
 
@@ -94,6 +132,7 @@
   async function handleSubmit(e) {
     e?.preventDefault?.();
     await ensureModal();
+
     const fullName     = $("#oa_fullName")?.value.trim();
     const phone        = $("#oa_phone")?.value.trim();
     const email        = $("#oa_email")?.value.trim();
@@ -126,13 +165,17 @@
         credentials: "include",
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(await res.text().catch(()=>"HTTP "+res.status));
-      const data = await res.json().catch(()=>({success:true}));
+      if (!res.ok) throw new Error(await res.text().catch(() => "HTTP " + res.status));
+      const data = await res.json().catch(() => ({ success: true }));
       if (!data?.success) throw new Error("Order create failed");
       toast("Order created.", "success");
       closeDialog();
-      if (typeof window.__WS_ORDERS_FORCE_BOOT === "function") window.__WS_ORDERS_FORCE_BOOT();
-      else window.dispatchEvent(new CustomEvent("orders:reload"));
+
+      if (typeof window.__WS_ORDERS_FORCE_BOOT === "function") {
+        window.__WS_ORDERS_FORCE_BOOT();
+      } else {
+        window.dispatchEvent(new CustomEvent("orders:reload"));
+      }
     } catch (err) {
       console.error("Add Order failed:", err);
       toast(`Create failed: ${err.message || err}`, "error");
@@ -203,7 +246,7 @@
       else dlg.classList.add("hidden");
     });
 
-    // 🔗 Option B: also honor the broadcast used by orders.html
+    // Option B: also honor the broadcast used by orders.html
     // window.dispatchEvent(new CustomEvent('admin:create', { detail: { type: 'order', source: 'orders' } }))
     window.addEventListener("admin:create", (e) => {
       if (e?.detail?.type === "order") {
