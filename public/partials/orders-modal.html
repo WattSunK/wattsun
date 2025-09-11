@@ -1,94 +1,173 @@
-<!-- public/partials/orders-modal.html -->
-<!-- Styled Edit Order modal (scoped styles, no global CSS changes). -->
+<!-- Orders Modals (normalized) -->
 
-<style>
-  /* Backdrop */
-  #orderEditModal::backdrop { background: rgba(0,0,0,.35); }
+<!-- =========================
+     View Order (read-only)
+     ========================= -->
+<dialog id="orderViewModal" class="modal" aria-labelledby="ov_title" aria-modal="true">
+  <div class="modal-card">
+    <header class="modal-header">
+      <h3 id="ov_title">Order</h3>
+      <button type="button" data-ov-close class="btn ghost small">Close</button>
+    </header>
 
-  /* Dialog shell */
-  #orderEditModal {
-    border: 0;
-    padding: 0;
-    border-radius: 12px;
-    box-shadow: 0 12px 32px rgba(0,0,0,.18);
-    background: #fff;
-  }
+    <section class="modal-body">
+      <div class="grid rows">
+        <div class="row">
+          <label>Order #</label>
+          <div><span id="ov_order">—</span></div>
+        </div>
 
-  /* Card & layout */
-  .ws-modal-card { 
-    padding: 18px 20px; 
-    display: grid; 
-    gap: 14px; 
-    min-width: min(720px, 95vw);
-    background: #fff;
-  }
-  .ws-modal-title { font-size: 18px; font-weight: 600; margin: 0; }
-  .oem-note { font-size: .9rem; color: #666; }
-  .ws-form { display: grid; gap: 10px; }
-  .ws-row { 
-    display:grid; 
-    grid-template-columns: 140px 1fr; 
-    align-items: center; 
-    gap: 10px; 
-  }
-  @media (max-width: 560px) { .ws-row { grid-template-columns: 1fr; } }
+        <div class="row">
+          <label>Status</label>
+          <div><span id="ov_status">—</span></div>
+        </div>
 
-  /* Inputs (respect site styles; ensure full-width and spacing) */
-  .ws-input, .ws-select, .ws-textarea { width: 100%; }
+        <div class="row">
+          <label>Customer</label>
+          <div><span id="ov_customer">—</span></div>
+        </div>
 
-  /* Footer actions */
-  .ws-actions { display:flex; justify-content:flex-end; gap: 8px; margin-top: 4px; }
-</style>
+        <div class="row">
+          <label>Phone</label>
+          <div><span id="ov_phone">—</span></div>
+        </div>
 
-<dialog id="orderEditModal">
-  <form id="orderEditForm" method="dialog" class="ws-modal-card">
-    <h3 class="ws-modal-title">Edit Order</h3>
-    <div class="oem-note">Order ID: <span id="oemOrderId">—</span></div>
+        <div class="row">
+          <label>Email</label>
+          <div><span id="ov_email">—</span></div>
+        </div>
 
-    <div class="ws-form">
-      <div class="ws-row">
-        <label for="orderStatus">Status</label>
-        <select id="orderStatus" name="status" class="ws-select" required>
-          <option>Pending</option>
-          <option>Processing</option>
-          <option>Confirmed</option>
-          <option>Dispatched</option>
-          <option>Delivered</option>
-          <option>Closed</option>
-          <option>Cancelled</option>
-        </select>
+        <div class="row">
+          <label>Placed</label>
+          <div><span id="ov_placed">—</span></div>
+        </div>
+
+        <div class="row">
+          <label>Total</label>
+          <div><span id="ov_total">—</span></div>
+        </div>
+
+        <div class="row">
+          <label>Driver</label>
+          <div><span id="ov_driver">—</span></div>
+        </div>
       </div>
 
-      <div class="ws-row">
-        <label for="orderDriver">Driver</label>
-      <select id="orderDriver" name="driverId" class="ws-select"></select>
-
+      <h4 class="section-title">Items</h4>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Name</th>
+              <th>Qty</th>
+              <th>Price</th>
+            </tr>
+          </thead>
+          <tbody id="ov_itemsBody">
+            <tr><td colspan="4">No items</td></tr>
+          </tbody>
+        </table>
       </div>
+    </section>
 
-      <div class="ws-row">
-        <label for="orderNotes">Notes</label>
-        <textarea id="orderNotes" name="notes" rows="3" placeholder="Internal notes" class="ws-textarea"></textarea>
-      </div>
-
-      <div class="ws-row">
-        <label for="orderTotal">Total (cents)</label>
-        <input id="orderTotal" name="totalCents" type="number" min="0" step="1" class="ws-input" />
-      </div>
-
-      <div class="ws-row">
-        <label for="orderDeposit">Deposit (cents)</label>
-        <input id="orderDeposit" name="depositCents" type="number" min="0" step="1" class="ws-input" />
-      </div>
-
-      <div class="ws-row">
-        <label for="orderCurrency">Currency</label>
-        <input id="orderCurrency" name="currency" maxlength="3" placeholder="KES" class="ws-input" />
-      </div>
-
-      <div class="ws-actions">
-        <button type="button" id="orderCancelBtn" class="btn small">Cancel</button>
-        <button type="submit" id="orderSaveBtn" class="btn small">Save</button>
-      </div>
-    </div>
-  </form>
+    <footer class="modal-footer">
+      <button type="button" class="btn" data-ov-close>Close</button>
+    </footer>
+  </div>
 </dialog>
+
+
+<!-- =========================
+     Edit Order
+     ========================= -->
+<dialog id="orderEditModal" class="modal" aria-labelledby="oem_title" aria-modal="true">
+  <div class="modal-card">
+    <header class="modal-header">
+      <h3 id="oem_title">Edit Order</h3>
+      <button type="button" class="btn ghost small" id="oemCancelX">Close</button>
+    </header>
+
+    <form id="orderEditForm" class="modal-body" method="dialog">
+      <div class="grid rows">
+        <!-- Status -->
+        <div class="row">
+          <label for="orderStatus">Status</label>
+          <div>
+            <select id="orderStatus" name="status" class="input">
+              <option>Pending</option>
+              <option>Confirmed</option>
+              <option>Dispatched</option>
+              <option>Delivered</option>
+              <option>Cancelled</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Driver -->
+        <div class="row">
+          <label for="orderDriver">Driver</label>
+          <div>
+            <select id="orderDriver" name="driverId" class="input">
+              <!-- populated by JS -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Totals -->
+        <div class="row">
+          <label for="orderTotal">Total (cents)</label>
+          <div><input id="orderTotal" name="totalCents" type="number" class="input" inputmode="numeric" min="0" /></div>
+        </div>
+
+        <div class="row">
+          <label for="orderDeposit">Deposit (cents)</label>
+          <div><input id="orderDeposit" name="depositCents" type="number" class="input" inputmode="numeric" min="0" /></div>
+        </div>
+
+        <div class="row">
+          <label for="orderCurrency">Currency</label>
+          <div>
+            <input id="orderCurrency" name="currency" type="text" class="input" maxlength="3" placeholder="KES" />
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="row">
+          <label for="orderNotes">Notes</label>
+          <div>
+            <textarea id="orderNotes" name="notes" rows="4" class="input" placeholder="Internal note (optional)"></textarea>
+          </div>
+        </div>
+      </div>
+    </form>
+
+    <footer class="modal-footer">
+      <button type="button" class="btn ghost" id="oemCancel">Cancel</button>
+      <button type="button" class="btn primary" id="oemSave">Save</button>
+    </footer>
+  </div>
+</dialog>
+
+<script>
+  // lightweight close wiring for the view dialog's [data-ov-close]
+  (function () {
+    const v = document.getElementById('orderViewModal');
+    if (!v) return;
+    v.addEventListener('click', (e) => {
+      if (e.target && (e.target.hasAttribute('data-ov-close') || e.target === v)) {
+        try { v.close(); } catch { v.removeAttribute('open'); }
+      }
+    });
+
+    // Edit dialog close buttons
+    const eDlg = document.getElementById('orderEditModal');
+    const cancelers = ['oemCancel', 'oemCancelX'];
+    cancelers.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && eDlg) {
+        el.addEventListener('click', () => { try { eDlg.close(); } catch { eDlg.removeAttribute('open'); } });
+      }
+    });
+  })();
+</script>
