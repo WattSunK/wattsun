@@ -1,14 +1,8 @@
 // routes/admin-dispatch.js
-// Step 3: READ-ONLY scaffold for Dispatch list (SQL-only).
-// - GET /api/admin/dispatches            -> list with filters + pagination
-// - GET /api/admin/dispatches/_diag/ping -> simple ping
-//
-// Notes:
+// Admin Dispatch routes
 // • This router does NOT include an internal requireAdmin.
-//   Your server mounts it behind the global admin guard:
-//     app.use("/api/admin/dispatches", requireAdmin, require("./routes/admin-dispatch"));
-//
-// • Joins minimal Order fields so the UI doesn’t need a second fetch.
+// • Mounted in server.js like:
+//     app.use('/api/admin/dispatches', require('./routes/admin-dispatch'));
 
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
@@ -16,129 +10,138 @@ const path = require("path");
 
 const router = express.Router();
 
-// Resolve DB path (env override → sane default)
+// DB path from env or default
 const DB_PATH =
-  process.env.WATTSUN_DB ||
-  path.resolve(__dirname, "..", "data", "dev", "wattsun.dev.db");
+  process.env.DB_PATH_USERS ||
+  process.env.SQLITE_DB ||
+  path.resolve(__dirname, "../data/dev/wattsun.dev.db");
 
-// Per-call connection helper (enforce FKs)
-function withDb(readonly = true) {
-  const mode = readonly ? sqlite3.OPEN_READONLY : sqlite3.OPEN_READWRITE;
-  const db = new sqlite3.Database(DB_PATH, mode);
-  db.serialize(() => db.run("PRAGMA foreign_keys = ON"));
-  return db;
+// Utility to run a SQL query with params, returning a Promise
+function allAsync(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows);
+    });
+  });
+}
+function getAsync(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+}
+function runAsync(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
 }
 
-// ---------------------------------------------------------------------------
-// Diagnostics
+// --- Diagnostics -------------------------------------------------------------
+
 router.get("/_diag/ping", (req, res) => {
   res.json({ success: true, time: new Date().toISOString() });
 });
 
-// ---------------------------------------------------------------------------
-// GET /api/admin/dispatches
-// Query params:
-//   q              : free-text on order_id (contains)
-//   status         : Created|Assigned|InTransit|Delivered|Canceled
-//   driverId       : integer
-//   planned_date   : YYYY-MM-DD
-//   page (default 1), per (default 20, max 100)
-router.get("/", (req, res) => {
-  const { q, status, driverId, planned_date, page = "1", per = "20" } = req.query;
+// --- List dispatches ---------------------------------------------------------
 
-  const PER_MAX = 100;
-  const perNum = Math.min(Math.max(parseInt(per, 10) || 20, 1), PER_MAX);
-  const pageNum = Math.max(parseInt(page, 10) || 1, 1);
-  const offset = (pageNum - 1) * perNum;
+router.get("/", async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const per = parseInt(req.query.per) || 10;
+  const offset = (page - 1) * per;
 
-  const where = [];
-  const params = [];
+  const db = new sqlite3.Database(DB_PATH);
+  try {
+    const totalRow = await getAsync(
+      db,
+      "SELECT COUNT(*) as cnt FROM dispatches"
+    );
+    const total = totalRow ? totalRow.cnt : 0;
 
-  if (q && String(q).trim() !== "") {
-    where.push("(d.order_id LIKE ?)");
-    params.push(`%${String(q).trim()}%`);
+    const rows = await allAsync(
+      db,
+      `SELECT d.*, o.orderNumber, u.name as driverName
+       FROM dispatches d
+       LEFT JOIN orders o ON d.order_id = o.id
+       LEFT JOIN users u ON d.driver_id = u.id
+       ORDER BY d.updated_at DESC
+       LIMIT ? OFFSET ?`,
+      [per, offset]
+    );
+
+    res.json({ success: true, page, per, total, dispatches: rows });
+  } catch (err) {
+    console.error("[admin-dispatch:list]", err);
+    res
+      .status(500)
+      .json({ success: false, error: { code: "SQL_ERROR", message: err.message } });
+  } finally {
+    db.close();
   }
-  if (status && String(status).trim() !== "") {
-    where.push("d.status = ?");
-    params.push(String(status).trim());
+});
+
+// --- Create dispatch ---------------------------------------------------------
+
+router.post("/", async (req, res) => {
+  const { order_id, driver_id, status, planned_date, notes } = req.body;
+  const db = new sqlite3.Database(DB_PATH);
+  try {
+    const result = await runAsync(
+      db,
+      `INSERT INTO dispatches (order_id, driver_id, status, planned_date, notes)
+       VALUES (?, ?, ?, ?, ?)`,
+      [order_id, driver_id || null, status || "Created", planned_date || null, notes || null]
+    );
+    res.json({ success: true, id: result.lastID });
+  } catch (err) {
+    console.error("[admin-dispatch:create]", err);
+    res
+      .status(500)
+      .json({ success: false, error: { code: "SQL_ERROR", message: err.message } });
+  } finally {
+    db.close();
   }
-  if (driverId && /^\d+$/.test(String(driverId))) {
-    where.push("d.driver_id = ?");
-    params.push(parseInt(driverId, 10));
-  }
-  if (planned_date && /^\d{4}-\d{2}-\d{2}$/.test(String(planned_date))) {
-    where.push("d.planned_date = ?");
-    params.push(planned_date);
-  }
+});
 
-  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+// --- Update dispatch ---------------------------------------------------------
 
-  const SQL_COUNT = `
-    SELECT COUNT(*) AS n
-    FROM dispatches d
-    ${whereSql}
-  `;
+router.patch("/:id", async (req, res) => {
+  const id = req.params.id;
+  const { status, driver_id, notes, planned_date } = req.body;
 
-  const SQL_LIST = `
-    SELECT
-      d.id, d.order_id, d.driver_id, d.status, d.planned_date, d.notes,
-      d.created_at, d.updated_at,
-      o.status        AS order_status,
-      o.totalCents    AS order_totalCents,
-      o.depositCents  AS order_depositCents,
-      o.currency      AS order_currency,
-      o.name          AS order_customerName,
-      o.phone         AS order_customerPhone,
-      o.email         AS order_customerEmail
-    FROM dispatches d
-    LEFT JOIN orders o ON o.id = d.order_id
-    ${whereSql}
-    ORDER BY d.updated_at DESC, d.id DESC
-    LIMIT ? OFFSET ?
-  `;
-
-  const db = withDb(true);
-
-  db.get(SQL_COUNT, params, (err, row) => {
-    if (err) {
-      db.close();
-      return res.status(500).json({ ok: false, error: String(err.message || err) });
+  const db = new sqlite3.Database(DB_PATH);
+  try {
+    const existing = await getAsync(db, "SELECT * FROM dispatches WHERE id = ?", [id]);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Dispatch not found" } });
     }
-    const total = row?.n || 0;
 
-    const listParams = params.slice();
-    listParams.push(perNum, offset);
+    await runAsync(
+      db,
+      `UPDATE dispatches
+       SET status = COALESCE(?, status),
+           driver_id = COALESCE(?, driver_id),
+           notes = COALESCE(?, notes),
+           planned_date = COALESCE(?, planned_date),
+           updated_at = datetime('now')
+       WHERE id = ?`,
+      [status, driver_id, notes, planned_date, id]
+    );
 
-    db.all(SQL_LIST, listParams, (err2, rows) => {
-      db.close();
-      if (err2) {
-        return res.status(500).json({ ok: false, error: String(err2.message || err2) });
-      }
-
-      const dispatches = (rows || []).map((r) => ({
-        id: r.id,
-        order_id: r.order_id,
-        driver_id: r.driver_id,
-        status: r.status,
-        planned_date: r.planned_date,
-        notes: r.notes,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-        order: {
-          id: r.order_id,
-          status: r.order_status ?? null,
-          totalCents: r.order_totalCents ?? null,
-          depositCents: r.order_depositCents ?? null,
-          currency: r.order_currency ?? null,
-          customerName: r.order_customerName ?? null,
-          customerPhone: r.order_customerPhone ?? null,
-          customerEmail: r.order_customerEmail ?? null,
-        },
-      }));
-
-      res.json({ ok: true, total, page: pageNum, per: perNum, dispatches });
-    });
-  });
+    res.json({ success: true, id });
+  } catch (err) {
+    console.error("[admin-dispatch:update]", err);
+    res
+      .status(500)
+      .json({ success: false, error: { code: "SQL_ERROR", message: err.message } });
+  } finally {
+    db.close();
+  }
 });
 
 module.exports = router;
