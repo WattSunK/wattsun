@@ -1,12 +1,11 @@
 // public/admin/js/dispatch-controller.js
-// Dispatch list controller expected by the admin shell.
-// It defines window.initDispatch and does NOT rely on any other script name.
+// Safe, minimal Dispatch controller the admin shell expects.
 
 (function () {
   const API = "/api/admin/dispatches";
   const qs  = (sel, el = document) => el.querySelector(sel);
 
-  // prevent double-binding if shell calls us more than once
+  // prevent double-bind
   let _bound = false;
   function guardBind() {
     if (_bound) return false;
@@ -14,7 +13,7 @@
     return true;
   }
 
-  // --- tolerant backend envelope --------------------------------------------
+  // -------- tolerant backend envelope --------
   function normalize(data) {
     const list  = data.dispatches || data.rows || data.items || [];
     const total = (data.total != null) ? data.total
@@ -40,6 +39,7 @@
     return normalize(json);
   }
 
+  // -------- state helpers --------
   function getStateFromForm() {
     const form = qs("#dispatch-filters");
     const s = { page: "1", per: "20" };
@@ -60,6 +60,7 @@
     return s;
   }
 
+  // -------- renderers --------
   function renderTable(rows) {
     const tbody = qs("#dispatch-tbody");
     if (!tbody) return;
@@ -102,41 +103,38 @@
     if (prevBtn) prevBtn.disabled = page <= 1;
     if (nextBtn) nextBtn.disabled = page >= maxPage;
 
-    // optionally let your skin enhance styles (no-ops if not present)
+    // Optional skin hooks (no-ops if not present)
     if (window.adminSkin?.enhancePager) {
       try { window.adminSkin.enhancePager("#dispatch-pager"); } catch {}
+    }
+    const bar = qs("#dispatch-filters") || qs(".dispatch-filters");
+    if (bar && window.adminSkin?.enhanceFilterBar) {
+      try { window.adminSkin.enhanceFilterBar(bar); } catch {}
     }
   }
 
   async function loadAndRender(state) {
     const { list, total, page, per } = await fetchList(state);
-    const bar = qs("#dispatch-filters") || qs(".dispatch-filters");
-    if (bar && window.adminSkin?.enhanceFilterBar) {
-      try { window.adminSkin.enhanceFilterBar(bar); } catch {}
-    }
     renderTable(list);
     renderPager(total, page, per);
   }
 
-  // GLOBAL initializer expected by the shell
+  // -------- GLOBAL initializer expected by the shell --------
   async function initDispatch() {
     if (!guardBind()) return;
 
-    // ensure we're on the dispatch partial (has a root)
-    if (!qs("#dispatch-root")) { _bound = false; return; }
-
-    // bind filters submit
+    // Wire filters submit
     const frm = qs("#dispatch-filters");
     if (frm) {
       frm.addEventListener("submit", async (e) => {
         e.preventDefault();
         try { await loadAndRender(getStateFromForm()); } catch (err) {
-          console.error("[dispatch] load failed:", err);
+          console.error("[dispatch] submit failed:", err);
         }
       });
     }
 
-    // bind refresh
+    // Wire refresh
     const btn = qs("#dispatch-refresh");
     if (btn) {
       btn.addEventListener("click", async () => {
@@ -146,7 +144,7 @@
       });
     }
 
-    // bind pager
+    // Wire pager
     const prevBtn = qs("#dispatch-prev");
     const nextBtn = qs("#dispatch-next");
     if (prevBtn) {
@@ -166,8 +164,9 @@
       });
     }
 
-    // initial load
-    try { await loadAndRender(getStateFromForm()); } catch (err) {
+    // *** IMPORTANT: do an unconditional first load with only page/per ***
+    // This guarantees your existing dispatch row shows immediately.
+    try { await loadAndRender({ page: "1", per: "20" }); } catch (err) {
       console.error("[dispatch] initial load failed:", err);
     }
   }
@@ -175,7 +174,7 @@
   // expose globally
   window.initDispatch = initDispatch;
 
-  // also support admin shell partial events + direct load
+  // also run when shell swaps the partial or on direct load
   (function boot() {
     const RUN = () => setTimeout(() => {
       if (typeof window.initDispatch === "function") window.initDispatch();
