@@ -1,19 +1,10 @@
 // public/admin/js/admin-dispatch.js
-// Step 5: List + stable init + tolerant parsing (no CSS changes here).
+// Step 4: UI list only (no create/assign yet).
 (function () {
   const API = "/api/admin/dispatches";
   const qs = (sel, el = document) => el.querySelector(sel);
   const qsa = (sel, el = document) => Array.from(el.querySelectorAll(sel));
 
-  // --- idempotent init guard -------------------------------------------------
-  let __dispatchBound = false;
-  function guardBind() {
-    if (__dispatchBound) return false;
-    __dispatchBound = true;
-    return true;
-  }
-
-  // --- small utils -----------------------------------------------------------
   function getFormData(form) {
     const data = new FormData(form);
     const obj = {};
@@ -26,7 +17,7 @@
   function stateFromURL() {
     const u = new URL(location.href);
     const s = {};
-    for (const k of ["q", "status", "driverId", "planned_date", "per", "page"]) {
+    for (const k of ["q","status","driverId","planned_date","per","page"]) {
       const v = u.searchParams.get(k);
       if (v) s[k] = v;
     }
@@ -43,37 +34,21 @@
     history.replaceState(null, "", u.toString());
   }
 
-  // --- tolerant backend envelope --------------------------------------------
-  function normalizeDispatchResponse(data) {
-    // list can be in dispatches|rows|items
-    const list = data.dispatches || data.rows || data.items || [];
-    // totals can be in total|count
-    const total = (data.total != null) ? data.total
-                 : (data.count != null) ? data.count
-                 : list.length;
-    const page  = (data.page != null) ? data.page : 1;
-    const per   = (data.per  != null) ? data.per  : (list.length || 20);
-    return { list, total, page, per, raw: data };
-  }
-
   async function fetchList(params) {
     const u = new URL(API, location.origin);
     Object.entries(params).forEach(([k, v]) => v && u.searchParams.set(k, v));
     const res = await fetch(u.toString(), { credentials: "include" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    if (!json || json.success === false) {
-      const msg = json && json.error && json.error.message ? json.error.message : "Bad response";
-      throw new Error(msg);
+    // Contract: { success, page, per, total, dispatches: [] }
+    if (!json || json.success !== true || !Array.isArray(json.dispatches)) {
+      throw new Error("Bad response");
     }
-    return normalizeDispatchResponse(json);
+    return json;
   }
 
-  // --- renderers -------------------------------------------------------------
   function renderTable(rows) {
     const tbody = qs("#dispatch-tbody");
-    if (!tbody) return;
-
     tbody.innerHTML = "";
     if (!rows.length) {
       const tr = document.createElement("tr");
@@ -85,14 +60,13 @@
       tbody.appendChild(tr);
       return;
     }
-
     for (const r of rows) {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${r.id ?? ""}</td>
-        <td>${r.order_id ?? r.orderNumber ?? ""}</td>
+        <td>${r.id}</td>
+        <td>${r.order_id ?? ""}</td>
         <td>${r.status ?? ""}</td>
-        <td>${r.driver_id ?? r.driverId ?? r.driverName ?? ""}</td>
+        <td>${r.driver_id ?? ""}</td>
         <td>${r.planned_date ?? ""}</td>
         <td>${r.updated_at ?? ""}</td>
       `;
@@ -101,136 +75,79 @@
   }
 
   function renderPager(total, page, per) {
-    const totalEl = qs("#dispatch-total");
-    const pageEl  = qs("#dispatch-page");
-    if (totalEl) totalEl.textContent = String(total);
-    if (pageEl)  pageEl.textContent  = String(page);
-
+    qs("#dispatch-total").textContent = String(total);
+    qs("#dispatch-page").textContent = String(page);
     const maxPage = Math.max(1, Math.ceil(total / per));
     const prevBtn = qs("#dispatch-prev");
     const nextBtn = qs("#dispatch-next");
-    if (prevBtn) prevBtn.disabled = page <= 1;
-    if (nextBtn) nextBtn.disabled = page >= maxPage;
+    prevBtn.disabled = page <= 1;
+    nextBtn.disabled = page >= maxPage;
   }
 
   async function load(state) {
-    const { list, total, page, per } = await fetchList(state);
-
-    // mark filters as "ready" so admin.css can apply its row styling (no CSS here)
-    const bar =
-      qs('[data-dispatch-filters]') ||
-      qs("#dispatch-filters") ||
-      qs(".dispatch-filters");
-    if (bar) {
-      bar.classList.add("is-ready"); // harmless if CSS doesn't use it
-    }
-
-    renderTable(list);
-    renderPager(total, page, per);
+    const json = await fetchList(state);
+    renderTable(json.dispatches);
+    renderPager(json.total, json.page, json.per);
   }
 
-  // --- controller init -------------------------------------------------------
-  async function init() {
-    // avoid double-binding if called twice (e.g., direct load + event)
-    if (!guardBind()) return;
-
+  function init() {
     const root = qs("#dispatch-root");
-    if (!root) {
-      __dispatchBound = false; // allow future bind when partial appears
-      return;
-    }
+    if (!root) return; // not on this partial
 
     // Seed filters from URL
     const s = stateFromURL();
-    const fq = qs("#f-q");
-    const fs = qs("#f-status");
-    const fd = qs("#f-driverId");
-    const fp = qs("#f-date");
-    const fper = qs("#f-per");
+    qs("#f-q").value = s.q || "";
+    qs("#f-status").value = s.status || "";
+    qs("#f-driverId").value = s.driverId || "";
+    qs("#f-date").value = s.planned_date || "";
+    qs("#f-per").value = s.per || "20";
 
-    if (fq)   fq.value   = s.q || "";
-    if (fs)   fs.value   = s.status || "";
-    if (fd)   fd.value   = s.driverId || "";
-    if (fp)   fp.value   = s.planned_date || "";
-    if (fper) fper.value = s.per || "20";
-
-    // Filters submit
-    const filterForm = qs("#dispatch-filters");
-    if (filterForm) {
-      filterForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const formState = getFormData(e.currentTarget);
-        formState.page = "1";
-        pushState(formState);
-        try { await load(formState); } catch (err) {
-          console.error("[dispatch:list] submit load failed", err);
-        }
-      });
-    }
-
-    // Refresh button
-    const refreshBtn = qs("#dispatch-refresh");
-    if (refreshBtn) {
-      refreshBtn.addEventListener("click", async () => {
-        const now = stateFromURL();
-        try { await load(now); } catch (err) {
-          console.error("[dispatch:list] refresh failed", err);
-        }
-      });
-    }
-
-    // Pager buttons
-    const prevBtn = qs("#dispatch-prev");
-    const nextBtn = qs("#dispatch-next");
-    if (prevBtn) {
-      prevBtn.addEventListener("click", async () => {
-        const now = stateFromURL();
-        const page = Math.max(1, (parseInt(now.page || "1", 10) - 1));
-        now.page = String(page);
-        pushState(now);
-        try { await load(now); } catch (err) {
-          console.error("[dispatch:list] prev failed", err);
-        }
-      });
-    }
-    if (nextBtn) {
-      nextBtn.addEventListener("click", async () => {
-        const now = stateFromURL();
-        const page = (parseInt(now.page || "1", 10) + 1);
-        now.page = String(page);
-        pushState(now);
-        try { await load(now); } catch (err) {
-          console.error("[dispatch:list] next failed", err);
-        }
-      });
-    }
-
-    // Initial load
-    try { await load(s); } catch (err) {
-      console.error("[dispatch:list] initial load failed", err);
-    }
-  }
-
-  // --- boot hooks: run on DOM ready AND when the dispatch partial is swapped in
-  (function bootDispatch() {
-    const RUN = () => {
-      // slight defer to ensure the partial DOM is present
-      setTimeout(() => init(), 0);
-    };
-
-    // Partial loader event (SPA-style)
-    document.addEventListener("admin:partial-loaded", (ev) => {
-      const detail = ev.detail || {};
-      const name = detail.partial || detail.name || detail;
-      // accept "dispatch" or "dispatches"
-      if (name === "dispatch" || name === "dispatches") RUN();
+    // Wire filters submit
+    qs("#dispatch-filters").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formState = getFormData(e.currentTarget);
+      formState.page = "1";
+      pushState(formState);
+      await load(formState);
     });
 
-    // Direct load (partial already in the DOM)
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", RUN, { once: true });
-    } else {
-      RUN();
-    }
-  })();
+    // Refresh
+    qs("#dispatch-refresh").addEventListener("click", async () => {
+      const now = stateFromURL();
+      await load(now);
+    });
+
+    // Pager
+    qs("#dispatch-prev").addEventListener("click", async () => {
+      const now = stateFromURL();
+      const page = Math.max(1, (parseInt(now.page || "1", 10) - 1));
+      now.page = String(page);
+      pushState(now);
+      await load(now);
+    });
+    qs("#dispatch-next").addEventListener("click", async () => {
+      const now = stateFromURL();
+      const page = (parseInt(now.page || "1", 10) + 1);
+      now.page = String(page);
+      pushState(now);
+      await load(now);
+    });
+
+    // Initial load
+    load(s).catch(err => {
+      console.error("[dispatch:list] load failed", err);
+    });
+
+    // Let dashboard know the partial is ready (matches your pattern)
+    try {
+      window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { partial: "dispatch" } }));
+    } catch {}
+  }
+
+  // Init when script loads (partial is already in DOM)
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();
