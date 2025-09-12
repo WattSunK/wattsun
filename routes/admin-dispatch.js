@@ -1,236 +1,365 @@
-// public/admin/js/admin-dispatch.js
-// Step 5: List + stable init + tolerant parsing (no CSS changes here).
-(function () {
-  const API = "/api/admin/dispatches";
-  const qs = (sel, el = document) => el.querySelector(sel);
-  const qsa = (sel, el = document) => Array.from(el.querySelectorAll(sel));
+// routes/admin-dispatch.js
+const express = require("express");
+const path = require("path");
+const sqlite3 = require("sqlite3").verbose();
 
-  // --- idempotent init guard -------------------------------------------------
-  let __dispatchBound = false;
-  function guardBind() {
-    if (__dispatchBound) return false;
-    __dispatchBound = true;
-    return true;
-  }
+const router = express.Router();
+router.use(express.json());
 
-  // --- small utils -----------------------------------------------------------
-  function getFormData(form) {
-    const data = new FormData(form);
-    const obj = {};
-    for (const [k, v] of data.entries()) {
-      if (v !== "") obj[k] = v;
-    }
-    return obj;
-  }
+// --- DB helpers -------------------------------------------------------------
+const DB_PATH =
+  process.env.DB_PATH_USERS ||
+  process.env.SQLITE_DB ||
+  path.resolve(__dirname, "..", "data", "dev", "wattsun.dev.db");
 
-  function stateFromURL() {
-    const u = new URL(location.href);
-    const s = {};
-    for (const k of ["q", "status", "driverId", "planned_date", "per", "page"]) {
-      const v = u.searchParams.get(k);
-      if (v) s[k] = v;
-    }
-    if (!s.per) s.per = "20";
-    if (!s.page) s.page = "1";
-    return s;
-  }
-
-  function pushState(s) {
-    const u = new URL(location.href);
-    ["q","status","driverId","planned_date","per","page"].forEach(k => {
-      if (s[k]) u.searchParams.set(k, s[k]); else u.searchParams.delete(k);
+function getAsync(db, sql, params) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)));
+  });
+}
+function allAsync(db, sql, params) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
+  });
+}
+function runAsync(db, sql, params) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      err ? reject(err) : resolve({ changes: this.changes, lastID: this.lastID });
     });
-    history.replaceState(null, "", u.toString());
-  }
+  });
+}
 
-  // --- tolerant backend envelope --------------------------------------------
-  function normalizeDispatchResponse(data) {
-    // list can be in dispatches|rows|items
-    const list = data.dispatches || data.rows || data.items || [];
-    // totals can be in total|count
-    const total = (data.total != null) ? data.total
-                 : (data.count != null) ? data.count
-                 : list.length;
-    const page  = (data.page != null) ? data.page : 1;
-    const per   = (data.per  != null) ? data.per  : (list.length || 20);
-    return { list, total, page, per, raw: data };
-  }
+// --- Helpers ---------------------------------------------------------------
+const ALLOWED_STATUSES = new Set(["Created", "Assigned", "InTransit", "Canceled"]);
 
-  async function fetchList(params) {
-    const u = new URL(API, location.origin);
-    Object.entries(params).forEach(([k, v]) => v && u.searchParams.set(k, v));
-    const res = await fetch(u.toString(), { credentials: "include" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    if (!json || json.success === false) {
-      const msg = json && json.error && json.error.message ? json.error.message : "Bad response";
-      throw new Error(msg);
+function isIsoDate(s) {
+  return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+function getAdminUser(req) {
+  return req.session?.user || null;
+}
+
+async function ensureOrderExists(db, orderId) {
+  const row = await getAsync(
+    db,
+    `SELECT id, COALESCE(orderNumber, id) AS orderKey
+     FROM orders
+     WHERE id = ? OR orderNumber = ?
+     LIMIT 1`,
+    [orderId, orderId]
+  );
+  if (!row) {
+    const err = new Error("Order not found");
+    err.http = 404;
+    err.code = "ORDER_NOT_FOUND";
+    throw err;
+  }
+}
+
+async function ensureDriverValidIfProvided(db, driverId) {
+  if (driverId == null) return;
+  const d = await getAsync(
+    db,
+    `SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1`,
+    [driverId]
+  );
+  const ok =
+    d &&
+    (d.type === "Driver" || d.role === "Driver") &&
+    (!d.status || String(d.status).toLowerCase() !== "inactive");
+  if (!ok) {
+    const err = new Error("driverId must reference an active Driver");
+    err.http = 400;
+    err.code = "NOT_DRIVER";
+    throw err;
+  }
+}
+
+async function insertHistory(db, { dispatchId, oldStatus, newStatus, adminId, note }) {
+  return runAsync(
+    db,
+    `INSERT INTO dispatch_status_history
+       (dispatch_id, old_status, new_status, changed_by, note, changed_at)
+     VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+    [dispatchId, oldStatus ?? null, newStatus, adminId ?? null, note ?? null]
+  );
+}
+
+function badRequest(res, code, message) {
+  return res.status(400).json({ success: false, error: { code, message } });
+}
+
+// --- Diag ------------------------------------------------------------------
+router.get("/_diag/ping", (req, res) => {
+  res.json({ success: true, time: new Date().toISOString() });
+});
+
+// --- List (paginated, UI-friendly) -----------------------------------------
+router.get("/", async (req, res) => {
+  const db = new sqlite3.Database(DB_PATH);
+  try {
+    // Parse filters
+    const page = Math.max(1, parseInt(req.query.page ?? "1", 10));
+    const per = Math.min(100, Math.max(1, parseInt(req.query.per ?? "20", 10)));
+    const q = (req.query.q || "").trim();
+    const status = (req.query.status || "").trim(); // Created|Assigned|InTransit|Canceled|Any
+    const driverIdRaw = (req.query.driver_id || req.query.driverId || "").trim();
+    const plannedDate = (req.query.planned_date || "").trim(); // YYYY-MM-DD
+
+    const where = [];
+    const params = [];
+
+    if (q) {
+      where.push("(d.order_id LIKE ? OR o.orderNumber LIKE ?)");
+      params.push(`%${q}%`, `%${q}%`);
     }
-    return normalizeDispatchResponse(json);
-  }
-
-  // --- renderers -------------------------------------------------------------
-  function renderTable(rows) {
-    const tbody = qs("#dispatch-tbody");
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
-    if (!rows.length) {
-      const tr = document.createElement("tr");
-      tr.className = "empty";
-      const td = document.createElement("td");
-      td.colSpan = 6;
-      td.textContent = "No dispatches yet.";
-      tr.appendChild(td);
-      tbody.appendChild(tr);
-      return;
+    if (status && status !== "Any") {
+      if (!ALLOWED_STATUSES.has(status)) {
+        return res
+          .status(400)
+          .json({ success: false, error: { code: "BAD_STATUS", message: "Invalid status" } });
+      }
+      where.push("d.status = ?");
+      params.push(status);
+    }
+    if (driverIdRaw) {
+      const did = parseInt(driverIdRaw, 10);
+      if (!Number.isFinite(did)) {
+        return res
+          .status(400)
+          .json({ success: false, error: { code: "BAD_DRIVER_ID", message: "driver_id must be a number" } });
+      }
+      where.push("d.driver_id = ?");
+      params.push(did);
+    }
+    if (plannedDate) {
+      if (!isIsoDate(plannedDate)) {
+        return res
+          .status(400)
+          .json({ success: false, error: { code: "BAD_DATE", message: "planned_date must be YYYY-MM-DD" } });
+      }
+      where.push("d.planned_date = ?");
+      params.push(plannedDate);
     }
 
-    for (const r of rows) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${r.id ?? ""}</td>
-        <td>${r.order_id ?? r.orderNumber ?? ""}</td>
-        <td>${r.status ?? ""}</td>
-        <td>${r.driver_id ?? r.driverId ?? r.driverName ?? ""}</td>
-        <td>${r.planned_date ?? ""}</td>
-        <td>${r.updated_at ?? ""}</td>
-      `;
-      tbody.appendChild(tr);
-    }
+    const WHERE = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const fromJoin = `
+      FROM dispatches d
+      LEFT JOIN orders o ON d.order_id = o.id
+      LEFT JOIN users  u ON d.driver_id = u.id
+    `;
+
+    // total
+    const countRow = await getAsync(db, `SELECT COUNT(*) AS total ${fromJoin} ${WHERE}`, params);
+    const total = countRow?.total ?? 0;
+
+    // data
+    const offset = (page - 1) * per;
+    const data = await allAsync(
+      db,
+      `SELECT
+          d.*,
+          o.orderNumber,
+          u.name AS driverName
+       ${fromJoin}
+       ${WHERE}
+       ORDER BY d.updated_at DESC
+       LIMIT ? OFFSET ?`,
+      [...params, per, offset]
+    );
+
+    const dispatches = data.map((r) => ({
+      ...r,
+      driverId: r.driver_id, // alias for UI that reads camelCase
+    }));
+
+    return res.json({
+      success: true,
+      page, per, total,
+      dispatches,
+      // Back-compat aliases some admin code may read:
+      rows: dispatches,
+      items: dispatches,
+      count: total,
+      pager: { page, per, total, hasPrev: page > 1, hasNext: page * per < total }
+    });
+  } finally {
+    db.close();
+  }
+});
+
+
+// --- Create ---------------------------------------------------------------
+router.post("/", async (req, res) => {
+  // Accept both snake and camel for order id (defensive)
+  let { order_id, driver_id, planned_date, notes, orderId } = req.body || {};
+  if (!order_id && orderId) order_id = orderId;
+
+  const admin = getAdminUser(req);
+
+  if (!order_id || typeof order_id !== "string") {
+    return badRequest(res, "BAD_REQUEST", "order_id is required (string).");
+  }
+  if (planned_date && !isIsoDate(planned_date)) {
+    return badRequest(res, "BAD_DATE", "planned_date must be YYYY-MM-DD.");
   }
 
-  function renderPager(total, page, per) {
-    const totalEl = qs("#dispatch-total");
-    const pageEl  = qs("#dispatch-page");
-    if (totalEl) totalEl.textContent = String(total);
-    if (pageEl)  pageEl.textContent  = String(page);
+  const db = new sqlite3.Database(DB_PATH);
+  try {
+    await ensureOrderExists(db, order_id);
 
-    const maxPage = Math.max(1, Math.ceil(total / per));
-    const prevBtn = qs("#dispatch-prev");
-    const nextBtn = qs("#dispatch-next");
-    if (prevBtn) prevBtn.disabled = page <= 1;
-    if (nextBtn) nextBtn.disabled = page >= maxPage;
-  }
-
-  async function load(state) {
-    const { list, total, page, per } = await fetchList(state);
-
-    // mark filters as "ready" so admin.css can apply its row styling (no CSS here)
-    const bar =
-      qs('[data-dispatch-filters]') ||
-      qs("#dispatch-filters") ||
-      qs(".dispatch-filters");
-    if (bar) {
-      bar.classList.add("is-ready"); // harmless if CSS doesn't use it
-    }
-
-    renderTable(list);
-    renderPager(total, page, per);
-  }
-
-  // --- controller init -------------------------------------------------------
-  async function init() {
-    // avoid double-binding if called twice (e.g., direct load + event)
-    if (!guardBind()) return;
-
-    const root = qs("#dispatch-root");
-    if (!root) {
-      __dispatchBound = false; // allow future bind when partial appears
-      return;
-    }
-
-    // Seed filters from URL
-    const s = stateFromURL();
-    const fq = qs("#f-q");
-    const fs = qs("#f-status");
-    const fd = qs("#f-driverId");
-    const fp = qs("#f-date");
-    const fper = qs("#f-per");
-
-    if (fq)   fq.value   = s.q || "";
-    if (fs)   fs.value   = s.status || "";
-    if (fd)   fd.value   = s.driverId || "";
-    if (fp)   fp.value   = s.planned_date || "";
-    if (fper) fper.value = s.per || "20";
-
-    // Filters submit
-    const filterForm = qs("#dispatch-filters");
-    if (filterForm) {
-      filterForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const formState = getFormData(e.currentTarget);
-        formState.page = "1";
-        pushState(formState);
-        try { await load(formState); } catch (err) {
-          console.error("[dispatch:list] submit load failed", err);
-        }
+    const existing = await getAsync(db, `SELECT id FROM dispatches WHERE order_id = ? LIMIT 1`, [
+      order_id,
+    ]);
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        error: { code: "ALREADY_EXISTS", message: "Dispatch for this order already exists." },
       });
     }
 
-    // Refresh button
-    const refreshBtn = qs("#dispatch-refresh");
-    if (refreshBtn) {
-      refreshBtn.addEventListener("click", async () => {
-        const now = stateFromURL();
-        try { await load(now); } catch (err) {
-          console.error("[dispatch:list] refresh failed", err);
-        }
-      });
-    }
+    await ensureDriverValidIfProvided(db, driver_id);
 
-    // Pager buttons
-    const prevBtn = qs("#dispatch-prev");
-    const nextBtn = qs("#dispatch-next");
-    if (prevBtn) {
-      prevBtn.addEventListener("click", async () => {
-        const now = stateFromURL();
-        const page = Math.max(1, (parseInt(now.page || "1", 10) - 1));
-        now.page = String(page);
-        pushState(now);
-        try { await load(now); } catch (err) {
-          console.error("[dispatch:list] prev failed", err);
-        }
-      });
-    }
-    if (nextBtn) {
-      nextBtn.addEventListener("click", async () => {
-        const now = stateFromURL();
-        const page = (parseInt(now.page || "1", 10) + 1);
-        now.page = String(page);
-        pushState(now);
-        try { await load(now); } catch (err) {
-          console.error("[dispatch:list] next failed", err);
-        }
-      });
-    }
+    const result = await runAsync(
+      db,
+      `INSERT INTO dispatches (order_id, driver_id, status, planned_date, notes, created_at, updated_at)
+       VALUES (?, ?, 'Created', ?, ?, datetime('now'), datetime('now'))`,
+      [order_id, driver_id ?? null, planned_date ?? null, notes ?? null]
+    );
+    const dispatchId = result.lastID;
 
-    // Initial load
-    try { await load(s); } catch (err) {
-      console.error("[dispatch:list] initial load failed", err);
-    }
-  }
-
-  // --- boot hooks: run on DOM ready AND when the dispatch partial is swapped in
-  (function bootDispatch() {
-    const RUN = () => {
-      // slight defer to ensure the partial DOM is present
-      setTimeout(() => init(), 0);
-    };
-
-    // Partial loader event (SPA-style)
-    document.addEventListener("admin:partial-loaded", (ev) => {
-      const detail = ev.detail || {};
-      const name = detail.partial || detail.name || detail;
-      // accept "dispatch" or "dispatches"
-      if (name === "dispatch" || name === "dispatches") RUN();
+    const hist = await insertHistory(db, {
+      dispatchId,
+      oldStatus: null,
+      newStatus: "Created",
+      adminId: admin?.id,
+      note: notes,
     });
 
-    // Direct load (partial already in the DOM)
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", RUN, { once: true });
-    } else {
-      RUN();
+    const created = await getAsync(
+      db,
+      `SELECT d.*, o.orderNumber, u.name AS driverName
+       FROM dispatches d
+       LEFT JOIN orders o ON d.order_id = o.id
+       LEFT JOIN users u  ON d.driver_id = u.id
+       WHERE d.id = ?`,
+      [dispatchId]
+    );
+
+    return res.json({
+      success: true,
+      dispatch: created,
+      history: {
+        id: hist.lastID,
+        dispatch_id: dispatchId,
+        old_status: null,
+        new_status: "Created",
+        changed_by: admin?.id ?? null,
+        note: notes ?? null,
+      },
+      message: "Dispatch created.",
+    });
+  } catch (err) {
+    console.error("[admin-dispatch:create]", err);
+    const http = err.http || 500;
+    const code = err.code || "SERVER_ERROR";
+    return res.status(http).json({ success: false, error: { code, message: err.message } });
+  } finally {
+    db.close();
+  }
+});
+
+// --- Update ---------------------------------------------------------------
+router.patch("/:id", async (req, res) => {
+  const id = req.params.id;
+  const { status, driver_id, notes, planned_date } = req.body || {};
+  const admin = getAdminUser(req);
+
+  if (planned_date && !isIsoDate(planned_date)) {
+    return badRequest(res, "BAD_DATE", "planned_date must be YYYY-MM-DD.");
+  }
+  if (status && !ALLOWED_STATUSES.has(status)) {
+    return badRequest(res, "BAD_STATUS", "status must be one of Created|Assigned|InTransit|Canceled.");
+  }
+
+  const db = new sqlite3.Database(DB_PATH);
+  try {
+    const existing = await getAsync(db, "SELECT * FROM dispatches WHERE id = ?", [id]);
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ success: false, error: { code: "NOT_FOUND", message: "Dispatch not found" } });
     }
-  })();
-})();
+
+    if (Object.prototype.hasOwnProperty.call(req.body, "driver_id")) {
+      await ensureDriverValidIfProvided(db, driver_id);
+    }
+
+    const prevStatus = existing.status;
+    const nextStatus = status || prevStatus;
+    const statusChanged = status && status !== prevStatus;
+
+    await runAsync(
+      db,
+      `UPDATE dispatches
+         SET status       = COALESCE(?, status),
+             driver_id    = ${
+               Object.prototype.hasOwnProperty.call(req.body, "driver_id") ? "?" : "driver_id"
+             },
+             notes        = COALESCE(?, notes),
+             planned_date = COALESCE(?, planned_date),
+             updated_at   = datetime('now')
+       WHERE id = ?`,
+      status
+        ? [status, driver_id ?? null, notes ?? null, planned_date ?? null, id]
+        : [null, driver_id ?? null, notes ?? null, planned_date ?? null, id]
+    );
+
+    let histRow = null;
+    if (statusChanged) {
+      const hist = await insertHistory(db, {
+        dispatchId: Number(id),
+        oldStatus: prevStatus,
+        newStatus: nextStatus,
+        adminId: admin?.id,
+        note: notes,
+      });
+      histRow = {
+        id: hist.lastID,
+        dispatch_id: Number(id),
+        old_status: prevStatus,
+        new_status: nextStatus,
+        changed_by: admin?.id ?? null,
+        note: notes ?? null,
+      };
+    }
+
+    const updated = await getAsync(
+      db,
+      `SELECT d.*, o.orderNumber, u.name AS driverName
+         FROM dispatches d
+         LEFT JOIN orders o ON d.order_id = o.id
+         LEFT JOIN users u  ON d.driver_id = u.id
+        WHERE d.id = ?`,
+      [id]
+    );
+
+    return res.json({
+      success: true,
+      dispatch: updated,
+      ...(histRow ? { history: histRow } : {}),
+      message: "Dispatch updated.",
+    });
+  } catch (err) {
+    console.error("[admin-dispatch:update]", err);
+    const http = err.http || 500;
+    const code = err.code || "SERVER_ERROR";
+    return res.status(http).json({ success: false, error: { code, message: err.message } });
+  } finally {
+    db.close();
+  }
+});
+
+module.exports = router;
