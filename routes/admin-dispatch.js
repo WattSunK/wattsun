@@ -175,16 +175,21 @@ router.get("/", async (req, res) => {
       driverId: r.driver_id, // alias for UI that reads camelCase
     }));
 
-    return res.json({ success: true, page, per, total, dispatches });
-  } catch (err) {
-    console.error("[admin-dispatch:list]", err);
-    return res
-      .status(500)
-      .json({ success: false, error: { code: "SERVER_ERROR", message: "List failed" } });
+    return res.json({
+      success: true,
+      page, per, total,
+      dispatches,
+      // Back-compat aliases some admin code may read:
+      rows: dispatches,
+      items: dispatches,
+      count: total,
+      pager: { page, per, total, hasPrev: page > 1, hasNext: page * per < total }
+    });
   } finally {
     db.close();
   }
 });
+
 
 // --- Create ---------------------------------------------------------------
 router.post("/", async (req, res) => {
