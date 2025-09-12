@@ -12,16 +12,6 @@ const DB_PATH =
   process.env.SQLITE_DB ||
   path.resolve(__dirname, "..", "data", "dev", "wattsun.dev.db");
 
-function withDb(fn) {
-  const db = new sqlite3.Database(DB_PATH);
-  return new Promise((resolve, reject) => {
-    fn(db, (err, result) => {
-      db.close();
-      err ? reject(err) : resolve(result);
-    });
-  });
-}
-
 function getAsync(db, sql, params) {
   return new Promise((resolve, reject) => {
     db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)));
@@ -106,24 +96,91 @@ router.get("/_diag/ping", (req, res) => {
   res.json({ success: true, time: new Date().toISOString() });
 });
 
-// --- List (baseline, unchanged) --------------------------------------------
+// --- List (paginated, UI-friendly) -----------------------------------------
 router.get("/", async (req, res) => {
   const db = new sqlite3.Database(DB_PATH);
   try {
-    const rows = await allAsync(
+    // Parse filters
+    const page = Math.max(1, parseInt(req.query.page ?? "1", 10));
+    const per = Math.min(100, Math.max(1, parseInt(req.query.per ?? "20", 10)));
+    const q = (req.query.q || "").trim();
+    const status = (req.query.status || "").trim(); // Created|Assigned|InTransit|Canceled|Any
+    const driverIdRaw = (req.query.driver_id || req.query.driverId || "").trim();
+    const plannedDate = (req.query.planned_date || "").trim(); // YYYY-MM-DD
+
+    const where = [];
+    const params = [];
+
+    if (q) {
+      where.push("(d.order_id LIKE ? OR o.orderNumber LIKE ?)");
+      params.push(`%${q}%`, `%${q}%`);
+    }
+    if (status && status !== "Any") {
+      if (!ALLOWED_STATUSES.has(status)) {
+        return res
+          .status(400)
+          .json({ success: false, error: { code: "BAD_STATUS", message: "Invalid status" } });
+      }
+      where.push("d.status = ?");
+      params.push(status);
+    }
+    if (driverIdRaw) {
+      const did = parseInt(driverIdRaw, 10);
+      if (!Number.isFinite(did)) {
+        return res
+          .status(400)
+          .json({ success: false, error: { code: "BAD_DRIVER_ID", message: "driver_id must be a number" } });
+      }
+      where.push("d.driver_id = ?");
+      params.push(did);
+    }
+    if (plannedDate) {
+      if (!isIsoDate(plannedDate)) {
+        return res
+          .status(400)
+          .json({ success: false, error: { code: "BAD_DATE", message: "planned_date must be YYYY-MM-DD" } });
+      }
+      where.push("d.planned_date = ?");
+      params.push(plannedDate);
+    }
+
+    const WHERE = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const fromJoin = `
+      FROM dispatches d
+      LEFT JOIN orders o ON d.order_id = o.id
+      LEFT JOIN users  u ON d.driver_id = u.id
+    `;
+
+    // total
+    const countRow = await getAsync(db, `SELECT COUNT(*) AS total ${fromJoin} ${WHERE}`, params);
+    const total = countRow?.total ?? 0;
+
+    // data
+    const offset = (page - 1) * per;
+    const data = await allAsync(
       db,
-      `SELECT d.*, o.orderNumber, u.name AS driverName
-         FROM dispatches d
-         LEFT JOIN orders o ON d.order_id = o.id
-         LEFT JOIN users u  ON d.driver_id = u.id
-         ORDER BY d.created_at DESC
-         LIMIT 20`,
-      []
+      `SELECT
+          d.*,
+          o.orderNumber,
+          u.name AS driverName
+       ${fromJoin}
+       ${WHERE}
+       ORDER BY d.updated_at DESC
+       LIMIT ? OFFSET ?`,
+      [...params, per, offset]
     );
-    res.json({ success: true, dispatches: rows });
+
+    const dispatches = data.map((r) => ({
+      ...r,
+      driverId: r.driver_id, // alias for UI that reads camelCase
+    }));
+
+    return res.json({ success: true, page, per, total, dispatches });
   } catch (err) {
     console.error("[admin-dispatch:list]", err);
-    res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: "List failed" } });
+    return res
+      .status(500)
+      .json({ success: false, error: { code: "SERVER_ERROR", message: "List failed" } });
   } finally {
     db.close();
   }
@@ -131,7 +188,10 @@ router.get("/", async (req, res) => {
 
 // --- Create ---------------------------------------------------------------
 router.post("/", async (req, res) => {
-  const { order_id, driver_id, planned_date, notes } = req.body || {};
+  // Accept both snake and camel for order id (defensive)
+  let { order_id, driver_id, planned_date, notes, orderId } = req.body || {};
+  if (!order_id && orderId) order_id = orderId;
+
   const admin = getAdminUser(req);
 
   if (!order_id || typeof order_id !== "string") {
