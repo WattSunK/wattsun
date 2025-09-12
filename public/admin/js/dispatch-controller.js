@@ -1,112 +1,161 @@
 // public/admin/js/dispatch-controller.js
-// Controller for the Dispatch partial (list, filters, pager, etc.)
+// Dispatch list controller — safe drop-in.
 
-(() => {
+(function () {
   const API = "/api/admin/dispatches";
+  const $  = (sel, el = document) => el.querySelector(sel);
 
-  const state = {
-    page: 1,
-    per: 10,
-    total: 0,
-    q: "",
-    status: "",
-    dispatches: []
-  };
-
-  async function fetchDispatches() {
-    const params = new URLSearchParams({
-      page: state.page,
-      per: state.per,
-      q: state.q,
-      status: state.status
-    });
-    const res = await fetch(`${API}?${params}`, { credentials: "include" });
-    const json = await res.json();
-    if (json.success) {
-      state.dispatches = json.dispatches || json.rows || [];
-      state.total = json.total || 0;
-      render();
-    } else {
-      console.error("Failed to fetch dispatches", json);
-    }
+  // -------- tolerant backend envelope --------
+  function normalize(data) {
+    const list  = data.dispatches || data.rows || data.items || [];
+    const total = (data.total != null) ? data.total
+               : (data.count != null) ? data.count
+               : list.length;
+    const page  = (data.page != null) ? data.page : 1;
+    const per   = (data.per  != null) ? data.per  : (list.length || 20);
+    return { list, total, page, per };
   }
 
-  function render() {
-    const tbody = document.querySelector("#dispatchTbody");
+  async function fetchList(params) {
+    const u = new URL(API, location.origin);
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== "") u.searchParams.set(k, v);
+    });
+    const res = await fetch(u.toString(), { credentials: "include" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (!json || json.success === false) {
+      const msg = json?.error?.message || "Load failed";
+      throw new Error(msg);
+    }
+    return normalize(json);
+  }
+
+  function getStateFromForm() {
+    const form = $("#dispatch-filters");
+    const s = { page: "1", per: "20" };
+    if (!form) return s;
+
+    const q        = form.querySelector("#f-q");
+    const status   = form.querySelector("#f-status");
+    const driverId = form.querySelector("#f-driverId");
+    const planned  = form.querySelector("#f-date");
+    const per      = form.querySelector("#f-per");
+
+    if (q && q.value) s.q = q.value.trim();
+    if (status && status.value && status.value !== "Any") s.status = status.value;
+    if (driverId && driverId.value) s.driverId = driverId.value.trim();
+    if (planned && planned.value) s.planned_date = planned.value.trim();
+    if (per && per.value) s.per = per.value;
+    return s;
+  }
+
+  function renderTable(rows) {
+    const tbody = $("#dispatch-tbody");
     if (!tbody) return;
     tbody.innerHTML = "";
-    for (const d of state.dispatches) {
+
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      tr.className = "empty";
+      const td = document.createElement("td");
+      td.colSpan = 6;
+      td.textContent = "No dispatches yet.";
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+
+    for (const r of rows) {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${d.id}</td>
-        <td>${d.order_id}</td>
-        <td>${d.driverName || ""}</td>
-        <td>${d.status}</td>
-        <td>${d.planned_date || ""}</td>
-        <td>${d.notes || ""}</td>
-        <td>${d.created_at}</td>
+        <td>${r.id ?? ""}</td>
+        <td>${r.order_id ?? r.orderNumber ?? ""}</td>
+        <td>${r.status ?? ""}</td>
+        <td>${r.driver_id ?? r.driverId ?? r.driverName ?? ""}</td>
+        <td>${r.planned_date ?? ""}</td>
+        <td>${r.updated_at ?? ""}</td>
       `;
       tbody.appendChild(tr);
     }
-
-    const pager = document.querySelector("#dispatchPager");
-    if (pager) {
-      pager.innerHTML = `
-        Page ${state.page} of ${Math.ceil(state.total / state.per) || 1}
-      `;
-    }
   }
 
-  function bindEvents() {
-    const search = document.querySelector("#dispatchSearch");
-    if (search) {
-      search.addEventListener("input", e => {
-        state.q = e.target.value;
-        state.page = 1;
-        fetchDispatches();
-      });
-    }
+  function renderPager(total, page, per) {
+    const totalEl = $("#dispatch-total");
+    const pageEl  = $("#dispatch-page");
+    if (totalEl) totalEl.textContent = String(total);
+    if (pageEl)  pageEl.textContent  = String(page);
 
-    const status = document.querySelector("#dispatchStatus");
-    if (status) {
-      status.addEventListener("change", e => {
-        state.status = e.target.value;
-        state.page = 1;
-        fetchDispatches();
-      });
-    }
+    const maxPage = Math.max(1, Math.ceil(total / per));
+    const prevBtn = $("#dispatch-prev");
+    const nextBtn = $("#dispatch-next");
+    if (prevBtn) prevBtn.disabled = page <= 1;
+    if (nextBtn) nextBtn.disabled = page >= maxPage;
 
-    const pagerPrev = document.querySelector("#dispatchPagerPrev");
-    const pagerNext = document.querySelector("#dispatchPagerNext");
-    if (pagerPrev) {
-      pagerPrev.addEventListener("click", () => {
-        if (state.page > 1) {
-          state.page--;
-          fetchDispatches();
+    // 3-line addition: let skin style the filter row; also add a safe hint class
+    const bar = $("#dispatch-filters") || document.querySelector(".dispatch-filters");
+    if (bar && window.adminSkin?.enhanceFilterBar) { try { window.adminSkin.enhanceFilterBar(bar); } catch {} }
+    if (bar) bar.classList.add("is-ready");
+  }
+
+  async function loadAndRender(state) {
+    const { list, total, page, per } = await fetchList(state);
+    renderTable(list);
+    renderPager(total, page, per);
+  }
+
+  // -------- GLOBAL initializer expected by shell --------
+  async function initDispatch() {
+    const frm = $("#dispatch-filters");
+    if (frm) {
+      frm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try { await loadAndRender(getStateFromForm()); } catch (err) {
+          console.error("[dispatch] submit failed:", err);
         }
       });
     }
-    if (pagerNext) {
-      pagerNext.addEventListener("click", () => {
-        if (state.page * state.per < state.total) {
-          state.page++;
-          fetchDispatches();
-        }
-      });
+
+    const btn = $("#dispatch-refresh");
+    if (btn) btn.addEventListener("click", async () => {
+      try { await loadAndRender(getStateFromForm()); } catch (err) {
+        console.error("[dispatch] refresh failed:", err);
+      }
+    });
+
+    const prevBtn = $("#dispatch-prev");
+    const nextBtn = $("#dispatch-next");
+    if (prevBtn) prevBtn.addEventListener("click", async () => {
+      const s = getStateFromForm();
+      s.page = String(Math.max(1, parseInt(s.page || "1", 10) - 1));
+      try { await loadAndRender(s); } catch (err) { console.error(err); }
+    });
+    if (nextBtn) nextBtn.addEventListener("click", async () => {
+      const s = getStateFromForm();
+      s.page = String(parseInt(s.page || "1", 10) + 1);
+      try { await loadAndRender(s); } catch (err) { console.error(err); }
+    });
+
+    // Initial, filter-free load so your existing row shows
+    try { await loadAndRender({ page: "1", per: "20" }); } catch (err) {
+      console.error("[dispatch] initial load failed:", err);
     }
   }
 
-  function init() {
-    bindEvents();
-    fetchDispatches();
-  }
+  // expose globally (so shell / shim can call it)
+  window.initDispatch = initDispatch;
 
-  // ensure global hook for admin-dispatch.js shim
-  window.initDispatch = init;
-
-  document.addEventListener("admin:partial-loaded", e => {
-    if (e.detail === "dispatch") {
-      init();
+  // boot on both DOM ready and partial swap
+  (function boot() {
+    const RUN = () => setTimeout(() => { window.initDispatch?.(); }, 0);
+    document.addEventListener("admin:partial-loaded", (ev) => {
+      const name = ev?.detail?.partial || ev?.detail?.name || ev?.detail;
+      if (name === "dispatch" || name === "dispatches") RUN();
+    });
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", RUN, { once: true });
+    } else {
+      RUN();
     }
-  });
+  })();
 })();
