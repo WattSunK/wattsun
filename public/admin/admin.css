@@ -358,3 +358,55 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 .ws-table { width: 100%; border-collapse: collapse; }
 .ws-table th, .ws-table td { padding: 8px 10px; border-bottom: 1px solid var(--ws-border); }
 .ws-hint { color: var(--ws-muted); font-size: .9rem; margin-top: 6px; }
+
+/* ---- Dispatch UI layout (deterministic; no JS helpers needed) ---- */
+#dispatch-root .filters {
+  display: grid;
+  grid-template-columns:
+    minmax(260px, 1.4fr)   /* Search */
+    minmax(140px, 0.6fr)   /* Status */
+    minmax(140px, 0.8fr)   /* Driver ID */
+    minmax(160px, 0.8fr)   /* Planned date */
+    minmax(110px, 0.5fr)   /* Per */
+    minmax(100px, 0.4fr);  /* Apply button */
+  gap: 10px;
+  align-items: center;
+}
+
+#dispatch-root .filters .input,
+#dispatch-root .filters input,
+#dispatch-root .filters select,
+#dispatch-root .filters button {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Compact columns already use .col--compact in your HTML; keep spacing sane */
+#dispatch-root .filters .col--compact {
+  align-self: end;
+}
+
+/* Responsive breakpoints: collapse to 1 column on small viewports */
+@media (max-width: 1280px) {
+  #dispatch-root .filters {
+    grid-template-columns:
+      minmax(240px, 1.2fr)
+      minmax(140px, 0.6fr)
+      minmax(140px, 0.8fr)
+      minmax(160px, 0.8fr)
+      minmax(110px, 0.5fr)
+      minmax(100px, 0.4fr);
+  }
+}
+@media (max-width: 900px) {
+  #dispatch-root .filters { grid-template-columns: 1fr; }
+}
+
+/* Pager alignment */
+#dispatch-root .pager.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#dispatch-root .pager .col { display: flex; align-items: center; gap: 8px; }
+#dispatch-root .pager .col--right { justify-content: flex-end; gap: 8px; }
