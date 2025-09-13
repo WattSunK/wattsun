@@ -359,3 +359,10 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 .ws-table th, .ws-table td { padding: 8px 10px; border-bottom: 1px solid var(--ws-border); }
 .ws-hint { color: var(--ws-muted); font-size: .9rem; margin-top: 6px; }
 
+/* Dispatch-only pager parity */
+#dispatch-root .pager { display:flex; align-items:center; gap:8px; }
+#dispatch-root .pager.row { justify-content:space-between; }
+#dispatch-root .pager .col { display:flex; align-items:center; gap:8px; }
+#dispatch-root .pager .col--right { justify-content:flex-end; margin-left:auto; }
+#dispatch-root .pager .btn { height:34px; min-width:34px; border-radius:10px; }
+

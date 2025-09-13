@@ -350,8 +350,15 @@ router.patch("/:id", async (req, res) => {
     set.push("notes = COALESCE(?, notes)");
     params.push(notes ?? null);
 
-    set.push("planned_date = COALESCE(?, planned_date)");
-    params.push(planned_date ?? null);
+    const clearPlanned =
+  status === "Created" && driverIdIsProvided && (driver_id == null);
+
+if (clearPlanned) {
+  set.push("planned_date = NULL");
+} else {
+  set.push("planned_date = COALESCE(?, planned_date)");
+  params.push(planned_date ?? null);
+}
 
     set.push("updated_at = datetime('now')");
 
