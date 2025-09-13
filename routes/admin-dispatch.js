@@ -33,6 +33,14 @@ function runAsync(db, sql, params) {
 // --- Helpers ---------------------------------------------------------------
 const ALLOWED_STATUSES = new Set(["Created", "Assigned", "InTransit", "Canceled"]);
 
+// Finite-state map (conservative defaults aligned to your rules)
+const NEXT_ALLOWED = {
+  Created:   new Set(["Created", "Assigned", "Canceled"]),
+  Assigned:  new Set(["Assigned", "InTransit", "Canceled", "Created"]), // allow revert to Created (unassign)
+  InTransit: new Set(["InTransit", "Canceled"]), // no revert back to Created/Assigned once moving
+  Canceled:  new Set(["Created"]),               // can only leave Canceled to Created
+};
+
 function isIsoDate(s) {
   return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 }
@@ -59,7 +67,7 @@ async function ensureOrderExists(db, orderId) {
 }
 
 async function ensureDriverValidIfProvided(db, driverId) {
-  if (driverId == null) return;
+  if (driverId == null) return; // allow unassign
   const d = await getAsync(
     db,
     `SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1`,
@@ -70,7 +78,7 @@ async function ensureDriverValidIfProvided(db, driverId) {
     (d.type === "Driver" || d.role === "Driver") &&
     (!d.status || String(d.status).toLowerCase() !== "inactive");
   if (!ok) {
-    const err = new Error("driverId must reference an active Driver");
+    const err = new Error("driver_id must reference an active Driver");
     err.http = 400;
     err.code = "NOT_DRIVER";
     throw err;
@@ -89,6 +97,21 @@ async function insertHistory(db, { dispatchId, oldStatus, newStatus, adminId, no
 
 function badRequest(res, code, message) {
   return res.status(400).json({ success: false, error: { code, message } });
+}
+
+function validateTransition(prev, next, effectiveDriverId) {
+  if (!ALLOWED_STATUSES.has(next)) {
+    return `Invalid status "${next}".`;
+  }
+  const allowed = NEXT_ALLOWED[prev] || new Set();
+  if (!allowed.has(next)) {
+    return `Transition ${prev} → ${next} not allowed. Allowed: ${Array.from(allowed).join(", ")}`;
+  }
+  // Business rule: cannot enter InTransit without an assigned driver
+  if (next === "InTransit" && (effectiveDriverId == null)) {
+    return "Cannot move to InTransit without an assigned driver.";
+  }
+  return null;
 }
 
 // --- Diag ------------------------------------------------------------------
@@ -190,10 +213,8 @@ router.get("/", async (req, res) => {
   }
 });
 
-
 // --- Create ---------------------------------------------------------------
 router.post("/", async (req, res) => {
-  // Accept both snake and camel for order id (defensive)
   let { order_id, driver_id, planned_date, notes, orderId } = req.body || {};
   if (!order_id && orderId) order_id = orderId;
 
@@ -293,21 +314,29 @@ router.patch("/:id", async (req, res) => {
         .json({ success: false, error: { code: "NOT_FOUND", message: "Dispatch not found" } });
     }
 
-    if (Object.prototype.hasOwnProperty.call(req.body, "driver_id")) {
+    // Validate driver if provided (null allowed to unassign)
+    const driverIdIsProvided = Object.prototype.hasOwnProperty.call(req.body, "driver_id");
+    if (driverIdIsProvided) {
       await ensureDriverValidIfProvided(db, driver_id);
     }
 
     const prevStatus = existing.status;
     const nextStatus = status || prevStatus;
-    const statusChanged = status && status !== prevStatus;
+
+    // Effective driver after this patch (used for rules)
+    const effectiveDriverId = driverIdIsProvided ? driver_id : existing.driver_id;
+
+    // Enforce transition rules only if status is explicitly set
+    if (status) {
+      const errMsg = validateTransition(prevStatus, nextStatus, effectiveDriverId);
+      if (errMsg) return badRequest(res, "BAD_TRANSITION", errMsg);
+    }
 
     await runAsync(
       db,
       `UPDATE dispatches
          SET status       = COALESCE(?, status),
-             driver_id    = ${
-               Object.prototype.hasOwnProperty.call(req.body, "driver_id") ? "?" : "driver_id"
-             },
+             driver_id    = ${driverIdIsProvided ? "?" : "driver_id"},
              notes        = COALESCE(?, notes),
              planned_date = COALESCE(?, planned_date),
              updated_at   = datetime('now')
@@ -317,8 +346,9 @@ router.patch("/:id", async (req, res) => {
         : [null, driver_id ?? null, notes ?? null, planned_date ?? null, id]
     );
 
+    // History only when status changes
     let histRow = null;
-    if (statusChanged) {
+    if (status && nextStatus !== prevStatus) {
       const hist = await insertHistory(db, {
         dispatchId: Number(id),
         oldStatus: prevStatus,
