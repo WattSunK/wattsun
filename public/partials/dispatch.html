@@ -1,18 +1,21 @@
 <section class="card" id="dispatch-root" aria-labelledby="dispatch-title">
   <header class="card-header">
     <h2 id="dispatch-title" class="card-title">Dispatches</h2>
-    
+    <div class="actions">
+      <button id="dispatch-refresh" class="btn" type="button" title="Refresh">Refresh</button>
+    </div>
   </header>
 
   <div class="card-body">
-    <!-- Filters -->
-    <form id="dispatch-filters" class="filters row inline is-ready" autocomplete="off">
-      <div class="col">
-        <label for="f-q" class="label">Search</label>
+    <!-- Standard filters component -->
+    <form id="dispatch-filters" class="filters-bar" autocomplete="off">
+      <div class="group">
+        <label for="f-q">Search</label>
         <input id="f-q" name="q" class="input" placeholder="Order ID contains…" />
       </div>
-      <div class="col">
-        <label for="f-status" class="label">Status</label>
+
+      <div class="group">
+        <label for="f-status">Status</label>
         <select id="f-status" name="status" class="input">
           <option value="">Any</option>
           <option>Created</option>
@@ -22,16 +25,19 @@
           <option>Canceled</option>
         </select>
       </div>
-      <div class="col">
-        <label for="f-driverId" class="label">Driver ID</label>
+
+      <div class="group">
+        <label for="f-driverId">Driver ID</label>
         <input id="f-driverId" name="driverId" class="input" inputmode="numeric" pattern="\\d*" placeholder="e.g. 6" />
       </div>
-      <div class="col">
-        <label for="f-date" class="label">Planned date</label>
+
+      <div class="group">
+        <label for="f-date">Planned date</label>
         <input id="f-date" name="planned_date" class="input" type="date" />
       </div>
-      <div class="col col--compact">
-        <label for="f-per" class="label">Per</label>
+
+      <div class="group">
+        <label for="f-per">Per</label>
         <select id="f-per" name="per" class="input">
           <option>10</option>
           <option selected>20</option>
@@ -39,8 +45,12 @@
           <option>100</option>
         </select>
       </div>
-      <div class="col col--compact" style="align-self:end">
-        <button class="btn" type="submit">Apply</button>
+
+      <span class="spacer"></span>
+
+      <div class="group">
+        <label class="sr-only" for="apply-btn">Apply</label>
+        <button id="apply-btn" class="btn" type="submit">Apply</button>
       </div>
     </form>
 
@@ -64,7 +74,7 @@
       </table>
     </div>
 
-    <!-- Pager -->
+    <!-- Pager (your stylesheet already styles .pager) -->
     <div class="pager row" id="dispatch-pager" aria-live="polite">
       <div class="col">
         <span id="dispatch-total">0</span> total
@@ -78,5 +88,4 @@
   </div>
 </section>
 
-<!-- keep the real controller; the admin-dispatch.js shim can remain a no-op -->
 <script src="/admin/js/dispatch-controller.js?v=20250912-03" defer></script>
