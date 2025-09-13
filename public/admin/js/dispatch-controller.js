@@ -50,6 +50,7 @@
     return s;
   }
 
+  // --- UPDATED: add Actions buttons + colspan=7 when empty
   function renderTable(rows) {
     const tbody = $("#dispatch-tbody");
     if (!tbody) return;
@@ -59,7 +60,7 @@
       const tr = document.createElement("tr");
       tr.className = "empty";
       const td = document.createElement("td");
-      td.colSpan = 6;
+      td.colSpan = 7; // includes the Actions column
       td.textContent = "No dispatches yet.";
       tr.appendChild(td);
       tbody.appendChild(tr);
@@ -68,6 +69,8 @@
 
     for (const r of rows) {
       const tr = document.createElement("tr");
+      tr.setAttribute("data-id", r.id);
+
       tr.innerHTML = `
         <td>${r.id ?? ""}</td>
         <td>${r.order_id ?? r.orderNumber ?? ""}</td>
@@ -75,6 +78,13 @@
         <td>${r.driver_id ?? r.driverId ?? r.driverName ?? ""}</td>
         <td>${r.planned_date ?? ""}</td>
         <td>${r.updated_at ?? ""}</td>
+        <td class="actions">
+          <button class="btn" data-action="assign"   data-id="${r.id}">Assign</button>
+          <button class="btn" data-action="unassign" data-id="${r.id}">Unassign</button>
+          <button class="btn" data-action="planned"  data-id="${r.id}">Set Planned Date</button>
+          <button class="btn" data-action="status"   data-id="${r.id}">Update Status</button>
+          <button class="btn" data-action="note"     data-id="${r.id}">Add Note</button>
+        </td>
       `;
       tbody.appendChild(tr);
     }
@@ -144,6 +154,11 @@
 
   // expose globally (so shell / shim can call it)
   window.initDispatch = initDispatch;
+
+  // When actions PATCH succeed, they emit this event; reload the list.
+  document.addEventListener("admin:dispatch:refresh", () => {
+    try { loadAndRender(getStateFromForm()); } catch (err) { console.error(err); }
+  });
 
   // boot on both DOM ready and partial swap
   (function boot() {

@@ -66,25 +66,26 @@
             <th>Driver</th>
             <th>Planned</th>
             <th>Updated</th>
+            <th>Actions</th> <!-- added -->
           </tr>
         </thead>
         <tbody id="dispatch-tbody">
-          <tr class="empty"><td colspan="6">No dispatches yet.</td></tr>
+          <tr class="empty"><td colspan="7">No dispatches yet.</td></tr> <!-- 6 -> 7 -->
         </tbody>
       </table>
     </div>
 
-      <!-- Pager -->
-<div class="pager row" id="dispatch-pager" aria-live="polite">
-  <div class="col">
-    <span id="dispatch-total">0</span> total
-  </div>
-  <div class="col col--right">
-    <button id="dispatch-prev" class="btn btn-ghost" type="button" disabled>Prev</button>
-    <span id="dispatch-page">1</span>
-    <button id="dispatch-next" class="btn btn-ghost" type="button" disabled>Next</button>
-  </div>
-</div>
+    <!-- Pager -->
+    <div class="pager row" id="dispatch-pager" aria-live="polite">
+      <div class="col">
+        <span id="dispatch-total">0</span> total
+      </div>
+      <div class="col col--right">
+        <button id="dispatch-prev" class="btn btn-ghost" type="button" disabled>Prev</button>
+        <span id="dispatch-page">1</span>
+        <button id="dispatch-next" class="btn btn-ghost" type="button" disabled>Next</button>
+      </div>
+    </div>
 
   </div>
 </section>
