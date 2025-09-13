@@ -8,7 +8,7 @@
 
   <div class="card-body">
     <!-- Filters -->
-    <form id="dispatch-filters" class="filters row" autocomplete="off">
+    <form id="dispatch-filters" class="filters row inline is-ready" autocomplete="off">
       <div class="col">
         <label for="f-q" class="label">Search</label>
         <input id="f-q" name="q" class="input" placeholder="Order ID contains…" />
@@ -80,5 +80,5 @@
   </div>
 </section>
 
-<!-- load the actual controller the shell expects -->
+<!-- keep the real controller; the admin-dispatch.js shim can remain a no-op -->
 <script src="/admin/js/dispatch-controller.js?v=20250912-03" defer></script>
