@@ -37,7 +37,7 @@ const ALLOWED_STATUSES = new Set(["Created", "Assigned", "InTransit", "Canceled"
 const NEXT_ALLOWED = {
   Created:   new Set(["Created", "Assigned", "Canceled"]),
   Assigned:  new Set(["Assigned", "InTransit", "Canceled", "Created"]), // allow revert to Created (unassign)
-  InTransit: new Set(["InTransit", "Canceled"]), // no revert back to Created/Assigned once moving
+  InTransit: new Set(["InTransit", "Canceled", "Assigned", "Created"]),
   Canceled:  new Set(["Created"]),               // can only leave Canceled to Created
 };
 
