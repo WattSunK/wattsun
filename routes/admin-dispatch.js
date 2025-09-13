@@ -332,19 +332,33 @@ router.patch("/:id", async (req, res) => {
       if (errMsg) return badRequest(res, "BAD_TRANSITION", errMsg);
     }
 
-    await runAsync(
-      db,
-      `UPDATE dispatches
-         SET status       = COALESCE(?, status),
-             driver_id    = ${driverIdIsProvided ? "?" : "driver_id"},
-             notes        = COALESCE(?, notes),
-             planned_date = COALESCE(?, planned_date),
-             updated_at   = datetime('now')
-       WHERE id = ?`,
-      status
-        ? [status, driver_id ?? null, notes ?? null, planned_date ?? null, id]
-        : [null, driver_id ?? null, notes ?? null, planned_date ?? null, id]
-    );
+    // --- SAFE UPDATE BUILD: placeholders always match params
+    const set = [];
+    const params = [];
+
+    // status: keep or update
+    set.push("status = COALESCE(?, status)");
+    params.push(status ?? null);
+
+    // driver_id: only include placeholder if explicitly provided
+    if (driverIdIsProvided) {
+      set.push("driver_id = ?");
+      params.push(driver_id ?? null);
+    }
+
+    // notes + planned_date (coalesce keepers)
+    set.push("notes = COALESCE(?, notes)");
+    params.push(notes ?? null);
+
+    set.push("planned_date = COALESCE(?, planned_date)");
+    params.push(planned_date ?? null);
+
+    set.push("updated_at = datetime('now')");
+
+    const sql = `UPDATE dispatches SET ${set.join(", ")} WHERE id = ?`;
+    params.push(id);
+
+    await runAsync(db, sql, params);
 
     // History only when status changes
     let histRow = null;
