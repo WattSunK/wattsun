@@ -158,6 +158,12 @@
     try { loadAndRender(getStateFromForm()); } catch (err) { console.error(err); }
   });
 
+  // Refresh when the modal says it updated something
+document.addEventListener('admin:dispatch:refresh', async () => {
+  try { await loadAndRender(getStateFromForm()); }
+  catch (err) { console.error('[dispatch] refresh event failed:', err); }
+});
+
   // boot on both DOM ready and partial swap
   (function boot() {
     const RUN = () => setTimeout(() => { window.initDispatch?.(); }, 0);
