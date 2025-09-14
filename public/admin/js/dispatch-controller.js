@@ -153,11 +153,6 @@
   // expose globally (so shell / shim can call it)
   window.initDispatch = initDispatch;
 
-  // When actions PATCH succeed, they emit this event; reload the list.
-  document.addEventListener("admin:dispatch:refresh", () => {
-    try { loadAndRender(getStateFromForm()); } catch (err) { console.error(err); }
-  });
-
   // Refresh when the modal says it updated something
 document.addEventListener('admin:dispatch:refresh', async () => {
   try { await loadAndRender(getStateFromForm()); }
