@@ -15,6 +15,15 @@
   const btnCancel = $('#de-cancel');
   const btnDelivered = $('#de-delivered');
 
+  // Track the status when the modal is opened (from the row) so we can gate "Mark Delivered"
+  let origStatus = null;
+  function updateDeliveredBtn() {
+    if (!btnDelivered) return;
+    const can = origStatus === 'InTransit';
+    btnDelivered.disabled = !can;
+    btnDelivered.title = can ? '' : 'Mark Delivered is only available when the current status is InTransit.';
+  }
+
   // ---------- Drivers datalist (single-line "id — name") ----------
   const fList = document.querySelector('#drivers-list');
   let driversCache = null;
@@ -75,6 +84,10 @@
     fId.value   = id;
     fStat.value = status;
 
+    // remember original status for gating "Mark Delivered"
+    origStatus = status;
+    updateDeliveredBtn();
+
     // If the cell shows a pure numeric id we keep it, otherwise leave blank;
     // after loadDrivers() we try to backfill from the name.
     fDrv.value  = /^\d+$/.test(driver) ? driver : '';
@@ -97,6 +110,14 @@
     if (off) fDrv.value = '';
   }
   fUnas?.addEventListener('change', toggleDriverField);
+
+  // Optional: prevent selecting Delivered in the dropdown unless the row was InTransit
+  fStat?.addEventListener('change', () => {
+    if (fStat.value === 'Delivered' && origStatus !== 'InTransit') {
+      alert('Move the dispatch to InTransit first before marking Delivered.');
+      fStat.value = origStatus || 'Created';
+    }
+  });
 
   // ---------- Interpret driver input (supports "2", "2 — Name", or typing name/email) ----------
   function resolveDriverId(input) {
@@ -213,6 +234,10 @@
   // ---------- Mark Delivered quick action ----------
   btnDelivered?.addEventListener('click', (e) => {
     e.preventDefault();
+    if (btnDelivered.disabled) {
+      alert('Only dispatches currently InTransit can be marked Delivered.');
+      return;
+    }
     fStat.value = 'Delivered';
     // Delivered implies still assigned; don't force unassign
     fUnas.checked = false;
