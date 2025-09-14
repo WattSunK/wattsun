@@ -568,6 +568,56 @@ router.patch("/:id", async (req, res) => {
     }
     // --- End Step 5.5 --------------------------------------------------------
 
+    // --- Step 5.6: Append to order_status_history on dispatch status change --
+    if (status && nextStatus !== prevStatus) {
+      const link = await getAsync(db, "SELECT order_id FROM dispatches WHERE id = ?", [id]);
+      const orderId = link?.order_id;
+
+      if (orderId != null) {
+        const intoDelivered  = nextStatus === "Delivered" && prevStatus !== "Delivered";
+        const outOfDelivered = prevStatus === "Delivered" && nextStatus !== "Delivered";
+
+        // Read current order status for logging (after Step 5.5 sync above)
+        const orderRow = await getAsync(db, "SELECT status FROM orders WHERE id = ?", [orderId]);
+        const curOrder = orderRow?.status ?? null;
+
+        if (intoDelivered || outOfDelivered) {
+          const oldOrderStatus = outOfDelivered ? "Completed" : curOrder === "Completed" ? "InProgress" : curOrder;
+          const newOrderStatus = intoDelivered ? "Completed" : "InProgress";
+
+          await runAsync(
+            db,
+            `INSERT INTO order_status_history
+               (order_id, old_order_status, new_order_status,
+                old_dispatch_status, new_dispatch_status,
+                source, reason, note, changed_by, changed_at)
+             VALUES (?, ?, ?, ?, ?, 'dispatch', NULL, ?, ?, datetime('now'))`,
+            [
+              orderId, oldOrderStatus, newOrderStatus,
+              prevStatus, nextStatus,
+              notes ?? null, admin?.id ?? null
+            ]
+          );
+        } else {
+          // Non-Delivered transitions: record dispatch transition with same order status
+          await runAsync(
+            db,
+            `INSERT INTO order_status_history
+               (order_id, old_order_status, new_order_status,
+                old_dispatch_status, new_dispatch_status,
+                source, reason, note, changed_by, changed_at)
+             VALUES (?, ?, ?, ?, ?, 'dispatch', NULL, ?, ?, datetime('now'))`,
+            [
+              orderId, curOrder, curOrder,
+              prevStatus, nextStatus,
+              notes ?? null, admin?.id ?? null
+            ]
+          );
+        }
+      }
+    }
+    // --- End Step 5.6 --------------------------------------------------------
+
     const updated = await getAsync(
       db,
       `SELECT d.*, o.orderNumber, u.name AS driverName
