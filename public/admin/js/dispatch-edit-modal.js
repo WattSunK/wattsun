@@ -8,14 +8,14 @@
 
   const fId    = $('#de-id');
   const fStat  = $('#de-status');
-  const fDrv   = $('#de-driver');
+  const fDrv   = $('#de-driver');         // <input list="drivers-list">
   const fUnas  = $('#de-unassign');
   const fDate  = $('#de-date');
   const fClrDt = $('#de-clear-date');
   const fNotes = $('#de-notes');
   const btnCancel = $('#de-cancel');
 
-  // --- NEW: drivers datalist cache + loader (3a) ---------------------------
+  // ---------- Drivers datalist (single-line "id — name") ----------
   const fList = document.querySelector('#drivers-list');
   let driversCache = null;
 
@@ -28,10 +28,14 @@
       throw new Error(msg);
     }
     driversCache = data.drivers || [];
+
     if (fList) {
+      // Single line per option by putting BOTH id and name into the value.
+      // Example: "2 — Maina Kamunyu"
       fList.innerHTML = driversCache.map(d => {
         const label = (d.name && d.name.trim()) || d.email || `Driver ${d.id}`;
-        return `<option value="${d.id}">${label}</option>`;
+        const oneLine = `${d.id} — ${label}`;
+        return `<option value="${oneLine}"></option>`;
       }).join('');
     }
     return driversCache;
@@ -62,17 +66,21 @@
     return data;
   }
 
-  // Fill modal from the table row cells
+  // ---------- Prefill ----------
   function prefillFromRow(tr, id) {
     const cells = tr.querySelectorAll('td');
     // columns: ID, Order, Status, Driver, Planned, Updated, Actions
-    const status = cells[2]?.textContent.trim() || 'Created';
-    const driver = cells[3]?.textContent.trim() || '';
-    const planned= cells[4]?.textContent.trim() || '';
+    const status  = cells[2]?.textContent.trim() || 'Created';
+    const driver  = cells[3]?.textContent.trim() || '';   // may be name or "Unassigned"
+    const planned = cells[4]?.textContent.trim() || '';
 
     fId.value   = id;
     fStat.value = status;
+
+    // If the cell shows a pure numeric id we keep it, otherwise leave blank;
+    // after loadDrivers() we try to backfill from the name.
     fDrv.value  = /^\d+$/.test(driver) ? driver : '';
+
     fDate.value = /^\d{4}-\d{2}-\d{2}$/.test(planned) ? planned : '';
     fNotes.value = '';
     fUnas.checked = false;
@@ -80,7 +88,7 @@
     toggleDriverField();
   }
 
-  // --- NEW: disable/enable driver input when Unassign is checked (3c) -----
+  // ---------- Disable/enable driver input when Unassign is checked ----------
   function toggleDriverField() {
     const off = fUnas?.checked;
     if (!fDrv) return;
@@ -89,11 +97,16 @@
   }
   fUnas?.addEventListener('change', toggleDriverField);
 
-  // --- Helper: interpret driver input (id or name/email typed) ------------
+  // ---------- Interpret driver input (supports "2", "2 — Name", or typing name/email) ----------
   function resolveDriverId(input) {
     const s = (input || '').trim();
     if (!s) return null;
+    // 1) "2"  (just an id)
     if (/^\d+$/.test(s)) return Number(s);
+    // 2) "2 — Name"  (combined)
+    const m = s.match(/^\s*(\d+)\b/);
+    if (m) return Number(m[1]);
+    // 3) Name/email lookup
     if (!driversCache) return null;
     const low = s.toLowerCase();
     const hit = driversCache.find(d =>
@@ -103,7 +116,7 @@
     return hit ? Number(hit.id) : null;
   }
 
-  // Open modal on any action or an explicit "edit" button
+  // ---------- Open modal ----------
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-action][data-id]');
     if (!btn) return;
@@ -111,25 +124,40 @@
     const id     = btn.getAttribute('data-id');
     if (!id) return;
 
-    // Limit to our actions, but keep compatible with existing buttons
     if (!['assign','unassign','planned','status','note','edit'].includes(action)) return;
 
     const tr = btn.closest('tr');
     if (tr) prefillFromRow(tr, id);
 
-    // Nudge defaults depending on which button was clicked
+    // Nudges
     if (action === 'assign') fStat.value = 'Assigned';
     if (action === 'unassign') { fUnas.checked = true; fStat.value = 'Created'; fDrv.value=''; }
     if (action === 'planned') fDate.focus();
     if (action === 'status')  fStat.focus();
     if (action === 'note')    fNotes.focus();
 
-    // --- NEW: load drivers list when opening (3b)
-    loadDrivers().catch(err => console.warn('[drivers]', err));
+    // Load drivers list, then try to backfill current driver by matching the cell text
+    loadDrivers().then(() => {
+      if (!fDrv.value && tr) {
+        const nameCell = tr.querySelectorAll('td')[3];
+        const display = nameCell?.textContent.trim();
+        if (display && display.toLowerCase() !== 'unassigned') {
+          const hit = driversCache?.find(d =>
+            d.name === display || d.email === display
+          );
+          if (hit) {
+            const oneLine = `${hit.id} — ${(hit.name && hit.name.trim()) || hit.email || `Driver ${hit.id}`}`;
+            fDrv.value = oneLine;
+          }
+        }
+      }
+    }).catch(err => console.warn('[drivers]', err));
+
     toggleDriverField();
     show();
   });
 
+  // ---------- Cancel / Save ----------
   btnCancel?.addEventListener('click', (e) => { e.preventDefault(); hide(); });
 
   form?.addEventListener('submit', async (e) => {
@@ -146,12 +174,21 @@
       const drvId = resolveDriverId(fDrv.value);
       if (drvId != null) payload.driver_id = drvId;
     }
+
     // date
     if (fClrDt.checked) {
       payload.planned_date = null;
     } else if (fDate.value.trim() !== '') {
-      payload.planned_date = fDate.value.trim();
+      // Normalize dd/mm/yyyy -> yyyy-mm-dd if needed (some browsers format locale)
+      const s = fDate.value.trim();
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+        const [dd, mm, yyyy] = s.split('/');
+        payload.planned_date = `${yyyy}-${mm}-${dd}`;
+      } else {
+        payload.planned_date = s;
+      }
     }
+
     // notes
     if (fNotes.value.trim() !== '') {
       payload.notes = fNotes.value.trim();
@@ -166,7 +203,7 @@
     }
   });
 
-  // Close on backdrop click
+  // ---------- Close on backdrop click ----------
   modal?.addEventListener('click', (e) => {
     if (e.target === modal) hide();
   });
