@@ -88,6 +88,52 @@
     </div>
 
   </div>
+  <!-- Edit Dispatch Modal -->
+<div id="dispatch-edit" class="modal" aria-hidden="true">
+  <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="dispatch-edit-title">
+    <h3 id="dispatch-edit-title" class="modal-title">Edit Dispatch</h3>
+
+    <form id="dispatch-edit-form" autocomplete="off">
+      <input type="hidden" id="de-id" />
+
+      <div class="row">
+        <label for="de-status">Status</label>
+        <select id="de-status" class="input">
+          <option>Created</option>
+          <option>Assigned</option>
+          <option>InTransit</option>
+          <option>Canceled</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label for="de-driver">Driver ID</label>
+        <input id="de-driver" class="input" inputmode="numeric" pattern="\\d*" placeholder="e.g. 2" />
+        <label class="check"><input type="checkbox" id="de-unassign" /> Unassign</label>
+      </div>
+
+      <div class="row">
+        <label for="de-date">Planned date</label>
+        <input id="de-date" class="input" type="date" />
+        <label class="check"><input type="checkbox" id="de-clear-date" /> Clear date</label>
+      </div>
+
+      <div class="row">
+        <label for="de-notes">Notes</label>
+        <textarea id="de-notes" class="input" rows="3" placeholder="Optional note…"></textarea>
+      </div>
+
+      <div class="row right">
+        <button type="button" class="btn btn-ghost" id="de-cancel">Cancel</button>
+        <button type="submit" class="btn" id="de-save">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- modal script -->
+<script src="/admin/js/dispatch-edit-modal.js?v=20250913"></script>
+
 </section>
 
 <script src="/admin/js/dispatch-controller.js?v=20250912-03" defer></script>

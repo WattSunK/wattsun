@@ -78,13 +78,11 @@
         <td>${r.driver_id ?? r.driverId ?? r.driverName ?? ""}</td>
         <td>${r.planned_date ?? ""}</td>
         <td>${r.updated_at ?? ""}</td>
-        <td class="actions">
-          <button class="btn" data-action="assign"   data-id="${r.id}">Assign</button>
-          <button class="btn" data-action="unassign" data-id="${r.id}">Unassign</button>
-          <button class="btn" data-action="planned"  data-id="${r.id}">Set Planned Date</button>
-          <button class="btn" data-action="status"   data-id="${r.id}">Update Status</button>
-          <button class="btn" data-action="note"     data-id="${r.id}">Add Note</button>
-        </td>
+      
+    <td class="actions">
+      <button class="btn" data-action="edit" data-id="${r.id}">Edit</button>
+    </td>
+
       `;
       tbody.appendChild(tr);
     }
