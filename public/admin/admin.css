@@ -366,3 +366,13 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 #dispatch-root .pager .col--right { justify-content:flex-end; margin-left:auto; }
 #dispatch-root .pager .btn { height:34px; min-width:34px; border-radius:10px; }
 
+/* Dispatch Edit Modal (scoped) */
+#dispatch-edit { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.38); z-index: 1000; }
+#dispatch-edit.show { display: flex; }
+#dispatch-edit .modal-sheet { background: #fff; color: var(--fg, #222); border-radius: 12px; padding: 16px; min-width: 420px; max-width: 92vw; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+#dispatch-edit .modal-title { margin: 0 0 12px 0; font-size: 18px; }
+#dispatch-edit .row { display: flex; gap: 12px; align-items: center; margin: 8px 0; }
+#dispatch-edit .row > label { min-width: 110px; }
+#dispatch-edit .row.right { justify-content: flex-end; }
+#dispatch-edit .input { flex: 1; }
+#dispatch-edit .check { display: flex; align-items: center; gap: 6px; }
