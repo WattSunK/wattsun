@@ -472,6 +472,15 @@ if (clearPlanned) {
 }
 
     set.push("updated_at = datetime('now')");
+    
+// delivered_at rules: set when entering Delivered; clear when leaving Delivered
+if (status && nextStatus !== prevStatus) {
+  if (nextStatus === "Delivered") {
+    set.push("delivered_at = datetime('now')");
+  } else if (prevStatus === "Delivered" && nextStatus !== "Delivered") {
+    set.push("delivered_at = NULL");
+  }
+}
 
     const sql = `UPDATE dispatches SET ${set.join(", ")} WHERE id = ?`;
     params.push(id);
