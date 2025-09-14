@@ -32,9 +32,10 @@ function runAsync(db, sql, params) {
 
 // --- Helpers ---------------------------------------------------------------
 const ALLOWED_STATUSES = new Set(["Created", "Assigned", "InTransit", "Delivered", "Canceled"]);
+// Order terminal states we won't overwrite when entering Delivered
+const ORDER_TERMINAL_STATUSES = new Set(["Completed", "Canceled"]);
 
 // Finite-state map (conservative defaults aligned to your rules)
-
 const NEXT_ALLOWED = {
   Created:   new Set(["Created", "Assigned", "Canceled"]),
   Assigned:  new Set(["Assigned", "InTransit", "Canceled", "Created"]),
@@ -462,25 +463,25 @@ router.patch("/:id", async (req, res) => {
     params.push(notes ?? null);
 
     const clearPlanned =
-  status === "Created" && driverIdIsProvided && (driver_id == null);
+      status === "Created" && driverIdIsProvided && (driver_id == null);
 
-if (clearPlanned) {
-  set.push("planned_date = NULL");
-} else {
-  set.push("planned_date = COALESCE(?, planned_date)");
-  params.push(planned_date ?? null);
-}
+    if (clearPlanned) {
+      set.push("planned_date = NULL");
+    } else {
+      set.push("planned_date = COALESCE(?, planned_date)");
+      params.push(planned_date ?? null);
+    }
 
     set.push("updated_at = datetime('now')");
     
-// delivered_at rules: set when entering Delivered; clear when leaving Delivered
-if (status && nextStatus !== prevStatus) {
-  if (nextStatus === "Delivered") {
-    set.push("delivered_at = datetime('now')");
-  } else if (prevStatus === "Delivered" && nextStatus !== "Delivered") {
-    set.push("delivered_at = NULL");
-  }
-}
+    // delivered_at rules: set when entering Delivered; clear when leaving Delivered
+    if (status && nextStatus !== prevStatus) {
+      if (nextStatus === "Delivered") {
+        set.push("delivered_at = datetime('now')");
+      } else if (prevStatus === "Delivered" && nextStatus !== "Delivered") {
+        set.push("delivered_at = NULL");
+      }
+    }
 
     const sql = `UPDATE dispatches SET ${set.join(", ")} WHERE id = ?`;
     params.push(id);
@@ -506,6 +507,66 @@ if (status && nextStatus !== prevStatus) {
         note: notes ?? null,
       };
     }
+
+    // --- Step 5.5: Orders status sync on Delivered boundaries ----------------
+    if (status && nextStatus !== prevStatus) {
+      // 1) Resolve linked order
+      const link = await getAsync(db, "SELECT order_id FROM dispatches WHERE id = ?", [id]);
+      const orderId = link?.order_id;
+
+      if (orderId != null) {
+        // 2) Check if orders.completed_at exists
+        const completedAtExists = !!(await getAsync(
+          db,
+          "SELECT 1 AS ok FROM pragma_table_info('orders') WHERE name='completed_at' LIMIT 1",
+          []
+        ));
+
+        // 3) Read current order status to respect terminal rules / smart revert
+        const order = await getAsync(db, "SELECT id, status FROM orders WHERE id = ?", [orderId]);
+        const curStatus = order?.status || null;
+
+        const intoDelivered = nextStatus === "Delivered" && prevStatus !== "Delivered";
+        const outOfDelivered = prevStatus === "Delivered" && nextStatus !== "Delivered";
+
+        if (intoDelivered && order) {
+          // Do not override if already terminal
+          if (!ORDER_TERMINAL_STATUSES.has(curStatus)) {
+            if (completedAtExists) {
+              await runAsync(
+                db,
+                "UPDATE orders SET status='Completed', completed_at = COALESCE(completed_at, datetime('now')) WHERE id = ?",
+                [order.id]
+              );
+            } else {
+              await runAsync(
+                db,
+                "UPDATE orders SET status='Completed' WHERE id = ?",
+                [order.id]
+              );
+            }
+          }
+        } else if (outOfDelivered && order) {
+          // Revert only if it was Completed (avoid stomping other states)
+          if (curStatus === "Completed") {
+            if (completedAtExists) {
+              await runAsync(
+                db,
+                "UPDATE orders SET status='InProgress', completed_at = NULL WHERE id = ?",
+                [order.id]
+              );
+            } else {
+              await runAsync(
+                db,
+                "UPDATE orders SET status='InProgress' WHERE id = ?",
+                [order.id]
+              );
+            }
+          }
+        }
+      }
+    }
+    // --- End Step 5.5 --------------------------------------------------------
 
     const updated = await getAsync(
       db,
