@@ -1,6 +1,7 @@
 // routes/admin-orders.js
 // Admin Orders (overlay-aware list + single GET + PATCH + ADR status route)
 // - GET    /                 → paginated list (JOIN aom + items totals fallback)
+// - GET    /:id/history      → unified order history (order_status_history V2, paged by id DESC)
 // - GET    /:idOrNumber      → single, overlay-aware + items (with items totals fallback)
 // - PATCH  /:idOrNumber      → upsert overlay; verifies base order exists; appends status history on change
 // - PUT    /:idOrNumber/status → ADR endpoint: update status + optional note; appends history
@@ -25,6 +26,18 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
   if (err) console.error("[admin-orders] DB open error:", err.message, "path=", DB_PATH);
   else console.log("[admin-orders] DB connected:", DB_PATH);
 });
+
+// Small promise helpers (local style)
+function allP(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (e, rows) => (e ? reject(e) : resolve(rows || [])));
+  });
+}
+function getP(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (e, row) => (e ? reject(e) : resolve(row || null)));
+  });
+}
 
 // ---- Helpers ----
 const ALLOWED_STATUSES = ["Pending", "Confirmed", "Dispatched", "Delivered", "Closed", "Cancelled"];
@@ -95,18 +108,36 @@ function getEffectiveStatus(orderId) {
   });
 }
 
-// Append a status history row
-function appendStatusHistory(orderId, newStatus, note, changedBy) {
+/**
+ * Append a unified order history row (V2 schema).
+ * Writes into order_status_history:
+ *   order_id, old_order_status, new_order_status,
+ *   old_dispatch_status, new_dispatch_status,
+ *   source, reason, note, changed_by, changed_at
+ *
+ * For pure order status updates (no dispatch context), we set dispatch fields to "" (NOT NULL satisfied).
+ */
+function appendStatusHistory(orderId, oldStatus, newStatus, note, changedBy) {
   return new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO order_status_history (order_id, status, changedBy, note)
-       VALUES (?, ?, ?, ?)`,
-      [orderId, newStatus, changedBy ?? null, note ?? null],
-      function (e) {
-        if (e) return reject(e);
-        resolve({ id: this.lastID, order_id: orderId, status: newStatus, note: note ?? null, changedBy: changedBy ?? null });
-      }
-    );
+    const sql = `
+      INSERT INTO order_status_history (
+        order_id,
+        old_order_status, new_order_status,
+        old_dispatch_status, new_dispatch_status,
+        source, reason, note, changed_by, changed_at
+      ) VALUES (?, ?, ?, '', '', 'admin', 'order_status_update', ?, ?, datetime('now'))
+    `;
+    db.run(sql, [orderId, oldStatus ?? null, newStatus, note ?? null, changedBy ?? null], function (e) {
+      if (e) return reject(e);
+      resolve({
+        id: this.lastID,
+        order_id: orderId,
+        old_order_status: oldStatus ?? null,
+        new_order_status: newStatus,
+        note: note ?? null,
+        changed_by: changedBy ?? null,
+      });
+    });
   });
 }
 
@@ -264,6 +295,59 @@ router.get("/", (req, res) => {
   });
 });
 
+// ---- NEW: GET /api/admin/orders/:id/history (must be before :idOrNumber catch-all) ----
+router.get("/:id/history", async (req, res) => {
+  try {
+    const orderId = String(req.params.id || "").trim();
+    if (!orderId) return res.status(400).json({ ok: false, error: "ORDER_ID_REQUIRED" });
+
+    const limit = Math.max(1, Math.min(parseInt(req.query.limit || "50", 10), 100));
+    const cursorRaw = req.query.cursor;
+    const cursor = cursorRaw != null && cursorRaw !== "" && !Number.isNaN(Number(cursorRaw))
+      ? Number(cursorRaw)
+      : null;
+
+    const params = [orderId];
+    let where = "WHERE h.order_id = ?";
+    if (Number.isInteger(cursor)) {
+      where += " AND h.id < ?";
+      params.push(cursor);
+    }
+
+    const sql = `
+      SELECT
+        h.id,
+        h.order_id,
+        h.old_order_status, h.new_order_status,
+        h.old_dispatch_status, h.new_dispatch_status,
+        h.source, h.reason, h.note,
+        h.changed_by,
+        u.name  AS changed_by_name,
+        u.email AS changed_by_email,
+        h.changed_at
+      FROM order_status_history h
+      LEFT JOIN users u ON u.id = h.changed_by
+      ${where}
+      ORDER BY h.id DESC
+      LIMIT ${limit};
+    `;
+
+    const rows = await allP(sql, params);
+    const nextCursor = rows.length === limit ? rows[rows.length - 1].id : null;
+
+    // Minimal order header from current schema
+    const order = await getP(
+      `SELECT id AS order_id, status, phone, createdAt, completed_at FROM orders WHERE id = ? LIMIT 1;`,
+      [orderId]
+    );
+
+    res.json({ ok: true, order, rows, next_cursor: nextCursor });
+  } catch (err) {
+    console.error("GET /api/admin/orders/:id/history error:", err);
+    res.status(500).json({ ok: false, error: "HISTORY_FETCH_FAILED" });
+  }
+});
+
 // ---- GET /api/admin/orders/:idOrNumber ----
 router.get("/:idOrNumber", (req, res) => {
   resolveOrder(db, req.params.idOrNumber, (e0, ord) => {
@@ -354,13 +438,13 @@ router.put("/:idOrNumber/status", async (req, res) => {
     // Upsert overlay with new status and optional note (notes preserved if empty)
     await upsertOverlay({ id, status, notes: note === "" ? undefined : note });
 
-    // Append history only if changed
+    // Append unified V2 history only if changed
     const changedBy = req.session?.user?.id || null;
     if (before !== status) {
-      await appendStatusHistory(id, status, note || null, changedBy);
+      await appendStatusHistory(id, before, status, note || null, changedBy);
     }
 
-    return res.json({ success:true, order:{ id, orderNumber: ord.orderNumber, status }, history:{ status, changedBy, note: note || null } });
+    return res.json({ success:true, order:{ id, orderNumber: ord.orderNumber, status }, history:{ oldStatus: before, newStatus: status, changedBy, note: note || null } });
   } catch (e) {
     console.error("[admin-orders:PUT status]", e);
     return res.status(500).json({ success:false, error:{ code:"SERVER", message:"Failed to update status" } });
@@ -419,10 +503,10 @@ router.patch("/:idOrNumber", (req, res) => {
         currency: providedCurrency ? (currency || null) : undefined,
       });
 
-      // Append history if status changed
+      // Append unified V2 history if status changed
       const changedBy = req.session?.user?.id || null;
       if (providedStatus && status && before !== status) {
-        await appendStatusHistory(id, status, notesProvided ? (notes || null) : null, changedBy);
+        await appendStatusHistory(id, before, status, notesProvided ? (notes || null) : null, changedBy);
       }
 
       return res.json({ success: true, order: overlayResult, message: "Order updated" });
