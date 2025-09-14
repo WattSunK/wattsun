@@ -118,6 +118,27 @@ function validateTransition(prev, next, effectiveDriverId) {
 router.get("/_diag/ping", (req, res) => {
   res.json({ success: true, time: new Date().toISOString() });
 });
+// List drivers for the edit modal (active by default)
+router.get("/drivers", async (req, res) => {
+  const db = new sqlite3.Database(DB_PATH);
+  try {
+    const activeOnly = String(req.query.active ?? "1") !== "0";
+    const rows = await allAsync(
+      db,
+      `SELECT id, name, email, phone, status
+         FROM users
+        WHERE lower(type) = 'driver'
+          ${activeOnly ? "AND (status IS NULL OR lower(status) = 'active')" : ""}
+        ORDER BY COALESCE(NULLIF(name,''), email) COLLATE NOCASE, id`
+    );
+    return res.json({ success: true, drivers: rows });
+  } catch (err) {
+    console.error("[admin-dispatch:list-drivers]", err);
+    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
+  } finally {
+    db.close();
+  }
+});
 
 // --- List (paginated, UI-friendly) -----------------------------------------
 router.get("/", async (req, res) => {

@@ -75,8 +75,8 @@
         <td>${r.id ?? ""}</td>
         <td>${r.order_id ?? r.orderNumber ?? ""}</td>
         <td>${r.status ?? ""}</td>
-        <td>${r.driver_id ?? r.driverId ?? r.driverName ?? ""}</td>
-        <td>${r.planned_date ?? ""}</td>
+        <td>${r.driverName ?? (r.driver_id != null ? r.driver_id : "Unassigned")}</td>
+        <td>${r.planned_date ?? "—"}</td>
         <td>${r.updated_at ?? ""}</td>
       
     <td class="actions">

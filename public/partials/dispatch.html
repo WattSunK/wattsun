@@ -107,10 +107,11 @@
       </div>
 
       <div class="row">
-        <label for="de-driver">Driver ID</label>
-        <input id="de-driver" class="input" inputmode="numeric" pattern="\\d*" placeholder="e.g. 2" />
-        <label class="check"><input type="checkbox" id="de-unassign" /> Unassign</label>
-      </div>
+      <label for="de-driver">Driver ID</label>
+      <input id="de-driver" class="input" list="drivers-list" inputmode="numeric" pattern="\\d*" placeholder="e.g. 2" />
+      <datalist id="drivers-list"></datalist>
+      <label class="check"><input type="checkbox" id="de-unassign" /> Unassign</label>
+    </div>
 
       <div class="row">
         <label for="de-date">Planned date</label>
