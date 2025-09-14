@@ -101,6 +101,7 @@
           <option>Assigned</option>
           <option>InTransit</option>
           <option>Canceled</option>
+          <option>Delivered</option>
         </select>
       </div>
 
@@ -124,10 +125,13 @@
 
       <!-- History panel (hidden by default) -->
       <div class="row">
+        <button type="button" class="btn btn-ghost" id="de-history-more">Load more</button>
+        <button type="button" class="btn btn-ghost" id="de-history-csv">Export CSV</button>
         <div id="de-history" class="history" aria-live="polite"></div>
       </div>
 
     <div class="row right">
+      <button type="button" class="btn btn-ghost" id="de-delivered">Mark Delivered</button>
       <button type="button" class="btn btn-ghost" id="de-history-btn">History</button>
       <button type="button" class="btn btn-ghost" id="de-cancel">Cancel</button>
       <button type="submit" class="btn" id="de-save">Save</button>

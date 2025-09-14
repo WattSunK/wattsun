@@ -1,6 +1,5 @@
 // public/admin/js/dispatch-edit-modal.js
 (function () {
-  const rootSel = '#dispatch-root';
   const $ = (s, el = document) => el.querySelector(s);
 
   const modal = $('#dispatch-edit');
@@ -14,6 +13,7 @@
   const fClrDt = $('#de-clear-date');
   const fNotes = $('#de-notes');
   const btnCancel = $('#de-cancel');
+  const btnDelivered = $('#de-delivered');
 
   // ---------- Drivers datalist (single-line "id — name") ----------
   const fList = document.querySelector('#drivers-list');
@@ -30,8 +30,6 @@
     driversCache = data.drivers || [];
 
     if (fList) {
-      // Single line per option by putting BOTH id and name into the value.
-      // Example: "2 — Maina Kamunyu"
       fList.innerHTML = driversCache.map(d => {
         const label = (d.name && d.name.trim()) || d.email || `Driver ${d.id}`;
         const oneLine = `${d.id} — ${label}`;
@@ -88,6 +86,7 @@
     toggleDriverField();
     // Reset history cache for a new row
     histLoadedFor = null;
+    histLimit = HIST_DEFAULT_LIMIT;
   }
 
   // ---------- Disable/enable driver input when Unassign is checked ----------
@@ -103,13 +102,10 @@
   function resolveDriverId(input) {
     const s = (input || '').trim();
     if (!s) return null;
-    // 1) "2"  (just an id)
-    if (/^\d+$/.test(s)) return Number(s);
-    // 2) "2 — Name"  (combined)
-    const m = s.match(/^\s*(\d+)\b/);
+    if (/^\d+$/.test(s)) return Number(s);        // "2"
+    const m = s.match(/^\s*(\d+)\b/);             // "2 — Name"
     if (m) return Number(m[1]);
-    // 3) Name/email lookup
-    if (!driversCache) return null;
+    if (!driversCache) return null;               // typed name/email
     const low = s.toLowerCase();
     const hit = driversCache.find(d =>
       (d.name && d.name.toLowerCase() === low) ||
@@ -121,9 +117,14 @@
   // ---------- History (read-only) ----------
   const histBox = document.querySelector('#de-history');
   const histBtn = document.querySelector('#de-history-btn');
+  const histMoreBtn = document.querySelector('#de-history-more');
+  const histCsvBtn  = document.querySelector('#de-history-csv');
+
+  const HIST_DEFAULT_LIMIT = 20;
+  let histLimit = HIST_DEFAULT_LIMIT;
   let histLoadedFor = null;
 
-  async function fetchHistory(dispatchId, limit = 20) {
+  async function fetchHistory(dispatchId, limit) {
     const res = await fetch(`/api/admin/dispatches/${dispatchId}/history?limit=${limit}`, { credentials: 'include' });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !(data.success || data.ok)) {
@@ -134,7 +135,6 @@
   }
 
   function fmtWhen(s) {
-    // s may be "YYYY-MM-DD HH:mm:ss"; normalize for Date
     const v = s?.includes(' ') ? s.replace(' ', 'T') : s;
     const d = v ? new Date(v) : null;
     return d && !isNaN(d) ? d.toLocaleString() : (s || '');
@@ -174,17 +174,52 @@
     histBtn.textContent = showing ? 'Hide history' : 'History';
     if (!showing) return;
 
+    // Reset to default limit whenever opening
+    histLimit = HIST_DEFAULT_LIMIT;
+
     // Load once per id or refresh if different dispatch
-    if (histLoadedFor !== id) {
-      histBox.innerHTML = `<div class="loading">Loading…</div>`;
-      try {
-        const list = await fetchHistory(id, 20);
-        renderHistory(list);
-        histLoadedFor = id;
-      } catch (err) {
-        histBox.innerHTML = `<div class="error">${err.message || 'Failed to load history'}</div>`;
-      }
+    histBox.innerHTML = `<div class="loading">Loading…</div>`;
+    try {
+      const list = await fetchHistory(id, histLimit);
+      renderHistory(list);
+      histLoadedFor = id;
+    } catch (err) {
+      histBox.innerHTML = `<div class="error">${err.message || 'Failed to load history'}</div>`;
     }
+  });
+
+  histMoreBtn?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (!histBox?.classList.contains('show')) return;
+    const id = fId.value;
+    if (!id) return;
+    histLimit += HIST_DEFAULT_LIMIT; // bump page size
+    try {
+      const list = await fetchHistory(id, histLimit);
+      renderHistory(list);
+    } catch (err) {
+      console.warn('[history more]', err);
+    }
+  });
+
+  histCsvBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const id = fId.value;
+    if (!id) return;
+    // Let the browser download the CSV with session cookie
+    window.open(`/api/admin/dispatches/${id}/history.csv?limit=${Math.max(histLimit, HIST_DEFAULT_LIMIT)}`, '_blank');
+  });
+
+  // ---------- Mark Delivered quick action ----------
+  btnDelivered?.addEventListener('click', (e) => {
+    e.preventDefault();
+    fStat.value = 'Delivered';
+    // Delivered implies still assigned; don't force unassign
+    fUnas.checked = false;
+    toggleDriverField();
+    // Submit immediately
+    if (form.requestSubmit) form.requestSubmit();
+    else form.submit();
   });
 
   // ---------- Open modal ----------
@@ -224,12 +259,13 @@
       }
     }).catch(err => console.warn('[drivers]', err));
 
-    // Reset/close history view when reopening modal for a different row
+    // Close history when switching rows
     if (histBox?.classList.contains('show')) {
       histBox.classList.remove('show');
       histBtn && (histBtn.textContent = 'History');
     }
     histLoadedFor = null;
+    histLimit = HIST_DEFAULT_LIMIT;
 
     toggleDriverField();
     show();
@@ -257,7 +293,6 @@
     if (fClrDt.checked) {
       payload.planned_date = null;
     } else if (fDate.value.trim() !== '') {
-      // Normalize dd/mm/yyyy -> yyyy-mm-dd if needed (some browsers format locale)
       const s = fDate.value.trim();
       if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
         const [dd, mm, yyyy] = s.split('/');
@@ -279,7 +314,7 @@
 
       // If history is visible, refresh it
       if (histBox?.classList.contains('show') && fId.value) {
-        try { renderHistory(await fetchHistory(fId.value, 20)); } catch {}
+        try { renderHistory(await fetchHistory(fId.value, histLimit)); } catch {}
       }
     } catch (err) {
       alert(err.message || 'Update failed');

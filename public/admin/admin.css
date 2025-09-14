@@ -390,3 +390,5 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 #dispatch-edit .history .badge--new { background: #eef6ff; border-color: #d7e9ff; }
 #dispatch-edit .history .arrow { opacity: .7; }
 #dispatch-edit .history .empty, #dispatch-edit .history .loading, #dispatch-edit .history .error { color: #666; padding: 8px; }
+
+#dispatch-edit .history + .row .btn { margin-right: 6px; }

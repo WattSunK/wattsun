@@ -31,14 +31,16 @@ function runAsync(db, sql, params) {
 }
 
 // --- Helpers ---------------------------------------------------------------
-const ALLOWED_STATUSES = new Set(["Created", "Assigned", "InTransit", "Canceled"]);
+const ALLOWED_STATUSES = new Set(["Created", "Assigned", "InTransit", "Delivered", "Canceled"]);
 
 // Finite-state map (conservative defaults aligned to your rules)
+
 const NEXT_ALLOWED = {
   Created:   new Set(["Created", "Assigned", "Canceled"]),
-  Assigned:  new Set(["Assigned", "InTransit", "Canceled", "Created"]), // allow revert to Created (unassign)
-  InTransit: new Set(["InTransit", "Canceled", "Assigned", "Created"]),
-  Canceled:  new Set(["Created"]),               // can only leave Canceled to Created
+  Assigned:  new Set(["Assigned", "InTransit", "Canceled", "Created"]),
+  InTransit: new Set(["InTransit", "Delivered", "Canceled", "Assigned", "Created"]),
+  Delivered: new Set(["InTransit"]),
+  Canceled:  new Set(["Created"]),
 };
 
 function isIsoDate(s) {
@@ -151,6 +153,56 @@ router.get("/:id/history", async (req, res) => {
   } catch (err) {
     console.error("[admin-dispatch:history]", err);
     return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
+  } finally {
+    db.close();
+  }
+});
+// CSV export of history
+router.get("/:id/history.csv", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) {
+    return res.status(400).send("BAD_ID");
+  }
+  const limit = Math.min(5000, Math.max(1, parseInt(req.query.limit ?? "1000", 10)));
+
+  const db = new sqlite3.Database(DB_PATH);
+  try {
+    const rows = await allAsync(
+      db,
+      `SELECT
+         h.id, h.dispatch_id, h.old_status, h.new_status,
+         h.changed_by, u.name AS changed_by_name, u.email AS changed_by_email,
+         h.note, h.changed_at
+       FROM dispatch_status_history h
+       LEFT JOIN users u ON u.id = h.changed_by
+       WHERE h.dispatch_id = ?
+       ORDER BY h.changed_at DESC, h.id DESC
+       LIMIT ?`,
+      [id, limit]
+    );
+
+    const esc = (v) => {
+      if (v == null) return "";
+      const s = String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = [
+      "id","dispatch_id","old_status","new_status",
+      "changed_by","changed_by_name","changed_by_email","note","changed_at"
+    ].join(",");
+    const body = rows.map(r =>
+      [r.id,r.dispatch_id,r.old_status,r.new_status,
+       r.changed_by,r.changed_by_name,r.changed_by_email,r.note,r.changed_at]
+      .map(esc).join(",")
+    ).join("\n");
+    const csv = header + "\n" + body + "\n";
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="dispatch_${id}_history.csv"`);
+    return res.send(csv);
+  } catch (err) {
+    console.error("[admin-dispatch:history.csv]", err);
+    return res.status(500).send("SERVER_ERROR");
   } finally {
     db.close();
   }
