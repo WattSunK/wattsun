@@ -118,6 +118,45 @@ function validateTransition(prev, next, effectiveDriverId) {
 router.get("/_diag/ping", (req, res) => {
   res.json({ success: true, time: new Date().toISOString() });
 });
+
+// Read status history for a dispatch (most recent first)
+router.get("/:id/history", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ success: false, error: { code: "BAD_ID", message: "Invalid id" } });
+  }
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit ?? "20", 10)));
+
+  const db = new sqlite3.Database(DB_PATH);
+  try {
+    const rows = await allAsync(
+      db,
+      `SELECT
+         h.id,
+         h.dispatch_id,
+         h.old_status,
+         h.new_status,
+         h.changed_by,
+         u.name  AS changed_by_name,
+         u.email AS changed_by_email,
+         h.note,
+         h.changed_at
+       FROM dispatch_status_history h
+       LEFT JOIN users u ON u.id = h.changed_by
+       WHERE h.dispatch_id = ?
+       ORDER BY h.changed_at DESC, h.id DESC
+       LIMIT ?`,
+      [id, limit]
+    );
+    return res.json({ success: true, history: rows });
+  } catch (err) {
+    console.error("[admin-dispatch:history]", err);
+    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
+  } finally {
+    db.close();
+  }
+});
+
 // List drivers for the edit modal (active by default)
 router.get("/drivers", async (req, res) => {
   const db = new sqlite3.Database(DB_PATH);

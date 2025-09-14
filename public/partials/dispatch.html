@@ -122,10 +122,17 @@
         <textarea id="de-notes" class="input" rows="3" placeholder="Optional note…"></textarea>
       </div>
 
-      <div class="row right">
-        <button type="button" class="btn btn-ghost" id="de-cancel">Cancel</button>
-        <button type="submit" class="btn" id="de-save">Save</button>
+      <!-- History panel (hidden by default) -->
+      <div class="row">
+        <div id="de-history" class="history" aria-live="polite"></div>
       </div>
+
+    <div class="row right">
+      <button type="button" class="btn btn-ghost" id="de-history-btn">History</button>
+      <button type="button" class="btn btn-ghost" id="de-cancel">Cancel</button>
+      <button type="submit" class="btn" id="de-save">Save</button>
+    </div>
+
     </form>
   </div>
 </div>

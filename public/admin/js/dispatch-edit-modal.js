@@ -86,6 +86,8 @@
     fUnas.checked = false;
     fClrDt.checked = false;
     toggleDriverField();
+    // Reset history cache for a new row
+    histLoadedFor = null;
   }
 
   // ---------- Disable/enable driver input when Unassign is checked ----------
@@ -115,6 +117,75 @@
     );
     return hit ? Number(hit.id) : null;
   }
+
+  // ---------- History (read-only) ----------
+  const histBox = document.querySelector('#de-history');
+  const histBtn = document.querySelector('#de-history-btn');
+  let histLoadedFor = null;
+
+  async function fetchHistory(dispatchId, limit = 20) {
+    const res = await fetch(`/api/admin/dispatches/${dispatchId}/history?limit=${limit}`, { credentials: 'include' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !(data.success || data.ok)) {
+      const msg = data?.error?.message || `Failed to load history (${res.status})`;
+      throw new Error(msg);
+    }
+    return data.history || [];
+  }
+
+  function fmtWhen(s) {
+    // s may be "YYYY-MM-DD HH:mm:ss"; normalize for Date
+    const v = s?.includes(' ') ? s.replace(' ', 'T') : s;
+    const d = v ? new Date(v) : null;
+    return d && !isNaN(d) ? d.toLocaleString() : (s || '');
+  }
+
+  function renderHistory(items) {
+    if (!histBox) return;
+    if (!items.length) {
+      histBox.innerHTML = `<div class="empty">No history yet.</div>`;
+      return;
+    }
+    histBox.innerHTML = items.map((h, idx) => {
+      const who = h.changed_by_name || h.changed_by_email || (h.changed_by != null ? `User ${h.changed_by}` : '—');
+      const note = h.note ? `<div class="note">${h.note}</div>` : '';
+      return `
+        <div class="item ${idx === 0 ? 'first' : ''}">
+          <div class="when">${fmtWhen(h.changed_at)}</div>
+          <div class="change">
+            <span class="badge">${h.old_status ?? '—'}</span>
+            <span class="arrow">→</span>
+            <span class="badge badge--new">${h.new_status}</span>
+          </div>
+          <div class="who">by ${who}</div>
+          ${note}
+        </div>`;
+    }).join('');
+  }
+
+  histBtn?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (!histBox) return;
+    const id = fId.value;
+    if (!id) return;
+
+    // Toggle open/close
+    const showing = histBox.classList.toggle('show');
+    histBtn.textContent = showing ? 'Hide history' : 'History';
+    if (!showing) return;
+
+    // Load once per id or refresh if different dispatch
+    if (histLoadedFor !== id) {
+      histBox.innerHTML = `<div class="loading">Loading…</div>`;
+      try {
+        const list = await fetchHistory(id, 20);
+        renderHistory(list);
+        histLoadedFor = id;
+      } catch (err) {
+        histBox.innerHTML = `<div class="error">${err.message || 'Failed to load history'}</div>`;
+      }
+    }
+  });
 
   // ---------- Open modal ----------
   document.addEventListener('click', (e) => {
@@ -152,6 +223,13 @@
         }
       }
     }).catch(err => console.warn('[drivers]', err));
+
+    // Reset/close history view when reopening modal for a different row
+    if (histBox?.classList.contains('show')) {
+      histBox.classList.remove('show');
+      histBtn && (histBtn.textContent = 'History');
+    }
+    histLoadedFor = null;
 
     toggleDriverField();
     show();
@@ -198,6 +276,11 @@
       await patch(id, payload);
       hide();
       document.dispatchEvent(new CustomEvent('admin:dispatch:refresh'));
+
+      // If history is visible, refresh it
+      if (histBox?.classList.contains('show') && fId.value) {
+        try { renderHistory(await fetchHistory(fId.value, 20)); } catch {}
+      }
     } catch (err) {
       alert(err.message || 'Update failed');
     }
