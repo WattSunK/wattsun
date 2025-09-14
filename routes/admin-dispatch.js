@@ -66,18 +66,17 @@ async function ensureOrderExists(db, orderId) {
   }
 }
 
+// Ensure driver exists and is an active Driver, when provided
 async function ensureDriverValidIfProvided(db, driverId) {
   if (driverId == null) return; // allow unassign
   const d = await getAsync(
     db,
-    `SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1`,
+    `SELECT id, type, status FROM users WHERE id = ? LIMIT 1`,
     [driverId]
   );
-  const ok =
-    d &&
-    (d.type === "Driver" || d.role === "Driver") &&
-    (!d.status || String(d.status).toLowerCase() !== "inactive");
-  if (!ok) {
+  const isDriver   = (d?.type || '').toLowerCase() === 'driver';
+  const isInactive = (d?.status || '').toLowerCase() === 'inactive';
+  if (!d || !isDriver || isInactive) {
     const err = new Error("driver_id must reference an active Driver");
     err.http = 400;
     err.code = "NOT_DRIVER";
