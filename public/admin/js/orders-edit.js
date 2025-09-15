@@ -5,7 +5,7 @@
 // - MutationObserver upgrades if a legacy modal is injected later
 //
 // + Non-invasive polish (20250915-06p):
-//   * View modal: format money + items list (uses existing elements only)
+//   * View modal: format money + items list (uses table rows in tbody#ov_items)
 //   * Edit modal: hover tooltips preview currency units while inputs remain in cents
 //   * Lightweight orders:view handler that fetches when only an id is provided
 
@@ -18,7 +18,7 @@
   const ALLOWED_STATUSES = ["Pending","Confirmed","Dispatched","Delivered","Closed","Cancelled"];
 
   // ------------------------------------------------------------------
-  // Non-invasive helpers for money formatting (UI only; save stays cents)
+  // Helpers
   // ------------------------------------------------------------------
   const DEFAULT_CURRENCY = "KES";
   const DEFAULT_LOCALE = "en-KE";
@@ -32,18 +32,15 @@
 
   const fromCents = (cents) => (cents == null || cents === "" ? null : Number(cents) / 100);
 
-  // ---------- modal loader (upgrade legacy -> new) ----------
+  // ---------- modal loader ----------
   async function ensureOrdersModalLoadedOnce() {
     const existing = document.getElementById("orderEditModal");
 
-    // If modal exists, check if it's the new one (has history or is tagged)
     if (existing) {
       const hasHistory = !!existing.querySelector("#order-history");
       const isTagged   = existing.getAttribute("data-osh") === "5.7";
-      if (hasHistory || isTagged) return; // already upgraded
+      if (hasHistory || isTagged) return;
       console.debug("[orders-edit] legacy modal detected — replacing with new modal…");
-    } else {
-      console.debug("[orders-edit] no modal present — injecting new modal…");
     }
 
     const res = await fetch("/partials/orders-modal.html?v=20250915-01", { credentials: "include" });
@@ -73,7 +70,7 @@
     console.debug("[orders-edit] modal injected from /partials/orders-modal.html");
   }
 
-  // Guard: if someone injects a legacy #orderEditModal later, auto-upgrade it.
+  // Guard: auto-upgrade legacy modal if injected later
   const mo = new MutationObserver((muts) => {
     for (const m of muts) {
       for (const n of m.addedNodes) {
@@ -87,27 +84,25 @@
   });
   mo.observe(document.documentElement, { childList: true, subtree: true });
 
-  // Lazily refreshed references after we inject/replace the modal
+  // Refs
   let dlg, form, btnSave, btnCancel, lblId, selStatus, selDriver, txtNotes;
   let inpTotalCents, inpDepositCents, inpCurrency;
 
   function refreshRefs() {
-    dlg  = document.getElementById("orderEditModal") || document.getElementById("ordersEditModal");
-    form = document.getElementById("orderEditForm")
-        || document.getElementById("ordersEditForm")
-        || (dlg && dlg.querySelector("form"));
+    dlg  = document.getElementById("orderEditModal");
+    form = document.getElementById("orderEditForm") || (dlg && dlg.querySelector("form"));
 
-    btnSave   = document.getElementById("oemSave")        || document.getElementById("orderSaveBtn")   || document.getElementById("editSaveBtn");
-    btnCancel = document.getElementById("oemCancel")      || document.getElementById("orderCancelBtn") || document.getElementById("cancelEditBtn");
-    lblId     = document.getElementById("oemOrderId")     || document.getElementById("orderEditId");
+    btnSave   = document.getElementById("oemSave");
+    btnCancel = document.getElementById("oemCancel");
+    lblId     = document.getElementById("oemOrderId");
 
-    selStatus = document.getElementById("orderStatus")    || document.getElementById("editStatus");
-    selDriver = document.getElementById("orderDriver")    || document.getElementById("editDriver");
-    txtNotes  = document.getElementById("orderNotes")     || document.getElementById("editNotes");
+    selStatus = document.getElementById("orderStatus");
+    selDriver = document.getElementById("orderDriver");
+    txtNotes  = document.getElementById("orderNotes");
 
-    inpTotalCents   = document.getElementById("orderTotal")    || document.getElementById("editTotalCents")   || document.getElementById("totalCents")   || null;
-    inpDepositCents = document.getElementById("orderDeposit")  || document.getElementById("editDepositCents") || document.getElementById("depositCents") || null;
-    inpCurrency     = document.getElementById("orderCurrency") || document.getElementById("editCurrency")     || document.getElementById("currency")     || null;
+    inpTotalCents   = document.getElementById("orderTotal");
+    inpDepositCents = document.getElementById("orderDeposit");
+    inpCurrency     = document.getElementById("orderCurrency");
   }
 
   const toast = (msg, type = "info") => (window.toast ? window.toast(msg, type) : alert(msg));
@@ -125,12 +120,11 @@
     selStatus.value = ALLOWED_STATUSES.includes(current) ? current : "Pending";
   }
 
-  // --- Drivers cache
+  // Drivers
   let _driversCache = null; let _driversAt = 0;
   async function loadDrivers(selectedId) {
     if (!selDriver) return;
     selDriver.innerHTML = `<option value="">— Select driver —</option>`;
-
     const now = Date.now();
     if (_driversCache && (now - _driversAt) < 5 * 60 * 1000) {
       renderDrivers(_driversCache, selectedId); return;
@@ -152,7 +146,7 @@
       users.map(u => `<option value="${u.id}" ${Number(u.id)===Number(selectedId)?"selected":""}>${u.name || u.email || `Driver #${u.id}`} ${u.phone?`(${u.phone})`:""}</option>`).join("");
   }
 
-  // --- API calls
+  // API
   async function apiGetOrder(id) {
     const r = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, { credentials: "include" });
     if (!r.ok) throw new Error(`GET /orders/${id} failed: ${r.status}`);
@@ -173,20 +167,14 @@
     return j.order || payload;
   }
 
-  // --- State
+  // State
   let currentId = null;
   let initial = { status: "Pending", driverId: null, notes: "", totalCents: null, depositCents: null, currency: null };
 
   async function openFor(id) {
     if (!id) return;
-
-    await ensureOrdersModalLoadedOnce(); // make sure we have the new modal
+    await ensureOrdersModalLoadedOnce();
     refreshRefs();
-
-    if (!dlg || !form || !selStatus || !selDriver || !txtNotes) {
-      console.warn("[orders-edit] Modal elements missing; binder aborted.");
-      return;
-    }
 
     currentId = id;
     if (lblId) lblId.textContent = id;
@@ -219,7 +207,6 @@
 
       await loadDrivers(driverId);
 
-      // --- NEW: set up and refresh preview tooltips (non-invasive)
       attachEditPreviewsOnce();
       updateMoneyPreviewTitles();
     } catch (e) {
@@ -284,7 +271,7 @@
     }
   }
 
-  // Ensure Save works even if the button is outside the <form> or is type="button"
+  // Ensure Save works if outside form
   document.addEventListener("click", (e) => {
     const t = e.target;
     if (!(t instanceof HTMLElement)) return;
@@ -296,7 +283,7 @@
   }, true);
 
   // ----------------------------------------------------
-  // NEW: View modal filler (no DOM/CSS changes required)
+  // View modal filler (now uses table rows for items)
   // ----------------------------------------------------
   function fillViewModal(order) {
     const get = (id) => document.getElementById(id);
@@ -315,12 +302,11 @@
     (get('ov_total')    || {}).textContent = money(fromCents(order.totalCents ?? order.total), curr);
     (get('ov_deposit')  || {}).textContent = money(fromCents(order.depositCents ?? order.deposit), curr);
 
-    // --- switched from <li> to table rows in <tbody id="ov_items"> ---
-    const body = get('ov_items'); // tbody inside the Items table
+    // Items as table rows
+    const body = get('ov_items');
     if (body) {
       body.innerHTML = "";
-      const items = Array.isArray(order.items) ? order.items : [];
-      for (const it of items) {
+      (order.items || []).forEach(it => {
         const tr = document.createElement('tr');
         const qty = Number(it.qty ?? it.quantity ?? 0);
         const priceUnits = fromCents(it.priceCents ?? it.price);
@@ -331,16 +317,13 @@
           <td class="num">${money(lineUnits, curr)}</td>
         `;
         body.appendChild(tr);
-      }
+      });
     }
   }
 
-  // -------------------------------------------------------------------
-  // NEW: Non-invasive tooltips for Edit money fields (remain in cents)
-  // -------------------------------------------------------------------
+  // Tooltips for Edit cents fields
   function updateMoneyPreviewTitles() {
     const curr = (inpCurrency?.value || DEFAULT_CURRENCY).toUpperCase();
-
     if (inpTotalCents) {
       const u = fromCents(inpTotalCents.value);
       inpTotalCents.title = u == null ? "" : money(u, curr);
@@ -350,11 +333,9 @@
       inpDepositCents.title = u == null ? "" : money(u, curr);
     }
   }
-
   function attachEditPreviewsOnce() {
     if (attachEditPreviewsOnce._done) return;
     attachEditPreviewsOnce._done = true;
-
     const onInput = () => updateMoneyPreviewTitles();
     inpTotalCents?.addEventListener("input", onInput);
     inpDepositCents?.addEventListener("input", onInput);
@@ -363,25 +344,20 @@
   }
 
   // --------- EVENT BINDINGS ---------
-
-  // (A) Capture-phase interception so legacy handlers cannot open the old modal
   document.addEventListener("click", (e) => {
-    const btn = e.target.closest('.btn-edit[data-oid], [data-action="edit-order"][data-oid]');
+    const btn = e.target.closest('.btn-edit[data-oid]');
     if (!btn) return;
-    // capture listener; stop others from handling this click
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
     const id = btn.getAttribute("data-oid");
     openFor(id);
-  }, true); // <-- capture = true
+  }, true);
 
-  // Back-compat: programmatic event path (orders:edit)
   window.addEventListener("orders:edit", (e) => {
     const id = e?.detail?.id; if (id) openFor(id);
   });
 
-  // NEW: programmatic path (orders:view) for the read-only dialog
   window.addEventListener("orders:view", async (e) => {
     try {
       await ensureOrdersModalLoadedOnce();
@@ -399,23 +375,19 @@
     }
   });
 
-  // Bind Cancel/Save within the injected modal
   document.addEventListener("click", (e) => {
-    if (e.target && (e.target.id === "oemCancel" || e.target.id === "orderCancelBtn" || e.target.id === "cancelEditBtn")) {
+    if (e.target && (e.target.id === "oemCancel")) {
       e.preventDefault(); closeDialog();
     }
   });
   document.addEventListener("submit", (e) => {
-    const f = e.target;
-    if (f && (f.id === "orderEditForm" || f.id === "ordersEditForm")) {
+    if (e.target && e.target.id === "orderEditForm") {
       e.preventDefault(); doSave();
     }
   });
 
-  // (B) Proactive upgrade when Orders partial loads
   window.addEventListener("admin:partial-loaded", (e) => {
-    const name = e?.detail?.partial || e?.detail?.name;
-    if (name === "orders") {
+    if (e?.detail?.partial === "orders") {
       ensureOrdersModalLoadedOnce().catch(console.error);
     }
   });
