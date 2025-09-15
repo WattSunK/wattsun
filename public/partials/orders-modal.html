@@ -11,52 +11,46 @@
     </header>
 
     <section class="modal-body">
-      <div class="grid rows">
-        <div class="row">
-          <label>Order #</label>
-          <div><span id="ov_orderNumber"></span></div>
-        </div>
-        <div class="row">
-          <label>Customer</label>
-          <div><span id="ov_fullName"></span></div>
-        </div>
-        <div class="row">
-          <label>Phone</label>
-          <div><span id="ov_phone"></span></div>
-        </div>
-        <div class="row">
-          <label>Email</label>
-          <div><span id="ov_email"></span></div>
-        </div>
-        <div class="row">
-          <label>Status</label>
-          <div><span id="ov_status"></span></div>
-        </div>
-        <div class="row">
-          <label>Total</label>
-          <div><span id="ov_total"></span></div>
-        </div>
-        <div class="row">
-          <label>Deposit</label>
-          <div><span id="ov_deposit"></span></div>
-        </div>
-        <div class="row">
-          <label>Currency</label>
-          <div><span id="ov_currency"></span></div>
-        </div>
-        <div class="row">
-          <label>Address</label>
-          <div><span id="ov_address"></span></div>
-        </div>
-        <div class="row">
-          <label>Created</label>
-          <div><span id="ov_createdAt"></span></div>
-        </div>
-        <div class="row">
-          <label>Items</label>
-          <div>
-            <ul id="ov_items"></ul>
+      <div class="grid two">
+        <!-- Left column -->
+        <div class="card soft">
+          <h3 class="section-title">Summary</h3>
+          <div class="rows">
+            <div class="row"><label>Order #</label><div><span id="ov_orderNumber"></span></div></div>
+            <div class="row"><label>Status</label><div><span id="ov_status"></span></div></div>
+            <div class="row"><label>Created</label><div><span id="ov_createdAt"></span></div></div>
+            <div class="row"><label>Address</label><div><span id="ov_address"></span></div></div>
           </div>
+        </div>
+
+        <!-- Right column -->
+        <div class="card soft">
+          <h3 class="section-title">Customer &amp; Money</h3>
+          <div class="rows">
+            <div class="row"><label>Customer</label><div><span id="ov_fullName"></span></div></div>
+            <div class="row"><label>Phone</label><div><span id="ov_phone"></span></div></div>
+            <div class="row"><label>Email</label><div><span id="ov_email"></span></div></div>
+            <div class="row"><label>Total</label><div><span id="ov_total"></span></div></div>
+            <div class="row"><label>Deposit</label><div><span id="ov_deposit"></span></div></div>
+            <div class="row"><label>Currency</label><div><span id="ov_currency"></span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Items table -->
+      <div class="card soft">
+        <h3 class="section-title">Items</h3>
+        <div class="table-wrap">
+          <table class="table compact" id="ov_items_table">
+            <thead>
+              <tr>
+                <th class="num" style="width:72px">Qty</th>
+                <th>Name</th>
+                <th class="num" style="width:150px">Line Total</th>
+              </tr>
+            </thead>
+            <tbody id="ov_items"><!-- rows injected by JS --></tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -132,7 +126,7 @@
       </div>
     </form>
 
-    <!-- ========= Orders → History (Step 5.7) ========= -->
+    <!-- ========= Orders → History ========= -->
     <section id="order-history" class="card" data-history-ready="0" hidden>
       <header class="card-header">
         <h3 class="card-title">History</h3>
@@ -167,7 +161,6 @@
 
 <!-- keep any script block you already have in this partial -->
 <script>
-  // Minimal close wiring for view + edit to avoid duplicate handlers elsewhere.
   (function () {
     const vDlg = document.getElementById('orderViewModal');
     const vBtns = document.querySelectorAll('[data-ov-close]');
@@ -175,7 +168,6 @@
       btn.addEventListener('click', () => { try { vDlg.close(); } catch { vDlg.removeAttribute('open'); } });
     });
 
-    // Edit dialog close buttons
     const eDlg = document.getElementById('orderEditModal');
     const el = document.getElementById('oemCancel');
     if (el && eDlg) {
