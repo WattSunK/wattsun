@@ -3,14 +3,34 @@
 // - Capture-phase click handler blocks legacy openers
 // - Proactive upgrade on partial load
 // - MutationObserver upgrades if a legacy modal is injected later
+//
+// + Non-invasive polish (20250915-06p):
+//   * View modal: format money + items list (uses existing elements only)
+//   * Edit modal: hover tooltips preview currency units while inputs remain in cents
+//   * Lightweight orders:view handler that fetches when only an id is provided
 
 (function OrdersEditModule() {
   "use strict";
 
-  const BUILD_TAG = "v20250915-04";
+  const BUILD_TAG = "v20250915-06p";
   console.debug(`[orders-edit] loader active ${BUILD_TAG}`);
 
   const ALLOWED_STATUSES = ["Pending","Confirmed","Dispatched","Delivered","Closed","Cancelled"];
+
+  // ------------------------------------------------------------------
+  // Non-invasive helpers for money formatting (UI only; save stays cents)
+  // ------------------------------------------------------------------
+  const DEFAULT_CURRENCY = "KES";
+  const DEFAULT_LOCALE = "en-KE";
+
+  const money = (units, currency = DEFAULT_CURRENCY, locale = DEFAULT_LOCALE) => {
+    if (units == null || units === "") return "—";
+    const n = Number(units);
+    if (!Number.isFinite(n)) return String(units);
+    return new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 2 }).format(n);
+  };
+
+  const fromCents = (cents) => (cents == null || cents === "" ? null : Number(cents) / 100);
 
   // ---------- modal loader (upgrade legacy -> new) ----------
   async function ensureOrdersModalLoadedOnce() {
@@ -198,6 +218,10 @@
       if (inpCurrency)     inpCurrency.value     = currency || "";
 
       await loadDrivers(driverId);
+
+      // --- NEW: set up and refresh preview tooltips (non-invasive)
+      attachEditPreviewsOnce();
+      updateMoneyPreviewTitles();
     } catch (e) {
       console.error("[orders-edit] load order failed", e);
       toast("Failed to load order.", "error");
@@ -218,12 +242,16 @@
     if (inpTotalCents) {
       const totalRaw = inpTotalCents.value;
       const totalVal = totalRaw === "" ? null : Number.parseInt(totalRaw, 10);
-      if (Number.isInteger(totalVal) && totalVal !== initial.totalCents) payload.totalCents = totalVal;
+      if ((totalVal === null) || Number.isInteger(totalVal)) {
+        if (totalVal !== initial.totalCents) payload.totalCents = totalVal;
+      }
     }
     if (inpDepositCents) {
       const depRaw = inpDepositCents.value;
       const depVal = depRaw === "" ? null : Number.parseInt(depRaw, 10);
-      if (Number.isInteger(depVal) && depVal !== initial.depositCents) payload.depositCents = depVal;
+      if ((depVal === null) || Number.isInteger(depVal)) {
+        if (depVal !== initial.depositCents) payload.depositCents = depVal;
+      }
     }
     if (inpCurrency) {
       const curRaw = (inpCurrency.value || "").trim();
@@ -256,6 +284,68 @@
     }
   }
 
+  // ----------------------------------------------------
+  // NEW: View modal filler (no DOM/CSS changes required)
+  // ----------------------------------------------------
+  function fillViewModal(order) {
+    const get = (id) => document.getElementById(id);
+
+    (get('ov_orderNumber') || {}).textContent = order.number || order.orderNo || order.id || "—";
+    (get('ov_status')      || {}).textContent = order.status || "—";
+    (get('ov_createdAt')   || {}).textContent = order.createdAt || order.created || "—";
+
+    (get('ov_fullName') || {}).textContent = order.customerName || order.customer || "—";
+    (get('ov_phone')    || {}).textContent = order.phone || "—";
+    (get('ov_email')    || {}).textContent = order.email || "—";
+    (get('ov_address')  || {}).textContent = order.address || order.deliveryAddress || "—";
+
+    const curr = order.currency || DEFAULT_CURRENCY;
+    (get('ov_currency') || {}).textContent = curr;
+    (get('ov_total')    || {}).textContent = money(fromCents(order.totalCents ?? order.total), curr);
+    (get('ov_deposit')  || {}).textContent = money(fromCents(order.depositCents ?? order.deposit), curr);
+
+    const ul = get('ov_items');
+    if (ul) {
+      ul.innerHTML = "";
+      const items = Array.isArray(order.items) ? order.items : [];
+      for (const it of items) {
+        const li = document.createElement('li');
+        const qty = Number(it.qty ?? it.quantity ?? 0);
+        const priceUnits = fromCents(it.priceCents ?? it.price);
+        const lineUnits = (Number(priceUnits) || 0) * qty;
+        li.textContent = `${qty} × ${it.name ?? it.sku ?? "Item"} — ${money(lineUnits, curr)}`;
+        ul.appendChild(li);
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------
+  // NEW: Non-invasive tooltips for Edit money fields (remain in cents)
+  // -------------------------------------------------------------------
+  function updateMoneyPreviewTitles() {
+    const curr = (inpCurrency?.value || DEFAULT_CURRENCY).toUpperCase();
+
+    if (inpTotalCents) {
+      const u = fromCents(inpTotalCents.value);
+      inpTotalCents.title = u == null ? "" : money(u, curr);
+    }
+    if (inpDepositCents) {
+      const u = fromCents(inpDepositCents.value);
+      inpDepositCents.title = u == null ? "" : money(u, curr);
+    }
+  }
+
+  function attachEditPreviewsOnce() {
+    if (attachEditPreviewsOnce._done) return;
+    attachEditPreviewsOnce._done = true;
+
+    const onInput = () => updateMoneyPreviewTitles();
+    inpTotalCents?.addEventListener("input", onInput);
+    inpDepositCents?.addEventListener("input", onInput);
+    inpCurrency?.addEventListener("input", onInput);
+    inpCurrency?.addEventListener("change", onInput);
+  }
+
   // --------- EVENT BINDINGS ---------
 
   // (A) Capture-phase interception so legacy handlers cannot open the old modal
@@ -273,6 +363,24 @@
   // Back-compat: programmatic event path (orders:edit)
   window.addEventListener("orders:edit", (e) => {
     const id = e?.detail?.id; if (id) openFor(id);
+  });
+
+  // NEW: programmatic path (orders:view) for the read-only dialog
+  window.addEventListener("orders:view", async (e) => {
+    try {
+      await ensureOrdersModalLoadedOnce();
+      let payload = e?.detail?.order || e?.detail || {};
+      if (!payload.items && (payload.id || payload.orderId || payload.number)) {
+        const id = payload.id || payload.orderId || payload.number;
+        payload = await apiGetOrder(id) || payload;
+      }
+      fillViewModal(payload);
+      const v = document.getElementById("orderViewModal");
+      if (v?.showModal) v.showModal();
+      else v?.setAttribute("open", "true");
+    } catch (err) {
+      console.error("[orders-edit] view open failed", err);
+    }
   });
 
   // Bind Cancel/Save within the injected modal
