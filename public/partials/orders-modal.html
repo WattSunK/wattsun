@@ -7,7 +7,7 @@
   <div class="modal-card">
     <header class="modal-header">
       <h3 id="ov_title">Order</h3>
-      <button type="button" data-ov-close class="btn ghost small">Close</button>
+      <!-- header close removed to avoid duplicate -->
     </header>
 
     <section class="modal-body">
@@ -74,7 +74,7 @@
   <div class="modal-card">
     <header class="modal-header">
       <h3 id="oem_title">Edit Order</h3>
-      <button type="button" class="btn ghost small" id="oemCancelX">Close</button>
+      <!-- header close removed to avoid duplicate -->
     </header>
 
     <form id="orderEditForm" class="modal-body" method="dialog">
@@ -177,12 +177,9 @@
 
     // Edit dialog close buttons
     const eDlg = document.getElementById('orderEditModal');
-    const cancelers = ['oemCancel', 'oemCancelX'];
-    cancelers.forEach(id => {
-      const el = document.getElementById(id);
-      if (el && eDlg) {
-        el.addEventListener('click', () => { try { eDlg.close(); } catch { eDlg.removeAttribute('open'); } });
-      }
-    });
+    const el = document.getElementById('oemCancel');
+    if (el && eDlg) {
+      el.addEventListener('click', () => { try { eDlg.close(); } catch { eDlg.removeAttribute('open'); } });
+    }
   })();
 </script>
