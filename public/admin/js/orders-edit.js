@@ -1,232 +1,298 @@
-/* Orders — View & Edit modal binder (admin.css classes, robust fetch, money units) */
-(() => {
-  const VER = "20250915-06p"; // publish tag
+// public/admin/js/orders-edit.js
+// Incremental upgrade: make sure the legacy Edit dialog cannot win.
+// - Capture-phase click handler blocks legacy openers
+// - Proactive upgrade on partial load
+// - MutationObserver upgrades if a legacy modal is injected later
 
-  // ---------------------------------
-  // Short helpers
-  // ---------------------------------
-  const $ = (sel, root = document) => root.querySelector(sel);
+(function OrdersEditModule() {
+  "use strict";
 
-  const money = (units, currency = "KES", locale = "en-KE") => {
-    if (units == null || units === "") return "—";
-    const n = Number(units);
-    if (!Number.isFinite(n)) return String(units);
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 2
-    }).format(n);
-  };
+  const BUILD_TAG = "v20250915-04";
+  console.debug(`[orders-edit] loader active ${BUILD_TAG}`);
 
-  const fromCents = (c) => (c == null || c === "" ? null : Number(c) / 100);
-  const toCents   = (u) => (u == null || u === "" ? null : Math.round(Number(u) * 100));
+  const ALLOWED_STATUSES = ["Pending","Confirmed","Dispatched","Delivered","Closed","Cancelled"];
 
-  async function api(method, url, body) {
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: body ? JSON.stringify(body) : null
-    });
-    if (!res.ok) throw new Error(`${method} ${url} → ${res.status} ${res.statusText}`);
-    return res.json().catch(() => ({}));
-  }
-
-  async function getOrder(id) {
-    if (!id) return null;
-    if (window.wattsunData && typeof wattsunData.getOrder === "function") {
-      return wattsunData.getOrder(id);
-    }
-    return api("GET", `/api/orders/${encodeURIComponent(id)}`);
-  }
-
-  async function updateOrder(id, patch) {
-    if (window.wattsunData && typeof wattsunData.updateOrder === "function") {
-      return wattsunData.updateOrder(id, patch);
-    }
-    return api("PATCH", `/api/orders/${encodeURIComponent(id)}`, patch);
-  }
-
-  // ---------------------------------
-  // Ensure modal HTML exists once
-  // ---------------------------------
+  // ---------- modal loader (upgrade legacy -> new) ----------
   async function ensureOrdersModalLoadedOnce() {
-    if (document.querySelector("#orderEditModal") && document.querySelector("#orderViewModal")) return;
+    const existing = document.getElementById("orderEditModal");
 
-    const res = await fetch(`/partials/orders-modal.html?v=${encodeURIComponent(VER)}`, {
-      credentials: "same-origin"
-    });
+    // If modal exists, check if it's the new one (has history or is tagged)
+    if (existing) {
+      const hasHistory = !!existing.querySelector("#order-history");
+      const isTagged   = existing.getAttribute("data-osh") === "5.7";
+      if (hasHistory || isTagged) return; // already upgraded
+      console.debug("[orders-edit] legacy modal detected — replacing with new modal…");
+    } else {
+      console.debug("[orders-edit] no modal present — injecting new modal…");
+    }
+
+    const res = await fetch("/partials/orders-modal.html?v=20250915-01", { credentials: "include" });
     if (!res.ok) throw new Error(`Failed to load orders-modal.html: ${res.status}`);
     const html = await res.text();
 
-    const wrap = document.createElement("div");
-    wrap.innerHTML = html;
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html;
 
-    const viewDlg = wrap.querySelector("#orderViewModal");
-    const editDlg = wrap.querySelector("#orderEditModal");
-    if (viewDlg) document.body.appendChild(viewDlg);
-    if (editDlg) document.body.appendChild(editDlg);
+    const fetchedEdit = tmp.querySelector("#orderEditModal");
+    if (!fetchedEdit) throw new Error("orders-modal.html missing #orderEditModal");
+    fetchedEdit.setAttribute("data-osh", "5.7");
 
-    // execute any inline scripts inside fragment (defensive)
-    wrap.querySelectorAll("script").forEach(s => {
-      const dup = document.createElement("script");
-      for (const a of s.attributes) dup.setAttribute(a.name, a.value);
-      dup.textContent = s.textContent;
-      document.body.appendChild(dup);
-      s.remove();
-    });
-  }
+    const fetchedView = tmp.querySelector("#orderViewModal");
 
-  // ---------------------------------
-  // VIEW
-  // ---------------------------------
-  function fillView(order) {
-    const idOrNumber = order.number || order.orderNo || order.id || order.orderId || "—";
-    $("#ov-orderNo").textContent = idOrNumber;
-    $("#ov-status").textContent  = order.status ?? "—";
-    $("#ov-created").textContent = order.createdAt || order.created || "—";
-    $("#ov-placed").textContent  = order.placedAt || order.placed || "—";
-
-    $("#ov-customer").textContent = order.customerName || order.customer || "—";
-    $("#ov-phone").textContent    = order.phone || "—";
-    $("#ov-email").textContent    = order.email || "—";
-    $("#ov-address").textContent  = order.address || order.deliveryAddress || "—";
-
-    const curr = order.currency || "KES";
-    $("#ov-total").textContent   = money(fromCents(order.totalCents ?? order.total), curr);
-    $("#ov-deposit").textContent = money(fromCents(order.depositCents ?? order.deposit), curr);
-    $("#ov-currency").textContent = curr;
-
-    // history
-    const histBox = $("#ov-history");
-    if (Array.isArray(order.history) && order.history.length) {
-      histBox.innerHTML = order.history.map(h => {
-        const when = h.at || h.date || "";
-        const txt  = h.text || h.note || h.status || "";
-        return `<div class="history-item"><span class="when">${when}</span> — <span class="txt">${txt}</span></div>`;
-      }).join("");
+    if (existing) {
+      existing.replaceWith(fetchedEdit);
     } else {
-      histBox.textContent = "—";
+      document.body.appendChild(fetchedEdit);
+    }
+    if (fetchedView) {
+      const alreadyV = document.getElementById("orderViewModal");
+      if (alreadyV) alreadyV.replaceWith(fetchedView);
+      else document.body.appendChild(fetchedView);
     }
 
-    // items
-    const tb = $("#ov-items tbody");
-    tb.innerHTML = "";
-    const items = Array.isArray(order.items) ? order.items : [];
-    for (const it of items) {
-      const qty = Number(it.qty ?? it.quantity ?? 0);
-      const priceUnits = fromCents(it.priceCents ?? it.price);
-      const lineTotal  = (Number(priceUnits) || 0) * qty;
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${it.sku ?? ""}</td>
-        <td>${it.name ?? ""}</td>
-        <td class="num">${qty}</td>
-        <td class="num">${money(priceUnits, curr)}</td>
-        <td class="num">${money(lineTotal, curr)}</td>
-      `;
-      tb.appendChild(tr);
-    }
+    console.debug("[orders-edit] modal injected from /partials/orders-modal.html");
   }
 
-  // ---------------------------------
-  // EDIT
-  // ---------------------------------
-  function loadDriversIntoSelect(selectEl, preferred) {
-    selectEl.innerHTML = "";
-    const drivers = (window.wattsunData && wattsunData.drivers) || [];
-    if (Array.isArray(drivers) && drivers.length) {
-      for (const d of drivers) {
-        const opt = document.createElement("option");
-        opt.value = d.id || d.phone || d.name || "";
-        opt.textContent = [d.name || "Driver", d.phone ? `(${d.phone})` : ""].join(" ").trim();
-        selectEl.appendChild(opt);
+  // Guard: if someone injects a legacy #orderEditModal later, auto-upgrade it.
+  const mo = new MutationObserver((muts) => {
+    for (const m of muts) {
+      for (const n of m.addedNodes) {
+        if (!(n instanceof Element)) continue;
+        const edit = n.id === "orderEditModal" ? n : n.querySelector?.("#orderEditModal");
+        if (edit && (!edit.querySelector("#order-history") || edit.getAttribute("data-osh") !== "5.7")) {
+          ensureOrdersModalLoadedOnce().catch(console.error);
+        }
       }
-    } else {
+    }
+  });
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+
+  // Lazily refreshed references after we inject/replace the modal
+  let dlg, form, btnSave, btnCancel, lblId, selStatus, selDriver, txtNotes;
+  let inpTotalCents, inpDepositCents, inpCurrency;
+
+  function refreshRefs() {
+    dlg  = document.getElementById("orderEditModal") || document.getElementById("ordersEditModal");
+    form = document.getElementById("orderEditForm")
+        || document.getElementById("ordersEditForm")
+        || (dlg && dlg.querySelector("form"));
+
+    btnSave   = document.getElementById("oemSave")        || document.getElementById("orderSaveBtn")   || document.getElementById("editSaveBtn");
+    btnCancel = document.getElementById("oemCancel")      || document.getElementById("orderCancelBtn") || document.getElementById("cancelEditBtn");
+    lblId     = document.getElementById("oemOrderId")     || document.getElementById("orderEditId");
+
+    selStatus = document.getElementById("orderStatus")    || document.getElementById("editStatus");
+    selDriver = document.getElementById("orderDriver")    || document.getElementById("editDriver");
+    txtNotes  = document.getElementById("orderNotes")     || document.getElementById("editNotes");
+
+    inpTotalCents   = document.getElementById("orderTotal")    || document.getElementById("editTotalCents")   || document.getElementById("totalCents")   || null;
+    inpDepositCents = document.getElementById("orderDeposit")  || document.getElementById("editDepositCents") || document.getElementById("depositCents") || null;
+    inpCurrency     = document.getElementById("orderCurrency") || document.getElementById("editCurrency")     || document.getElementById("currency")     || null;
+  }
+
+  const toast = (msg, type = "info") => (window.toast ? window.toast(msg, type) : alert(msg));
+  const openDialog  = () => { try { dlg.showModal(); } catch { dlg.setAttribute("open", "true"); } };
+  const closeDialog = () => { try { dlg.close(); }      catch { dlg.removeAttribute("open"); } };
+  const setSaving   = (on) => { if (btnSave) { btnSave.disabled = !!on; btnSave.textContent = on ? "Saving…" : "Save"; } };
+
+  function buildStatusOptions(current) {
+    if (!selStatus) return;
+    selStatus.innerHTML = "";
+    for (const s of ALLOWED_STATUSES) {
       const opt = document.createElement("option");
-      opt.value = ""; opt.textContent = "—";
-      selectEl.appendChild(opt);
+      opt.value = s; opt.textContent = s; selStatus.appendChild(opt);
     }
-    if (preferred) selectEl.value = preferred;
+    selStatus.value = ALLOWED_STATUSES.includes(current) ? current : "Pending";
   }
 
-  async function openEdit(order) {
-    const dlg = /** @type {HTMLDialogElement} */ ($("#orderEditModal"));
-    $("#oe-id").value        = order.id ?? order.orderId ?? order.number ?? "";
-    $("#oe-status").value    = order.status || "Pending";
-    $("#oe-currency").value  = order.currency || "KES";
-    $("#oe-notes").value     = order.notes || order.internalNote || "";
+  // --- Drivers cache
+  let _driversCache = null; let _driversAt = 0;
+  async function loadDrivers(selectedId) {
+    if (!selDriver) return;
+    selDriver.innerHTML = `<option value="">— Select driver —</option>`;
 
-    // drivers
-    loadDriversIntoSelect($("#oe-driver"), order.driverId || order.driver);
-
-    // money — show in units
-    $("#oe-total").value   = (fromCents(order.totalCents ?? order.total)   ?? 0).toFixed(2);
-    $("#oe-deposit").value = (fromCents(order.depositCents ?? order.deposit) ?? 0).toFixed(2);
-
-    if (!dlg.open && typeof dlg.showModal === "function") dlg.showModal();
-  }
-
-  async function onSave(e) {
-    e?.preventDefault?.();
-    const id = $("#oe-id").value;
-    const patch = {
-      status:   $("#oe-status").value,
-      driverId: $("#oe-driver").value || null,
-      currency: $("#oe-currency").value,
-      totalCents:   toCents($("#oe-total").value),
-      depositCents: toCents($("#oe-deposit").value),
-      notes:   $("#oe-notes").value
-    };
-
-    const btn = $("#oe-save");
-    btn.disabled = true;
+    const now = Date.now();
+    if (_driversCache && (now - _driversAt) < 5 * 60 * 1000) {
+      renderDrivers(_driversCache, selectedId); return;
+    }
     try {
-      await updateOrder(id, patch);
-      if (typeof window.toast === "function") toast("Order saved", "success");
-      window.dispatchEvent(new CustomEvent("orders:saved", { detail: { id, patch } }));
-      /** @type {HTMLDialogElement} */ ($("#orderEditModal")).close("save");
-    } catch (err) {
-      console.error("[orders-edit] save failed", err);
-      if (typeof window.toast === "function") toast("Save failed", "error");
+      const r = await fetch(`/api/admin/users?type=Driver&page=1&per=1000`, { credentials: "include" });
+      if (!r.ok) throw new Error(`Drivers fetch failed: ${r.status}`);
+      const j = await r.json();
+      const users = Array.isArray(j?.users) ? j.users : [];
+      _driversCache = users; _driversAt = now;
+      renderDrivers(users, selectedId);
+    } catch (e) {
+      console.error("[orders-edit] loadDrivers", e);
+      selDriver.innerHTML = `<option value="">(No drivers found)</option>`;
+    }
+  }
+  function renderDrivers(users, selectedId) {
+    selDriver.innerHTML = `<option value="">— Select driver —</option>` +
+      users.map(u => `<option value="${u.id}" ${Number(u.id)===Number(selectedId)?"selected":""}>${u.name || u.email || `Driver #${u.id}`} ${u.phone?`(${u.phone})`:""}</option>`).join("");
+  }
+
+  // --- API calls
+  async function apiGetOrder(id) {
+    const r = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, { credentials: "include" });
+    if (!r.ok) throw new Error(`GET /orders/${id} failed: ${r.status}`);
+    const j = await r.json();
+    if (!j?.success || !j.order) throw new Error("Malformed order response");
+    return j.order;
+  }
+  async function apiPatchOrder(id, payload) {
+    const r = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!r.ok) throw new Error(`PATCH /orders/${id} failed: ${r.status}`);
+    const j = await r.json();
+    if (!j?.success) throw new Error("Save failed");
+    return j.order || payload;
+  }
+
+  // --- State
+  let currentId = null;
+  let initial = { status: "Pending", driverId: null, notes: "", totalCents: null, depositCents: null, currency: null };
+
+  async function openFor(id) {
+    if (!id) return;
+
+    await ensureOrdersModalLoadedOnce(); // make sure we have the new modal
+    refreshRefs();
+
+    if (!dlg || !form || !selStatus || !selDriver || !txtNotes) {
+      console.warn("[orders-edit] Modal elements missing; binder aborted.");
+      return;
+    }
+
+    currentId = id;
+    if (lblId) lblId.textContent = id;
+
+    buildStatusOptions("Pending");
+    selDriver.innerHTML = `<option value="">— Select driver —</option>`;
+    txtNotes.value = "";
+    if (inpTotalCents)   inpTotalCents.value = "";
+    if (inpDepositCents) inpDepositCents.value = "";
+    if (inpCurrency)     inpCurrency.value = "";
+
+    openDialog();
+
+    try {
+      const o = await apiGetOrder(id);
+      const status       = o.status || o.originalStatus || "Pending";
+      const driverId     = (o.driverId ?? o.driver_id ?? null);
+      const notes        = o.notes || "";
+      const totalCents   = (o.totalCents   != null) ? Number(o.totalCents)   : "";
+      const depositCents = (o.depositCents != null) ? Number(o.depositCents) : "";
+      const currency     = o.currency || "";
+
+      initial = { status, driverId, notes, totalCents, depositCents, currency };
+
+      buildStatusOptions(status);
+      txtNotes.value = notes;
+      if (inpTotalCents)   inpTotalCents.value   = totalCents === "" ? "" : String(totalCents);
+      if (inpDepositCents) inpDepositCents.value = depositCents === "" ? "" : String(depositCents);
+      if (inpCurrency)     inpCurrency.value     = currency || "";
+
+      await loadDrivers(driverId);
+    } catch (e) {
+      console.error("[orders-edit] load order failed", e);
+      toast("Failed to load order.", "error");
+      closeDialog();
+    }
+  }
+
+  function buildPayloadFromChanges() {
+    const status   = selStatus ? selStatus.value : "Pending";
+    const driverId = selDriver?.value ? Number(selDriver.value) : null;
+    const notes    = (txtNotes?.value || "").trim();
+
+    const payload = {};
+    if (ALLOWED_STATUSES.includes(status) && status !== initial.status) payload.status = status;
+    if (driverId !== (initial.driverId ?? null)) payload.driverId = driverId;
+    if (notes !== initial.notes) payload.notes = notes;
+
+    if (inpTotalCents) {
+      const totalRaw = inpTotalCents.value;
+      const totalVal = totalRaw === "" ? null : Number.parseInt(totalRaw, 10);
+      if (Number.isInteger(totalVal) && totalVal !== initial.totalCents) payload.totalCents = totalVal;
+    }
+    if (inpDepositCents) {
+      const depRaw = inpDepositCents.value;
+      const depVal = depRaw === "" ? null : Number.parseInt(depRaw, 10);
+      if (Number.isInteger(depVal) && depVal !== initial.depositCents) payload.depositCents = depVal;
+    }
+    if (inpCurrency) {
+      const curRaw = (inpCurrency.value || "").trim();
+      const curVal = curRaw === "" ? null : curRaw.toUpperCase();
+      if (curVal !== (initial.currency || null)) payload.currency = curVal;
+    }
+    return payload;
+  }
+
+  async function doSave() {
+    if (!currentId) return;
+    const payload = buildPayloadFromChanges();
+    if (!Object.keys(payload).length) { closeDialog(); return; }
+
+    setSaving(true);
+    try {
+      await apiPatchOrder(currentId, payload);
+      if (typeof window.refreshOrderRow === "function") {
+        window.refreshOrderRow(currentId, payload);
+      }
+      try { localStorage.setItem("ordersUpdatedAt", new Date().toISOString()); } catch {}
+      try { window.postMessage({ type: "orders-updated", id: currentId }, window.origin || "*"); } catch {}
+      toast("Order updated.", "success");
+      closeDialog();
+    } catch (e) {
+      console.error("[orders-edit] save failed", e);
+      toast("Failed to save changes.", "error");
     } finally {
-      btn.disabled = false;
+      setSaving(false);
     }
   }
 
-  // ---------------------------------
-  // Event wiring
-  // ---------------------------------
-  window.addEventListener("orders:view", async (ev) => {
-    try {
-      await ensureOrdersModalLoadedOnce();
-      let order = ev.detail?.order || ev.detail || {};
-      if (!order.items && (order.id || order.orderId || order.number)) {
-        // Only an ID was provided → fetch full record
-        const id = order.id || order.orderId || order.number;
-        order = await getOrder(id) || order;
-      }
-      fillView(order);
-      /** @type {HTMLDialogElement} */ ($("#orderViewModal")).showModal?.();
-    } catch (e) { console.error(e); }
-  });
+  // --------- EVENT BINDINGS ---------
 
-  window.addEventListener("orders:edit", async (ev) => {
-    try {
-      await ensureOrdersModalLoadedOnce();
-      let order = ev.detail?.order || ev.detail || {};
-      if (!order.status && (order.id || order.orderId || order.number)) {
-        const id = order.id || order.orderId || order.number;
-        order = await getOrder(id) || order;
-      }
-      await openEdit(order);
-    } catch (e) { console.error(e); }
-  });
-
-  // Save
+  // (A) Capture-phase interception so legacy handlers cannot open the old modal
   document.addEventListener("click", (e) => {
-    const t = e.target;
-    if (!(t instanceof HTMLElement)) return;
-    if (t.id === "oe-save") onSave(e);
-  }, true);
+    const btn = e.target.closest('.btn-edit[data-oid], [data-action="edit-order"][data-oid]');
+    if (!btn) return;
+    // capture listener; stop others from handling this click
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    const id = btn.getAttribute("data-oid");
+    openFor(id);
+  }, true); // <-- capture = true
+
+  // Back-compat: programmatic event path (orders:edit)
+  window.addEventListener("orders:edit", (e) => {
+    const id = e?.detail?.id; if (id) openFor(id);
+  });
+
+  // Bind Cancel/Save within the injected modal
+  document.addEventListener("click", (e) => {
+    if (e.target && (e.target.id === "oemCancel" || e.target.id === "orderCancelBtn" || e.target.id === "cancelEditBtn")) {
+      e.preventDefault(); closeDialog();
+    }
+  });
+  document.addEventListener("submit", (e) => {
+    const f = e.target;
+    if (f && (f.id === "orderEditForm" || f.id === "ordersEditForm")) {
+      e.preventDefault(); doSave();
+    }
+  });
+
+  // (B) Proactive upgrade when Orders partial loads
+  window.addEventListener("admin:partial-loaded", (e) => {
+    const name = e?.detail?.partial || e?.detail?.name;
+    if (name === "orders") {
+      ensureOrdersModalLoadedOnce().catch(console.error);
+    }
+  });
 })();
