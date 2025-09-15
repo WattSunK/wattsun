@@ -1,11 +1,11 @@
-<!-- Orders — View + Edit Modals -->
+<!-- Orders — View + Edit Modals (uses admin.css classes only) -->
 
 <!-- VIEW -->
 <dialog id="orderViewModal" class="modal">
   <form method="dialog" class="modal-card" id="order-view-card" aria-labelledby="order-view-title">
     <header class="modal-title-row">
       <h2 class="modal-title" id="order-view-title">Order</h2>
-      <button class="btn ghost small" value="cancel" aria-label="Close">Close</button>
+      <button class="btn small" value="cancel" aria-label="Close">Close</button>
     </header>
 
     <section class="modal-body" id="order-view-body">
@@ -13,35 +13,35 @@
         <div class="card soft">
           <h3 class="section-title">Summary</h3>
           <dl class="kv">
-            <div><dt>Order #</dt>     <dd id="ov-orderNo">—</dd></div>
-            <div><dt>Status</dt>      <dd id="ov-status">—</dd></div>
-            <div><dt>Created</dt>     <dd id="ov-created">—</dd></div>
-            <div><dt>Placed</dt>      <dd id="ov-placed">—</dd></div>
+            <div><dt class="label-muted">Order #</dt>  <dd id="ov-orderNo">—</dd></div>
+            <div><dt class="label-muted">Status</dt>   <dd id="ov-status">—</dd></div>
+            <div><dt class="label-muted">Created</dt>  <dd id="ov-created">—</dd></div>
+            <div><dt class="label-muted">Placed</dt>   <dd id="ov-placed">—</dd></div>
           </dl>
         </div>
 
         <div class="card soft">
           <h3 class="section-title">Customer</h3>
           <dl class="kv">
-            <div><dt>Name</dt>        <dd id="ov-customer">—</dd></div>
-            <div><dt>Phone</dt>       <dd id="ov-phone">—</dd></div>
-            <div><dt>Email</dt>       <dd id="ov-email">—</dd></div>
-            <div><dt>Address</dt>     <dd id="ov-address">—</dd></div>
+            <div><dt class="label-muted">Name</dt>     <dd id="ov-customer">—</dd></div>
+            <div><dt class="label-muted">Phone</dt>    <dd id="ov-phone">—</dd></div>
+            <div><dt class="label-muted">Email</dt>    <dd id="ov-email">—</dd></div>
+            <div><dt class="label-muted">Address</dt>  <dd id="ov-address">—</dd></div>
           </dl>
         </div>
 
         <div class="card soft">
           <h3 class="section-title">Money</h3>
           <dl class="kv">
-            <div><dt>Total</dt>       <dd id="ov-total">—</dd></div>
-            <div><dt>Deposit</dt>     <dd id="ov-deposit">—</dd></div>
-            <div><dt>Currency</dt>    <dd id="ov-currency">—</dd></div>
+            <div><dt class="label-muted">Total</dt>    <dd id="ov-total">—</dd></div>
+            <div><dt class="label-muted">Deposit</dt>  <dd id="ov-deposit">—</dd></div>
+            <div><dt class="label-muted">Currency</dt> <dd id="ov-currency">—</dd></div>
           </dl>
         </div>
 
         <div class="card soft" id="order-history">
           <h3 class="section-title">History</h3>
-          <div id="ov-history">—</div>
+          <div id="ov-history" class="history-list">—</div>
         </div>
       </div>
 
@@ -71,76 +71,68 @@
   <form method="dialog" class="modal-card" id="order-edit-card" aria-labelledby="order-edit-title">
     <header class="modal-title-row">
       <h2 class="modal-title" id="order-edit-title">Edit Order</h2>
-      <!-- No separate Close button here by request -->
+      <!-- no header close button by request -->
     </header>
 
     <section class="modal-body">
       <input type="hidden" id="oe-id" />
 
-      <label class="form-row">
-        <span>Status</span>
-        <select id="oe-status">
-          <option value="Pending">Pending</option>
-          <option value="Confirmed">Confirmed</option>
-          <option value="Dispatched">Dispatched</option>
-          <option value="Delivered">Delivered</option>
-          <option value="Cancelled">Cancelled</option>
-        </select>
-      </label>
+      <div class="form-group">
+        <label class="form-row">
+          <span>Status</span>
+          <select id="oe-status" class="input">
+            <option value="Pending">Pending</option>
+            <option value="Confirmed">Confirmed</option>
+            <option value="Dispatched">Dispatched</option>
+            <option value="Delivered">Delivered</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </label>
+      </div>
 
-      <label class="form-row">
-        <span>Driver</span>
-        <select id="oe-driver"></select>
-      </label>
+      <div class="form-group">
+        <label class="form-row">
+          <span>Driver</span>
+          <select id="oe-driver" class="input select--driver"></select>
+        </label>
+      </div>
 
-      <label class="form-row">
-        <span>Total (in currency units)</span>
-        <input id="oe-total" type="number" step="0.01" inputmode="decimal" />
-      </label>
+      <div class="form-group">
+        <label class="form-row">
+          <span>Total (in currency units)</span>
+          <input id="oe-total" class="input" type="number" step="0.01" inputmode="decimal" />
+        </label>
+      </div>
 
-      <label class="form-row">
-        <span>Deposit (in currency units)</span>
-        <input id="oe-deposit" type="number" step="0.01" inputmode="decimal" />
-      </label>
+      <div class="form-group">
+        <label class="form-row">
+          <span>Deposit (in currency units)</span>
+          <input id="oe-deposit" class="input" type="number" step="0.01" inputmode="decimal" />
+        </label>
+      </div>
 
-      <label class="form-row">
-        <span>Currency</span>
-        <select id="oe-currency">
-          <option value="KES">KES</option>
-          <option value="USD">USD</option>
-          <option value="EUR">EUR</option>
-        </select>
-      </label>
+      <div class="form-group">
+        <label class="form-row">
+          <span>Currency</span>
+          <select id="oe-currency" class="input">
+            <option value="KES">KES</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </label>
+      </div>
 
-      <label class="form-row">
-        <span>Notes</span>
-        <textarea id="oe-notes" rows="4" placeholder="Internal notes"></textarea>
-      </label>
+      <div class="form-group">
+        <label class="form-row">
+          <span>Notes</span>
+          <textarea id="oe-notes" class="input" rows="4" placeholder="Internal notes"></textarea>
+        </label>
+      </div>
     </section>
 
     <footer class="modal-actions">
       <button class="btn" value="cancel">Cancel</button>
-      <button class="btn primary" id="oe-save" value="save">Save</button>
+      <button class="btn btn-primary" id="oe-save" value="save">Save</button>
     </footer>
   </form>
 </dialog>
-
-<style>
-  .grid.two { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
-  .card.soft { background: #fff; border-radius: 12px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
-  .section-title { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
-  .kv { display:grid; grid-template-columns: 140px 1fr; gap:6px 12px; }
-  .kv dt { color:#6b7280; }
-  .kv dd { margin:0; }
-  .table-wrap { overflow:auto; }
-  .table.compact th, .table.compact td { padding: 6px 8px; }
-  .table.compact .num { text-align: right; }
-  .modal-title-row { display:flex; justify-content: space-between; align-items:center; gap:6px; }
-  .modal-actions { display:flex; justify-content:flex-end; gap:8px; }
-  .form-row { display:grid; grid-template-columns: 220px 1fr; gap:10px; align-items:center; margin-bottom:10px; }
-  @media (max-width: 720px) {
-    .grid.two { grid-template-columns: 1fr; }
-    .form-row { grid-template-columns: 1fr; }
-    .form-row > span { font-weight: 600; }
-  }
-</style>
