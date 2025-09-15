@@ -283,16 +283,17 @@
       setSaving(false);
     }
   }
-// Ensure Save works even if the button is outside the <form> or is type="button"
-document.addEventListener("click", (e) => {
-  const t = e.target;
-  if (!(t instanceof HTMLElement)) return;
-  if (t.id === "oemSave") {
-    e.preventDefault();
-    e.stopPropagation();
-    doSave();
-  }
-}, true);
+
+  // Ensure Save works even if the button is outside the <form> or is type="button"
+  document.addEventListener("click", (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLElement)) return;
+    if (t.id === "oemSave") {
+      e.preventDefault();
+      e.stopPropagation();
+      doSave();
+    }
+  }, true);
 
   // ----------------------------------------------------
   // NEW: View modal filler (no DOM/CSS changes required)
@@ -314,17 +315,22 @@ document.addEventListener("click", (e) => {
     (get('ov_total')    || {}).textContent = money(fromCents(order.totalCents ?? order.total), curr);
     (get('ov_deposit')  || {}).textContent = money(fromCents(order.depositCents ?? order.deposit), curr);
 
-    const ul = get('ov_items');
-    if (ul) {
-      ul.innerHTML = "";
+    // --- switched from <li> to table rows in <tbody id="ov_items"> ---
+    const body = get('ov_items'); // tbody inside the Items table
+    if (body) {
+      body.innerHTML = "";
       const items = Array.isArray(order.items) ? order.items : [];
       for (const it of items) {
-        const li = document.createElement('li');
+        const tr = document.createElement('tr');
         const qty = Number(it.qty ?? it.quantity ?? 0);
         const priceUnits = fromCents(it.priceCents ?? it.price);
         const lineUnits = (Number(priceUnits) || 0) * qty;
-        li.textContent = `${qty} × ${it.name ?? it.sku ?? "Item"} — ${money(lineUnits, curr)}`;
-        ul.appendChild(li);
+        tr.innerHTML = `
+          <td class="num">${qty}</td>
+          <td>${it.name ?? it.sku ?? "Item"}</td>
+          <td class="num">${money(lineUnits, curr)}</td>
+        `;
+        body.appendChild(tr);
       }
     }
   }
