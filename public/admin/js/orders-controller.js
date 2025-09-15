@@ -46,12 +46,12 @@
     if (table && tbody) return true;
 
     // Try: the first table inside an element whose header contains "Orders"
-    const card = [...document.querySelectorAll('section,.card,.panel,main,div')]
-      .find(x => x && /(^|\s)Orders(\s|$)/i.test(x.querySelector('h1,h2,h3,h4,header,legend,summary')?.textContent || ""));
-    table = table || card?.querySelector('table') || document.querySelector('table');
+    const card = [...document.querySelectorAll("section,.card,.panel,main,div")]
+      .find(x => x && /(^|\s)Orders(\s|$)/i.test(x.querySelector("h1,h2,h3,h4,header,legend,summary")?.textContent || ""));
+    table = table || card?.querySelector("table") || document.querySelector("table");
     if (!table) return false;
 
-    tbody = tbody || table.querySelector('tbody') || table.appendChild(document.createElement('tbody'));
+    tbody = tbody || table.querySelector("tbody") || table.appendChild(document.createElement("tbody"));
     if (!table.id) table.id = SEL.table.slice(1);
     if (!tbody.id) tbody.id = SEL.tbody.slice(1);
     return true;
@@ -62,7 +62,7 @@
     if (!Number.isFinite(cents)) return "—";
     try {
       return new Intl.NumberFormat("en-KE", { style: "currency", currency, maximumFractionDigits: 0 }).format(cents / 100);
-    } catch { return `${currency} ${(cents/100).toLocaleString('en-KE')}`; }
+    } catch { return `${currency} ${(cents/100).toLocaleString("en-KE")}`; }
   }
 
   // ----- filter + sort -----
@@ -106,7 +106,7 @@
           <td data-col="total">${total}</td>
           <td data-col="action" style="text-align:center;">
             <button type="button" class="btn btn-sm btn-view" data-oid="${id}">View</button>
-            <button type="button" class="btn btn-sm btn-edit" data-action="edit-order" data-oid="${id}" data-phone="${o.phone || ''}" data-email="${o.email || ''}">Edit</button>
+            <button type="button" class="btn btn-sm btn-edit" data-action="edit-order" data-oid="${id}" data-phone="${o.phone || ""}" data-email="${o.email || ""}">Edit</button>
           </td>
         </tr>`;
     }).join("");
@@ -125,14 +125,14 @@
       if (isDisabled) {
         return `<button type="button" class="btn small pg-btn" data-page="${n}" aria-disabled="true" tabindex="-1">${label}</button>`;
       }
-      return `<button type="button" class="btn small pg-btn" data-page="${n}" ${isCurrent ? 'aria-current="page"' : ''}>${label}</button>`;
+      return `<button type="button" class="btn small pg-btn" data-page="${n}" ${isCurrent ? 'aria-current="page"' : ""}>${label}</button>`;
     };
 
     el.innerHTML =
       B(1, "First",              cur === 1) +
       B(Math.max(1, cur - 1),   "Previous",  cur === 1) +
-      `<span class="pg-info"> ${cur} / ${pages} </span>` +
-      B(Math.min(pages, cur + 1),"Next",     cur === pages) +
+      `<span class="pg-info">${cur} / ${pages}</span>` +
+      B(Math.min(pages, cur + 1), "Next",    cur === pages) +
       B(pages, "Last",           cur === pages);
   }
 
@@ -167,16 +167,11 @@
       }
       const eb = e.target.closest(".btn-edit");
       if (eb) {
-        const id = eb.getAttribute("data-oid") || "";
+        const id    = eb.getAttribute("data-oid") || "";
         const phone = eb.getAttribute("data-phone") || "";
         const email = eb.getAttribute("data-email") || "";
-        // Open the new Edit modal if present
-        const dlg = document.getElementById('orderEditModal');
-        if (dlg) {
-          const idEl = document.getElementById('oemOrderId');
-          if (idEl) idEl.textContent = id;
-          try { dlg.showModal(); } catch { dlg.open = true; }
-        }
+
+        // Do NOT open the legacy dialog here.
         window.dispatchEvent(new CustomEvent("orders:edit", { detail: { id, phone, email } }));
       }
     });
@@ -185,7 +180,7 @@
   // ----- data load -----
   async function fetchOnce() {
     const apiFn = Data?.orders && (Data.orders.list || Data.orders.get);
-    if (typeof apiFn !== 'function') throw new Error('WattSunAdminData.orders.list/get not found');
+    if (typeof apiFn !== "function") throw new Error("WattSunAdminData.orders.list/get not found");
     const result = await apiFn.call(Data.orders, { page: 1, per: 10000 });
     const orders = (result && (result.orders || result)) || [];
     State.raw = Array.isArray(orders) ? orders : [];
@@ -215,7 +210,7 @@
 
   window.__WS_ORDERS_FORCE_BOOT = () => { booted = false; boot(); };
 
-  // ===== NEW VIEW HANDLER (uses modern #orderViewModal) =====
+  // ===== VIEW HANDLER (uses modern #orderViewModal) =====
   function openViewModalWithData(o) {
     const dlg = document.getElementById("orderViewModal");
     if (!dlg) { console.warn("[Orders] #orderViewModal not found"); return; }
@@ -230,7 +225,7 @@
     set("ov_placed",  o.createdAt ? new Date(o.createdAt).toLocaleString() : "—");
     set("ov_total",   fmtMoney(o.totalCents, o.currency));
     set("ov_currency",o.currency || "—");
-    set("ov_driver",  o.driverName || o.driver || "—"); // optional if present
+    set("ov_driver",  o.driverName || o.driver || "—");
 
     const body = document.getElementById("ov_itemsBody");
     if (body) {
@@ -257,4 +252,21 @@
     State.raw[idx] = { ...State.raw[idx], ...patch };
     applyFilters(); renderRows(); renderPager();
   };
+
+  // --- Close handling for the View dialog (generic) ---
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("#orderViewModal button, #orderViewModal [data-close]");
+    if (!btn) return;
+
+    const wantsClose =
+      btn.hasAttribute("data-close") ||
+      /close/i.test((btn.textContent || "").trim());
+
+    if (!wantsClose) return;
+
+    e.preventDefault();
+    const dlg = document.getElementById("orderViewModal");
+    if (!dlg) return;
+    try { dlg.close(); } catch { dlg.removeAttribute("open"); }
+  });
 })();

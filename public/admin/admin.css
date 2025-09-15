@@ -392,3 +392,82 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 #dispatch-edit .history .empty, #dispatch-edit .history .loading, #dispatch-edit .history .error { color: #666; padding: 8px; }
 
 #dispatch-edit .history + .row .btn { margin-right: 6px; }
+
+/* ============================
+   Orders → Edit Modal + History
+   ============================ */
+
+/* Ensure the modal card has comfortable spacing in the edit dialog */
+#orderEditModal .modal-card {
+  width: min(640px, 96vw);
+  max-height: 85vh;
+  overflow: auto;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--ws-border);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+/* Your HTML uses .card-content; match it to .card-body spacing */
+.card-content { padding: 12px 16px 16px; }
+
+/* History card spacing inside the modal */
+#order-history {
+  margin: 10px 0 12px;
+}
+
+/* Header look consistent with other cards */
+#order-history .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ws-border);
+  background: #fff;
+}
+#order-history .card-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* Scrollable list of entries with soft item surfaces */
+#order-history .history-list {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;         /* adjust if you want more */
+  overflow: auto;
+  padding: 6px 2px 2px;
+}
+#order-history .history-item {
+  padding: 8px 10px;
+  border: 1px solid var(--ws-border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--ws-text);
+}
+
+/* Actions row (Load more / Export) */
+#order-history .history-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+#order-history .history-actions .btn {
+  height: 32px;
+  min-width: 34px;
+  border-radius: 8px;
+}
+
+/* Small screens: let the history breathe */
+@media (max-width: 520px) {
+  #order-history .card-content { padding: 10px 12px 12px; }
+  #order-history .history-list { max-height: 220px; }
+}
+

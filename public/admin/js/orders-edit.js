@@ -1,51 +1,102 @@
-// public/admin/js/orders-edit.js (surgically patched)
-// Goal: keep your existing structure/IDs, add Drivers API wiring, proper diff-based PATCH,
-//       and optional money overlay support without removing your code paths.
+// public/admin/js/orders-edit.js
+// Incremental upgrade: make sure the legacy Edit dialog cannot win.
+// - Capture-phase click handler blocks legacy openers
+// - Proactive upgrade on partial load
+// - MutationObserver upgrades if a legacy modal is injected later
 
 (function OrdersEditModule() {
   "use strict";
 
-  // Keep in sync with backend-allowed statuses
-  const ALLOWED_STATUSES = [
-    "Pending",
-    "Confirmed",
-    "Dispatched",
-    "Delivered",
-    "Closed",
-    "Cancelled"
-  ];
+  const BUILD_TAG = "v20250915-04";
+  console.debug(`[orders-edit] loader active ${BUILD_TAG}`);
 
-  // --- Elements (preserve your original IDs; add safe fallbacks)
-  const dlg  = document.getElementById("orderEditModal")
-            || document.getElementById("ordersEditModal");
-  const form = document.getElementById("orderEditForm")
-            || document.getElementById("ordersEditForm")
-            || (dlg && dlg.querySelector("form"));
-  const btnSave   = document.getElementById("orderSaveBtn")   || document.getElementById("editSaveBtn");
-  const btnCancel = document.getElementById("orderCancelBtn") || document.getElementById("cancelEditBtn");
-  const lblId     = document.getElementById("oemOrderId")     || document.getElementById("orderEditId");
+  const ALLOWED_STATUSES = ["Pending","Confirmed","Dispatched","Delivered","Closed","Cancelled"];
 
-  const selStatus = document.getElementById("orderStatus")    || document.getElementById("editStatus");
-  const selDriver = document.getElementById("orderDriver")    || document.getElementById("editDriver");
-  const txtNotes  = document.getElementById("orderNotes")     || document.getElementById("editNotes");
+  // ---------- modal loader (upgrade legacy -> new) ----------
+  async function ensureOrdersModalLoadedOnce() {
+    const existing = document.getElementById("orderEditModal");
 
-  // Optional overlay inputs (only used if present in your modal)
-  const inpTotalCents   = document.getElementById("editTotalCents")   || document.getElementById("totalCents")   || null;
-  const inpDepositCents = document.getElementById("editDepositCents") || document.getElementById("depositCents") || null;
-  const inpCurrency     = document.getElementById("editCurrency")     || document.getElementById("currency")     || null;
+    // If modal exists, check if it's the new one (has history or is tagged)
+    if (existing) {
+      const hasHistory = !!existing.querySelector("#order-history");
+      const isTagged   = existing.getAttribute("data-osh") === "5.7";
+      if (hasHistory || isTagged) return; // already upgraded
+      console.debug("[orders-edit] legacy modal detected — replacing with new modal…");
+    } else {
+      console.debug("[orders-edit] no modal present — injecting new modal…");
+    }
 
-  if (!dlg || !form || !btnSave || !btnCancel || !selStatus || !selDriver || !txtNotes) {
-    console.warn("[orders-edit] Modal elements missing; binder aborted.");
-    return;
+    const res = await fetch("/partials/orders-modal.html?v=20250915-01", { credentials: "include" });
+    if (!res.ok) throw new Error(`Failed to load orders-modal.html: ${res.status}`);
+    const html = await res.text();
+
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html;
+
+    const fetchedEdit = tmp.querySelector("#orderEditModal");
+    if (!fetchedEdit) throw new Error("orders-modal.html missing #orderEditModal");
+    fetchedEdit.setAttribute("data-osh", "5.7");
+
+    const fetchedView = tmp.querySelector("#orderViewModal");
+
+    if (existing) {
+      existing.replaceWith(fetchedEdit);
+    } else {
+      document.body.appendChild(fetchedEdit);
+    }
+    if (fetchedView) {
+      const alreadyV = document.getElementById("orderViewModal");
+      if (alreadyV) alreadyV.replaceWith(fetchedView);
+      else document.body.appendChild(fetchedView);
+    }
+
+    console.debug("[orders-edit] modal injected from /partials/orders-modal.html");
   }
 
-  // --- Small helpers (kept lightweight to avoid changing your UX kit)
+  // Guard: if someone injects a legacy #orderEditModal later, auto-upgrade it.
+  const mo = new MutationObserver((muts) => {
+    for (const m of muts) {
+      for (const n of m.addedNodes) {
+        if (!(n instanceof Element)) continue;
+        const edit = n.id === "orderEditModal" ? n : n.querySelector?.("#orderEditModal");
+        if (edit && (!edit.querySelector("#order-history") || edit.getAttribute("data-osh") !== "5.7")) {
+          ensureOrdersModalLoadedOnce().catch(console.error);
+        }
+      }
+    }
+  });
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+
+  // Lazily refreshed references after we inject/replace the modal
+  let dlg, form, btnSave, btnCancel, lblId, selStatus, selDriver, txtNotes;
+  let inpTotalCents, inpDepositCents, inpCurrency;
+
+  function refreshRefs() {
+    dlg  = document.getElementById("orderEditModal") || document.getElementById("ordersEditModal");
+    form = document.getElementById("orderEditForm")
+        || document.getElementById("ordersEditForm")
+        || (dlg && dlg.querySelector("form"));
+
+    btnSave   = document.getElementById("oemSave")        || document.getElementById("orderSaveBtn")   || document.getElementById("editSaveBtn");
+    btnCancel = document.getElementById("oemCancel")      || document.getElementById("orderCancelBtn") || document.getElementById("cancelEditBtn");
+    lblId     = document.getElementById("oemOrderId")     || document.getElementById("orderEditId");
+
+    selStatus = document.getElementById("orderStatus")    || document.getElementById("editStatus");
+    selDriver = document.getElementById("orderDriver")    || document.getElementById("editDriver");
+    txtNotes  = document.getElementById("orderNotes")     || document.getElementById("editNotes");
+
+    inpTotalCents   = document.getElementById("orderTotal")    || document.getElementById("editTotalCents")   || document.getElementById("totalCents")   || null;
+    inpDepositCents = document.getElementById("orderDeposit")  || document.getElementById("editDepositCents") || document.getElementById("depositCents") || null;
+    inpCurrency     = document.getElementById("orderCurrency") || document.getElementById("editCurrency")     || document.getElementById("currency")     || null;
+  }
+
   const toast = (msg, type = "info") => (window.toast ? window.toast(msg, type) : alert(msg));
   const openDialog  = () => { try { dlg.showModal(); } catch { dlg.setAttribute("open", "true"); } };
   const closeDialog = () => { try { dlg.close(); }      catch { dlg.removeAttribute("open"); } };
-  const setSaving   = (on) => { btnSave.disabled = !!on; btnSave.textContent = on ? "Saving…" : "Save"; };
+  const setSaving   = (on) => { if (btnSave) { btnSave.disabled = !!on; btnSave.textContent = on ? "Saving…" : "Save"; } };
 
   function buildStatusOptions(current) {
+    if (!selStatus) return;
     selStatus.innerHTML = "";
     for (const s of ALLOWED_STATUSES) {
       const opt = document.createElement("option");
@@ -54,7 +105,7 @@
     selStatus.value = ALLOWED_STATUSES.includes(current) ? current : "Pending";
   }
 
-  // --- Drivers cache (avoid repeat fetches while paging orders)
+  // --- Drivers cache
   let _driversCache = null; let _driversAt = 0;
   async function loadDrivers(selectedId) {
     if (!selDriver) return;
@@ -81,7 +132,7 @@
       users.map(u => `<option value="${u.id}" ${Number(u.id)===Number(selectedId)?"selected":""}>${u.name || u.email || `Driver #${u.id}`} ${u.phone?`(${u.phone})`:""}</option>`).join("");
   }
 
-  // --- API calls (unchanged endpoints)
+  // --- API calls
   async function apiGetOrder(id) {
     const r = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, { credentials: "include" });
     if (!r.ok) throw new Error(`GET /orders/${id} failed: ${r.status}`);
@@ -102,16 +153,24 @@
     return j.order || payload;
   }
 
-  // --- State (for change detection)
+  // --- State
   let currentId = null;
   let initial = { status: "Pending", driverId: null, notes: "", totalCents: null, depositCents: null, currency: null };
 
   async function openFor(id) {
     if (!id) return;
+
+    await ensureOrdersModalLoadedOnce(); // make sure we have the new modal
+    refreshRefs();
+
+    if (!dlg || !form || !selStatus || !selDriver || !txtNotes) {
+      console.warn("[orders-edit] Modal elements missing; binder aborted.");
+      return;
+    }
+
     currentId = id;
     if (lblId) lblId.textContent = id;
 
-    // default UI
     buildStatusOptions("Pending");
     selDriver.innerHTML = `<option value="">— Select driver —</option>`;
     txtNotes.value = "";
@@ -123,7 +182,6 @@
 
     try {
       const o = await apiGetOrder(id);
-      // accept various field names (overlay merged on backend)
       const status       = o.status || o.originalStatus || "Pending";
       const driverId     = (o.driverId ?? o.driver_id ?? null);
       const notes        = o.notes || "";
@@ -148,17 +206,15 @@
   }
 
   function buildPayloadFromChanges() {
-    const status   = selStatus.value;
-    const driverId = selDriver.value ? Number(selDriver.value) : null;
-    const notes    = (txtNotes.value || "").trim();
+    const status   = selStatus ? selStatus.value : "Pending";
+    const driverId = selDriver?.value ? Number(selDriver.value) : null;
+    const notes    = (txtNotes?.value || "").trim();
 
     const payload = {};
-
     if (ALLOWED_STATUSES.includes(status) && status !== initial.status) payload.status = status;
-    if (driverId !== (initial.driverId ?? null)) payload.driverId = driverId; // allow null to clear
+    if (driverId !== (initial.driverId ?? null)) payload.driverId = driverId;
     if (notes !== initial.notes) payload.notes = notes;
 
-    // Optional money/currency overlay (only if inputs exist)
     if (inpTotalCents) {
       const totalRaw = inpTotalCents.value;
       const totalVal = totalRaw === "" ? null : Number.parseInt(totalRaw, 10);
@@ -174,31 +230,22 @@
       const curVal = curRaw === "" ? null : curRaw.toUpperCase();
       if (curVal !== (initial.currency || null)) payload.currency = curVal;
     }
-
     return payload;
   }
 
   async function doSave() {
     if (!currentId) return;
-
     const payload = buildPayloadFromChanges();
-
-    // nothing changed? just close
     if (!Object.keys(payload).length) { closeDialog(); return; }
 
     setSaving(true);
     try {
       await apiPatchOrder(currentId, payload);
-
-      // optimistic row refresh with everything that changed
       if (typeof window.refreshOrderRow === "function") {
         window.refreshOrderRow(currentId, payload);
       }
-
-      // lightweight cross-tab/update signal
       try { localStorage.setItem("ordersUpdatedAt", new Date().toISOString()); } catch {}
       try { window.postMessage({ type: "orders-updated", id: currentId }, window.origin || "*"); } catch {}
-
       toast("Order updated.", "success");
       closeDialog();
     } catch (e) {
@@ -209,21 +256,43 @@
     }
   }
 
-  // --- Bindings (preserve your triggers)
-  btnCancel.addEventListener("click", (e) => { e.preventDefault(); closeDialog(); });
-  form.addEventListener("submit", (e) => { e.preventDefault(); doSave(); });
+  // --------- EVENT BINDINGS ---------
 
-  // Open via Edit button in table
+  // (A) Capture-phase interception so legacy handlers cannot open the old modal
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('.btn-edit[data-oid], [data-action="edit-order"][data-oid]');
     if (!btn) return;
+    // capture listener; stop others from handling this click
     e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
     const id = btn.getAttribute("data-oid");
     openFor(id);
-  });
+  }, true); // <-- capture = true
 
-  // Programmatic open
+  // Back-compat: programmatic event path (orders:edit)
   window.addEventListener("orders:edit", (e) => {
     const id = e?.detail?.id; if (id) openFor(id);
+  });
+
+  // Bind Cancel/Save within the injected modal
+  document.addEventListener("click", (e) => {
+    if (e.target && (e.target.id === "oemCancel" || e.target.id === "orderCancelBtn" || e.target.id === "cancelEditBtn")) {
+      e.preventDefault(); closeDialog();
+    }
+  });
+  document.addEventListener("submit", (e) => {
+    const f = e.target;
+    if (f && (f.id === "orderEditForm" || f.id === "ordersEditForm")) {
+      e.preventDefault(); doSave();
+    }
+  });
+
+  // (B) Proactive upgrade when Orders partial loads
+  window.addEventListener("admin:partial-loaded", (e) => {
+    const name = e?.detail?.partial || e?.detail?.name;
+    if (name === "orders") {
+      ensureOrdersModalLoadedOnce().catch(console.error);
+    }
   });
 })();

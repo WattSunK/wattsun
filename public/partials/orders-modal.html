@@ -14,72 +14,61 @@
       <div class="grid rows">
         <div class="row">
           <label>Order #</label>
-          <div><span id="ov_order">—</span></div>
+          <div><span id="ov_orderNumber"></span></div>
         </div>
-
-        <div class="row">
-          <label>Status</label>
-          <div><span id="ov_status">—</span></div>
-        </div>
-
         <div class="row">
           <label>Customer</label>
-          <div><span id="ov_customer">—</span></div>
+          <div><span id="ov_fullName"></span></div>
         </div>
-
         <div class="row">
           <label>Phone</label>
-          <div><span id="ov_phone">—</span></div>
+          <div><span id="ov_phone"></span></div>
         </div>
-
         <div class="row">
           <label>Email</label>
-          <div><span id="ov_email">—</span></div>
+          <div><span id="ov_email"></span></div>
         </div>
-
         <div class="row">
-          <label>Placed</label>
-          <div><span id="ov_placed">—</span></div>
+          <label>Status</label>
+          <div><span id="ov_status"></span></div>
         </div>
-
         <div class="row">
           <label>Total</label>
-          <div><span id="ov_total">—</span></div>
+          <div><span id="ov_total"></span></div>
         </div>
-
         <div class="row">
-          <label>Driver</label>
-          <div><span id="ov_driver">—</span></div>
+          <label>Deposit</label>
+          <div><span id="ov_deposit"></span></div>
         </div>
-      </div>
-
-      <h4 class="section-title">Items</h4>
-      <div class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>SKU</th>
-              <th>Name</th>
-              <th>Qty</th>
-              <th>Price</th>
-            </tr>
-          </thead>
-          <tbody id="ov_itemsBody">
-            <tr><td colspan="4">No items</td></tr>
-          </tbody>
-        </table>
+        <div class="row">
+          <label>Currency</label>
+          <div><span id="ov_currency"></span></div>
+        </div>
+        <div class="row">
+          <label>Address</label>
+          <div><span id="ov_address"></span></div>
+        </div>
+        <div class="row">
+          <label>Created</label>
+          <div><span id="ov_createdAt"></span></div>
+        </div>
+        <div class="row">
+          <label>Items</label>
+          <div>
+            <ul id="ov_items"></ul>
+          </div>
+        </div>
       </div>
     </section>
 
     <footer class="modal-footer">
-      <button type="button" class="btn" data-ov-close>Close</button>
+      <button type="button" data-ov-close class="btn primary">Close</button>
     </footer>
   </div>
 </dialog>
 
-
 <!-- =========================
-     Edit Order
+     Edit Order (interactive)
      ========================= -->
 <dialog id="orderEditModal" class="modal" aria-labelledby="oem_title" aria-modal="true">
   <div class="modal-card">
@@ -99,6 +88,7 @@
               <option>Confirmed</option>
               <option>Dispatched</option>
               <option>Delivered</option>
+              <option>Closed</option>
               <option>Cancelled</option>
             </select>
           </div>
@@ -142,6 +132,32 @@
       </div>
     </form>
 
+    <!-- ========= Orders → History (Step 5.7) ========= -->
+    <section id="order-history" class="card" data-history-ready="0" hidden>
+      <header class="card-header">
+        <h3 class="card-title">History</h3>
+        <button type="button" class="btn btn-sm" id="history-refresh-btn" aria-label="Refresh history">
+          Refresh
+        </button>
+      </header>
+
+      <div class="card-content">
+        <div class="history-list" role="list">
+          <!-- rows injected by JS -->
+        </div>
+
+        <div class="history-actions">
+          <button type="button" class="btn" id="history-load-more" data-cursor="">
+            Load more
+          </button>
+          <button type="button" class="btn" id="history-export-csv">
+            Export CSV
+          </button>
+        </div>
+      </div>
+    </section>
+    <!-- ========= /Orders → History ========= -->
+
     <footer class="modal-footer">
       <button type="button" class="btn ghost" id="oemCancel">Cancel</button>
       <button type="button" class="btn primary" id="oemSave">Save</button>
@@ -149,15 +165,14 @@
   </div>
 </dialog>
 
+<!-- keep any script block you already have in this partial -->
 <script>
-  // lightweight close wiring for the view dialog's [data-ov-close]
+  // Minimal close wiring for view + edit to avoid duplicate handlers elsewhere.
   (function () {
-    const v = document.getElementById('orderViewModal');
-    if (!v) return;
-    v.addEventListener('click', (e) => {
-      if (e.target && (e.target.hasAttribute('data-ov-close') || e.target === v)) {
-        try { v.close(); } catch { v.removeAttribute('open'); }
-      }
+    const vDlg = document.getElementById('orderViewModal');
+    const vBtns = document.querySelectorAll('[data-ov-close]');
+    vBtns.forEach(btn => {
+      btn.addEventListener('click', () => { try { vDlg.close(); } catch { vDlg.removeAttribute('open'); } });
     });
 
     // Edit dialog close buttons

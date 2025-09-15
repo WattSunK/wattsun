@@ -17,11 +17,17 @@
     const scripts = Array.from(scope.querySelectorAll("script"));
     for (const old of scripts) {
       const s = document.createElement("script");
-      // Copy attributes (type, src, etc.)
       for (const attr of old.attributes) s.setAttribute(attr.name, attr.value);
-      s.textContent = old.textContent; // inline code
-      old.parentNode.replaceChild(s, old); // trigger execution
+      s.textContent = old.textContent;
+      (document.body || document.documentElement).appendChild(s);
+      old.remove();
     }
+  }
+
+  function redispatchClick(target) {
+    // Re-fire a synthetic click that bubbles and is cancelable
+    const evt = new MouseEvent("click", { bubbles: true, cancelable: true, view: window });
+    target.dispatchEvent(evt);
   }
 
   function findNavLinkByPartial(id) {
@@ -41,13 +47,9 @@
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const html = await res.text();
       contentEl.innerHTML = html;
-
-      // IMPORTANT: run any inline scripts contained in the fragment
       executeInlineScripts(contentEl);
-
       contentEl.removeAttribute("aria-busy");
-      const evt = new CustomEvent("admin:partial-loaded", { detail: { id } });
-      window.dispatchEvent(evt);
+      window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { id } }));
     } catch (err) {
       console.error("[admin-skin] failed to load partial", id, err);
       contentEl.innerHTML = `
@@ -63,7 +65,7 @@
     }
   }
 
-  // Public API (if needed elsewhere)
+  // Public API
   window.AdminSkin = { loadPartial };
 
   // -------------------------------
@@ -89,7 +91,7 @@
     });
   }
 
-  // Initial load (hash or first link)
+  // Initial load
   const initialId =
     (location.hash && location.hash.slice(1)) ||
     document.querySelector(".admin-nav .nav-link.is-active")?.getAttribute("data-partial") ||
@@ -103,10 +105,7 @@
   // ============================================================
   // Global "Create" Actions (Add Order / Add Item)
   // ============================================================
-  // We emit window.dispatchEvent(new CustomEvent('admin:create', { detail: { type:'order'|'item', source:'orders'|'items'|'dispatch' } }))
-  // from page buttons. This central handler decides the UX (route vs modal).
-
-  let pendingCreateIntent = null; // { type:'order'|'item' , source?: string }
+  let pendingCreateIntent = null;
 
   function navigateTo(partialId) {
     const link = findNavLinkByPartial(partialId);
@@ -117,23 +116,66 @@
     return true;
   }
 
-  // ---- SURGICAL EDIT #1: Disable legacy injector (no-op) ----
+  // ---- Load new Orders modal partial on demand ----
   async function ensureOrdersModal() {
-    // Legacy injector disabled: do not fetch /public/partials/orders-modal.html
-    return true;
+    const hasEdit = document.querySelector('#orderEditModal');
+    const hasView = document.querySelector('#orderViewModal');
+    if (hasEdit && hasView) return true;
+
+    const url = `/partials/orders-modal.html?v=${encodeURIComponent(VERSION)}`;
+    try {
+      const res = await fetch(url, { credentials: "same-origin" });
+      if (!res.ok) throw new Error(`[ensureOrdersModal] ${res.status} ${res.statusText}`);
+
+      const html = await res.text();
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+
+      const editDlg = tmp.querySelector('#orderEditModal');
+      const viewDlg = tmp.querySelector('#orderViewModal');
+
+      if (editDlg) document.body.appendChild(editDlg);
+      if (viewDlg) document.body.appendChild(viewDlg);
+
+      executeInlineScripts(tmp);
+
+      return !!document.querySelector('#orderEditModal');
+    } catch (err) {
+      console.error('[ensureOrdersModal] failed to load orders-modal partial', err);
+      return false;
+    }
   }
-  // keep harmless export if other code references it
   window.ensureOrdersModal = ensureOrdersModal;
 
-  // ---- SURGICAL EDIT #2: Open Add using the new flow (never touch View/Edit) ----
+  // ---- NEW: Preflight for Edit/View clicks (capture phase) ----
+  document.addEventListener('click', async (e) => {
+    const t = e.target;
+    const hit = t.closest?.('.btn-edit, .btn-view, [data-modal-target="#orderEditModal"], [data-modal-target="#orderViewModal"]');
+    if (!hit) return;
+
+    // If modals already present, let the controller proceed normally.
+    if (document.querySelector('#orderEditModal') && document.querySelector('#orderViewModal')) return;
+
+    // Block the original click, ensure modals, then re-dispatch the click.
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    e.stopPropagation();
+
+    const ok = await ensureOrdersModal();
+    if (!ok) {
+      console.warn('[admin-skin] Could not ensure orders modals before open.');
+      return;
+    }
+    // Re-fire the click so existing handlers (orders-controller.js) run as-is.
+    redispatchClick(hit);
+  }, true); // <-- capture=true so we run before other listeners
+
+  // ---- Open Add using the new flow ----
   async function openOrderCreate() {
-    // Prefer the dedicated Add module if available
     if (window.wattsunOrdersAdd && typeof window.wattsunOrdersAdd.open === "function") {
       window.wattsunOrdersAdd.open();
       return;
     }
-
-    // Try a page trigger that existing code wires up
     const trigger =
       document.querySelector('[data-action="add-order"]') ||
       document.querySelector('[data-modal-target="#orderAddModal"]');
@@ -141,19 +183,15 @@
       trigger.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
       return;
     }
-
-    // Fallback: open the modal directly if present
     const add = document.getElementById("orderAddModal");
     if (add) {
       if (typeof add.showModal === "function") add.showModal();
       else add.classList.remove("hidden");
       return;
     }
-
     if (typeof window.toast === "function") window.toast("Add Order UI not available", "error");
   }
 
-  // Handle create intents when a partial finishes loading (useful when we route first)
   window.addEventListener("admin:partial-loaded", (e) => {
     const id = e.detail?.id;
     if (!pendingCreateIntent) return;
@@ -171,7 +209,6 @@
     }
   });
 
-  // Main global handler (buttons on pages fire this)
   window.addEventListener("admin:create", (evt) => {
     const { type, source } = evt.detail || {};
     if (!type) return;
@@ -206,12 +243,10 @@
     try {
       var bar = root && root.querySelector ? root.querySelector('.topbar-actions') : document.querySelector('.topbar-actions');
       if (!bar) return;
-      // If already present, done.
       var hasHome = !!document.getElementById('btn-home');
       var hasLogout = !!document.getElementById('btn-logout');
       if (hasHome && hasLogout) return;
 
-      // Create Home
       if (!hasHome) {
         var home = document.createElement('a');
         home.id = 'btn-home';
@@ -219,7 +254,6 @@
         home.href = '/public/index.html';
         home.title = 'Go to site Home';
         home.textContent = 'Home';
-        // Prefer to insert before Refresh if exists
         var refresh = bar.querySelector('#hard-refresh');
         if (refresh && refresh.parentNode === bar) {
           bar.insertBefore(home, refresh);
@@ -228,7 +262,6 @@
         }
       }
 
-      // Create Logout
       if (!hasLogout) {
         var logout = document.createElement('button');
         logout.id = 'btn-logout';
@@ -243,24 +276,21 @@
           bar.appendChild(logout);
         }
       }
-    } catch(e) { /* no-op */ }
+    } catch(e) {}
   }
 
-  // Run once DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function(){ ensureTopbarButtons(); }, { once:true });
   } else {
     ensureTopbarButtons();
   }
 
-  // Observe mutations to re-ensure after partial reloads
   try {
     var obsTarget = document.body;
     var mo = new MutationObserver(function(muts){
       for (var i=0;i<muts.length;i++){
         var m = muts[i];
         if (m.type === 'childList') {
-          // If a new topbar-actions appears or children changed, re-ensure
           if ([].some.call(m.addedNodes || [], function(n){ return n.querySelector && n.querySelector('.topbar-actions'); })) {
             ensureTopbarButtons(document);
           }
@@ -271,10 +301,10 @@
       }
     });
     mo.observe(obsTarget, { childList: true, subtree: true });
-  } catch(e) { /* ignore */ }
+  } catch(e) {}
 })();
 
-// --- Safe Logout wiring (append-only, non-breaking) ---
+// --- Safe Logout wiring ---
 (function () {
   function wireLogout() {
     var btn = document.getElementById('btn-logout');
@@ -301,10 +331,7 @@
   } else {
     wireLogout();
   }
-  // Also rewire if the button is re-inserted later
   document.addEventListener('click', function(e){
-    if (e && e.target && e.target.id === 'btn-logout') {
-      // handler is already attached by addEventListener; this is a safeguard.
-    }
+    if (e && e.target && e.target.id === 'btn-logout') { /* noop */ }
   });
 })();
