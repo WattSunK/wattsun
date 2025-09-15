@@ -283,6 +283,16 @@
       setSaving(false);
     }
   }
+// Ensure Save works even if the button is outside the <form> or is type="button"
+document.addEventListener("click", (e) => {
+  const t = e.target;
+  if (!(t instanceof HTMLElement)) return;
+  if (t.id === "oemSave") {
+    e.preventDefault();
+    e.stopPropagation();
+    doSave();
+  }
+}, true);
 
   // ----------------------------------------------------
   // NEW: View modal filler (no DOM/CSS changes required)
