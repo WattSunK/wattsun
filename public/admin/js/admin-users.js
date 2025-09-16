@@ -2,8 +2,8 @@
    Admin Users — lean, evidence-first controller
    - Fresh init on each "users" partial mount
    - Strict DOM scoping (never touches modals)
-   - No observers/polling beyond a one-shot DOM mount check
-   - No console noise unless you opt-in: localStorage.dbgUsers="1"
+   - One-shot DOM mount check + router signal (no polling)
+   - No console noise unless: localStorage.dbgUsers="1"
 */
 (function () {
   // ----- Debug (opt-in) -----
@@ -11,7 +11,7 @@
   const dlog = (...args) => { if (DBG) console.debug("[users]", ...args); };
   const blog = (...args) => { if (DBG) console.debug("[users:boot]", ...args); };
 
-  // Single exported surface (used for manual init/testing)
+  // Single exported surface (manual init/testing)
   window.AdminUsers = window.AdminUsers || {};
 
   // ----- Small utilities -----
@@ -55,7 +55,7 @@
     return USERS_BASE;
   }
 
-  // ----- DOM discovery (strictly scoped to Users card) -----
+  // ----- DOM discovery (robust + scoped) -----
   function findRoot() {
     // 1) Explicit hooks if present
     const byId = document.getElementById("users-root");
@@ -63,23 +63,52 @@
     const byData = document.querySelector('[data-module="users"]');
     if (byData) return byData;
 
-    // 2) Heuristic: container with heading "Users" and a table with Users columns
-    const candidates = Array.from(
+    // 2) Heuristic A: container with heading "Users" and a users-like table
+    const containers = Array.from(
       document.querySelectorAll(
         'section,div.card,div.panel,div.block,div[data-partial="users"],div[role="region"]'
       )
-    );
-    for (const c of candidates) {
+    ).filter((c) => !c.closest(".modal,[role='dialog']"));
+    for (const c of containers) {
       const heading = c.querySelector("h1, h2, h3, .card-title, .header, .title, [data-title]");
       if (!heading || !hasTxt(heading, "users")) continue;
       const tbl = c.querySelector("table");
       if (!tbl) continue;
-      const thead = tbl.tHead || tbl.querySelector("thead");
-      if (theadHas(thead, ["sl"]) && theadHas(thead, ["name", "email"]) &&
-          (theadHas(thead, ["last active"]) || theadHas(thead, ["orders"]))) {
+      const th = tbl.tHead || tbl.querySelector("thead");
+      if (
+        theadHas(th, ["sl"]) &&
+        theadHas(th, ["name", "email", "phone"]) &&
+        theadHas(th, ["type"]) &&
+        (theadHas(th, ["last active"]) || theadHas(th, ["orders"])) &&
+        theadHas(th, ["status"])
+      ) {
         return c;
       }
     }
+
+    // 3) Heuristic B: find the actual Users table anywhere (outside modals)
+    const tables = Array.from(document.querySelectorAll("table")).filter((t) => {
+      if (t.closest(".modal,[role='dialog']")) return false;
+      const th = t.tHead || t.querySelector("thead");
+      return (
+        theadHas(th, ["sl"]) &&
+        theadHas(th, ["name"]) &&
+        theadHas(th, ["email"]) &&
+        theadHas(th, ["phone"]) &&
+        theadHas(th, ["type"]) &&
+        theadHas(th, ["status"]) &&
+        (theadHas(th, ["last active"]) || theadHas(th, ["orders"]))
+      );
+    });
+    if (tables.length) {
+      const t = tables[0];
+      return (
+        t.closest("section,div.card,div.panel,div.block,div[role='region']") ||
+        t.parentElement ||
+        t
+      );
+    }
+
     return null;
   }
 
@@ -93,11 +122,21 @@
       if (explicit) return explicit;
 
       const tables = Array.from(root.querySelectorAll("table"));
-      return tables.find((t) => {
-        const th = t.tHead || t.querySelector("thead");
-        return th && theadHas(th, ["sl"]) && theadHas(th, ["name"]) &&
-          (theadHas(th, ["last active"]) || theadHas(th, ["orders"]));
-      }) || null;
+      return (
+        tables.find((t) => {
+          const th = t.tHead || t.querySelector("thead");
+          return (
+            th &&
+            theadHas(th, ["sl"]) &&
+            theadHas(th, ["name"]) &&
+            theadHas(th, ["email"]) &&
+            theadHas(th, ["phone"]) &&
+            theadHas(th, ["type"]) &&
+            theadHas(th, ["status"]) &&
+            (theadHas(th, ["last active"]) || theadHas(th, ["orders"]))
+          );
+        }) || null
+      );
     })();
 
     return {
@@ -299,13 +338,12 @@
 
   // ----- Minimal activation patch (tiny & surgical) -----
   (function activate() {
-    // Keep the latest controller instance for teardown/debug
     let ctrl = null;
 
     async function bootFresh() {
       try { ctrl?.teardown?.(); } catch {}
       ctrl = createController();
-      // expose for manual testing: window.AdminUsers.init()
+      // expose for manual testing
       window.AdminUsers = { init: ctrl.init.bind(ctrl), teardown: ctrl.teardown?.bind(ctrl) };
       await ctrl.init();
     }
