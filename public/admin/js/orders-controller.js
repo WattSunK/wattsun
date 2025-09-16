@@ -104,29 +104,62 @@
     State.page  = Math.min(State.page, Math.max(1, Math.ceil(State.total / State.pageSize)));
   }
 
-  async function fetchOrders() {
-    const Data = getData();
-    if (!Data || !Data.orders) {
-      console.debug("[orders-controller] Data adapter not ready; will retry on next trigger.");
-      State.raw = [];
-      return false;
-    }
-    if (typeof Data.orders.list === "function") {
-      const res = await Data.orders.list();    // adapter handles paging server-side or returns all
-      State.raw = Array.isArray(res?.rows) ? res.rows : (Array.isArray(res) ? res : []);
-      console.debug("[orders-controller] fetched rows:", State.raw.length);
-      return true;
-    }
-    if (typeof Data.orders.get === "function") {
-      const res = await Data.orders.get();
-      State.raw = Array.isArray(res?.rows) ? res.rows : (Array.isArray(res) ? res : []);
-      console.debug("[orders-controller] fetched rows:", State.raw.length);
-      return true;
-    }
-    console.warn("[orders-controller] No Data.orders.list/get available");
+  // --- Data fetch (robust: supports `orders` or `rows`, with pagination) ---
+async function fetchOrders() {
+  const Data = getData();
+  if (!Data || !Data.orders) {
+    console.debug("[orders-controller] Data adapter not ready; will retry.");
     State.raw = [];
-    return true;
+    return false;
   }
+
+  // Helper: normalize one response into an array of orders
+  const normalize = (res) => {
+    if (!res) return [];
+    if (Array.isArray(res)) return res;                // plain array
+    if (Array.isArray(res.rows)) return res.rows;      // { rows: [...] }
+    if (Array.isArray(res.orders)) return res.orders;  // { orders: [...] }
+    if (Array.isArray(res.data)) return res.data;      // { data: [...] }
+    return [];
+  };
+
+  // Request as much as the adapter allows in one go
+  const PER = 200;           // safe upper bound; adjust if your API supports more/less
+  const HAS_LIST = typeof Data.orders.list === "function";
+  const HAS_GET  = typeof Data.orders.get  === "function";
+
+  let all = [];
+
+  if (HAS_LIST) {
+    // First page
+    let page = 1;
+    let per  = PER;
+
+    const first = await Data.orders.list({ page, per, q: "", status: "", phone: "" });
+    let rows    = normalize(first);
+    all.push(...rows);
+
+    // If the adapter reports totals, keep paging until we have them all
+    const total = Number(first?.total ?? rows.length);
+    const perFromApi = Number(first?.per ?? per);
+    const pages = Math.max(1, Math.ceil(total / (perFromApi || PER)));
+
+    for (page = 2; page <= pages; page++) {
+      const resp = await Data.orders.list({ page, per: perFromApi || PER, q: "", status: "", phone: "" });
+      all.push(...normalize(resp));
+    }
+  } else if (HAS_GET) {
+    // Fallback API that returns everything
+    const res = await Data.orders.get();
+    all = normalize(res);
+  } else {
+    console.warn("[orders-controller] No Data.orders.list/get available");
+  }
+
+  State.raw = all;
+  console.debug("[orders-controller] fetched rows:", State.raw.length);
+  return true;
+}
 
   async function boot() {
     if (booted) return;
