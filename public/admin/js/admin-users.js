@@ -367,7 +367,7 @@
     }
   }
 
-  // ---------- Activation (robust SPA-safe attach / rehydrate) ----------
+  // ---------- Activation (SPA attach / rehydrate) ----------
   (function activateUsersController(){
     document.addEventListener("admin:partial-loaded", (evt) => {
       const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
@@ -396,19 +396,7 @@
       return !!(r && r.length);
     }
 
-    function needRehydrate() {
-      if (!window.__ADMIN_USERS_ATTACHED__) return true;
-      if (!State.root) return true;
-      if (!document.contains(State.root)) return true;
-      if (!isVisible(State.root)) return true;
-      const tb = State.els && State.els.tbody;
-      if (!tb) return true;
-      if (tb.children.length === 0) return true;
-      return false;
-    }
-
-    let mo;
-    function ensureAttached(allowRehydrate) {
+    function ensureAttached() {
       // If we're already attached and the root is still present, only rehydrate when tbody is missing/empty
       if (window.__ADMIN_USERS_ATTACHED__ && State && State.root && document.contains(State.root)) {
         const tb = State.els && State.els.tbody ? State.els.tbody : null;
@@ -432,8 +420,8 @@
         }
       } catch {}
 
-      if (mo) mo.disconnect();
-      mo = new MutationObserver(() => {
+      // Fallback: wait briefly for DOM insertion and attach
+      const mo = new MutationObserver(() => {
         try {
           const rootNow = findRoot();
           if (rootNow) {
@@ -444,7 +432,7 @@
         } catch {}
       });
       mo.observe(document.body, { childList: true, subtree: true });
-      setTimeout(() => mo && mo.disconnect(), 8000);
+      setTimeout(() => mo.disconnect(), 8000);
     }
 
     const leaveMo = new MutationObserver(() => {
