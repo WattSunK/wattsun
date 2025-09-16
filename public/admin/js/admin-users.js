@@ -168,7 +168,7 @@
     for (let p=s; p<=e; p++) html += btn(p, String(p), false, p===page);
     html += btn(Math.min(pages,page+1), "›", page===pages);
     html += btn(pages, "»", page===pages);
-    els.pager.innerHTML = html;
+    if (els.pager) els.pager.innerHTML = html;
   }
 
   function render(){
@@ -176,22 +176,24 @@
     const start = (page-1)*per;
     const rows  = filtered.slice(start, start+per);
 
-    els.tbody.innerHTML = rows.length
-      ? rows.map((u, i)=>rowHtml(u, start+i+1)).join("")
-      : `<tr class="ws-empty"><td colspan="9">No users found</td></tr>`;
+    if (els.tbody) {
+      els.tbody.innerHTML = rows.length
+        ? rows.map((u, i)=>rowHtml(u, start+i+1)).join("")
+        : `<tr class="ws-empty"><td colspan="9">No users found</td></tr>`;
+    }
 
     const total = filtered.length;
     const end   = Math.min(start+rows.length, total);
-    els.info.textContent = total ? `${start+1}–${end} of ${total}` : "0–0 of 0";
+    if (els.info) els.info.textContent = total ? `${start+1}–${end} of ${total}` : "0–0 of 0";
 
     renderPager(total);
     window.dispatchEvent(new CustomEvent("users:rendered"));
   }
 
   function applyFilters(){
-    const q = State.els.search.value.trim().toLowerCase();
-    const type = State.els.type.value.trim();
-    const status = State.els.status.value.trim();
+    const q = (State.els.search?.value || "").trim().toLowerCase();
+    const type = (State.els.type?.value || "").trim();
+    const status = (State.els.status?.value || "").trim();
 
     State.filtered = State.all.filter(u=>{
       if (type && u.type !== type) return false;
@@ -280,7 +282,7 @@
 
   // ========= Events (strictly scoped; capture + stopImmediatePropagation)
   function onRootClick(e){
-    if (!State.root.contains(e.target)) return;
+    if (!State.root?.contains(e.target)) return;
     const actEl = e.target.closest("[data-users-action], a.ws-link");
     if (!actEl) return;
 
@@ -310,9 +312,9 @@
         break;
       case "search":        applyFilters(); break;
       case "clear":
-        State.els.search.value = "";
-        State.els.type.value = "";
-        State.els.status.value = "";
+        if (State.els.search) State.els.search.value = "";
+        if (State.els.type)   State.els.type.value   = "";
+        if (State.els.status) State.els.status.value = "";
         State.page = 1;
         applyFilters();
         break;
@@ -330,10 +332,10 @@
     const { root, els } = State;
     root.addEventListener("click", onRootClick, true);
 
-    els.search.addEventListener("keydown", (e)=>{ if (e.key==="Enter") applyFilters(); });
-    els.type.addEventListener("change", applyFilters);
-    els.status.addEventListener("change", applyFilters);
-    els.per.addEventListener("change", ()=>{
+    els.search?.addEventListener("keydown", (e)=>{ if (e.key==="Enter") applyFilters(); });
+    els.type?.addEventListener("change", applyFilters);
+    els.status?.addEventListener("change", applyFilters);
+    els.per?.addEventListener("change", ()=>{
       State.per = parseInt(els.per.value, 10) || 10;
       State.page = 1;
       render();
@@ -346,45 +348,64 @@
     });
   }
 
+  // ========= Loader (surgical insert)
+  async function load(){
+    try{
+      // For first pass we fetch all; filters/pager are client-side like Orders baseline
+      const list = await fetchList(); // respects resolved base
+      State.all = Array.isArray(list) ? list : [];
+      State.filtered = State.all.slice();
+      // per select initial value
+      const perVal = parseInt(State.els.per?.value || "10", 10);
+      if (Number.isFinite(perVal)) State.per = perVal;
+      render();
+    }catch(err){
+      console.warn("[Users] load() failed:", err);
+      // Keep empty state rendered
+      State.all = [];
+      State.filtered = [];
+      render();
+    }
+  }
+
   // ========= Init / Re-init
-async function init(){
-  const root = document.getElementById("users-root");
-  if (!root) return;
-  if (root.dataset.wsInit === "1") return;
+  async function init(){
+    const root = document.getElementById("users-root");
+    if (!root) return;
+    if (root.dataset.wsInit === "1") return;
 
-  State.root = root;
-  State.els = {
-    tbody:  document.querySelector("#usersTbody"),
-    pager:  document.querySelector("#usersPager"),
-    type:   document.querySelector("#usersType"),
-    status: document.querySelector("#usersStatus"),
-    search: document.querySelector("#usersSearch"),
-    per:    document.querySelector("#usersPer"),
-    addBtn: document.querySelector("#btnUsersAdd")
-  };
+    State.root = root;
+    State.els = {
+      tbody:  document.querySelector("#usersTbody"),
+      pager:  document.querySelector("#usersPager"),
+      info:   document.querySelector("#usersInfo"),
+      type:   document.querySelector("#usersType"),
+      status: document.querySelector("#usersStatus"),
+      search: document.querySelector("#usersSearch"),
+      per:    document.querySelector("#usersPer"),
+      addBtn: document.querySelector("#btnUsersAdd")
+    };
 
-  await load();
-  wire();
-  root.dataset.wsInit = "1";
-  console.log("👷 [Users] controller attached (event-driven, no auto-init).");
-}
+    await load();
+    wire();
+    root.dataset.wsInit = "1";
+    console.log("👷 [Users] controller attached (event-driven, no auto-init).");
+  }
 
-// === Replace previous autoInit/MutationObserver block with this:
-function onPartialLoaded(evt){
-  // Many admin partials dispatch { detail: { name: "<partial-name>" } }
-  const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
-  if (!/users/i.test(String(name))) return; // only when Users partial is loaded
-  init();
-}
+  // === Event-driven activation (no autoInit/observers)
+  function onPartialLoaded(evt){
+    // Many admin partials dispatch { detail: { name: "<partial-name>" } }
+    const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
+    if (!/users/i.test(String(name))) return; // only when Users partial is loaded
+    init();
+  }
 
-// Public hooks (optional)
-window.AdminUsers = { init };
+  // Public hooks (optional)
+  window.AdminUsers = { init };
 
-// Arm listener once; no DOM polling, no probes
-document.addEventListener("admin:partial-loaded", onPartialLoaded);
-console.log("🔎 [Users] controller armed for admin:partial-loaded (passive).");
+  // Arm listener once; no DOM polling, no probes
+  document.addEventListener("admin:partial-loaded", onPartialLoaded);
+  console.log("🔎 [Users] controller armed for admin:partial-loaded (passive).");
 
-  (document.readyState === "loading")
-    ? document.addEventListener("DOMContentLoaded", autoInit)
-    : autoInit();
+  // NOTE: intentionally no autoInit() here to avoid cross-partial side effects.
 })();
