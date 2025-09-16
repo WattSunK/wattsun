@@ -57,7 +57,7 @@ const depositRaw = [
   o.deposit_cents,
   o.depositAmountCents,
   o.deposit
-].find(v => v !== null && v !== undefined && v !== "");
+].find(v => v !== undefined && v !== null && v !== "");
 
 const deposit = depositRaw !== undefined && depositRaw !== null
   ? fmtMoney(+depositRaw, o.currency)
