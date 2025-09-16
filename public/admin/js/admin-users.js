@@ -1,65 +1,113 @@
 /* public/admin/js/admin-users.js
-   Admin Users — event-driven, auto-discovery wiring (list rendering only; quiet)
+   Admin Users — event-driven, SPA-safe wiring (list rendering only; quiet, scoped)
 */
 (function () {
   if (window.__ADMIN_USERS_CONTROLLER__) return;
   window.__ADMIN_USERS_CONTROLLER__ = true;
 
   // ---------------- State ----------------
-  const State = { all: [], filtered: [], page: 1, per: 10, root: null, els: {} };
+  const State = {
+    all: [],
+    filtered: [],
+    page: 1,
+    per: 10,
+    root: null,
+    els: {},
+    isLoading: false,
+    _rehydrate: null, // { io, mo }
+  };
 
-  const esc = (s) => (s == null ? "" : String(s)).replace(/[&<>"']/g, (m) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-  }[m]));
+  // Optional tiny exposure for debugging (no logs)
+  Object.defineProperty(window, "UsersState", { value: State, writable: false });
 
-  // ---------------- Auto-discovery ----------------
+  const esc = (s) =>
+    s == null
+      ? ""
+      : String(s).replace(/[&<>"']/g, (m) =>
+          ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m])
+        );
+
+  // ---------------- Auto-discovery (SCOPED) ----------------
   function findRoot() {
+    // Preferred: explicit root by id
     const byId = document.getElementById("users-root");
     if (byId) return byId;
-    const tbody =
-      document.querySelector("#usersTbody") ||
-      document.querySelector(".card table tbody") ||
-      document.querySelector("table tbody");
-    if (!tbody) return null;
-    return tbody.closest("#users-root, .card, section, .panel, .box, .content") || document.body;
+
+    // Safe fallback: a wrapper explicitly marked for Users
+    // (No generic tbody/first-table probing to avoid modal bleed)
+    const byData = document.querySelector('[data-module="users"]');
+    if (byData) return byData;
+
+    // If neither exists, stay dormant
+    return null;
   }
 
   function looksNumericSelect(sel) {
     if (!sel || sel.tagName !== "SELECT") return false;
     const opts = Array.from(sel.options);
     if (!opts.length) return false;
-    const numericCount = opts.reduce((n, o) => (Number.isFinite(parseInt(o.value || o.text, 10)) ? n + 1 : n), 0);
+    const numericCount = opts.reduce(
+      (n, o) => (Number.isFinite(parseInt(o.value || o.text, 10)) ? n + 1 : n),
+      0
+    );
     return numericCount >= Math.max(1, Math.floor(opts.length * 0.6));
   }
 
   function findControls(root) {
-    return {
-      tbody:
-        document.querySelector("#usersTbody") ||
-        root.querySelector("tbody"),
-      search:
-        document.querySelector("#usersSearch") ||
-        root.querySelector("input[type='search'], input[name='search']"),
-      status:
-        document.querySelector("#usersStatus") ||
-        Array.from(root.querySelectorAll("select")).find(s =>
-          (s.options[0]?.textContent || "").toLowerCase().includes("all status")
-        ) || null,
-      type:
-        document.querySelector("#usersType") ||
-        Array.from(root.querySelectorAll("select")).find(s =>
-          (s.options[0]?.textContent || "").toLowerCase().includes("all types")
-        ) || null,
-      per:
-        document.querySelector("#usersPer") ||
-        Array.from(root.querySelectorAll("select")).find(looksNumericSelect) || null,
-      pager:
-        document.querySelector("#usersPager") ||
-        root.querySelector("[data-users-pager]") || null,
-      info:
-        document.querySelector("#usersInfo") ||
-        root.querySelector("[data-users-info]") || null
-    };
+    // Hard-scope to root only — never query document-wide
+    const table =
+      root.querySelector(".users-table") ||
+      root.querySelector("table.users-table") ||
+      root.querySelector("table[data-users]") ||
+      root.querySelector("table");
+
+    const tbody =
+      (table && (table.tBodies[0] || table.querySelector("tbody"))) ||
+      root.querySelector("tbody[data-users]") ||
+      null;
+
+    const search =
+      root.querySelector("#usersSearch") ||
+      root.querySelector("[data-users-search]") ||
+      root.querySelector('input[type="search"][name="users"]') ||
+      root.querySelector('input[type="search"]') ||
+      root.querySelector('input[name="search"]') ||
+      null;
+
+    const status =
+      root.querySelector("#usersStatus") ||
+      root.querySelector("[data-users-status]") ||
+      Array.from(root.querySelectorAll("select")).find((s) =>
+        (s.options[0]?.textContent || "").toLowerCase().includes("all status")
+      ) ||
+      null;
+
+    const type =
+      root.querySelector("#usersType") ||
+      root.querySelector("[data-users-type]") ||
+      Array.from(root.querySelectorAll("select")).find((s) =>
+        (s.options[0]?.textContent || "").toLowerCase().includes("all types")
+      ) ||
+      null;
+
+    const per =
+      root.querySelector("#usersPer") ||
+      root.querySelector("[data-users-per]") ||
+      root.querySelector('select[name="per"]') ||
+      Array.from(root.querySelectorAll("select")).find(looksNumericSelect) ||
+      null;
+
+    const pager =
+      root.querySelector("#usersPager") ||
+      root.querySelector("[data-users-pager]") ||
+      null;
+
+    const info =
+      root.querySelector("#usersInfo") ||
+      root.querySelector("[data-users-info]") ||
+      null;
+
+    return { table, tbody, search, status, type, per, pager, info };
   }
 
   // ---------------- Endpoint ----------------
@@ -69,14 +117,21 @@
   async function resolveUsersBase() {
     if (USERS_BASE) return USERS_BASE;
     USERS_BASE = localStorage.getItem("wsUsersBase") || null;
+
     async function ok(url) {
       try {
         const r = await fetch(url, { method: "GET", credentials: "include" });
         return r.ok || r.status === 405;
-      } catch { return false; }
+      } catch {
+        return false;
+      }
     }
     for (const base of USERS_BASES) {
-      if (await ok(base)) { USERS_BASE = base; localStorage.setItem("wsUsersBase", base); break; }
+      if (await ok(base)) {
+        USERS_BASE = base;
+        localStorage.setItem("wsUsersBase", base);
+        break;
+      }
     }
     USERS_BASE = USERS_BASE || "/api/admin/users";
     return USERS_BASE;
@@ -93,8 +148,8 @@
       type: u.type ?? u.role ?? "",
       status: u.status ?? "Active",
       createdAt: created,
-      orders: Number.isFinite(u.orders) ? u.orders : (u.orderCount ?? u.orders_count ?? 0),
-      _raw: u
+      orders: Number.isFinite(u.orders) ? u.orders : u.orderCount ?? u.orders_count ?? 0,
+      _raw: u,
     };
   }
 
@@ -114,34 +169,46 @@
       else if (body.data && Array.isArray(body.data)) list = body.data;
       else {
         const keys = ["rows", "results", "list", "items"];
-        for (const k of keys) { if (Array.isArray(body[k])) { list = body[k]; break; } }
+        for (const k of keys) {
+          if (Array.isArray(body[k])) {
+            list = body[k];
+            break;
+          }
+        }
         if (!list.length && body.data && typeof body.data === "object") {
-          for (const k of keys) { if (Array.isArray(body.data[k])) { list = body.data[k]; break; } }
+          for (const k of keys) {
+            if (Array.isArray(body.data[k])) {
+              list = body.data[k];
+              break;
+            }
+          }
         }
       }
     }
     return list.map(normalize);
   }
 
-  async function deleteUser(id){
+  async function deleteUser(id) {
     const base = await resolveUsersBase();
     const r = await fetch(`${base}/${encodeURIComponent(id)}`, {
       method: "DELETE",
       credentials: "include",
     });
     if (!(r.ok || r.status === 204)) {
-      const txt = await r.text().catch(()=> "");
+      const txt = await r.text().catch(() => "");
       throw new Error(`Delete failed ${r.status}: ${txt}`);
     }
   }
 
   // ---------------- Render ----------------
   function rowHtml(u, slno) {
-    const badge = (u.status === "Active") ? "badge badge-success" : "badge badge-muted";
+    const badge = u.status === "Active" ? "badge badge-success" : "badge badge-muted";
     return `
       <tr data-users-row data-user-id="${esc(u.id)}">
         <td>${slno}</td>
-        <td><a href="#" class="link" data-users-action="open-edit" data-id="${esc(u.id)}">${esc(u.name || "(no name)")}</a></td>
+        <td><a href="#" class="link" data-users-action="open-edit" data-id="${esc(u.id)}">${esc(
+          u.name || "(no name)"
+        )}</a></td>
         <td>${esc(u.email)}</td>
         <td>${esc(u.phone)}</td>
         <td>${esc(u.type)}</td>
@@ -149,8 +216,12 @@
         <td><span class="${badge}">${esc(u.status || "Active")}</span></td>
         <td>${u.createdAt ? esc(u.createdAt) : ""}</td>
         <td class="actions">
-          <button class="btn btn-sm btn-outline"        data-users-action="open-edit"  data-id="${esc(u.id)}">View</button>
-          <button class="btn btn-sm btn-outline danger" data-users-action="deactivate" data-id="${esc(u.id)}">Delete</button>
+          <button class="btn btn-sm btn-outline"        data-users-action="open-edit"  data-id="${esc(
+            u.id
+          )}">View</button>
+          <button class="btn btn-sm btn-outline danger" data-users-action="deactivate" data-id="${esc(
+            u.id
+          )}">Delete</button>
         </td>
       </tr>`;
   }
@@ -162,13 +233,16 @@
     if (!els.pager) return;
 
     const mk = (p, label, dis = false, act = false) =>
-      `<button class="btn btn-sm ${act ? 'btn-outline' : 'btn-light'} ${dis ? 'is-disabled' : ''}"
-               data-users-action="page" data-page="${p}" ${dis ? 'disabled' : ''}>${label}</button>`;
+      `<button class="btn btn-sm ${act ? "btn-outline" : "btn-light"} ${
+        dis ? "is-disabled" : ""
+      }" data-users-action="page" data-page="${p}" ${dis ? "disabled" : ""}>${label}</button>`;
 
     let html = "";
     html += mk(1, "«", page === 1);
     html += mk(Math.max(1, page - 1), "‹", page === 1);
-    const win = 5, s = Math.max(1, page - Math.floor(win / 2)), e = Math.min(pages, s + win - 1);
+    const win = 5,
+      s = Math.max(1, page - Math.floor(win / 2)),
+      e = Math.min(pages, s + win - 1);
     for (let p = s; p <= e; p++) html += mk(p, String(p), false, p === page);
     html += mk(Math.min(pages, page + 1), "›", page === pages);
     html += mk(pages, "»", page === pages);
@@ -198,12 +272,12 @@
     const rawType = (State.els.type?.value || "").trim();
     const rawStatus = (State.els.status?.value || "").trim();
 
-    const type = (!rawType || /^all\b/i.test(rawType)) ? "" : rawType;
-    const status = (!rawStatus || /^all\b/i.test(rawStatus)) ? "" : rawStatus;
+    const type = !rawType || /^all\b/i.test(rawType) ? "" : rawType;
+    const status = !rawStatus || /^all\b/i.test(rawStatus) ? "" : rawStatus;
 
     const q = rawQ.toLowerCase();
 
-    State.filtered = State.all.filter(u => {
+    State.filtered = State.all.filter((u) => {
       if (type && (u.type || "").trim() !== type) return false;
       if (status && (u.status || "Active") !== status) return false;
       if (q) {
@@ -220,8 +294,11 @@
   // ---------------- Events ----------------
   function onRootClick(e) {
     if (!State.root?.contains(e.target)) return;
-    const actEl = e.target.closest("[data-users-action], a.ws-link, a.link"); if (!actEl) return;
-    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    const actEl = e.target.closest("[data-users-action], a.ws-link, a.link");
+    if (!actEl) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
 
     let action = actEl.getAttribute("data-users-action") || "";
     const row = actEl.closest("[data-users-row]");
@@ -236,13 +313,13 @@
         // (reserved for later increments; currently “View”)
         break;
       case "deactivate": {
-        const u = State.all.find(x => String(x.id) === String(id));
+        const u = State.all.find((x) => String(x.id) === String(id));
         const label = u?.name || u?.email || id;
         if (!confirm(`Delete user "${label}"? This cannot be undone.`)) return;
 
         const prevAll = State.all.slice();
-        State.all = prevAll.filter(x => String(x.id) !== String(id));
-        State.filtered = State.filtered.filter(x => String(x.id) !== String(id));
+        State.all = prevAll.filter((x) => String(x.id) !== String(id));
+        State.filtered = State.filtered.filter((x) => String(x.id) !== String(id));
         render();
 
         deleteUser(id).catch(() => {
@@ -251,44 +328,99 @@
         });
         break;
       }
-      case "search": applyFilters(); break;
+      case "search":
+        applyFilters();
+        break;
       case "clear":
         if (State.els.search) State.els.search.value = "";
-        if (State.els.type)   State.els.type.value   = State.els.type.options[0]?.value ?? "";
+        if (State.els.type) State.els.type.value = State.els.type.options[0]?.value ?? "";
         if (State.els.status) State.els.status.value = State.els.status.options[0]?.value ?? "";
-        State.page = 1; applyFilters(); break;
-      case "page":
-        {
-          const p = parseInt(actEl.getAttribute("data-page"), 10);
-          if (Number.isFinite(p)) { State.page = p; render(); }
+        State.page = 1;
+        applyFilters();
+        break;
+      case "page": {
+        const p = parseInt(actEl.getAttribute("data-page"), 10);
+        if (Number.isFinite(p)) {
+          State.page = p;
+          render();
         }
         break;
-      default: break;
+      }
+      default:
+        break;
     }
   }
 
   function wire() {
     const { root, els } = State;
     root.addEventListener("click", onRootClick, true);
-    els.search?.addEventListener("keydown", (e) => { if (e.key === "Enter") applyFilters(); });
+    els.search?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") applyFilters();
+    });
     els.type?.addEventListener("change", applyFilters);
     els.status?.addEventListener("change", applyFilters);
     els.per?.addEventListener("change", () => {
       State.per = parseInt(els.per.value, 10) || 10;
-      State.page = 1; render();
+      State.page = 1;
+      render();
     });
   }
 
   // ---------------- Loader ----------------
-  async function load() {
-    const list = await fetchList();
-    State.all = Array.isArray(list) ? list : [];
-    State.filtered = State.all.slice();
+  async function load(reason) {
+    if (State.isLoading) return;
+    State.isLoading = true;
+    try {
+      const list = await fetchList();
+      State.all = Array.isArray(list) ? list : [];
+      State.filtered = State.all.slice();
 
-    const perVal = parseInt(State.els.per?.value || "10", 10);
-    if (Number.isFinite(perVal)) State.per = perVal;
+      const perVal = parseInt(State.els.per?.value || "10", 10);
+      if (Number.isFinite(perVal)) State.per = perVal;
 
-    render();
+      render();
+    } finally {
+      State.isLoading = false;
+    }
+  }
+
+  // ---------------- Rehydrate watchers (visibility + tbody clear) ----------------
+  function setRehydrateWatchers(root, state) {
+    // Clean up any previous watchers
+    if (state._rehydrate) {
+      try {
+        state._rehydrate.io?.disconnect();
+        state._rehydrate.mo?.disconnect();
+      } catch {}
+      state._rehydrate = null;
+    }
+
+    const tbody = state.els?.tbody || null;
+    if (!tbody) return;
+
+    let rootVisible = true;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          rootVisible = !!entry.isIntersecting;
+          if (rootVisible && tbody && tbody.rows.length === 0 && !state.isLoading) {
+            load("visible-empty");
+          }
+        }
+      },
+      { root: null, threshold: 0 }
+    );
+    io.observe(root);
+
+    const mo = new MutationObserver(() => {
+      if (rootVisible && tbody && tbody.rows.length === 0 && !state.isLoading) {
+        load("tbody-cleared");
+      }
+    });
+    mo.observe(tbody, { childList: true });
+
+    state._rehydrate = { io, mo };
   }
 
   // ---------------- Init ----------------
@@ -300,14 +432,15 @@
     State.root = root;
     State.els = findControls(root);
 
-    await load();
+    await load("init");
     wire();
+    setRehydrateWatchers(root, State);
 
     root.dataset.wsInit = "1";
   }
 
   // ---------- Activation (robust SPA-safe attach / rehydrate) ----------
-  (function activateUsersController(){
+  (function activateUsersController() {
     document.addEventListener("admin:partial-loaded", (evt) => {
       const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
       if (/users/i.test(String(name))) ensureAttached(true);
@@ -323,10 +456,16 @@
     }
     window.addEventListener("hashchange", () => setTimeout(tryHashInit, 0));
 
-    document.addEventListener("click", (e) => {
-      const t = e.target.closest('[data-partial="users"], a[href$="#users"], a[href*="#users"]');
-      if (t) setTimeout(() => ensureAttached(true), 0);
-    }, true);
+    document.addEventListener(
+      "click",
+      (e) => {
+        const t = e.target.closest(
+          '[data-partial="users"], a[href$="#users"], a[href*="#users"]'
+        );
+        if (t) setTimeout(() => ensureAttached(true), 0);
+      },
+      true
+    );
 
     function isVisible(el) {
       if (!el) return false;
@@ -339,7 +478,7 @@
       if (!window.__ADMIN_USERS_ATTACHED__) return true;
       if (!State.root) return true;
       if (!document.contains(State.root)) return true;
-      if (!isVisible(State.root)) return true;
+      // If not visible, no need to rehydrate yet; watchers will handle when shown
       const tb = State.els && State.els.tbody;
       if (!tb) return true;
       if (tb.children.length === 0) return true;
@@ -356,7 +495,8 @@
               window.AdminUsers?.init?.();
             } else if (allowRehydrate || needRehydrate()) {
               State.els = findControls(root);
-              load();
+              setRehydrateWatchers(root, State);
+              load("ensureAttached");
             }
             window.__ADMIN_USERS_ATTACHED__ = true;
           }
@@ -367,8 +507,8 @@
       if (mo) mo.disconnect();
       mo = new MutationObserver(() => {
         try {
-          const root = findRoot();
-          if (root) {
+          const rootNow = findRoot();
+          if (rootNow) {
             mo.disconnect();
             window.AdminUsers?.init?.();
             window.__ADMIN_USERS_ATTACHED__ = true;
