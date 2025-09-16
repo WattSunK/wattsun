@@ -315,57 +315,78 @@
     console.log("👷 [Users] controller attached (auto-discovered).");
   }
 
-  // ---------- Activation (event + hash + click + DOM-observer fallback) ----------
-function onPartialLoaded(evt) {
-  const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
-  if (!/users/i.test(String(name))) return;
-  init();
-}
+  // Expose to global scope for SPA attach logic
+  window.AdminUsers = { init };
+  window.UsersState = State;
 
-// Wait until the Users DOM is actually present, then init once
-function waitForUsersDom(cb) {
-  // If it’s already there, go now
-  try { if (findRoot()) { cb(); return; } } catch (_) {}
+  // ---------- Activation (robust SPA-safe attach) ----------
+(function activateUsersController(){
+  // Preferred custom event (if your router emits it)
+  document.addEventListener("admin:partial-loaded", (evt) => {
+    const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
+    if (/users/i.test(String(name))) ensureAttached();
+  });
 
-  // Otherwise wait briefly for the router to inject it
-  const mo = new MutationObserver(() => {
+  // Hash and initial page load (covers direct links to #users)
+  function tryHashInit() {
+    if (location.hash && /#users\b/i.test(location.hash)) ensureAttached();
+  }
+  if (document.readyState === "complete" || document.readyState === "interactive") {
+    setTimeout(tryHashInit, 0);
+  } else {
+    document.addEventListener("DOMContentLoaded", () => setTimeout(tryHashInit, 0));
+  }
+  window.addEventListener("hashchange", () => setTimeout(tryHashInit, 0));
+
+  // Sidebar clicks (works even if hash doesn't change)
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest('[data-partial="users"], a[href$="#users"], a[href*="#users"]');
+    if (t) setTimeout(ensureAttached, 0);
+  }, true);
+
+  // Persistent, very-light DOM watcher that attaches when the Users UI actually appears
+  let mo;
+  function ensureAttached() {
+    // If already attached and root is alive, stop
+    if (window.__ADMIN_USERS_ATTACHED__ && UsersState?.root && document.contains(UsersState.root)) return;
+
+    // If the Users DOM is present now, attach immediately
     try {
-      if (findRoot()) {
-        mo.disconnect();
-        cb();
+      const root = (typeof findRoot === "function") ? findRoot() : null;
+      if (root) {
+        window.AdminUsers?.init();
+        window.__ADMIN_USERS_ATTACHED__ = true;
+        return;
       }
     } catch (_) {}
+
+    // Otherwise watch for it to show up
+    if (mo) mo.disconnect();
+    mo = new MutationObserver(() => {
+      try {
+        const root = (typeof findRoot === "function") ? findRoot() : null;
+        if (root) {
+          mo.disconnect();
+          window.AdminUsers?.init();
+          window.__ADMIN_USERS_ATTACHED__ = true;
+        }
+      } catch (_) {}
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+
+    // Safety stop after 8s (keeps it light if user never opens Users)
+    setTimeout(() => mo && mo.disconnect(), 8000);
+  }
+
+  // If we leave Users (root removed), allow a re-attach next time
+  const leaveMo = new MutationObserver(() => {
+    if (UsersState?.root && !document.contains(UsersState.root)) {
+      window.__ADMIN_USERS_ATTACHED__ = false;
+    }
   });
+  leaveMo.observe(document.body, { childList: true, subtree: true });
 
-  // Observe document body for subtree inserts; stop after a short window
-  mo.observe(document.body, { childList: true, subtree: true });
-  setTimeout(() => mo.disconnect(), 5000); // safety cap
-}
-
-// If the sidebar “Users” link is clicked, wait for DOM then init
-document.addEventListener("click", (e) => {
-  const a = e.target.closest('a[href$="#users"]');
-  if (!a) return;
-  waitForUsersDom(init);
-}, true);
-
-// Preferred custom event from the router (if emitted)
-document.addEventListener("admin:partial-loaded", onPartialLoaded);
-
-// Also cover direct loads and hash changes
-function maybeInit() { waitForUsersDom(init); }
-
-if (document.readyState === "complete" || document.readyState === "interactive") {
-  if (location.hash.endsWith("#users")) setTimeout(maybeInit, 0);
-} else {
-  document.addEventListener("DOMContentLoaded", () => {
-    if (location.hash.endsWith("#users")) setTimeout(maybeInit, 0);
-  });
-}
-window.addEventListener("hashchange", () => {
-  if (location.hash.endsWith("#users")) setTimeout(maybeInit, 0);
-});
-
-window.AdminUsers = { init }; // manual trigger if ever needed
-console.log("🔎 [Users] controller armed (event + hash + click + DOM observer).");
+  console.log("🔎 [Users] controller armed (event + hash + click + persistent DOM observer).");
 })();
+}
+)();
