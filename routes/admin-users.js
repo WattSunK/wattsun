@@ -67,6 +67,41 @@ router.get("/users", requireAdmin, (req, res) => {
   });
 });
 
+// CREATE: POST /api/admin/users
+router.post("/users", requireAdmin, express.json(), (req, res) => {
+  try {
+    const { name, email, phone, type, status } = req.body || {};
+    // Minimal validation
+    if (!name || !email || !phone) {
+      return res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "name, email, phone are required" } });
+    }
+    // DB handle (better-sqlite3 style via app context)
+    const db = req.app.get("db");
+    if (!db) {
+      return res.status(500).json({ success: false, error: { code: "DB_UNAVAILABLE", message: "Database not available" } });
+    }
+
+    // Insert — align with your schema column names
+    // Ensure your users table has: name, email, phone, type, status, created_at, updated_at
+    const insert = db.prepare(`
+      INSERT INTO users (name, email, phone, type, status, created_at, updated_at)
+      VALUES (?, ?, ?, COALESCE(?, 'User'), COALESCE(?, 'Active'), datetime('now'), datetime('now'))
+    `);
+    const info = insert.run(name.trim(), email.trim(), phone.trim(), type, status);
+
+    // Select the newly created row for response
+    const row = db.prepare(`
+      SELECT id, name, email, phone, type, status, created_at AS createdAt, updated_at AS updatedAt
+      FROM users WHERE id = ?
+    `).get(info.lastInsertRowid);
+
+    return res.json({ success: true, user: row });
+  } catch (err) {
+    // likely UNIQUE constraint, etc.
+    return res.status(500).json({ success: false, error: { code: "CREATE_FAILED", message: String(err && err.message || err) } });
+  }
+});
+
 // PATCH /api/admin/users/:id  (keep existing behavior; optional example shown)
 router.patch("/users/:id", requireAdmin, express.json(), (req, res) => {
   const id = parseInt(req.params.id, 10);
