@@ -142,23 +142,26 @@
 
   // ---------- Render ----------
   function rowHtml(u, slno) {
-    const badge = (u.status === "Active") ? "ws-badge-success" : "ws-badge-muted";
-    return `
-      <tr data-users-row data-user-id="${esc(u.id)}">
-        <td>${slno}</td>
-        <td><a href="#" class="ws-link" data-users-action="open-edit" data-id="${esc(u.id)}">${esc(u.name || "(no name)")}</a></td>
-        <td>${esc(u.email)}</td>
-        <td>${esc(u.phone)}</td>
-        <td>${esc(u.type)}</td>
-        <td>${esc(u.orders)}</td>
-        <td><span class="ws-badge ${badge}">${esc(u.status || "Active")}</span></td>
-        <td>${u.createdAt ? esc(u.createdAt) : ""}</td>
-        <td class="ws-actions">
-          <button class="ws-btn ws-btn-xs ws-btn-primary" data-users-action="open-edit" data-id="${esc(u.id)}">View</button>
-          <button class="ws-btn ws-btn-xs ws-btn-ghost"   data-users-action="deactivate" data-id="${esc(u.id)}">Delete</button>
-        </td>
-      </tr>`;
-  }
+  const badge = (u.status === "Active") ? "badge badge-success" : "badge badge-muted";
+  const mk = (p, label, dis = false, act = false) =>
+  `<button class="btn btn-xs ${act ? 'btn-primary' : 'btn-light'} ${dis ? 'is-disabled' : ''}"
+           data-users-action="page" data-page="${p}" ${dis ? 'disabled' : ''}>${label}</button>`;
+  return `
+    <tr data-users-row data-user-id="${esc(u.id)}">
+      <td>${slno}</td>
+      <td><a href="#" class="link" data-users-action="open-edit" data-id="${esc(u.id)}">${esc(u.name || "(no name)")}</a></td>
+      <td>${esc(u.email)}</td>
+      <td>${esc(u.phone)}</td>
+      <td>${esc(u.type)}</td>
+      <td>${esc(u.orders)}</td>
+      <td><span class="${badge}">${esc(u.status || "Active")}</span></td>
+      <td>${u.createdAt ? esc(u.createdAt) : ""}</td>
+      <td class="actions">
+        <button class="btn btn-xs btn-primary" data-users-action="open-edit" data-id="${esc(u.id)}">View</button>
+        <button class="btn btn-xs btn-danger"  data-users-action="deactivate" data-id="${esc(u.id)}">Delete</button>
+      </td>
+    </tr>`;
+}
 
   function renderPager(total) {
     const { page, per, els } = State;
@@ -312,42 +315,57 @@
     console.log("👷 [Users] controller attached (auto-discovered).");
   }
 
-  // ---------- Activation ----------
+  // ---------- Activation (event + hash + click + DOM-observer fallback) ----------
 function onPartialLoaded(evt) {
   const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
   if (!/users/i.test(String(name))) return;
   init();
 }
 
-// Fallback 1: hash / initial load -> try to init if the Users block is already in the DOM
-function maybeInit() {
-  // findRoot() exists in this file and is safe to call repeatedly
-  try { init(); } catch (_) {}
+// Wait until the Users DOM is actually present, then init once
+function waitForUsersDom(cb) {
+  // If it’s already there, go now
+  try { if (findRoot()) { cb(); return; } } catch (_) {}
+
+  // Otherwise wait briefly for the router to inject it
+  const mo = new MutationObserver(() => {
+    try {
+      if (findRoot()) {
+        mo.disconnect();
+        cb();
+      }
+    } catch (_) {}
+  });
+
+  // Observe document body for subtree inserts; stop after a short window
+  mo.observe(document.body, { childList: true, subtree: true });
+  setTimeout(() => mo.disconnect(), 5000); // safety cap
 }
 
-// Fallback 2: when the sidebar Users link is clicked, try init shortly after
+// If the sidebar “Users” link is clicked, wait for DOM then init
 document.addEventListener("click", (e) => {
   const a = e.target.closest('a[href$="#users"]');
   if (!a) return;
-  // give your router/partial loader a tick to inject the DOM
-  setTimeout(maybeInit, 0);
+  waitForUsersDom(init);
 }, true);
 
-// Listen for the preferred custom event (if your router emits it)
+// Preferred custom event from the router (if emitted)
 document.addEventListener("admin:partial-loaded", onPartialLoaded);
 
-// Also try once on DOM ready, and whenever the hash changes
+// Also cover direct loads and hash changes
+function maybeInit() { waitForUsersDom(init); }
+
 if (document.readyState === "complete" || document.readyState === "interactive") {
-  // queue to end of task so the partial has a chance to render first
-  setTimeout(maybeInit, 0);
+  if (location.hash.endsWith("#users")) setTimeout(maybeInit, 0);
 } else {
-  document.addEventListener("DOMContentLoaded", () => setTimeout(maybeInit, 0));
+  document.addEventListener("DOMContentLoaded", () => {
+    if (location.hash.endsWith("#users")) setTimeout(maybeInit, 0);
+  });
 }
-window.addEventListener("hashchange", () => setTimeout(maybeInit, 0));
+window.addEventListener("hashchange", () => {
+  if (location.hash.endsWith("#users")) setTimeout(maybeInit, 0);
+});
 
-console.log("🔎 [Users] controller armed (event + hash + click fallbacks).");
-
-  window.AdminUsers = { init }; // manual trigger if needed
-  document.addEventListener("admin:partial-loaded", onPartialLoaded);
-  console.log("🔎 [Users] controller armed for admin:partial-loaded (passive).");
+window.AdminUsers = { init }; // manual trigger if ever needed
+console.log("🔎 [Users] controller armed (event + hash + click + DOM observer).");
 })();
