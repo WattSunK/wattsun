@@ -313,11 +313,40 @@
   }
 
   // ---------- Activation ----------
-  function onPartialLoaded(evt) {
-    const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
-    if (!/users/i.test(String(name))) return;
-    init();
-  }
+function onPartialLoaded(evt) {
+  const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
+  if (!/users/i.test(String(name))) return;
+  init();
+}
+
+// Fallback 1: hash / initial load -> try to init if the Users block is already in the DOM
+function maybeInit() {
+  // findRoot() exists in this file and is safe to call repeatedly
+  try { init(); } catch (_) {}
+}
+
+// Fallback 2: when the sidebar Users link is clicked, try init shortly after
+document.addEventListener("click", (e) => {
+  const a = e.target.closest('a[href$="#users"]');
+  if (!a) return;
+  // give your router/partial loader a tick to inject the DOM
+  setTimeout(maybeInit, 0);
+}, true);
+
+// Listen for the preferred custom event (if your router emits it)
+document.addEventListener("admin:partial-loaded", onPartialLoaded);
+
+// Also try once on DOM ready, and whenever the hash changes
+if (document.readyState === "complete" || document.readyState === "interactive") {
+  // queue to end of task so the partial has a chance to render first
+  setTimeout(maybeInit, 0);
+} else {
+  document.addEventListener("DOMContentLoaded", () => setTimeout(maybeInit, 0));
+}
+window.addEventListener("hashchange", () => setTimeout(maybeInit, 0));
+
+console.log("🔎 [Users] controller armed (event + hash + click fallbacks).");
+
   window.AdminUsers = { init }; // manual trigger if needed
   document.addEventListener("admin:partial-loaded", onPartialLoaded);
   console.log("🔎 [Users] controller armed for admin:partial-loaded (passive).");
