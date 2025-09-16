@@ -2,10 +2,8 @@
 (function () {
   "use strict";
 
-  // ---- Data accessor (never bail early) ----
   const getData = () => window.WattSunAdminData;
 
-  // ---- State ----
   let booted = false;
   const State = {
     page: 1,
@@ -17,26 +15,17 @@
     sort:   { key: "createdAt", dir: "desc" },
   };
 
-  // ---- Utils ----
   const $    = (s, r = document) => r.querySelector(s);
-  const $all = (s, r = document) => Array.from(r.querySelectorAll(s));
 
   function fmtMoney(cents, currency) {
     if (!Number.isFinite(cents)) return "—";
     const v = cents / 100;
     try {
-      return new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: currency || "KES",
-        maximumFractionDigits: 2
-      }).format(v);
-    } catch {
-      return `${currency || "KES"} ${v.toFixed(2)}`;
-    }
+      return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "KES", maximumFractionDigits: 2 }).format(v);
+    } catch { return `${currency || "KES"} ${v.toFixed(2)}`; }
   }
   const fmtDT = (iso) => { try { return new Date(iso).toLocaleString(); } catch { return iso || "—"; } };
 
-  // ---- DOM hooks ----
   function ensureTableHooks() {
     const table = document.querySelector('table[data-role="orders-table"]') || document.getElementById("ordersTable");
     const tbody = (table && table.tBodies && table.tBodies[0]) ? table.tBodies[0] : document.getElementById("ordersTbody");
@@ -44,16 +33,13 @@
     if (tbody && !tbody.id) tbody.id = "ordersTbody";
   }
 
-  // ---- Renderers ----
   function renderRows() {
     const tbody = document.getElementById("ordersTbody");
     if (!tbody) return;
-
     const start = (State.page - 1) * State.pageSize;
     const end   = start + State.pageSize;
     const slice = State.rows.slice(start, end);
-
-    tbody.innerHTML = slice.map((o) => {
+    const html = slice.map((o) => {
       const id      = o.orderNumber || o.id;
       const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : "—";
       const total   = fmtMoney(o.totalCents, o.currency);
@@ -73,6 +59,7 @@
           </td>
         </tr>`;
     }).join("") || `<tr><td colspan="8" class="muted" style="text-align:center;">No orders</td></tr>`;
+    tbody.innerHTML = html;
   }
 
   function renderPager() {
@@ -91,7 +78,6 @@
     const q = (State.filter.q || "").toLowerCase().trim();
     const status = (State.filter.status || "").toLowerCase().trim();
     const phone  = (State.filter.phone  || "").replace(/\D+/g, "");
-
     let rows = [...State.raw];
 
     if (q) rows = rows.filter(o =>
@@ -118,47 +104,43 @@
     State.page  = Math.min(State.page, Math.max(1, Math.ceil(State.total / State.pageSize)));
   }
 
-  // ---- Data fetch ----
   async function fetchOrders() {
     const Data = getData();
     if (!Data || !Data.orders) {
-      console.debug("[OrdersController] Data adapter not ready yet.");
-      return { ok: false };
+      console.debug("[orders-controller] Data adapter not ready; will retry on next trigger.");
+      State.raw = [];
+      return false;
     }
-
     if (typeof Data.orders.list === "function") {
-      const res = await Data.orders.list();
+      const res = await Data.orders.list();    // adapter handles paging server-side or returns all
       State.raw = Array.isArray(res?.rows) ? res.rows : (Array.isArray(res) ? res : []);
-      return { ok: true };
+      console.debug("[orders-controller] fetched rows:", State.raw.length);
+      return true;
     }
     if (typeof Data.orders.get === "function") {
       const res = await Data.orders.get();
       State.raw = Array.isArray(res?.rows) ? res.rows : (Array.isArray(res) ? res : []);
-      return { ok: true };
+      console.debug("[orders-controller] fetched rows:", State.raw.length);
+      return true;
     }
-
-    console.warn("[OrdersController] No Data.orders.list/get available");
+    console.warn("[orders-controller] No Data.orders.list/get available");
     State.raw = [];
-    return { ok: true };
+    return true;
   }
 
-  // ---- Boot (only when Orders partial is loaded) ----
   async function boot() {
     if (booted) return;
     booted = true;
+    console.debug("[orders-controller] boot");
 
     ensureTableHooks();
 
     // Filters
-    const qInput     = document.getElementById("ordersSearch");
-    const statusSel  = document.getElementById("ordersStatus");
-    const phoneInput = document.getElementById("ordersPhone");
+    $("#ordersSearch") && $("#ordersSearch").addEventListener("input",  (e) => { State.filter.q      = e.target.value; applyFilters(); renderRows(); renderPager(); });
+    $("#ordersStatus") && $("#ordersStatus").addEventListener("change", (e) => { State.filter.status = e.target.value; applyFilters(); renderRows(); renderPager(); });
+    $("#ordersPhone")  && $("#ordersPhone").addEventListener("input",   (e) => { State.filter.phone  = e.target.value; applyFilters(); renderRows(); renderPager(); });
 
-    qInput     && qInput.addEventListener("input",  (e) => { State.filter.q      = e.target.value; applyFilters(); renderRows(); renderPager(); });
-    statusSel  && statusSel.addEventListener("change",(e) => { State.filter.status= e.target.value; applyFilters(); renderRows(); renderPager(); });
-    phoneInput && phoneInput.addEventListener("input",(e) => { State.filter.phone = e.target.value; applyFilters(); renderRows(); renderPager(); });
-
-    // Pager
+    // Pager clicks
     document.addEventListener("click", (e) => {
       const btn = e.target.closest(".pager .btn");
       if (!btn) return;
@@ -189,25 +171,53 @@
       }
     });
 
-    // First data load (non-fatal if adapter not ready)
-    await fetchOrders();
+    const ok = await fetchOrders();
+    if (!ok) {
+      // retry once the adapter appears (lightweight, one-shot)
+      const waitData = setInterval(async () => {
+        if (getData() && getData().orders) {
+          clearInterval(waitData);
+          await fetchOrders();
+          applyFilters(); renderRows(); renderPager();
+        }
+      }, 200);
+      return;
+    }
     applyFilters(); renderRows(); renderPager();
   }
 
-  // Fire boot ONLY when Orders partial loads
+  // ---------- Robust triggers (three small ones) ----------
+  // A) Admin partial load (primary path)
   window.addEventListener("admin:partial-loaded", (e) => {
     const name = e?.detail?.partial || e?.detail?.name;
     if (name === "orders") boot();
   });
 
-  // Manual helper for testing
+  // B) If Orders DOM is already on the page when scripts load
+  function isOrdersDomPresent() {
+    return document.getElementById("ordersTable") || document.querySelector('table[data-role="orders-table"]');
+  }
+  document.addEventListener("DOMContentLoaded", () => {
+    if (isOrdersDomPresent()) boot();
+  });
+
+  // C) One-shot observer: boot the first time the Orders table is inserted
+  const oneShotMO = new MutationObserver(() => {
+    if (!booted && isOrdersDomPresent()) {
+      oneShotMO.disconnect();
+      boot();
+    }
+  });
+  oneShotMO.observe(document.body, { childList: true, subtree: true });
+
+  // Manual helper
   window.__WS_ORDERS_FORCE_BOOT = () => { booted = false; boot(); };
 
   // ===== VIEW (lazy-injected partial) =====
   async function ensureModals() {
     if (document.getElementById("orderViewModal") && document.getElementById("orderEditModal")) return;
     try {
-      const res = await fetch("/partials/orders-modal.html?v=20250915-02", { credentials: "include" });
+      const res = await fetch("/partials/orders-modal.html?v=20250915-03", { credentials: "include" });
       if (!res.ok) throw new Error(`Failed to load orders-modal.html: ${res.status}`);
       const html = await res.text();
       const tpl  = document.createElement("template");
@@ -263,7 +273,6 @@
     openViewModalWithData(o);
   });
 
-  // Close for View dialog
   document.addEventListener("click", (e) => {
     const btn = e.target.closest("#orderViewModal button, #orderViewModal [data-close]");
     if (!btn) return;
