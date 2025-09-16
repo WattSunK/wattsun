@@ -102,23 +102,7 @@ router.patch("/users/:id", requireAdmin, express.json(), (req, res) => {
   const id = parseInt(req.params.id, 10);
   const { name, email, phone, type, status } = req.body || {};
 
-  // DELETE: /api/admin/users/:id  (sqlite3 handle; same as GET/PATCH)
-router.delete("/users/:id", requireAdmin, (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (!Number.isFinite(id)) {
-    return res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "Invalid id" } });
-  }
-
-  // If you enforce FK, this will fail when the user is referenced elsewhere.
-  db.run(`DELETE FROM users WHERE id = $id`, { $id: id }, function (err) {
-    if (err) {
-      return res.status(500).json({ success: false, error: { code: "DB_DELETE", message: err.message } });
-    }
-    // this.changes === 1 when a row was removed
-    return res.json({ success: true, deleted: this.changes, id });
-  });
-});
-
+  
   // build dynamic SET
   const fields = [];
   const params = { $id: id };
@@ -142,6 +126,23 @@ router.delete("/users/:id", requireAdmin, (req, res) => {
         res.json({ success: true, user: row });
       }
     );
+  });
+});
+
+// DELETE: /api/admin/users/:id  (sqlite3 handle; same as GET/PATCH)
+router.delete("/users/:id", requireAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "Invalid id" } });
+  }
+
+  // If you enforce FK, this will fail when the user is referenced elsewhere.
+  db.run(`DELETE FROM users WHERE id = $id`, { $id: id }, function (err) {
+    if (err) {
+      return res.status(500).json({ success: false, error: { code: "DB_DELETE", message: err.message } });
+    }
+    // this.changes === 1 when a row was removed
+    return res.json({ success: true, deleted: this.changes, id });
   });
 });
 
