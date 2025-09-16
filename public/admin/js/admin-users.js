@@ -306,15 +306,15 @@
     root.dataset.wsInit = "1";
   }
 
-  // ---------- Activation (robust SPA-safe attach) ----------
+  // ---------- Activation (robust SPA-safe attach / rehydrate) ----------
   (function activateUsersController(){
     document.addEventListener("admin:partial-loaded", (evt) => {
       const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
-      if (/users/i.test(String(name))) ensureAttached();
+      if (/users/i.test(String(name))) ensureAttached(true);
     });
 
     function tryHashInit() {
-      if (location.hash && /#users\b/i.test(location.hash)) ensureAttached();
+      if (location.hash && /#users\b/i.test(location.hash)) ensureAttached(true);
     }
     if (document.readyState === "complete" || document.readyState === "interactive") {
       setTimeout(tryHashInit, 0);
@@ -325,18 +325,41 @@
 
     document.addEventListener("click", (e) => {
       const t = e.target.closest('[data-partial="users"], a[href$="#users"], a[href*="#users"]');
-      if (t) setTimeout(ensureAttached, 0);
+      if (t) setTimeout(() => ensureAttached(true), 0);
     }, true);
 
-    let mo;
-    function ensureAttached() {
-      if (window.__ADMIN_USERS_ATTACHED__ && State?.root && document.contains(State.root)) return;
+    function isVisible(el) {
+      if (!el) return false;
+      if (el.offsetParent !== null) return true;
+      const r = el.getClientRects();
+      return !!(r && r.length);
+    }
 
+    function needRehydrate() {
+      if (!window.__ADMIN_USERS_ATTACHED__) return true;
+      if (!State.root) return true;
+      if (!document.contains(State.root)) return true;
+      if (!isVisible(State.root)) return true;
+      const tb = State.els && State.els.tbody;
+      if (!tb) return true;
+      if (tb.children.length === 0) return true;
+      return false;
+    }
+
+    let mo;
+    function ensureAttached(allowRehydrate) {
       try {
         const root = findRoot();
         if (root) {
-          window.AdminUsers?.init?.();
-          window.__ADMIN_USERS_ATTACHED__ = true;
+          if (!window.__ADMIN_USERS_ATTACHED__ || allowRehydrate || needRehydrate()) {
+            if (!State.root || State.root !== root) {
+              window.AdminUsers?.init?.();
+            } else if (allowRehydrate || needRehydrate()) {
+              State.els = findControls(root);
+              load();
+            }
+            window.__ADMIN_USERS_ATTACHED__ = true;
+          }
           return;
         }
       } catch {}
@@ -357,7 +380,10 @@
     }
 
     const leaveMo = new MutationObserver(() => {
-      if (State?.root && !document.contains(State.root)) {
+      if (!State?.root) return;
+      const gone = !document.contains(State.root);
+      const hidden = !isVisible(State.root);
+      if (gone || hidden) {
         window.__ADMIN_USERS_ATTACHED__ = false;
       }
     });
