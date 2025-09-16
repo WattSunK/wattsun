@@ -1,18 +1,11 @@
 // public/admin/js/orders-controller.js
-// Admin Orders list controller — robust boot + adapter compatibility
-// - Works with Data.orders.list() OR .get()
-// - Boots when the Orders partial lands OR when the table appears OR on DOMContentLoaded
-// - Exposes window.__WS_ORDERS_FORCE_BOOT()
-// - Lazy-injects /partials/orders-modal.html for View modal
-// - No early return if WattSunAdminData is not yet ready (we retry)
-
 (function () {
   "use strict";
 
-  // ------------- Do NOT bail if Data isn't ready yet -------------
+  // --- Data accessor (don’t bail if not ready) ---
   function getData() { return window.WattSunAdminData; }
 
-  // ------------ Local state ------------
+  // --- State ---
   let booted = false;
   const State = {
     page: 1,
@@ -21,55 +14,43 @@
     rows: [],
     raw: [],
     filter: { q: "", status: "", phone: "" },
-    sort: { key: "createdAt", dir: "desc" },
+    sort:   { key: "createdAt", dir: "desc" },
   };
 
-  // ------------ Utilities ------------
+  // --- Utils ---
   function $(sel, root = document) { return root.querySelector(sel); }
   function $all(sel, root = document) { return Array.from(root.querySelectorAll(sel)); }
 
   function fmtMoney(cents, currency) {
     if (!Number.isFinite(cents)) return "—";
-    const v = (cents / 100);
+    const v = cents / 100;
     try {
-      return new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: currency || "KES",
-        maximumFractionDigits: 2
-      }).format(v);
+      return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "KES", maximumFractionDigits: 2 }).format(v);
     } catch {
       return `${currency || "KES"} ${v.toFixed(2)}`;
     }
   }
 
-  function coerceInt(v, d = 0) {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : d;
-  }
-
-  // ------------ DOM wiring helpers ------------
+  // --- DOM hooks ---
   function ensureTableHooks() {
-    // Allow using the controller without editing HTML:
-    // if table IDs are missing, assign at runtime.
     const table = document.querySelector('table[data-role="orders-table"]') || document.getElementById("ordersTable");
     const tbody = (table && table.tBodies && table.tBodies[0]) ? table.tBodies[0] : document.getElementById("ordersTbody");
     if (table && !table.id) table.id = "ordersTable";
     if (tbody && !tbody.id) tbody.id = "ordersTbody";
   }
 
-  // ------------ Rendering ------------
+  // --- Render ---
   function renderRows() {
     const tbody = document.getElementById("ordersTbody");
     if (!tbody) return;
-
     const pageStart = (State.page - 1) * State.pageSize;
-    const pageEnd = pageStart + State.pageSize;
-    const slice = State.rows.slice(pageStart, pageEnd);
+    const pageEnd   = pageStart + State.pageSize;
+    const slice     = State.rows.slice(pageStart, pageEnd);
 
     const html = slice.map((o) => {
-      const id = o.orderNumber || o.id;
+      const id      = o.orderNumber || o.id;
       const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : "—";
-      const total = fmtMoney(o.totalCents, o.currency);
+      const total   = fmtMoney(o.totalCents, o.currency);
       const deposit = fmtMoney(o.depositCents, o.currency);
       return `
         <tr data-id="${id}">
@@ -84,8 +65,7 @@
             <button class="btn btn-sm btn-view" data-oid="${id}">View</button>
             <button class="btn btn-sm btn-edit" data-oid="${id}" data-phone="${o.phone || ""}" data-email="${o.email || ""}">Edit</button>
           </td>
-        </tr>
-      `;
+        </tr>`;
     }).join("");
 
     tbody.innerHTML = html || `<tr><td colspan="8" class="muted" style="text-align:center;">No orders</td></tr>`;
@@ -95,37 +75,31 @@
     const totalPages = Math.max(1, Math.ceil(State.rows.length / State.pageSize));
     const pager = document.getElementById("ordersPager");
     if (!pager) return;
-
     pager.innerHTML = `
       <div class="pager">
         <button class="btn prev" ${State.page <= 1 ? "disabled" : ""} data-page="prev">Prev</button>
         <span class="pages">Page ${State.page} / ${totalPages}</span>
         <button class="btn next" ${State.page >= totalPages ? "disabled" : ""} data-page="next">Next</button>
-      </div>
-    `;
+      </div>`;
   }
 
   function applyFilters() {
     const q = (State.filter.q || "").toLowerCase().trim();
     const status = (State.filter.status || "").toLowerCase().trim();
     const phone = (State.filter.phone || "").replace(/\D+/g, "");
-
     let rows = [...State.raw];
 
-    if (q) {
-      rows = rows.filter(o => {
-        return String(o.orderNumber || o.id).toLowerCase().includes(q)
-          || (o.fullName || "").toLowerCase().includes(q)
-          || (o.email || "").toLowerCase().includes(q);
-      });
-    }
+    if (q) rows = rows.filter(o =>
+      String(o.orderNumber || o.id).toLowerCase().includes(q)
+      || (o.fullName || "").toLowerCase().includes(q)
+      || (o.email || "").toLowerCase().includes(q)
+    );
     if (status) rows = rows.filter(o => (o.status || "").toLowerCase() === status);
     if (phone)  rows = rows.filter(o => (o.phone || "").replace(/\D+/g, "").endsWith(phone));
 
-    // sort
     const { key, dir } = State.sort;
     rows.sort((a, b) => {
-      const av = a[key]; const bv = b[key];
+      const av = a[key], bv = b[key];
       if (av == null && bv == null) return 0;
       if (av == null) return 1;
       if (bv == null) return -1;
@@ -136,66 +110,45 @@
 
     State.rows = rows;
     State.total = rows.length;
-    State.page = Math.min(State.page, Math.max(1, Math.ceil(State.total / State.pageSize)));
+    State.page  = Math.min(State.page, Math.max(1, Math.ceil(State.total / State.pageSize)));
   }
 
-  // ------------ Data fetch ------------
+  // --- Data fetch ---
   async function fetchOrders() {
     const Data = getData();
-    if (!Data || !Data.orders) {
-      throw new Error("[OrdersController] Data adapter not ready");
-    }
+    if (!Data || !Data.orders) throw new Error("[OrdersController] Data adapter not ready");
 
-    // Try robust adapter path first
     if (typeof Data.orders.list === "function") {
       const res = await Data.orders.list();
       State.raw = Array.isArray(res?.rows) ? res.rows : (Array.isArray(res) ? res : []);
       return;
     }
-    // Fallback
     if (typeof Data.orders.get === "function") {
       const res = await Data.orders.get();
       State.raw = Array.isArray(res?.rows) ? res.rows : (Array.isArray(res) ? res : []);
       return;
     }
-
     console.warn("[OrdersController] No Data.orders.list/get available");
     State.raw = [];
   }
 
-  // ------------ Boot ------------
+  // --- Boot (unconditional; no early #ordersTable gate) ---
   async function boot() {
     if (booted) return;
-
-    // If the Orders table isn't present yet, wait until it appears
-    ensureTableHooks();
-    if (!document.getElementById("ordersTable")) {
-      // Defer: wait a tick and try again (partial may still be loading)
-      setTimeout(boot, 120);
-      return;
-    }
-
     booted = true;
 
+    ensureTableHooks();
+
     // Filters
-    const qInput = document.getElementById("ordersSearch");
+    const qInput    = document.getElementById("ordersSearch");
     const statusSel = document.getElementById("ordersStatus");
-    const phoneInput = document.getElementById("ordersPhone");
+    const phoneInput= document.getElementById("ordersPhone");
 
-    qInput && qInput.addEventListener("input", (e) => {
-      State.filter.q = e.target.value;
-      applyFilters(); renderRows(); renderPager();
-    });
-    statusSel && statusSel.addEventListener("change", (e) => {
-      State.filter.status = e.target.value;
-      applyFilters(); renderRows(); renderPager();
-    });
-    phoneInput && phoneInput.addEventListener("input", (e) => {
-      State.filter.phone = e.target.value;
-      applyFilters(); renderRows(); renderPager();
-    });
+    qInput    && qInput.addEventListener("input",  (e) => { State.filter.q      = e.target.value; applyFilters(); renderRows(); renderPager(); });
+    statusSel && statusSel.addEventListener("change",(e) => { State.filter.status= e.target.value; applyFilters(); renderRows(); renderPager(); });
+    phoneInput&& phoneInput.addEventListener("input",(e) => { State.filter.phone = e.target.value; applyFilters(); renderRows(); renderPager(); });
 
-    // Pager clicks
+    // Pager
     document.addEventListener("click", (e) => {
       const btn = e.target.closest(".pager .btn");
       if (!btn) return;
@@ -208,7 +161,7 @@
       renderRows(); renderPager();
     }, { passive: true });
 
-    // Table actions (View/Edit) -> dispatch events
+    // Actions → events
     document.addEventListener("click", (e) => {
       const viewBtn = e.target.closest(".btn-view[data-oid]");
       if (viewBtn) {
@@ -227,42 +180,42 @@
     });
 
     try {
-      await fetchOrders();               // may throw if Data not ready
+      await fetchOrders();
     } catch (err) {
       console.debug("[OrdersController] waiting for Data adapter…", err?.message || err);
-      booted = false;                    // allow retry
-      setTimeout(boot, 150);             // retry soon
+      booted = false;               // allow retry
+      setTimeout(boot, 150);        // retry soon
       return;
     }
 
     applyFilters(); renderRows(); renderPager();
   }
 
-  // Fire boot under multiple conditions (resilient to load order)
+  // Fire boot under multiple conditions
   window.addEventListener("admin:partial-loaded", (e) => {
     const name = e?.detail?.partial || e?.detail?.name;
     if (name === "orders") boot();
   });
   document.addEventListener("DOMContentLoaded", () => { boot(); });
 
-  // Observe the DOM globally (outside boot) to catch table insertion
+  // If the table appears later, render will pick it up
   const globalMO = new MutationObserver(() => {
-    if (!booted && document.getElementById("ordersTable")) boot();
+    ensureTableHooks();
+    if (!booted) return;
+    renderRows(); renderPager();
   });
   globalMO.observe(document.documentElement, { childList: true, subtree: true });
 
   window.__WS_ORDERS_FORCE_BOOT = () => { booted = false; boot(); };
 
-  // ===== VIEW HANDLER (uses modern #orderViewModal) =====
-
-  // lazy-load the orders modal partial if needed
+  // ===== VIEW (lazy-injected partial) =====
   async function ensureModals() {
     if (document.getElementById("orderViewModal") && document.getElementById("orderEditModal")) return;
     try {
       const res = await fetch("/partials/orders-modal.html?v=20250915-01", { credentials: "include" });
       if (!res.ok) throw new Error(`Failed to load orders-modal.html: ${res.status}`);
       const html = await res.text();
-      const tpl = document.createElement("template");
+      const tpl  = document.createElement("template");
       tpl.innerHTML = html;
       document.body.appendChild(tpl.content);
       console.debug("[orders-controller] orders-modal injected");
@@ -270,33 +223,25 @@
       console.error("[orders-controller] modal injection failed:", err);
     }
   }
-
-  function fmtDT(iso) {
-    try { return new Date(iso).toLocaleString(); } catch { return iso || "—"; }
-  }
+  function fmtDT(iso) { try { return new Date(iso).toLocaleString(); } catch { return iso || "—"; } }
 
   async function openViewModalWithData(o) {
     await ensureModals();
     const dlg = document.getElementById("orderViewModal");
     if (!dlg) { console.warn("[Orders] #orderViewModal not found after ensure"); return; }
-
-    // map to IDs that exist in orders-modal.html
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = (val ?? "—"); };
 
     set("ov_orderNumber", o.orderNumber || o.id || "—");
     set("ov_status",      o.status || "Pending");
     set("ov_createdAt",   o.createdAt ? fmtDT(o.createdAt) : "—");
     set("ov_address",     o.address || o.shippingAddress || "—");
-
     set("ov_fullName",    o.fullName || "—");
     set("ov_phone",       o.phone || "—");
     set("ov_email",       o.email || "—");
-
     set("ov_total",       fmtMoney(o.totalCents, o.currency));
     set("ov_deposit",     fmtMoney(o.depositCents, o.currency));
     set("ov_currency",    o.currency || "—");
 
-    // Items → tbody#ov_items with columns: Qty | Name | Line Total
     const body = document.getElementById("ov_items");
     if (body) {
       const rows = (o.items || []).map(it => {
@@ -324,7 +269,7 @@
     openViewModalWithData(o);
   });
 
-  // Expose minimal row refresh helper
+  // Row refresh helper
   window.refreshOrderRow = function (id, patch = {}) {
     const idx = State.raw.findIndex(o => String(o.id) === String(id) || String(o.orderNumber) === String(id));
     if (idx === -1) return;
@@ -332,17 +277,12 @@
     applyFilters(); renderRows(); renderPager();
   };
 
-  // --- Close handling for the View dialog (generic) ---
+  // Close for View dialog
   document.addEventListener("click", (e) => {
     const btn = e.target.closest("#orderViewModal button, #orderViewModal [data-close]");
     if (!btn) return;
-
-    const wantsClose =
-      btn.hasAttribute("data-close") ||
-      /close/i.test((btn.textContent || "").trim());
-
+    const wantsClose = btn.hasAttribute("data-close") || /close/i.test((btn.textContent || "").trim());
     if (!wantsClose) return;
-
     e.preventDefault();
     const dlg = document.getElementById("orderViewModal");
     if (!dlg) return;
