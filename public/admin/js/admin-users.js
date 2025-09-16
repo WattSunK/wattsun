@@ -143,9 +143,6 @@
   // ---------- Render ----------
   function rowHtml(u, slno) {
   const badge = (u.status === "Active") ? "badge badge-success" : "badge badge-muted";
-  const mk = (p, label, dis = false, act = false) =>
-  `<button class="btn btn-xs ${act ? 'btn-primary' : 'btn-light'} ${dis ? 'is-disabled' : ''}"
-           data-users-action="page" data-page="${p}" ${dis ? 'disabled' : ''}>${label}</button>`;
   return `
     <tr data-users-row data-user-id="${esc(u.id)}">
       <td>${slno}</td>
@@ -157,8 +154,8 @@
       <td><span class="${badge}">${esc(u.status || "Active")}</span></td>
       <td>${u.createdAt ? esc(u.createdAt) : ""}</td>
       <td class="actions">
-        <button class="btn btn-xs btn-primary" data-users-action="open-edit" data-id="${esc(u.id)}">View</button>
-        <button class="btn btn-xs btn-danger"  data-users-action="deactivate" data-id="${esc(u.id)}">Delete</button>
+        <button class="btn btn-xs btn-light"  data-users-action="open-edit"  data-id="${esc(u.id)}">View</button>
+        <button class="btn btn-xs btn-ghost"  data-users-action="deactivate" data-id="${esc(u.id)}">Delete</button>
       </td>
     </tr>`;
 }
