@@ -347,40 +347,42 @@
   }
 
   // ========= Init / Re-init
-  async function init(){
-    const root = document.getElementById("users-root");
-    if (!root) return;
-    if (root.dataset.wsInit === "1") return; // idempotent
-    root.dataset.wsInit = "1";
+async function init(){
+  const root = document.getElementById("users-root");
+  if (!root) return;
+  if (root.dataset.wsInit === "1") return;
 
-    State.root = root;
-    State.els = {
-      tbody:  $("#users-tbody", root),
-      info:   $("#users-table-info", root),
-      pager:  $("#users-pagination", root),
-      search: $("#users-search-input", root),
-      type:   $("#users-type-filter", root),
-      status: $("#users-status-filter", root),
-      per:    $("#users-per-page", root),
-    };
-    State.per = parseInt(State.els.per?.value || "10", 10);
+  State.root = root;
+  State.els = {
+    tbody:  document.querySelector("#usersTbody"),
+    pager:  document.querySelector("#usersPager"),
+    type:   document.querySelector("#usersType"),
+    status: document.querySelector("#usersStatus"),
+    search: document.querySelector("#usersSearch"),
+    per:    document.querySelector("#usersPer"),
+    addBtn: document.querySelector("#btnUsersAdd")
+  };
 
-    State.all = await fetchList("");
-    State.filtered = State.all.slice();
+  await load();
+  wire();
+  root.dataset.wsInit = "1";
+  console.log("👷 [Users] controller attached (event-driven, no auto-init).");
+}
 
-    wire();
-    render();
-  }
+// === Replace previous autoInit/MutationObserver block with this:
+function onPartialLoaded(evt){
+  // Many admin partials dispatch { detail: { name: "<partial-name>" } }
+  const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
+  if (!/users/i.test(String(name))) return; // only when Users partial is loaded
+  init();
+}
 
-  function autoInit(){
-    const tryOnce = ()=>{ const r = document.getElementById("users-root"); if (r && r.dataset.wsInit!=="1") init(); };
-    tryOnce();
-    new MutationObserver(tryOnce).observe(document.body, { childList:true, subtree:true });
-  }
+// Public hooks (optional)
+window.AdminUsers = { init };
 
-  // ========= Public hooks
-  window.fetchUsers = init;
-  window.AdminUsers = { init };
+// Arm listener once; no DOM polling, no probes
+document.addEventListener("admin:partial-loaded", onPartialLoaded);
+console.log("🔎 [Users] controller armed for admin:partial-loaded (passive).");
 
   (document.readyState === "loading")
     ? document.addEventListener("DOMContentLoaded", autoInit)
