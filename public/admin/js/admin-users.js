@@ -1,15 +1,17 @@
 /* public/admin/js/admin-users.js
    Admin Users — lean, evidence-first controller
-   - Fresh init on each "users" partial load
+   - Fresh init on each "users" partial mount
    - Strict DOM scoping (never touches modals)
-   - No observers/polling; no console by default
-   - Opt-in debug: localStorage.dbgUsers="1"
+   - No observers/polling beyond a one-shot DOM mount check
+   - No console noise unless you opt-in: localStorage.dbgUsers="1"
 */
 (function () {
+  // ----- Debug (opt-in) -----
   const DBG = String(localStorage.getItem("dbgUsers")) === "1";
   const dlog = (...args) => { if (DBG) console.debug("[users]", ...args); };
+  const blog = (...args) => { if (DBG) console.debug("[users:boot]", ...args); };
 
-  // Single exported API (re-bound each time)
+  // Single exported surface (used for manual init/testing)
   window.AdminUsers = window.AdminUsers || {};
 
   // ----- Small utilities -----
@@ -30,6 +32,7 @@
   // ----- Endpoint resolution (idempotent) -----
   const USERS_BASES = ["/api/admin/users", "/api/users", "/admin/users", "/users"];
   let USERS_BASE = null;
+
   async function resolveUsersBase() {
     if (USERS_BASE) return USERS_BASE;
     USERS_BASE = localStorage.getItem("wsUsersBase") || null;
@@ -244,6 +247,11 @@
       rows = await fetchUsers(per);
       page = 1;
       applyFilters();
+
+      if (DBG) {
+        const rowsNow = els.tbody.querySelectorAll("tr").length;
+        dlog("after load rows in DOM:", rowsNow);
+      }
     }
 
     function onClick(e) {
@@ -256,9 +264,8 @@
         const p = parseInt(a.getAttribute("data-page"), 10);
         if (Number.isFinite(p)) { page = p; applyFilters(); }
       } else if (act === "deactivate") {
-        // (Wire actual DELETE later—kept minimal for this pass)
         const row = a.closest("[data-users-row]");
-        if (row) row.remove();
+        if (row) row.remove(); // (wire DELETE later if needed)
       }
     }
 
@@ -285,42 +292,61 @@
       dlog("init on users partial");
       wire();
       await load();
-
-      // evidence hooks (dbg only)
-      if (DBG) {
-        const rowsNow = els.tbody.querySelectorAll("tr").length;
-        dlog("after load rows in DOM:", rowsNow);
-      }
     }
 
     return { init, teardown };
   }
 
-  // ----- Fresh boot on each Users partial load -----
-  let ctrl = null;
-  async function bootFresh() {
-    if (ctrl) try { ctrl.teardown(); } catch {}
-    ctrl = createController();
-    await ctrl.init();
-  }
+  // ----- Minimal activation patch (tiny & surgical) -----
+  (function activate() {
+    // Keep the latest controller instance for teardown/debug
+    let ctrl = null;
 
-  // Try immediate boot if Users is already present
-  bootFresh().catch(() => {});
+    async function bootFresh() {
+      try { ctrl?.teardown?.(); } catch {}
+      ctrl = createController();
+      // expose for manual testing: window.AdminUsers.init()
+      window.AdminUsers = { init: ctrl.init.bind(ctrl), teardown: ctrl.teardown?.bind(ctrl) };
+      await ctrl.init();
+    }
 
-  // Router signal
-  document.addEventListener("admin:partial-loaded", (evt) => {
-    const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
-    if (/users/i.test(String(name))) bootFresh();
-  });
+    // 1) Router signal: admin:partial-loaded with name containing "users"
+    document.addEventListener("admin:partial-loaded", (evt) => {
+      const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
+      if (/users/i.test(String(name))) {
+        blog("router-mounted:", name);
+        bootFresh();
+      }
+    });
 
-  // Direct hash/tab navigations
-  function tryHash() {
-    if (location.hash && /#users\b/i.test(location.hash)) bootFresh();
-  }
-  if (document.readyState === "complete" || document.readyState === "interactive") {
-    setTimeout(tryHash, 0);
-  } else {
-    document.addEventListener("DOMContentLoaded", () => setTimeout(tryHash, 0));
-  }
-  window.addEventListener("hashchange", () => setTimeout(tryHash, 0));
+    // 2) One-shot DOM mount check (covers routes without a clean name)
+    const mo = new MutationObserver(() => {
+      const root = document.getElementById("users-root")
+        || document.querySelector('[data-module="users"]');
+      const table = root && (root.querySelector(".users-table")
+        || root.querySelector("table.users-table")
+        || root.querySelector('table[data-users="1"]')
+        || root.querySelector("table"));
+      if (root && table) {
+        blog("dom-mounted (one-shot)");
+        mo.disconnect();
+        bootFresh();
+      }
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+
+    // 3) Hash/direct navigations (sidebar links)
+    function tryHash() {
+      if (location.hash && /#users\b/i.test(location.hash)) {
+        blog("hash-mounted");
+        bootFresh();
+      }
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", tryHash, { once: true });
+    } else {
+      tryHash();
+    }
+    window.addEventListener("hashchange", tryHash);
+  })();
 })();
