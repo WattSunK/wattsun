@@ -50,18 +50,18 @@
     const total  = fmtMoney(o.totalCents, o.currency);
     const status = o.status || "Pending";
 
-    // accept several possible deposit shapes (added displayDepositCents)
-    const depositCents = [
-      o.depositCents,
-      o.displayDepositCents,   // <-- new fallback
-      o.deposit_cents,
-      o.depositAmountCents,
-      o.deposit
-    ].find(v => Number.isFinite(v));
+    // accept several possible deposit shapes and let fmtMoney coerce
+  const depositRaw = [
+    o.depositCents,
+    o.displayDepositCents,
+    o.deposit_cents,
+    o.depositAmountCents,
+    o.deposit
+  ].find(v => v != null && v !== "");
 
-    const deposit = Number.isFinite(depositCents)
-      ? fmtMoney(depositCents, o.currency)
-      : "—";
+  const deposit = depositRaw != null
+  ? fmtMoney(+depositRaw, o.currency)
+  : "—";
 
     return `
       <tr data-id="${id}">
