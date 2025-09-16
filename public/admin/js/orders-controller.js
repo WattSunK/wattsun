@@ -2,10 +2,10 @@
 (function () {
   "use strict";
 
-  // --- Data accessor (don’t bail if not ready) ---
-  function getData() { return window.WattSunAdminData; }
+  // ---- Data accessor (never bail early) ----
+  const getData = () => window.WattSunAdminData;
 
-  // --- State ---
+  // ---- State ----
   let booted = false;
   const State = {
     page: 1,
@@ -17,21 +17,26 @@
     sort:   { key: "createdAt", dir: "desc" },
   };
 
-  // --- Utils ---
-  function $(sel, root = document) { return root.querySelector(sel); }
-  function $all(sel, root = document) { return Array.from(root.querySelectorAll(sel)); }
+  // ---- Utils ----
+  const $    = (s, r = document) => r.querySelector(s);
+  const $all = (s, r = document) => Array.from(r.querySelectorAll(s));
 
   function fmtMoney(cents, currency) {
     if (!Number.isFinite(cents)) return "—";
     const v = cents / 100;
     try {
-      return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "KES", maximumFractionDigits: 2 }).format(v);
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: currency || "KES",
+        maximumFractionDigits: 2
+      }).format(v);
     } catch {
       return `${currency || "KES"} ${v.toFixed(2)}`;
     }
   }
+  const fmtDT = (iso) => { try { return new Date(iso).toLocaleString(); } catch { return iso || "—"; } };
 
-  // --- DOM hooks ---
+  // ---- DOM hooks ----
   function ensureTableHooks() {
     const table = document.querySelector('table[data-role="orders-table"]') || document.getElementById("ordersTable");
     const tbody = (table && table.tBodies && table.tBodies[0]) ? table.tBodies[0] : document.getElementById("ordersTbody");
@@ -39,15 +44,16 @@
     if (tbody && !tbody.id) tbody.id = "ordersTbody";
   }
 
-  // --- Render ---
+  // ---- Renderers ----
   function renderRows() {
     const tbody = document.getElementById("ordersTbody");
     if (!tbody) return;
-    const pageStart = (State.page - 1) * State.pageSize;
-    const pageEnd   = pageStart + State.pageSize;
-    const slice     = State.rows.slice(pageStart, pageEnd);
 
-    const html = slice.map((o) => {
+    const start = (State.page - 1) * State.pageSize;
+    const end   = start + State.pageSize;
+    const slice = State.rows.slice(start, end);
+
+    tbody.innerHTML = slice.map((o) => {
       const id      = o.orderNumber || o.id;
       const created = o.createdAt ? new Date(o.createdAt).toLocaleString() : "—";
       const total   = fmtMoney(o.totalCents, o.currency);
@@ -66,27 +72,26 @@
             <button class="btn btn-sm btn-edit" data-oid="${id}" data-phone="${o.phone || ""}" data-email="${o.email || ""}">Edit</button>
           </td>
         </tr>`;
-    }).join("");
-
-    tbody.innerHTML = html || `<tr><td colspan="8" class="muted" style="text-align:center;">No orders</td></tr>`;
+    }).join("") || `<tr><td colspan="8" class="muted" style="text-align:center;">No orders</td></tr>`;
   }
 
   function renderPager() {
-    const totalPages = Math.max(1, Math.ceil(State.rows.length / State.pageSize));
     const pager = document.getElementById("ordersPager");
     if (!pager) return;
+    const pages = Math.max(1, Math.ceil(State.rows.length / State.pageSize));
     pager.innerHTML = `
       <div class="pager">
         <button class="btn prev" ${State.page <= 1 ? "disabled" : ""} data-page="prev">Prev</button>
-        <span class="pages">Page ${State.page} / ${totalPages}</span>
-        <button class="btn next" ${State.page >= totalPages ? "disabled" : ""} data-page="next">Next</button>
+        <span class="pages">Page ${State.page} / ${pages}</span>
+        <button class="btn next" ${State.page >= pages ? "disabled" : ""} data-page="next">Next</button>
       </div>`;
   }
 
   function applyFilters() {
     const q = (State.filter.q || "").toLowerCase().trim();
     const status = (State.filter.status || "").toLowerCase().trim();
-    const phone = (State.filter.phone || "").replace(/\D+/g, "");
+    const phone  = (State.filter.phone  || "").replace(/\D+/g, "");
+
     let rows = [...State.raw];
 
     if (q) rows = rows.filter(o =>
@@ -95,7 +100,7 @@
       || (o.email || "").toLowerCase().includes(q)
     );
     if (status) rows = rows.filter(o => (o.status || "").toLowerCase() === status);
-    if (phone)  rows = rows.filter(o => (o.phone || "").replace(/\D+/g, "").endsWith(phone));
+    if (phone)  rows = rows.filter(o => (o.phone  || "").replace(/\D+/g, "").endsWith(phone));
 
     const { key, dir } = State.sort;
     rows.sort((a, b) => {
@@ -113,26 +118,31 @@
     State.page  = Math.min(State.page, Math.max(1, Math.ceil(State.total / State.pageSize)));
   }
 
-  // --- Data fetch ---
+  // ---- Data fetch ----
   async function fetchOrders() {
     const Data = getData();
-    if (!Data || !Data.orders) throw new Error("[OrdersController] Data adapter not ready");
+    if (!Data || !Data.orders) {
+      console.debug("[OrdersController] Data adapter not ready yet.");
+      return { ok: false };
+    }
 
     if (typeof Data.orders.list === "function") {
       const res = await Data.orders.list();
       State.raw = Array.isArray(res?.rows) ? res.rows : (Array.isArray(res) ? res : []);
-      return;
+      return { ok: true };
     }
     if (typeof Data.orders.get === "function") {
       const res = await Data.orders.get();
       State.raw = Array.isArray(res?.rows) ? res.rows : (Array.isArray(res) ? res : []);
-      return;
+      return { ok: true };
     }
+
     console.warn("[OrdersController] No Data.orders.list/get available");
     State.raw = [];
+    return { ok: true };
   }
 
-  // --- Boot (unconditional; no early #ordersTable gate) ---
+  // ---- Boot (only when Orders partial is loaded) ----
   async function boot() {
     if (booted) return;
     booted = true;
@@ -140,13 +150,13 @@
     ensureTableHooks();
 
     // Filters
-    const qInput    = document.getElementById("ordersSearch");
-    const statusSel = document.getElementById("ordersStatus");
-    const phoneInput= document.getElementById("ordersPhone");
+    const qInput     = document.getElementById("ordersSearch");
+    const statusSel  = document.getElementById("ordersStatus");
+    const phoneInput = document.getElementById("ordersPhone");
 
-    qInput    && qInput.addEventListener("input",  (e) => { State.filter.q      = e.target.value; applyFilters(); renderRows(); renderPager(); });
-    statusSel && statusSel.addEventListener("change",(e) => { State.filter.status= e.target.value; applyFilters(); renderRows(); renderPager(); });
-    phoneInput&& phoneInput.addEventListener("input",(e) => { State.filter.phone = e.target.value; applyFilters(); renderRows(); renderPager(); });
+    qInput     && qInput.addEventListener("input",  (e) => { State.filter.q      = e.target.value; applyFilters(); renderRows(); renderPager(); });
+    statusSel  && statusSel.addEventListener("change",(e) => { State.filter.status= e.target.value; applyFilters(); renderRows(); renderPager(); });
+    phoneInput && phoneInput.addEventListener("input",(e) => { State.filter.phone = e.target.value; applyFilters(); renderRows(); renderPager(); });
 
     // Pager
     document.addEventListener("click", (e) => {
@@ -155,8 +165,8 @@
       const dir = btn.getAttribute("data-page");
       if (dir === "prev" && State.page > 1) State.page--;
       if (dir === "next") {
-        const totalPages = Math.max(1, Math.ceil(State.rows.length / State.pageSize));
-        if (State.page < totalPages) State.page++;
+        const pages = Math.max(1, Math.ceil(State.rows.length / State.pageSize));
+        if (State.page < pages) State.page++;
       }
       renderRows(); renderPager();
     }, { passive: true });
@@ -171,7 +181,7 @@
       }
       const editBtn = e.target.closest(".btn-edit[data-oid]");
       if (editBtn) {
-        const id = editBtn.getAttribute("data-oid");
+        const id    = editBtn.getAttribute("data-oid");
         const phone = editBtn.getAttribute("data-phone") || "";
         const email = editBtn.getAttribute("data-email") || "";
         window.dispatchEvent(new CustomEvent("orders:edit", { detail: { id, phone, email } }));
@@ -179,40 +189,25 @@
       }
     });
 
-    try {
-      await fetchOrders();
-    } catch (err) {
-      console.debug("[OrdersController] waiting for Data adapter…", err?.message || err);
-      booted = false;               // allow retry
-      setTimeout(boot, 150);        // retry soon
-      return;
-    }
-
+    // First data load (non-fatal if adapter not ready)
+    await fetchOrders();
     applyFilters(); renderRows(); renderPager();
   }
 
-  // Fire boot under multiple conditions
+  // Fire boot ONLY when Orders partial loads
   window.addEventListener("admin:partial-loaded", (e) => {
     const name = e?.detail?.partial || e?.detail?.name;
     if (name === "orders") boot();
   });
-  document.addEventListener("DOMContentLoaded", () => { boot(); });
 
-  // If the table appears later, render will pick it up
-  const globalMO = new MutationObserver(() => {
-    ensureTableHooks();
-    if (!booted) return;
-    renderRows(); renderPager();
-  });
-  globalMO.observe(document.documentElement, { childList: true, subtree: true });
-
+  // Manual helper for testing
   window.__WS_ORDERS_FORCE_BOOT = () => { booted = false; boot(); };
 
   // ===== VIEW (lazy-injected partial) =====
   async function ensureModals() {
     if (document.getElementById("orderViewModal") && document.getElementById("orderEditModal")) return;
     try {
-      const res = await fetch("/partials/orders-modal.html?v=20250915-01", { credentials: "include" });
+      const res = await fetch("/partials/orders-modal.html?v=20250915-02", { credentials: "include" });
       if (!res.ok) throw new Error(`Failed to load orders-modal.html: ${res.status}`);
       const html = await res.text();
       const tpl  = document.createElement("template");
@@ -223,7 +218,6 @@
       console.error("[orders-controller] modal injection failed:", err);
     }
   }
-  function fmtDT(iso) { try { return new Date(iso).toLocaleString(); } catch { return iso || "—"; } }
 
   async function openViewModalWithData(o) {
     await ensureModals();
@@ -268,14 +262,6 @@
     if (!o) return;
     openViewModalWithData(o);
   });
-
-  // Row refresh helper
-  window.refreshOrderRow = function (id, patch = {}) {
-    const idx = State.raw.findIndex(o => String(o.id) === String(id) || String(o.orderNumber) === String(id));
-    if (idx === -1) return;
-    State.raw[idx] = { ...State.raw[idx], ...patch };
-    applyFilters(); renderRows(); renderPager();
-  };
 
   // Close for View dialog
   document.addEventListener("click", (e) => {
