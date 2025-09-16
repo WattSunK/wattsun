@@ -225,24 +225,30 @@
     window.dispatchEvent(new CustomEvent("users:rendered"));
   }
 
-  function applyFilters() {
-    const q = (State.els.search?.value || "").trim().toLowerCase();
-    const type = (State.els.type?.value || "").trim();
-    const status = (State.els.status?.value || "").trim();
+  function applyFilters(){
+  const rawQ      = (State.els.search?.value || "").trim();
+  const rawType   = (State.els.type?.value   || "").trim();
+  const rawStatus = (State.els.status?.value || "").trim();
 
-    State.filtered = State.all.filter((u) => {
-      if (type && u.type !== type) return false;
-      if (status && (u.status || "Active") !== status) return false;
-      if (q) {
-        const hay = `${u.name} ${u.email} ${u.phone}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
+  // NEW: normalize “All …” to empty (no filter)
+  const type   = (!rawType   || /^all\b/i.test(rawType))   ? "" : rawType;
+  const status = (!rawStatus || /^all\b/i.test(rawStatus)) ? "" : rawStatus;
 
-    State.page = 1;
-    render();
-  }
+  const q = rawQ.toLowerCase();
+
+  State.filtered = State.all.filter(u=>{
+    if (type   && (u.type || "").trim()   !== type)   return false;
+    if (status && (u.status || "Active")  !== status) return false;
+    if (q){
+      const hay = `${u.name||""} ${u.email||""} ${u.phone||""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  State.page = 1;
+  render();
+}
 
   // ========= Modal skeleton (future steps)
   function mget() {
