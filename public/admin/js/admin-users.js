@@ -1,5 +1,5 @@
 /* public/admin/js/admin-users.js
-   Admin Users — SPA-safe, scoped, rehydrate on visibility; no console noise
+   Admin Users — SPA-safe, scoped, auto-rehydrate on visibility & DOM swaps
 */
 (function () {
   if (window.__ADMIN_USERS_CONTROLLER__) return;
@@ -14,10 +14,10 @@
     root: null,
     els: {},
     isLoading: false,
-    _rehydrate: null, // { io, mo }
+    _rehydrate: null, // { io, moTbody, moRoot }
   };
 
-  // Optional tiny exposure for read-only inspection
+  // read-only exposure for quick inspection
   Object.defineProperty(window, "UsersState", { value: State, writable: false });
 
   const esc = (s) =>
@@ -27,31 +27,24 @@
           ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m])
         );
 
-  // ---------------- Helpers ----------------
-  function text(el) {
-    return (el?.textContent || "").trim();
-  }
-  function containsText(el, needle) {
-    return text(el).toLowerCase().includes(String(needle).toLowerCase());
-  }
+  // ---------------- Text helpers ----------------
+  const txt = (el) => (el?.textContent || "").trim();
+  const hasTxt = (el, q) => txt(el).toLowerCase().includes(String(q).toLowerCase());
+
   function theadHasColumns(thead, labels) {
     if (!thead) return false;
-    const ths = Array.from(thead.querySelectorAll("th")).map((th) => text(th).toLowerCase());
+    const ths = Array.from(thead.querySelectorAll("th")).map((th) => txt(th).toLowerCase());
     return labels.every((lbl) => ths.some((t) => t.includes(lbl.toLowerCase())));
   }
 
-  // ---------------- Auto-discovery (SCOPED but resilient) ----------------
+  // ---------------- Root discovery (SCOPED but resilient) ----------------
   function findRoot() {
-    // 1) Explicit, if present
     const byId = document.getElementById("users-root");
     if (byId) return byId;
 
-    // 2) Marked wrapper
     const byData = document.querySelector('[data-module="users"]');
     if (byData) return byData;
 
-    // 3) Heuristic: a card/section with heading "Users" and a table whose thead
-    //    includes distinctive Users columns (e.g., “Last Active”, “SL No.”)
     const candidates = Array.from(
       document.querySelectorAll(
         'section,div.card,div.panel,div.block,div[data-partial="users"],div[role="region"]'
@@ -59,14 +52,13 @@
     );
 
     for (const c of candidates) {
-      // Heading that actually says "Users"
       const heading =
         c.querySelector("h1, h2, h3, .card-title, .header, .title, [data-title]") || null;
-      if (!heading || !containsText(heading, "users")) continue;
+      if (!heading || !hasTxt(heading, "users")) continue;
 
-      // A table that looks like the Users table
       const tbl = c.querySelector("table");
       if (!tbl) continue;
+
       const thead = tbl.tHead || tbl.querySelector("thead");
       if (
         theadHasColumns(thead, ["sl", "name", "email"]) &&
@@ -75,8 +67,6 @@
         return c;
       }
     }
-
-    // Dormant if nothing matches
     return null;
   }
 
@@ -92,13 +82,11 @@
   }
 
   function findUsersTableUnder(root) {
-    // Prefer explicit markers
     let table =
       root.querySelector(".users-table") ||
       root.querySelector("table.users-table") ||
       root.querySelector("table[data-users]");
 
-    // Fallback: choose the table whose thead looks like the Users grid
     if (!table) {
       const tables = Array.from(root.querySelectorAll("table"));
       table = tables.find((t) => {
@@ -115,7 +103,6 @@
   }
 
   function findControls(root) {
-    // Hard-scope everything to root
     const table = findUsersTableUnder(root);
     const tbody = table ? table.tBodies[0] || table.querySelector("tbody") : null;
 
@@ -435,27 +422,33 @@
     }
   }
 
-  // ---------------- Rehydrate watchers (visibility + tbody clear) ----------------
+  // ---------------- Rehydrate watchers (visibility + tbody swap/clear) ----------------
   function setRehydrateWatchers(root, state) {
+    // Clean previous watchers
     if (state._rehydrate) {
       try {
         state._rehydrate.io?.disconnect();
-        state._rehydrate.mo?.disconnect();
+        state._rehydrate.moTbody?.disconnect();
+        state._rehydrate.moRoot?.disconnect();
       } catch {}
       state._rehydrate = null;
     }
 
-    const tbody = state.els?.tbody || null;
-    if (!tbody) return;
+    let tbody = state.els?.tbody || null;
+    if (!tbody) {
+      // if no tbody yet, root observer below will rebind when it appears
+    }
 
     let rootVisible = true;
 
+    // 1) Visibility → if visible & empty → load()
     const io = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           rootVisible = !!entry.isIntersecting;
-          if (rootVisible && tbody && tbody.rows.length === 0 && !state.isLoading) {
-            load("visible-empty");
+          if (rootVisible) {
+            const tb = state.els?.tbody;
+            if (tb && tb.rows.length === 0 && !state.isLoading) load("visible-empty");
           }
         }
       },
@@ -463,14 +456,39 @@
     );
     io.observe(root);
 
-    const mo = new MutationObserver(() => {
-      if (rootVisible && tbody && tbody.rows.length === 0 && !state.isLoading) {
-        load("tbody-cleared");
+    // 2) Tbody watcher → if cleared while visible, load()
+    let moTbody = null;
+    function bindTbodyWatcher() {
+      if (moTbody) moTbody.disconnect();
+      const tb = state.els?.tbody;
+      if (!tb) return;
+      moTbody = new MutationObserver(() => {
+        if (rootVisible && tb.rows.length === 0 && !state.isLoading) {
+          load("tbody-cleared");
+        }
+      });
+      moTbody.observe(tb, { childList: true });
+      tbody = tb;
+    }
+    if (tbody) bindTbodyWatcher();
+
+    // 3) Root subtree watcher → detect when router REPLACES table/tbody
+    const moRoot = new MutationObserver(() => {
+      // If table/tbody swapped, re-find controls & rebind
+      const prevTbody = state.els?.tbody || null;
+      const latestEls = findControls(root);
+      if (latestEls.tbody !== prevTbody) {
+        state.els = latestEls;
+        bindTbodyWatcher();
+        // If newly inserted tbody is empty and root visible → load
+        if (rootVisible && state.els.tbody && state.els.tbody.rows.length === 0 && !state.isLoading) {
+          load("tbody-replaced");
+        }
       }
     });
-    mo.observe(tbody, { childList: true });
+    moRoot.observe(root, { childList: true, subtree: true });
 
-    state._rehydrate = { io, mo };
+    state._rehydrate = { io, moTbody, moRoot };
   }
 
   // ---------------- Init ----------------
@@ -489,14 +507,10 @@
     root.dataset.wsInit = "1";
   }
 
-  // ---------- Activation (robust SPA-safe attach / rehydrate) ----------
+  // ---------- Activation (SPA-safe attach / rehydrate) ----------
   (function activateUsersController() {
-    // Attempt immediate init in case the Users card is already in DOM
-    try {
-      init();
-    } catch {}
+    try { init(); } catch {}
 
-    // Custom router event
     document.addEventListener("admin:partial-loaded", (evt) => {
       const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
       if (/users/i.test(String(name))) ensureAttached(true);
@@ -512,7 +526,6 @@
     }
     window.addEventListener("hashchange", () => setTimeout(tryHashInit, 0));
 
-    // Direct tab/link activations
     document.addEventListener(
       "click",
       (e) => {
@@ -586,6 +599,5 @@
     leaveMo.observe(document.body, { childList: true, subtree: true });
   })();
 
-  // Optional manual hook
   window.AdminUsers = { init };
 })();
