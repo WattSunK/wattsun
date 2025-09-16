@@ -1,5 +1,5 @@
 /* public/admin/js/admin-users.js
-   Admin Users — event-driven, SPA-safe wiring (list rendering only; quiet, scoped)
+   Admin Users — SPA-safe, scoped, rehydrate on visibility; no console noise
 */
 (function () {
   if (window.__ADMIN_USERS_CONTROLLER__) return;
@@ -17,7 +17,7 @@
     _rehydrate: null, // { io, mo }
   };
 
-  // Optional tiny exposure for debugging (no logs)
+  // Optional tiny exposure for read-only inspection
   Object.defineProperty(window, "UsersState", { value: State, writable: false });
 
   const esc = (s) =>
@@ -27,18 +27,56 @@
           ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m])
         );
 
-  // ---------------- Auto-discovery (SCOPED) ----------------
+  // ---------------- Helpers ----------------
+  function text(el) {
+    return (el?.textContent || "").trim();
+  }
+  function containsText(el, needle) {
+    return text(el).toLowerCase().includes(String(needle).toLowerCase());
+  }
+  function theadHasColumns(thead, labels) {
+    if (!thead) return false;
+    const ths = Array.from(thead.querySelectorAll("th")).map((th) => text(th).toLowerCase());
+    return labels.every((lbl) => ths.some((t) => t.includes(lbl.toLowerCase())));
+  }
+
+  // ---------------- Auto-discovery (SCOPED but resilient) ----------------
   function findRoot() {
-    // Preferred: explicit root by id
+    // 1) Explicit, if present
     const byId = document.getElementById("users-root");
     if (byId) return byId;
 
-    // Safe fallback: a wrapper explicitly marked for Users
-    // (No generic tbody/first-table probing to avoid modal bleed)
+    // 2) Marked wrapper
     const byData = document.querySelector('[data-module="users"]');
     if (byData) return byData;
 
-    // If neither exists, stay dormant
+    // 3) Heuristic: a card/section with heading "Users" and a table whose thead
+    //    includes distinctive Users columns (e.g., “Last Active”, “SL No.”)
+    const candidates = Array.from(
+      document.querySelectorAll(
+        'section,div.card,div.panel,div.block,div[data-partial="users"],div[role="region"]'
+      )
+    );
+
+    for (const c of candidates) {
+      // Heading that actually says "Users"
+      const heading =
+        c.querySelector("h1, h2, h3, .card-title, .header, .title, [data-title]") || null;
+      if (!heading || !containsText(heading, "users")) continue;
+
+      // A table that looks like the Users table
+      const tbl = c.querySelector("table");
+      if (!tbl) continue;
+      const thead = tbl.tHead || tbl.querySelector("thead");
+      if (
+        theadHasColumns(thead, ["sl", "name", "email"]) &&
+        (theadHasColumns(thead, ["last active"]) || theadHasColumns(thead, ["orders"]))
+      ) {
+        return c;
+      }
+    }
+
+    // Dormant if nothing matches
     return null;
   }
 
@@ -53,18 +91,33 @@
     return numericCount >= Math.max(1, Math.floor(opts.length * 0.6));
   }
 
-  function findControls(root) {
-    // Hard-scope to root only — never query document-wide
-    const table =
+  function findUsersTableUnder(root) {
+    // Prefer explicit markers
+    let table =
       root.querySelector(".users-table") ||
       root.querySelector("table.users-table") ||
-      root.querySelector("table[data-users]") ||
-      root.querySelector("table");
+      root.querySelector("table[data-users]");
 
-    const tbody =
-      (table && (table.tBodies[0] || table.querySelector("tbody"))) ||
-      root.querySelector("tbody[data-users]") ||
-      null;
+    // Fallback: choose the table whose thead looks like the Users grid
+    if (!table) {
+      const tables = Array.from(root.querySelectorAll("table"));
+      table = tables.find((t) => {
+        const thead = t.tHead || t.querySelector("thead");
+        return (
+          thead &&
+          theadHasColumns(thead, ["sl"]) &&
+          theadHasColumns(thead, ["name"]) &&
+          (theadHasColumns(thead, ["last active"]) || theadHasColumns(thead, ["orders"]))
+        );
+      });
+    }
+    return table || null;
+  }
+
+  function findControls(root) {
+    // Hard-scope everything to root
+    const table = findUsersTableUnder(root);
+    const tbody = table ? table.tBodies[0] || table.querySelector("tbody") : null;
 
     const search =
       root.querySelector("#usersSearch") ||
@@ -307,10 +360,8 @@
 
     switch (action) {
       case "open-create":
-        // (reserved for later increments)
         break;
       case "open-edit":
-        // (reserved for later increments; currently “View”)
         break;
       case "deactivate": {
         const u = State.all.find((x) => String(x.id) === String(id));
@@ -386,7 +437,6 @@
 
   // ---------------- Rehydrate watchers (visibility + tbody clear) ----------------
   function setRehydrateWatchers(root, state) {
-    // Clean up any previous watchers
     if (state._rehydrate) {
       try {
         state._rehydrate.io?.disconnect();
@@ -441,6 +491,12 @@
 
   // ---------- Activation (robust SPA-safe attach / rehydrate) ----------
   (function activateUsersController() {
+    // Attempt immediate init in case the Users card is already in DOM
+    try {
+      init();
+    } catch {}
+
+    // Custom router event
     document.addEventListener("admin:partial-loaded", (evt) => {
       const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
       if (/users/i.test(String(name))) ensureAttached(true);
@@ -456,6 +512,7 @@
     }
     window.addEventListener("hashchange", () => setTimeout(tryHashInit, 0));
 
+    // Direct tab/link activations
     document.addEventListener(
       "click",
       (e) => {
@@ -478,7 +535,6 @@
       if (!window.__ADMIN_USERS_ATTACHED__) return true;
       if (!State.root) return true;
       if (!document.contains(State.root)) return true;
-      // If not visible, no need to rehydrate yet; watchers will handle when shown
       const tb = State.els && State.els.tbody;
       if (!tb) return true;
       if (tb.children.length === 0) return true;
