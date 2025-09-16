@@ -305,6 +305,25 @@
 
     root.dataset.wsInit = "1";
   }
+// Rehydrate when Users root is still in DOM but tbody was cleared/replaced
+async function rehydrate() {
+  const root = findRoot();
+  if (!root) return;
+
+  // Keep the existing root (no need to flip wsInit), but refresh controls
+  const prevTbody = State.els?.tbody || null;
+  State.root = root;
+  State.els = findControls(root);
+
+  const tb = State.els?.tbody || null;
+  const tbodyReplaced = prevTbody && tb && prevTbody !== tb;
+  const needsData = !tb || tb.children.length === 0;
+
+  // Only hit the network if we truly need to
+  if (tbodyReplaced || needsData) {
+    await load();
+  }
+}
 
   // ---------- Activation (robust SPA-safe attach) ----------
   (function activateUsersController(){
@@ -330,31 +349,33 @@
 
     let mo;
     function ensureAttached() {
-      if (window.__ADMIN_USERS_ATTACHED__ && State?.root && document.contains(State.root)) return;
-
-      try {
-        const root = findRoot();
-        if (root) {
-          window.AdminUsers?.init?.();
-          window.__ADMIN_USERS_ATTACHED__ = true;
-          return;
-        }
-      } catch {}
-
-      if (mo) mo.disconnect();
-      mo = new MutationObserver(() => {
-        try {
-          const root = findRoot();
-          if (root) {
-            mo.disconnect();
-            window.AdminUsers?.init?.();
-            window.__ADMIN_USERS_ATTACHED__ = true;
-          }
-        } catch {}
-      });
-      mo.observe(document.body, { childList: true, subtree: true });
-      setTimeout(() => mo && mo.disconnect(), 8000);
+  // If already attached and root still in DOM, rehydrate only if tbody is missing/empty
+  if (window.__ADMIN_USERS_ATTACHED__ && State?.root && document.contains(State.root)) {
+    const tb = State.els?.tbody || null;
+    if (!tb || tb.children.length === 0) {
+      window.AdminUsers?.rehydrate?.();
     }
+    return;
+  }
+
+  try {
+    const root = findRoot();
+    if (root) {
+      // If we're landing back on the same root, rehydrate (no re-init)
+      if (State?.root && root === State.root) {
+        window.AdminUsers?.rehydrate?.();
+      } else {
+        window.AdminUsers?.init?.();
+        window.__ADMIN_USERS_ATTACHED__ = true;
+      }
+      return;
+    }
+  } catch {}
+    }
+
+    mo = new MutationObserver(ensureAttached);
+    mo.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => mo && mo.disconnect(), 8000);
 
     const leaveMo = new MutationObserver(() => {
       if (State?.root && !document.contains(State.root)) {
@@ -365,5 +386,6 @@
   })();
 
   // Optional manual hook
-  window.AdminUsers = { init };
+  window.AdminUsers = { init, rehydrate };
+
 })();
