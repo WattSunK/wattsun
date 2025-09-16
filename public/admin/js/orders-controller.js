@@ -34,27 +34,37 @@
   }
 
   function renderRows() {
-  const tbody = $(SEL.tbody); if (!tbody) return;
+  const tbody = document.getElementById("ordersTbody");
+  if (!tbody) return;
 
-  const start = (State.page - 1) * State.per;
-  const end   = start + State.per;
+  // pagination using your existing state keys
+  const pageStart = (State.page - 1) * State.pageSize;
+  const pageEnd   = pageStart + State.pageSize;
+  const slice     = State.rows.slice(pageStart, pageEnd);
 
-  const rows = State.view.slice(start, end).map(o => {
-    const id      = o.orderNumber || o.id || "";
-    const name    = o.fullName || "—";
-    const phone   = o.phone || o.customerPhone || o.contactPhone || "—";
-    const when    = o.createdAt ? new Date(o.createdAt).toLocaleString() : "—";
-    const total   = fmtMoney(o.totalCents, o.currency);
-    const status  = o.status || "Pending";
+  const rowsHtml = slice.map((o) => {
+    const id     = o.orderNumber || o.id || "";
+    const name   = o.fullName || "—";
+    const phone  = o.phone || o.customerPhone || o.contactPhone || "—";
+    const when   = o.createdAt ? new Date(o.createdAt).toLocaleString() : "—";
+    const total  = fmtMoney(o.totalCents, o.currency);
+    const status = o.status || "Pending";
 
-    // accept several possible deposit shapes
-    const depositCents =
-      [o.depositCents, o.deposit_cents, o.depositAmountCents, o.deposit]
-        .find(v => Number.isFinite(v));
-    const deposit = Number.isFinite(depositCents) ? fmtMoney(depositCents, o.currency) : "—";
+    // accept several possible deposit shapes (added displayDepositCents)
+    const depositCents = [
+      o.depositCents,
+      o.displayDepositCents,   // <-- new fallback
+      o.deposit_cents,
+      o.depositAmountCents,
+      o.deposit
+    ].find(v => Number.isFinite(v));
+
+    const deposit = Number.isFinite(depositCents)
+      ? fmtMoney(depositCents, o.currency)
+      : "—";
 
     return `
-      <tr data-oid="${id}">
+      <tr data-id="${id}">
         <td data-col="order">${id}</td>
         <td data-col="customer">${name}</td>
         <td data-col="phone">${phone}</td>
@@ -64,16 +74,18 @@
         <td data-col="deposit">${deposit}</td>
         <td data-col="action" style="text-align:center;">
           <button type="button" class="btn btn-sm btn-view" data-oid="${id}">View</button>
-          <button type="button" class="btn btn-sm btn-edit" data-action="edit-order" data-oid="${id}" data-phone="${o.phone || ""}" data-email="${o.email || ""}">Edit</button>
+          <button type="button" class="btn btn-sm btn-edit"
+                  data-oid="${id}"
+                  data-phone="${o.phone || ""}"
+                  data-email="${o.email || ""}">Edit</button>
         </td>
       </tr>`;
   }).join("");
 
-  // header now has 8 columns
-  tbody.innerHTML = rows || `<tr><td colspan="8" style="text-align:center;padding:12px;">No data yet</td></tr>`;
+  // header has 8 columns now
+  tbody.innerHTML = rowsHtml || `<tr><td colspan="8" style="text-align:center;padding:12px;">No data yet</td></tr>`;
 }
-
-
+ 
   function renderPager() {
     const pager = document.getElementById("ordersPager");
     if (!pager) return;
