@@ -288,6 +288,37 @@
     State.page = 1;
     render();
   }
+function syncTypesFromData() {
+  const known = new Set(["Admin","Driver","Customer","User"]);
+  for (const u of State.all) if (u.type) known.add(u.type);
+
+  // Update the page filter
+  const filterSel = document.getElementById("userType");
+  if (filterSel) {
+    const have = new Set(Array.from(filterSel.options).map(o => o.value));
+    for (const t of known) {
+      if (!have.has(t)) {
+        const opt = document.createElement("option");
+        opt.value = t; opt.textContent = t;
+        filterSel.appendChild(opt);
+      }
+    }
+  }
+
+  // Update the modal type select, keeping Custom… at the end
+  const modalSel = document.getElementById("userTypeField");
+  if (modalSel) {
+    const customOpt = modalSel.querySelector('option[value="__custom__"]');
+    const have = new Set(Array.from(modalSel.options).map(o => o.value));
+    for (const t of known) {
+      if (t !== "__custom__" && !have.has(t)) {
+        const opt = document.createElement("option");
+        opt.value = t; opt.textContent = t;
+        modalSel.insertBefore(opt, customOpt || null);
+      }
+    }
+  }
+}
 
   // ---------------------------------------------------------------------
   // Events
@@ -393,7 +424,7 @@
 
     const perVal = parseInt(State.els.per?.value || "10", 10);
     if (Number.isFinite(perVal)) State.per = perVal;
-
+    syncTypesFromData();   // keep filter & modal options in sync with actual data
     render();
   }
 
@@ -443,7 +474,7 @@
 // ---------------------------------------------------------------------
 const UsersModal = (() => {
   let el, form, titleEl, closeBtn, cancelBtn, saveBtn;
-  let idEl, nameEl, emailEl, phoneEl, typeEl, statusEl, resetChk, emailErr;
+  let idEl, nameEl, emailEl, phoneEl, typeEl, typeCustomEl, statusEl, resetChk, emailErr;
   let mode = "view"; // "add" | "edit"
 
   function q(id) { return document.getElementById(id); }
@@ -464,14 +495,26 @@ const UsersModal = (() => {
 
 
   function fill(u) {
+    // Fill the basics
     idEl.value     = u?.id ?? "";
     nameEl.value   = u?.name ?? "";
     emailEl.value  = u?.email ?? "";
     phoneEl.value  = u?.phone ?? "";
-    typeEl.value   = u?.type ?? "User";
     statusEl.value = u?.status ?? "Active";
+
+    // Built-in vs Custom type
+    const builtin = new Set(["Admin","Driver","Customer","User"]);
+    const isBuiltin = builtin.has(u?.type);
+    typeEl.value = isBuiltin ? (u?.type || "User") : "__custom__";
+    if (typeCustomEl) {
+      typeCustomEl.style.display = (typeEl.value === "__custom__") ? "" : "none";
+      typeCustomEl.value = isBuiltin ? "" : (u?.type || "");
+    }
+
+    // Clear inline email error
     emailErr.style.display = "none";
     emailErr.textContent = "";
+
     // Show reset toggle only when adding/editing (not view-only)
     q("resetEmailRow").style.display = (mode === "add" || mode === "edit") ? "" : "none";
   }
@@ -487,7 +530,7 @@ const UsersModal = (() => {
 
   // Lock or unlock all fields
   const lock = (el, on) => { if (el) el.disabled = !!on; };
-  [nameEl, emailEl, phoneEl, typeEl, statusEl, resetChk].forEach(el => lock(el, isView));
+  [nameEl, emailEl, phoneEl, typeEl, typeCustomEl, statusEl, resetChk].forEach(el => lock(el, isView));
 
   // Hide Save in view mode, show otherwise
   if (saveBtn) saveBtn.style.display = isView ? "none" : "";
@@ -495,11 +538,16 @@ const UsersModal = (() => {
   }
 
   function serialize() {
+    const effectiveType =
+      (typeEl.value === "__custom__")
+        ? (typeCustomEl?.value || "").trim()
+        : typeEl.value.trim();
+
     return {
-      name: nameEl.value.trim(),
-      email: emailEl.value.trim(),
-      phone: phoneEl.value.trim(),
-      type: typeEl.value.trim(),
+      name:   nameEl.value.trim(),
+      email:  emailEl.value.trim(),
+      phone:  phoneEl.value.trim(),
+      type:   effectiveType,          // <-- use effective type
       status: statusEl.value.trim(),
     };
   }
@@ -509,6 +557,11 @@ const UsersModal = (() => {
     if (!form.reportValidity()) return;
 
     const payload = serialize();
+    if (typeEl.value === "__custom__" && !payload.type) {
+      alert("Please enter a type name.");
+      typeCustomEl?.focus();
+      return;
+    }
     const base = await resolveUsersBase();
     const isAdd = mode === "add";
     let id = idEl.value;
@@ -622,7 +675,13 @@ document.addEventListener("keydown", docKeyHandler, true);
     nameEl  = q("userName");
     emailEl = q("userEmail");
     phoneEl = q("userPhone");
-    typeEl  = q("userTypeField");
+    typeEl        = q("userTypeField");
+   typeCustomEl  = q("userTypeCustom");        // NEW
+ // Show the free-text input only when "Custom…" is selected
+   typeEl?.addEventListener("change", () => {
+   const isCustom = typeEl.value === "__custom__";
+   if (typeCustomEl) typeCustomEl.style.display = isCustom ? "" : "none";
+ });
     statusEl= q("userStatusField");
     resetChk= q("sendResetEmail");
     emailErr= q("err-userEmail");
