@@ -1,89 +1,134 @@
 /* public/admin/js/admin-users.js
-   Admin Users — event-driven, auto-discovery wiring (list rendering only; quiet)
+   Admin Users — lean controller with mount sentinel + optional tracing
+   Enable trace (noisy, dev-only): localStorage.dbgUsers = "trace"; location.reload();
 */
 (function () {
   if (window.__ADMIN_USERS_CONTROLLER__) return;
   window.__ADMIN_USERS_CONTROLLER__ = true;
 
-  // ---------------- State ----------------
-  const State = { all: [], filtered: [], page: 1, per: 10, root: null, els: {} };
+  // ---------------------------------------------------------------------
+  // Trace helpers (disabled by default; no-op unless dbgUsers === "trace")
+  // ---------------------------------------------------------------------
+  const TRACE_ON = String(localStorage.getItem("dbgUsers")) === "trace";
+  const tlog = (...a) => { if (TRACE_ON) console.debug("[users:trace]", ...a); };
+  const mark = (tag, extra = {}) => {
+    if (!TRACE_ON) return;
+    try {
+      performance.mark(`users:${tag}`);
+    } catch {}
+    tlog(tag, { ts: +performance.now().toFixed(1), ...extra });
+  };
 
-  const esc = (s) => (s == null ? "" : String(s)).replace(/[&<>"']/g, (m) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-  }[m]));
+  // ---------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------
+  const State = {
+    all: [],
+    filtered: [],
+    page: 1,
+    per: 10,
+    root: null,
+    els: {},
+    _attached: false,
+  };
 
-  // ---------------- Auto-discovery ----------------
-  function findRoot() {
-    const byId = document.getElementById("users-root");
-    if (byId) return byId;
-
-    // Prefer a wrapper with Users header + table
-    const cards = Array.from(document.querySelectorAll("section, .card, .panel, .block, [data-partial='users']"));
-    for (const c of cards) {
-      const heading = c.querySelector("h1,h2,h3,.card-title,.header,.title,[data-title]");
-      if (!heading || !/users/i.test((heading.textContent || "").trim())) continue;
-      if (c.querySelector("table")) return c;
-    }
-
-    // Fallback: any table under main that has expected columns
-    const tables = Array.from(document.querySelectorAll("main table, .content table, .card table"));
-    for (const t of tables) {
-      const th = Array.from(t.querySelectorAll("thead th")).map(x => (x.textContent || "").toLowerCase());
-      const looks = th.some(x=>x.includes("sl")) && th.some(x=>x.includes("name")) && th.some(x=>x.includes("email"));
-      if (looks) return t.closest(".card, .panel, .block, section") || t.parentElement;
-    }
-    return null;
-  }
+  // ---------------------------------------------------------------------
+  // Utilities
+  // ---------------------------------------------------------------------
+  const esc = (s) =>
+    (s == null ? "" : String(s)).replace(/[&<>"']/g, (m) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m])
+    );
 
   function looksNumericSelect(sel) {
     if (!sel || sel.tagName !== "SELECT") return false;
     const opts = Array.from(sel.options);
     if (!opts.length) return false;
-    const numericCount = opts.reduce((n,o)=> (Number.isFinite(parseInt(o.value || o.text,10))?n+1:n), 0);
-    return numericCount >= Math.max(1, Math.floor(opts.length*0.6));
+    const numericCount = opts.reduce(
+      (n, o) => (Number.isFinite(parseInt(o.value || o.text, 10)) ? n + 1 : n),
+      0
+    );
+    return numericCount >= Math.max(1, Math.floor(opts.length * 0.6));
+  }
+
+  // ---------------------------------------------------------------------
+  // DOM discovery (strictly under Users container)
+  // Prefer an explicit anchor; fall back to a Users-card heuristic.
+  // ---------------------------------------------------------------------
+  function findRoot() {
+    const byId = document.getElementById("users-root");
+    if (byId) return byId;
+
+    const byData = document.querySelector('[data-module="users"]');
+    if (byData) return byData;
+
+    // Heuristic: container with a title that contains "Users" and a table.
+    const containers = Array.from(
+      document.querySelectorAll(
+        "section, .card, .panel, .block, [data-partial='users'], [role='region']"
+      )
+    ).filter((c) => !c.closest(".modal,[role='dialog']"));
+    for (const c of containers) {
+      const heading = c.querySelector(
+        "h1,h2,h3,.card-title,.header,.title,[data-title]"
+      );
+      if (!heading) continue;
+      const title = (heading.textContent || "").trim().toLowerCase();
+      if (!title.includes("users")) continue;
+      if (c.querySelector("table")) return c;
+    }
+    return null;
   }
 
   function findControls(root) {
+    // Choose the Users table under the root; prefer explicit hook if present.
     const table =
-      document.querySelector(".users-table") ||
       root.querySelector(".users-table") ||
       root.querySelector("table.users-table") ||
+      root.querySelector('table[data-users="1"]') ||
       root.querySelector("table");
 
     return {
       table,
-      tbody:
-        document.querySelector("#usersTbody") ||
-        root.querySelector("tbody"),
+      tbody: root.querySelector("#usersTbody") || root.querySelector("tbody"),
       search:
-        document.querySelector("#usersSearch") ||
-        root.querySelector("input[type='search'], input[name='search']"),
+        root.querySelector("#usersSearch") ||
+        root.querySelector('input[type="search"]') ||
+        root.querySelector('input[name="search"]'),
       status:
-        document.querySelector("#usersStatus") ||
-        Array.from(root.querySelectorAll("select")).find(s =>
+        root.querySelector("#usersStatus") ||
+        root.querySelector("[data-users-status]") ||
+        Array.from(root.querySelectorAll("select")).find((s) =>
           (s.options[0]?.textContent || "").toLowerCase().includes("all status")
-        ) || null,
+        ) ||
+        null,
       type:
-        document.querySelector("#usersType") ||
-        Array.from(root.querySelectorAll("select")).find(s =>
+        root.querySelector("#usersType") ||
+        root.querySelector("[data-users-type]") ||
+        Array.from(root.querySelectorAll("select")).find((s) =>
           (s.options[0]?.textContent || "").toLowerCase().includes("all types")
-        ) || null,
+        ) ||
+        null,
       per:
-        document.querySelector("#usersPer") ||
-        root.querySelector("select[name='per']") ||
-        Array.from(root.querySelectorAll("select")).find(looksNumericSelect) || null,
+        root.querySelector("#usersPer") ||
+        root.querySelector("[data-users-per]") ||
+        root.querySelector('select[name="per"]') ||
+        Array.from(root.querySelectorAll("select")).find(looksNumericSelect) ||
+        null,
       pager:
-        document.querySelector("#usersPager") ||
+        root.querySelector("#usersPager") ||
         root.querySelector("[data-users-pager]") ||
         null,
       info:
-        document.querySelector("#usersInfo") ||
+        root.querySelector("#usersInfo") ||
         root.querySelector("[data-users-info]") ||
         null,
     };
   }
 
-  // ---------------- Endpoint ----------------
+  // ---------------------------------------------------------------------
+  // API endpoint detection (idempotent)
+  // ---------------------------------------------------------------------
   const USERS_BASES = ["/api/admin/users", "/api/users", "/admin/users", "/users"];
   let USERS_BASE = null;
 
@@ -95,7 +140,9 @@
       try {
         const r = await fetch(url, { method: "GET", credentials: "include" });
         return r.ok || r.status === 405;
-      } catch { return false; }
+      } catch {
+        return false;
+      }
     }
     for (const base of USERS_BASES) {
       if (await ok(base)) {
@@ -108,7 +155,9 @@
     return USERS_BASE;
   }
 
-  // ---------------- Data helpers ----------------
+  // ---------------------------------------------------------------------
+  // Data helpers
+  // ---------------------------------------------------------------------
   function normalize(u) {
     const created = u.createdAt || u.created_at || u.lastActive || u.last_active || "";
     return {
@@ -129,6 +178,8 @@
     const per = parseInt(State.els?.per?.value || State.per || 10, 10) || 10;
     const page = 1;
     const url = `${base}?page=${page}&per=${per}`;
+    mark("load-start", { url });
+
     const r = await fetch(url, { credentials: "include" });
     const ct = r.headers.get("content-type") || "";
     const body = ct.includes("json") ? await r.json() : await r.text();
@@ -141,37 +192,38 @@
       else {
         const keys = ["rows", "results", "list", "items"];
         for (const k of keys) {
-          if (Array.isArray(body[k])) { list = body[k]; break; }
+          if (Array.isArray(body[k])) {
+            list = body[k];
+            break;
+          }
         }
         if (!list.length && body.data && typeof body.data === "object") {
-          for (const k of keys) {
-            if (Array.isArray(body.data[k])) { list = body.data[k]; break; }
+          const keys2 = ["rows", "results", "list", "items"];
+          for (const k of keys2) {
+            if (Array.isArray(body.data[k])) {
+              list = body.data[k];
+              break;
+            }
           }
         }
       }
     }
-    return list.map(normalize);
+    const rows = list.map(normalize);
+    mark("load-done", { n: rows.length });
+    return rows;
   }
 
-  async function deleteUser(id) {
-    const base = await resolveUsersBase();
-    const r = await fetch(`${base}/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-    if (!(r.ok || r.status === 204)) {
-      const txt = await r.text().catch(() => "");
-      throw new Error(`Delete failed ${r.status}: ${txt}`);
-    }
-  }
-
-  // ---------------- Render ----------------
+  // ---------------------------------------------------------------------
+  // Rendering
+  // ---------------------------------------------------------------------
   function rowHtml(u, slno) {
     const badge = u.status === "Active" ? "badge badge-success" : "badge badge-muted";
     return `
       <tr data-users-row data-user-id="${esc(u.id)}">
         <td>${slno}</td>
-        <td><a href="#" class="link" data-users-action="open-edit" data-id="${esc(u.id)}">${esc(u.name || "(no name)")}</a></td>
+        <td><a href="#" class="link" data-users-action="open-edit" data-id="${esc(u.id)}">${esc(
+          u.name || "(no name)"
+        )}</a></td>
         <td>${esc(u.email)}</td>
         <td>${esc(u.phone)}</td>
         <td>${esc(u.type)}</td>
@@ -179,8 +231,12 @@
         <td><span class="${badge}">${esc(u.status || "Active")}</span></td>
         <td>${u.createdAt ? esc(u.createdAt) : ""}</td>
         <td class="actions">
-          <button class="btn btn-sm btn-outline"        data-users-action="open-edit"  data-id="${esc(u.id)}">View</button>
-          <button class="btn btn-sm btn-outline danger" data-users-action="deactivate" data-id="${esc(u.id)}">Delete</button>
+          <button class="btn btn-sm btn-outline"        data-users-action="open-edit"  data-id="${esc(
+            u.id
+          )}">View</button>
+          <button class="btn btn-sm btn-outline danger" data-users-action="deactivate" data-id="${esc(
+            u.id
+          )}">Delete</button>
         </td>
       </tr>`;
   }
@@ -198,7 +254,9 @@
     let html = "";
     html += mk(1, "«", page === 1);
     html += mk(Math.max(1, page - 1), "‹", page === 1);
-    const win = 5, s = Math.max(1, page - Math.floor(win / 2)), e = Math.min(pages, s + win - 1);
+    const win = 5,
+      s = Math.max(1, page - Math.floor(win / 2)),
+      e = Math.min(pages, s + win - 1);
     for (let p = s; p <= e; p++) html += mk(p, String(p), false, p === page);
     html += mk(Math.min(pages, page + 1), "›", page === pages);
     html += mk(pages, "»", page === pages);
@@ -247,7 +305,9 @@
     render();
   }
 
-  // ---------------- Events ----------------
+  // ---------------------------------------------------------------------
+  // Events
+  // ---------------------------------------------------------------------
   function onRootClick(e) {
     if (!State.root?.contains(e.target)) return;
     const actEl = e.target.closest("[data-users-action], a.ws-link, a.link");
@@ -276,10 +336,19 @@
         State.filtered = State.filtered.filter((x) => String(x.id) !== String(id));
         render();
 
-        deleteUser(id).catch(() => {
-          State.all = prevAll;
-          applyFilters();
-        });
+        // best-effort delete
+        (async () => {
+          try {
+            const base = await resolveUsersBase();
+            await fetch(`${base}/${encodeURIComponent(id)}`, {
+              method: "DELETE",
+              credentials: "include",
+            });
+          } catch {
+            State.all = prevAll;
+            applyFilters();
+          }
+        })();
         break;
       }
       case "search":
@@ -320,7 +389,9 @@
     });
   }
 
-  // ---------------- Loader ----------------
+  // ---------------------------------------------------------------------
+  // Loader
+  // ---------------------------------------------------------------------
   async function load() {
     const list = await fetchList();
     State.all = Array.isArray(list) ? list : [];
@@ -332,23 +403,35 @@
     render();
   }
 
-  // ---------------- Init ----------------
+  // ---------------------------------------------------------------------
+  // Init / Rehydrate
+  // ---------------------------------------------------------------------
   async function init() {
+    mark("init-start");
     const root = findRoot();
-    if (!root) return;
-    if (root.dataset.wsInit === "1") return;
+    if (!root) {
+      mark("init-skip-no-root");
+      return;
+    }
+    // prevent double-init within the same mount
+    if (root.dataset.wsInit === "1") {
+      mark("init-skip-already");
+      return;
+    }
 
     State.root = root;
     State.els = findControls(root);
-
-    await load();
     wire();
+    await load();
 
     root.dataset.wsInit = "1";
+    State._attached = true;
+    mark("init-done");
   }
 
   // Rehydrate when Users root is still in DOM but tbody was cleared/replaced
   async function rehydrate() {
+    mark("rehydrate");
     const root = findRoot();
     if (!root) return;
 
@@ -367,85 +450,58 @@
     }
   }
 
-  // ---------- Activation (SPA attach / rehydrate) ----------
-  (function activateUsersController(){
-    document.addEventListener("admin:partial-loaded", (evt) => {
-      const name = (evt && evt.detail && (evt.detail.name || evt.detail)) || "";
-      if (/users/i.test(String(name))) ensureAttached(true);
-    });
+  // ---------------------------------------------------------------------
+  // Mount sentinel (ONLY change in activation)
+  // - Attaches when Users DOM actually appears
+  // - Optionally clears flags when it disappears
+  // ---------------------------------------------------------------------
+  (function usersMountSentinel() {
+    let mountedRoot = null;
+    let mo = null;
 
-    function tryHashInit() {
-      if (location.hash && /#users\b/i.test(location.hash)) ensureAttached(true);
-    }
-    if (document.readyState === "complete" || document.readyState === "interactive") {
-      setTimeout(tryHashInit, 0);
-    } else {
-      document.addEventListener("DOMContentLoaded", () => setTimeout(tryHashInit, 0));
-    }
-    window.addEventListener("hashchange", () => setTimeout(tryHashInit, 0));
-
-    document.addEventListener("click", (e) => {
-      const t = e.target.closest('[data-partial="users"], a[href$="#users"], a[href*="#users"]');
-      if (t) setTimeout(() => ensureAttached(true), 0);
-    }, true);
-
-    function isVisible(el) {
-      if (!el) return false;
-      if (el.offsetParent !== null) return true;
-      const r = el.getClientRects();
-      return !!(r && r.length);
+    function mounted() {
+      const root =
+        document.querySelector("#users-root") ||
+        document.querySelector('[data-module="users"]');
+      return root || null;
     }
 
-    function ensureAttached() {
-      // If we're already attached and the root is still present, only rehydrate when tbody is missing/empty
-      if (window.__ADMIN_USERS_ATTACHED__ && State && State.root && document.contains(State.root)) {
-        const tb = State.els && State.els.tbody ? State.els.tbody : null;
-        if (!tb || tb.children.length === 0) {
-          window.AdminUsers?.rehydrate?.();
-        }
-        return;
-      }
-
-      try {
-        const root = findRoot();
-        if (root) {
-          // If same root, rehydrate; otherwise init fresh
-          if (State && State.root && State.root === root) {
-            window.AdminUsers?.rehydrate?.();
-          } else {
-            window.AdminUsers?.init?.();
-            window.__ADMIN_USERS_ATTACHED__ = true;
-          }
-          return;
-        }
-      } catch {}
-
-      // Fallback: wait briefly for DOM insertion and attach
-      const mo = new MutationObserver(() => {
-        try {
-          const rootNow = findRoot();
-          if (rootNow) {
-            mo.disconnect();
-            window.AdminUsers?.init?.();
-            window.__ADMIN_USERS_ATTACHED__ = true;
-          }
-        } catch {}
-      });
-      mo.observe(document.body, { childList: true, subtree: true });
-      setTimeout(() => mo.disconnect(), 8000);
+    function mount(root) {
+      if (mountedRoot === root) return;
+      mountedRoot = root;
+      mark("root-inserted");
+      // Fresh init for this mount
+      // Clear wsInit on new mount (in case the router reused nodes)
+      if (root && root.dataset) delete root.dataset.wsInit;
+      init();
     }
 
-    const leaveMo = new MutationObserver(() => {
-      if (!State?.root) return;
-      const gone = !document.contains(State.root);
-      const hidden = !isVisible(State.root);
-      if (gone || hidden) {
-        window.__ADMIN_USERS_ATTACHED__ = false;
-      }
-    });
-    leaveMo.observe(document.body, { childList: true, subtree: true });
+    function unmount() {
+      if (!mountedRoot) return;
+      mark("root-removed");
+      // Clear attach flag so a future mount can init cleanly
+      State._attached = false;
+      mountedRoot = null;
+    }
+
+    function scan() {
+      const root = mounted();
+      if (root) mount(root);
+      else unmount();
+    }
+
+    // Observe page DOM for inserts/removals (covers all router timings)
+    mo = new MutationObserver(scan);
+    mo.observe(document.body, { childList: true, subtree: true });
+
+    // Run once now and on hash/route events
+    scan();
+    window.addEventListener("hashchange", scan);
+    document.addEventListener("admin:partial-loaded", scan);
   })();
 
-  // Optional manual hook
+  // ---------------------------------------------------------------------
+  // Optional manual hook (for debugging)
+  // ---------------------------------------------------------------------
   window.AdminUsers = { init, rehydrate };
 })();
