@@ -5,6 +5,8 @@ const sqlite3 = require("sqlite3").verbose();
 
 const router = express.Router();
 router.use(express.json());
+const { requireAdmin } = require("./middleware/requireAdmin");
+router.use(requireAdmin);
 
 // --- DB helpers -------------------------------------------------------------
 const DB_PATH =
@@ -347,7 +349,7 @@ router.post("/", async (req, res) => {
       oldStatus: null,
       newStatus: "Created",
       adminId: admin?.id,
-      note: notes,
+      note: "Dispatch created",
     });
 
     const created = await getAsync(
@@ -360,7 +362,7 @@ router.post("/", async (req, res) => {
       [dispatchId]
     );
 
-    return res.json({
+    return res.status(200).json({
       success: true,
       dispatch: created,
       history: {
@@ -369,7 +371,7 @@ router.post("/", async (req, res) => {
         old_status: null,
         new_status: "Created",
         changed_by: admin?.id ?? null,
-        note: notes ?? null,
+        note: "Dispatch created",
       },
       message: "Dispatch created.",
     });
@@ -393,7 +395,7 @@ router.patch("/:id", async (req, res) => {
     return badRequest(res, "BAD_DATE", "planned_date must be YYYY-MM-DD.");
   }
   if (status && !ALLOWED_STATUSES.has(status)) {
-    return badRequest(res, "BAD_STATUS", "status must be one of Created|Assigned|InTransit|Canceled.");
+   return badRequest(res, "BAD_STATUS", "status must be one of Created|Assigned|InTransit|Delivered|Canceled.");
   }
 
   const db = new sqlite3.Database(DB_PATH);
@@ -596,7 +598,7 @@ router.patch("/:id", async (req, res) => {
       [id]
     );
 
-    return res.json({
+    return res.status(201).json({
       success: true,
       dispatch: updated,
       ...(histRow ? { history: histRow } : {}),
