@@ -306,10 +306,15 @@
     if (!action && actEl.matches("a.ws-link, a.link")) action = "open-edit";
 
     switch (action) {
-      case "open-create":
+      case "open-create": {
+        UsersModal.open("add", null);
         break;
-      case "open-edit":
+      }
+      case "open-edit": {
+        const u = State.all.find((x) => String(x.id) === String(id));
+        UsersModal.open("edit", u || null);
         break;
+      }
       case "deactivate": {
         const u = State.all.find((x) => String(x.id) === String(id));
         const label = u?.name || u?.email || id;
@@ -360,6 +365,9 @@
   function wire() {
     const { root, els } = State;
     root.addEventListener("click", onRootClick, true);
+  // Add User button (if present)
+    const addBtn = root.querySelector("#addUserBtn");
+    if (addBtn) addBtn.addEventListener("click", (e) => { e.preventDefault(); UsersModal.open("add", null); });
     els.search?.addEventListener("keydown", (e) => { if (e.key === "Enter") applyFilters(); });
     els.type?.addEventListener("change", applyFilters);
     els.status?.addEventListener("change", applyFilters);
@@ -425,6 +433,159 @@
       await load();
     }
   }
+// ---------------------------------------------------------------------
+// Users Modal (single reusable)
+// ---------------------------------------------------------------------
+const UsersModal = (() => {
+  let el, form, titleEl, closeBtn, cancelBtn, saveBtn;
+  let idEl, nameEl, emailEl, phoneEl, typeEl, statusEl, resetChk, emailErr;
+  let mode = "view"; // "add" | "edit"
+
+  function q(id) { return document.getElementById(id); }
+  function visible(v) { if (el) el.hidden = !v; }
+
+  function fill(u) {
+    idEl.value     = u?.id ?? "";
+    nameEl.value   = u?.name ?? "";
+    emailEl.value  = u?.email ?? "";
+    phoneEl.value  = u?.phone ?? "";
+    typeEl.value   = u?.type ?? "User";
+    statusEl.value = u?.status ?? "Active";
+    emailErr.style.display = "none";
+    emailErr.textContent = "";
+    // Show reset toggle only when adding/editing (not view-only)
+    q("resetEmailRow").style.display = (mode === "add" || mode === "edit") ? "" : "none";
+  }
+
+  function setMode(nextMode) {
+    mode = nextMode;
+    titleEl.textContent = mode === "add" ? "Add User" : "Edit User";
+    saveBtn.textContent = "Save";
+  }
+
+  function serialize() {
+    return {
+      name: nameEl.value.trim(),
+      email: emailEl.value.trim(),
+      phone: phoneEl.value.trim(),
+      type: typeEl.value.trim(),
+      status: statusEl.value.trim(),
+    };
+  }
+
+  async function onSave() {
+    // Basic front-end validation
+    if (!form.reportValidity()) return;
+
+    const payload = serialize();
+    const base = await resolveUsersBase();
+    const isAdd = mode === "add";
+    let id = idEl.value;
+
+    try {
+      let r;
+      if (isAdd) {
+        r = await fetch(base, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+      } else {
+        r = await fetch(`${base}/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+      }
+
+      const ct = r.headers.get("content-type") || "";
+      const body = ct.includes("json") ? await r.json() : {};
+      if (!r.ok || body.success === false) {
+        // Try to surface inline errors (e.g., duplicate email)
+        const msg = (body && (body.error?.message || body.message)) || `Request failed (${r.status})`;
+        // crude inline hook for email
+        if (/email/i.test(msg)) {
+          emailErr.textContent = msg;
+          emailErr.style.display = "";
+        } else {
+          alert(msg);
+        }
+        return;
+      }
+
+      // success; body may contain the new/updated row
+      const returned = body.user || body.data || body;
+      if (isAdd) id = returned?.id ?? id;
+
+      // optional: send reset email on save
+      if (q("sendResetEmail").checked) {
+        try {
+          await fetch(`${base}/${encodeURIComponent(id)}/send-reset`, {
+            method: "POST",
+            credentials: "include",
+          });
+        } catch {}
+      }
+
+      await load();         // reuse existing loader to refresh list
+      close();              // close modal
+    } catch (err) {
+      alert(err?.message || "Network error");
+    }
+  }
+
+  function onCancel(e) {
+    e?.preventDefault?.();
+    close();
+  }
+
+  function onClose(e) {
+    e?.preventDefault?.();
+    close();
+  }
+
+  function open(nextMode, user) {
+    ensureEls();
+    setMode(nextMode);
+    fill(user);
+    visible(true);
+    // focus first field for faster entry
+    (nameEl || emailEl || saveBtn)?.focus?.();
+  }
+
+  function close() {
+    visible(false);
+    form?.reset?.();
+  }
+
+  function ensureEls() {
+    if (el) return;
+    el      = q("users-modal");
+    form    = q("usersForm");
+    titleEl = q("usersModalTitle");
+    closeBtn= q("usersModalClose");
+    cancelBtn=q("usersModalCancel");
+    saveBtn = q("usersModalSave");
+
+    idEl    = q("userId");
+    nameEl  = q("userName");
+    emailEl = q("userEmail");
+    phoneEl = q("userPhone");
+    typeEl  = q("userTypeField");
+    statusEl= q("userStatusField");
+    resetChk= q("sendResetEmail");
+    emailErr= q("err-userEmail");
+
+    closeBtn?.addEventListener("click", onClose);
+    cancelBtn?.addEventListener("click", onCancel);
+    saveBtn?.addEventListener("click", (e) => { e.preventDefault(); onSave(); });
+    form?.addEventListener("submit", (e) => { e.preventDefault(); onSave(); });
+  }
+
+  return { open, close };
+})();
 
   // ---------------------------------------------------------------------
   // Mount sentinel (uses findRoot so it works without explicit anchors)
