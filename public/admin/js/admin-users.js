@@ -87,7 +87,7 @@
 
     return {
       table,
-      tbody: root.querySelector("#usersTbody") || root.querySelector("tbody"),
+      tbody: root.querySelector("#usersRows") || root.querySelector("#usersTbody") || root.querySelector("tbody"),
       search:
         root.querySelector("#usersSearch") ||
         root.querySelector('input[type="search"]') ||
@@ -100,6 +100,7 @@
         ) ||
         null,
       type:
+        root.querySelector("#userType") ||         // fallback to your HTML id
         root.querySelector("#usersType") ||
         root.querySelector("[data-users-type]") ||
         Array.from(root.querySelectorAll("select")).find((s) =>
@@ -107,12 +108,14 @@
         ) ||
         null,
       per:
+        root.querySelector("#per-users") ||        // fallback to your HTML id
         root.querySelector("#usersPer") ||
         root.querySelector("[data-users-per]") ||
         root.querySelector('select[name="per"]') ||
         Array.from(root.querySelectorAll("select")).find(looksNumericSelect) ||
         null,
-      pager:
+       pager:
+        root.querySelector("#users-pagination") ||  // fallback to your HTML id
         root.querySelector("#usersPager") ||
         root.querySelector("[data-users-pager]") ||
         null,
