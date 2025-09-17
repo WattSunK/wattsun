@@ -598,7 +598,7 @@ router.patch("/:id", async (req, res) => {
       [id]
     );
 
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
       dispatch: updated,
       ...(histRow ? { history: histRow } : {}),
