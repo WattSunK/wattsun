@@ -471,3 +471,51 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
   #order-history .history-list { max-height: 220px; }
 }
 
+/* Generic modal sizing that fits the viewport */
+.modal { padding: 0; border: 0; }
+
+.modal::backdrop {
+  background: rgba(0,0,0,.35);
+}
+
+/* The card is a vertical flex container */
+.modal .modal-card {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 92vw);
+  max-height: 90vh;             /* <-- keeps the whole modal within viewport */
+  overflow: hidden;             /* clip internal overflow to body area */
+  border-radius: 12px;
+}
+
+/* Header & footer stay fixed; body flexes */
+.modal .modal-header,
+.modal .modal-footer {
+  flex: 0 0 auto;
+  padding: 16px 20px;
+}
+
+/* Body takes remaining space and scrolls if needed */
+.modal .modal-body {
+  flex: 1 1 auto;
+  overflow: auto;               /* <-- only this area scrolls */
+  padding: 16px 20px;
+}
+
+/* Keep actions aligned like Orders */
+.modal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
+  border-top: 1px solid var(--border, #e5e7eb);
+}
+
+/* Inputs fill available width inside their cell */
+.modal .modal-body .input,
+.modal .modal-body input[type="text"],
+.modal .modal-body input[type="email"],
+.modal .modal-body input[type="tel"],
+.modal .modal-body select {
+  width: 100%;
+  box-sizing: border-box;
+}
