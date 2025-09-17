@@ -475,6 +475,7 @@ function syncTypesFromData() {
 const UsersModal = (() => {
   let el, form, titleEl, closeBtn, cancelBtn, saveBtn;
   let idEl, nameEl, emailEl, phoneEl, typeEl, typeCustomEl, statusEl, resetChk, emailErr;
+  let docKeyHandler = null;
   let mode = "view"; // "add" | "edit"
 
   function q(id) { return document.getElementById(id); }
@@ -681,6 +682,7 @@ document.addEventListener("keydown", docKeyHandler, true);
    typeEl?.addEventListener("change", () => {
    const isCustom = typeEl.value === "__custom__";
    if (typeCustomEl) typeCustomEl.style.display = isCustom ? "" : "none";
+   if (!isCustom) typeCustomEl.value = "";
  });
     statusEl= q("userStatusField");
     resetChk= q("sendResetEmail");
