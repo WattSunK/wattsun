@@ -20,9 +20,9 @@ const DB_PATH =
 
 const db = new sqlite3.Database(DB_PATH);
 
-// GET /api/admin/users
+// GET /api/admin/users  — with per-user orders count
 router.get("/users", requireAdmin, (req, res) => {
-  let { page = "1", per = "10", q = "", type } = req.query;
+  let { page = "1", per = "10", q = "", type, status } = req.query;
 
   page = Math.max(parseInt(page, 10) || 1, 1);
   per = Math.min(Math.max(parseInt(per, 10) || 10, 1), 100);
@@ -31,27 +31,94 @@ router.get("/users", requireAdmin, (req, res) => {
   const where = [];
   const params = {};
 
+  // NOTE: qualify columns with "u." (users alias)
   if (type) {
-    where.push("type = $type");
+    where.push("u.type = $type");
     params.$type = String(type);
   }
-
-  if (q) {
-    where.push("(name LIKE $q OR email LIKE $q OR phone LIKE $q)");
-    params.$q = `%${q}%`;
-  }
+if (status) {
+   where.push("u.status = $status");
+   params.$status = String(status);
+ }
+ if (q) {
+  // normalize the phone-like side of q to digits (best-effort)
+  const qDigits = String(q).replace(/[^\d]/g, "");
+  where.push(`(
+    LOWER(u.name) LIKE $q
+    OR LOWER(u.email) LIKE $q
+    OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(u.phone, '+',''), ' ', ''), '-', ''), '(', ''), ')', '') LIKE $qDigits
+  )`);
+  params.$q = `%${String(q).toLowerCase()}%`;
+  params.$qDigits = `%${qDigits}%`;
+}
 
   const whereSQL = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-  const countSQL = `SELECT COUNT(*) AS total FROM users ${whereSQL}`;
-  const listSQL = `
-    SELECT id, name, email, phone, type, status, created_at AS createdAt
-    FROM users
-    ${whereSQL}
-    ORDER BY id ASC
-    LIMIT $per OFFSET $offset
-  `;
+    // total users for pager (no join needed)
+const countSQL = `SELECT COUNT(*) AS total FROM users u ${whereSQL}`;
 
+// list with orders count via email/phone matches
+const listSQL = `
+WITH users_norm AS (
+  SELECT
+    u.id,
+    u.name,
+    u.email,
+    u.phone,
+    u.type,
+    u.status,
+    u.created_at AS createdAt,
+    LOWER(u.email) AS u_email,
+    /* strip + - ( ) and spaces to digits-only */
+    CASE
+      WHEN substr(pu,1,1) = '0'   THEN '254' || substr(pu, 2)   -- 07.. -> 2547..
+      WHEN substr(pu,1,3) = '254' THEN pu                        -- already 254...
+      ELSE pu
+    END AS u_phone
+  FROM (
+    SELECT
+      u.*,
+      REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(u.phone,''), '+',''), ' ', ''), '-', ''), '(', ''), ')', '') AS pu
+    FROM users u
+  ) u
+),
+orders_norm AS (
+  SELECT
+    o.id,
+    LOWER(o.email) AS o_email,
+    CASE
+      WHEN substr(po,1,1) = '0'   THEN '254' || substr(po, 2)
+      WHEN substr(po,1,3) = '254' THEN po
+      ELSE po
+    END AS o_phone
+  FROM (
+    SELECT
+      o.*,
+      REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(o.phone,''), '+',''), ' ', ''), '-', ''), '(', ''), ')', '') AS po
+    FROM orders o
+  ) o
+)
+SELECT
+  u.id,
+  u.name,
+  u.email,
+  u.phone,
+  u.type,
+  u.status,
+  u.createdAt,
+  COUNT(o.id) AS orders
+FROM users_norm u
+LEFT JOIN orders_norm o
+  ON (
+       (u.u_email <> '' AND o.o_email = u.u_email)
+       OR
+       (u.u_phone <> '' AND o.o_phone = u.u_phone)
+     )
+${whereSQL}
+GROUP BY u.id
+ORDER BY u.createdAt DESC
+LIMIT $per OFFSET $offset
+`;
   db.get(countSQL, params, (err, row) => {
     if (err) {
       return res.status(500).json({ success: false, error: { code: "DB_COUNT", message: err.message } });
@@ -119,7 +186,7 @@ router.patch("/users/:id", requireAdmin, express.json(), (req, res) => {
     if (err) return res.status(500).json({ success: false, error: { code: "DB_UPDATE", message: err.message } });
 
     db.get(
-      `SELECT id, name, email, phone, type, status, created_at AS createdAt FROM users WHERE id=$id`,
+      `SELECT id, name, email, phone, type, status, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE id=$id`,
       { $id: id },
       (err2, row) => {
         if (err2) return res.status(500).json({ success: false, error: { code: "DB_READ", message: err2.message } });
@@ -127,6 +194,11 @@ router.patch("/users/:id", requireAdmin, express.json(), (req, res) => {
       }
     );
   });
+});
+// POST /api/admin/users/:id/send-reset  — stub to quiet logs; replace with real mailer later
+router.post("/users/:id/send-reset", requireAdmin, (req, res) => {
+  // TODO: integrate your actual mailer; for now just OK
+  return res.json({ success: true });
 });
 
 // DELETE: /api/admin/users/:id  (sqlite3 handle; same as GET/PATCH)
