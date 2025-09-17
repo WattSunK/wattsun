@@ -221,7 +221,7 @@
         <td><span class="${badge}">${esc(u.status || "Active")}</span></td>
         <td>${u.createdAt ? esc(u.createdAt) : ""}</td>
         <td class="actions">
-          <button class="btn btn-sm btn-outline"        data-users-action="open-edit"  data-id="${esc(u.id)}">View</button>
+          <button class="btn btn-sm btn-outline"        data-users-action="open-view"  data-id="${esc(u.id)}">View</button>
           <button class="btn btn-sm btn-outline danger" data-users-action="deactivate" data-id="${esc(u.id)}">Delete</button>
         </td>
       </tr>`;
@@ -306,6 +306,11 @@
     if (!action && actEl.matches("a.ws-link, a.link")) action = "open-edit";
 
     switch (action) {
+  case "open-view": {
+  const u = State.all.find((x) => String(x.id) === String(id));
+  UsersModal.open("view", u || null);
+  break;
+}
       case "open-create": {
         UsersModal.open("add", null);
         break;
@@ -473,8 +478,20 @@ const UsersModal = (() => {
 
   function setMode(nextMode) {
     mode = nextMode;
-    titleEl.textContent = mode === "add" ? "Add User" : "Edit User";
-    saveBtn.textContent = "Save";
+    const isAdd  = mode === "add";
+  const isEdit = mode === "edit";
+  const isView = mode === "view";
+
+  titleEl.textContent = isAdd ? "Add User" : isView ? "View User" : "Edit User";
+  saveBtn.textContent = "Save";
+
+  // Lock or unlock all fields
+  const lock = (el, on) => { if (el) el.disabled = !!on; };
+  [nameEl, emailEl, phoneEl, typeEl, statusEl, resetChk].forEach(el => lock(el, isView));
+
+  // Hide Save in view mode, show otherwise
+  if (saveBtn) saveBtn.style.display = isView ? "none" : "";
+  if (cancelBtn) cancelBtn.textContent = isView ? "Close" : "Cancel";
   }
 
   function serialize() {
