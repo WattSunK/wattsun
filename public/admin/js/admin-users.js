@@ -13,9 +13,7 @@
   const tlog = (...a) => { if (TRACE_ON) console.debug("[users:trace]", ...a); };
   const mark = (tag, extra = {}) => {
     if (!TRACE_ON) return;
-    try {
-      performance.mark(`users:${tag}`);
-    } catch {}
+    try { performance.mark(`users:${tag}`); } catch {}
     tlog(tag, { ts: +performance.now().toFixed(1), ...extra });
   };
 
@@ -81,7 +79,6 @@
   }
 
   function findControls(root) {
-    // Choose the Users table under the root; prefer explicit hook if present.
     const table =
       root.querySelector(".users-table") ||
       root.querySelector("table.users-table") ||
@@ -140,9 +137,7 @@
       try {
         const r = await fetch(url, { method: "GET", credentials: "include" });
         return r.ok || r.status === 405;
-      } catch {
-        return false;
-      }
+      } catch { return false; }
     }
     for (const base of USERS_BASES) {
       if (await ok(base)) {
@@ -192,18 +187,12 @@
       else {
         const keys = ["rows", "results", "list", "items"];
         for (const k of keys) {
-          if (Array.isArray(body[k])) {
-            list = body[k];
-            break;
-          }
+          if (Array.isArray(body[k])) { list = body[k]; break; }
         }
         if (!list.length && body.data && typeof body.data === "object") {
           const keys2 = ["rows", "results", "list", "items"];
           for (const k of keys2) {
-            if (Array.isArray(body.data[k])) {
-              list = body.data[k];
-              break;
-            }
+            if (Array.isArray(body.data[k])) { list = body.data[k]; break; }
           }
         }
       }
@@ -221,9 +210,7 @@
     return `
       <tr data-users-row data-user-id="${esc(u.id)}">
         <td>${slno}</td>
-        <td><a href="#" class="link" data-users-action="open-edit" data-id="${esc(u.id)}">${esc(
-          u.name || "(no name)"
-        )}</a></td>
+        <td><a href="#" class="link" data-users-action="open-edit" data-id="${esc(u.id)}">${esc(u.name || "(no name)")}</a></td>
         <td>${esc(u.email)}</td>
         <td>${esc(u.phone)}</td>
         <td>${esc(u.type)}</td>
@@ -231,12 +218,8 @@
         <td><span class="${badge}">${esc(u.status || "Active")}</span></td>
         <td>${u.createdAt ? esc(u.createdAt) : ""}</td>
         <td class="actions">
-          <button class="btn btn-sm btn-outline"        data-users-action="open-edit"  data-id="${esc(
-            u.id
-          )}">View</button>
-          <button class="btn btn-sm btn-outline danger" data-users-action="deactivate" data-id="${esc(
-            u.id
-          )}">Delete</button>
+          <button class="btn btn-sm btn-outline"        data-users-action="open-edit"  data-id="${esc(u.id)}">View</button>
+          <button class="btn btn-sm btn-outline danger" data-users-action="deactivate" data-id="${esc(u.id)}">Delete</button>
         </td>
       </tr>`;
   }
@@ -254,9 +237,7 @@
     let html = "";
     html += mk(1, "«", page === 1);
     html += mk(Math.max(1, page - 1), "‹", page === 1);
-    const win = 5,
-      s = Math.max(1, page - Math.floor(win / 2)),
-      e = Math.min(pages, s + win - 1);
+    const win = 5, s = Math.max(1, page - Math.floor(win / 2)), e = Math.min(pages, s + win - 1);
     for (let p = s; p <= e; p++) html += mk(p, String(p), false, p === page);
     html += mk(Math.min(pages, page + 1), "›", page === pages);
     html += mk(pages, "»", page === pages);
@@ -336,7 +317,6 @@
         State.filtered = State.filtered.filter((x) => String(x.id) !== String(id));
         render();
 
-        // best-effort delete
         (async () => {
           try {
             const base = await resolveUsersBase();
@@ -377,9 +357,7 @@
   function wire() {
     const { root, els } = State;
     root.addEventListener("click", onRootClick, true);
-    els.search?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") applyFilters();
-    });
+    els.search?.addEventListener("keydown", (e) => { if (e.key === "Enter") applyFilters(); });
     els.type?.addEventListener("change", applyFilters);
     els.status?.addEventListener("change", applyFilters);
     els.per?.addEventListener("change", () => {
@@ -409,15 +387,10 @@
   async function init() {
     mark("init-start");
     const root = findRoot();
-    if (!root) {
-      mark("init-skip-no-root");
-      return;
-    }
+    if (!root) { mark("init-skip-no-root"); return; }
+
     // prevent double-init within the same mount
-    if (root.dataset.wsInit === "1") {
-      mark("init-skip-already");
-      return;
-    }
+    if (root.dataset.wsInit === "1") { mark("init-skip-already"); return; }
 
     State.root = root;
     State.els = findControls(root);
@@ -451,51 +424,46 @@
   }
 
   // ---------------------------------------------------------------------
-  // Mount sentinel (ONLY change in activation)
+  // Mount sentinel (Step 2: stronger bootstrap) + anchor preference (Step 3)
   // - Attaches when Users DOM actually appears
-  // - Optionally clears flags when it disappears
+  // - Clears stale wsInit if router reuses node
   // ---------------------------------------------------------------------
   (function usersMountSentinel() {
     let mountedRoot = null;
     let mo = null;
 
-    function mounted() {
-      const root =
-        document.querySelector("#users-root") ||
-        document.querySelector('[data-module="users"]');
-      return root || null;
-    }
-
     function mount(root) {
       if (mountedRoot === root) return;
       mountedRoot = root;
       mark("root-inserted");
-      // Fresh init for this mount
-      // Clear wsInit on new mount (in case the router reused nodes)
-      if (root && root.dataset) delete root.dataset.wsInit;
+      if (root && root.dataset && root.dataset.wsInit === "1") delete root.dataset.wsInit; // clean re-init
       init();
     }
 
     function unmount() {
       if (!mountedRoot) return;
       mark("root-removed");
-      // Clear attach flag so a future mount can init cleanly
       State._attached = false;
       mountedRoot = null;
     }
 
     function scan() {
-      const root = mounted();
-      if (root) mount(root);
-      else unmount();
+      const root =
+        document.querySelector("#users-root") ||
+        document.querySelector('[data-module="users"]') ||
+        null;
+      if (root) mount(root); else unmount();
     }
 
     // Observe page DOM for inserts/removals (covers all router timings)
     mo = new MutationObserver(scan);
     mo.observe(document.body, { childList: true, subtree: true });
 
-    // Run once now and on hash/route events
+    // Run once now, and again on the next tick (handles “already in DOM” case)
     scan();
+    setTimeout(scan, 0);
+
+    // Also on hash / router events
     window.addEventListener("hashchange", scan);
     document.addEventListener("admin:partial-loaded", scan);
   })();
