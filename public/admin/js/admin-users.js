@@ -442,7 +442,21 @@ const UsersModal = (() => {
   let mode = "view"; // "add" | "edit"
 
   function q(id) { return document.getElementById(id); }
-  function visible(v) { if (el) el.hidden = !v; }
+ 
+  function visible(v) {
+  if (!el) return;
+  if (el.tagName === "DIALOG") {
+    try {
+      if (v) el.showModal(); else el.close();
+    } catch {
+      // fallback for browsers w/o <dialog> support
+      el.hidden = !v;
+    }
+  } else {
+    el.hidden = !v;
+  }
+}
+
 
   function fill(u) {
     idEl.value     = u?.id ?? "";
@@ -551,6 +565,17 @@ const UsersModal = (() => {
     setMode(nextMode);
     fill(user);
     visible(true);
+
+    document.body.classList.add("ws-modal-open");
+
+    docKeyHandler = (e) => {
+  if (e.key === "Escape") {
+    e.preventDefault();
+    close();    
+  }
+};
+document.addEventListener("keydown", docKeyHandler, true);
+
     // focus first field for faster entry
     (nameEl || emailEl || saveBtn)?.focus?.();
   }
@@ -558,6 +583,13 @@ const UsersModal = (() => {
   function close() {
     visible(false);
     form?.reset?.();
+
+    if (docKeyHandler) {
+      document.removeEventListener("keydown", docKeyHandler, true);
+      docKeyHandler = null;
+    }
+
+    document.body.classList.remove("ws-modal-open");
   }
 
   function ensureEls() {
@@ -577,6 +609,12 @@ const UsersModal = (() => {
     statusEl= q("userStatusField");
     resetChk= q("sendResetEmail");
     emailErr= q("err-userEmail");
+
+    emailEl?.addEventListener("input", () => {
+    if (!emailErr) return;
+    emailErr.style.display = "none";
+    emailErr.textContent = "";
+  });
 
     closeBtn?.addEventListener("click", onClose);
     cancelBtn?.addEventListener("click", onCancel);
