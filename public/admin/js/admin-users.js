@@ -424,43 +424,17 @@
   }
 
   // ---------------------------------------------------------------------
-  // Mount sentinel (uses findRoot; auto-injects stable anchor if missing)
+  // Mount sentinel (uses findRoot so it works without explicit anchors)
   // ---------------------------------------------------------------------
   (function usersMountSentinel() {
     let mountedRoot = null;
     let mo = null;
 
-    // Inject <div id="users-root" data-module="users">…</div> around the
-    // discovered Users container if there is no stable anchor yet.
-    function ensureStableAnchor(container) {
-      if (!container) return null;
-      if (container.matches("#users-root, [data-module='users']")) return container;
-
-      const wrapper = document.createElement("div");
-      wrapper.id = "users-root";
-      wrapper.setAttribute("data-module", "users");
-      // Transparent wrapper: no styles, just a stable hook.
-      container.parentNode.insertBefore(wrapper, container);
-      wrapper.appendChild(container);
-      return wrapper;
-    }
-
-    function mount(found) {
-      // found can be the actual container or the wrapper itself
-      const root =
-        found && found.matches("#users-root, [data-module='users']")
-          ? found
-          : ensureStableAnchor(found);
-
-      if (!root) return;
+    function mount(root) {
       if (mountedRoot === root) return;
-
       mountedRoot = root;
       mark("root-inserted");
-
-      // clean re-init if router reused node
-      if (root.dataset && root.dataset.wsInit === "1") delete root.dataset.wsInit;
-
+      if (root && root.dataset && root.dataset.wsInit === "1") delete root.dataset.wsInit; // clean re-init
       init();
     }
 
@@ -472,8 +446,8 @@
     }
 
     function scan() {
-      const found = findRoot();  // may be wrapper or heuristic match
-      if (found) mount(found); else unmount();
+      const root = findRoot();
+      if (root) mount(root); else unmount();
     }
 
     mo = new MutationObserver(scan);
