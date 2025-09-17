@@ -424,9 +424,7 @@
   }
 
   // ---------------------------------------------------------------------
-  // Mount sentinel (Step 2: stronger bootstrap) + anchor preference (Step 3)
-  // - Attaches when Users DOM actually appears
-  // - Clears stale wsInit if router reuses node
+  // Mount sentinel (uses findRoot so it works without explicit anchors)
   // ---------------------------------------------------------------------
   (function usersMountSentinel() {
     let mountedRoot = null;
@@ -448,14 +446,10 @@
     }
 
     function scan() {
-      const root =
-        document.querySelector("#users-root") ||
-        document.querySelector('[data-module="users"]') ||
-        null;
+      const root = findRoot();
       if (root) mount(root); else unmount();
     }
 
-    // Observe page DOM for inserts/removals (covers all router timings)
     mo = new MutationObserver(scan);
     mo.observe(document.body, { childList: true, subtree: true });
 
