@@ -5,7 +5,14 @@ const sqlite3 = require("sqlite3").verbose();
 
 const router = express.Router();
 router.use(express.json());
-const { requireAdmin } = require("./middleware/requireAdmin");
+function requireAdmin(req, res, next) {
+  const u = req.session?.user;
+  const role = String(u?.type || u?.role || "");
+  if (!u || !/admin/i.test(role)) {
+    return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Admin only" } });
+  }
+  next();
+}
 router.use(requireAdmin);
 
 // --- DB helpers -------------------------------------------------------------
@@ -598,7 +605,7 @@ router.patch("/:id", async (req, res) => {
       [id]
     );
 
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
       dispatch: updated,
       ...(histRow ? { history: histRow } : {}),
