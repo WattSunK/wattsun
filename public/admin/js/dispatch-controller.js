@@ -162,31 +162,73 @@ function collectCreatePayload() {
 async function populateDriversForCreate() {
   const sel = document.getElementById("dc-driver-id");
   if (!sel) return;
-  // keep placeholder, clear the rest
+
+  // keep placeholder; clear the rest
   for (let i = sel.options.length - 1; i >= 1; i--) sel.remove(i);
 
-  try {
-    let res = await fetch("/api/admin/users?type=Driver", { credentials: "include" });
-    let data = [];
-    if (res.ok) {
-      data = await res.json();
-    } else if (res.status === 404) {
-      const all = await fetch("/api/admin/users", { credentials: "include" });
-      data = all.ok ? await all.json() : [];
-      data = Array.isArray(data) ? data.filter(u => (u.type || u.role || "").toLowerCase() === "driver") : [];
-    }
-    if (Array.isArray(data)) {
-      for (const u of data) {
-        const opt = document.createElement("option");
-        opt.value = String(u.id ?? "");
-        opt.textContent = u.name ? `${u.name} (ID ${u.id})` : `Driver #${u.id}`;
-        sel.appendChild(opt);
+  // helper: normalize various response shapes
+  const normalize = (data) => {
+    if (!data) return [];
+    // common shapes: [], {users:[]}, {data:[]}, {list:[]}, {success:true, users:[]}
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.users)) return data.users;
+    if (Array.isArray(data.data)) return data.data;
+    if (Array.isArray(data.list)) return data.list;
+    // sometimes {success:true, data:{users:[...]}}
+    if (data.data && Array.isArray(data.data.users)) return data.data.users;
+    return [];
+  };
+
+  // try endpoints in order: ?type=Driver → ?role=Driver → /api/admin/users (client-side filter)
+  const endpoints = [
+    "/api/admin/users?type=Driver",
+    "/api/admin/users?role=Driver",
+    "/api/admin/users"
+  ];
+
+  let drivers = [];
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) {
+        // skip 404/204 silently; continue to next endpoint
+        continue;
       }
+      let data = await res.json();
+      data = normalize(data);
+
+      // when we hit the unfiltered endpoint, filter here
+      if (url === "/api/admin/users") {
+        data = data.filter(u => {
+          const t = String(u.type || u.role || "").toLowerCase();
+          return t === "driver";
+        });
+      }
+
+      if (data.length) {
+        drivers = data;
+        break;
+      }
+      // else keep trying next endpoint
+    } catch (_) {
+      // ignore and continue
     }
-  } catch {
-    // silent; user can still create unassigned
   }
+
+  // Populate select
+  if (drivers.length) {
+    for (const u of drivers) {
+      const opt = document.createElement("option");
+      opt.value = String(u.id ?? "");
+      const label =
+        (u.name || u.fullName || u.displayName || u.email || `Driver #${u.id}`);
+      opt.textContent = label;
+      sel.appendChild(opt);
+    }
+  }
+  // If still empty, the placeholder (“— Unassigned —”) remains, which is OK.
 }
+
 async function handleCreateError(res) {
   let msg = `Error ${res.status}`;
   try {
