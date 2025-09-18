@@ -41,8 +41,9 @@ function buildAdminOrdersUrl() {
 }
 
   // Find the Orders pane only; never paint outside it.
-  function findOrdersPane() {
+    function findOrdersPane() {
     const sel = [
+      "#ordersSection",                        // <-- add this (actual partial container)
       "#admin-content #orders",
       "#admin-content [data-partial='orders']",
       "#admin-content section.orders",
@@ -52,6 +53,7 @@ function buildAdminOrdersUrl() {
     console.log("[ORD] pane check:", pane ? (pane.id || pane.className || "(node)") : "NOT FOUND");
     return pane;
   }
+
 
   function fetchOrdersAndRender() {
     const pane = findOrdersPane();
@@ -176,14 +178,16 @@ function attachFilterListenersOnce() {
   const byId = (id) => document.getElementById(id);
   const on = (el, ev, fn) => { if (el && !el[`_on_${ev}`]) { el[`_on_${ev}`] = 1; el.addEventListener(ev, fn); } };
 
-  // ensure page state holder exists & has default
+    // ensure page state holder exists & has default
   const pageEl = byId("ordersPageNum");
   if (pageEl && !pageEl.dataset.page) pageEl.dataset.page = "1";
 
- 
- // Search + Clear
-  on(byId("ordersSearchBtn"), "click", () => { pageEl.dataset.page = "1"; fetchOrdersAndRender(); });
-  on(byId("ordersClearBtn"),  "click", () => {
+  // Search + Clear
+  on(byId("ordersSearchBtn"), "click", () => {
+    pageEl.dataset.page = "1";
+    fetchOrdersAndRender();
+  });
+  on(byId("ordersClearBtn"), "click", () => {
     if (byId("ordersSearch")) byId("ordersSearch").value = "";
     if (byId("ordersStatus")) byId("ordersStatus").value = "";
     if (byId("ordersFrom"))   byId("ordersFrom").value   = "";
@@ -192,30 +196,41 @@ function attachFilterListenersOnce() {
     fetchOrdersAndRender();
   });
 
+  // --- pager ---
+  on(byId("ordersFirst"), "click", () => { setPage(1); fetchOrdersAndRender(); });
+
+  on(byId("ordersPrev"),  "click", () => {
+    const p = Math.max(1, (Number(byId("ordersPageNum")?.dataset.page || 1) - 1));
+    setPage(p); fetchOrdersAndRender();
+  });
+  on(byId("ordersNext"),  "click", () => {
+    const p = (Number(byId("ordersPageNum")?.dataset.page || 1) + 1);
+    setPage(p); fetchOrdersAndRender();
+  });
+  on(byId("ordersLast"),  "click", () => {
+    // optional: if you track total pages, jump there; otherwise just ++ and let server clamp
+    const p = (Number(byId("ordersPageNum")?.dataset.page || 1) + 1);
+    setPage(p); fetchOrdersAndRender();
+  });
+
   // Enter in search box
   on(byId("ordersSearch"), "keydown", (e) => {
     if (e.key === "Enter") { pageEl.dataset.page = "1"; fetchOrdersAndRender(); }
   });
 
   // Status / Dates
-  ["ordersStatus","ordersFrom","ordersTo"].forEach(id => {
+    ["ordersStatus","ordersFrom","ordersTo"].forEach(id => {
     const el = byId(id);
     on(el, "change", () => { pageEl.dataset.page = "1"; fetchOrdersAndRender(); });
   });
 
-  // Pager buttons (ids expected in your partial)
-  const setPage = (p) => { pageEl.dataset.page = String(Math.max(1, p)); fetchOrdersAndRender(); };
-  on(byId("pagerFirst"), "click", () => setPage(1));
-  on(byId("pagerPrev"),  "click", () => setPage((Number(pageEl.dataset.page)||1) - 1));
-  on(byId("pagerNext"),  "click", () => setPage((Number(pageEl.dataset.page)||1) + 1));
-  // If you have "Last", wire similarly once you know the last page:
-  // on(byId("pagerLast"),  "click", () => setPage(Number(pageEl.dataset.lastpage)||1));
-}
+  const setPage = (p) => { pageEl.dataset.page = String(Math.max(1, p)); };
+} // <-- CLOSE attachFilterListenersOnce() HERE
 
-  function setText(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = val;
-  }
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
 
   function openModal(order) {
     const id = String(order.orderNumber || order.id || "");
@@ -355,7 +370,26 @@ function attachFilterListenersOnce() {
   ensureModalScaffold();
 }
 
+  // Allow the partial to force a boot when it mounts
+  window.__WS_ORDERS_FORCE_BOOT = function () {
+    try {
+      attachFilterListenersOnce();
+      ensureModalScaffold();
+      fetchOrdersAndRender();
+    } catch (e) {
+      console.error("[ORD] force boot error", e);
+    }
+  };
+
+  // Also react to the partial-loaded signal
+  window.addEventListener("admin:partial-loaded", (e) => {
+    if (e?.detail?.partial === "orders") {
+      window.__WS_ORDERS_FORCE_BOOT?.();
+    }
+  });
 
   // Expose init for dashboard.js
   window.initAdminOrders = init;
-})();
+}
+
+)();
