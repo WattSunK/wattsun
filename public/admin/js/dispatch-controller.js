@@ -257,7 +257,8 @@ async function loadAndRender(state) {
     });
 
 // ---- Create Dispatch (modal) wiring ----
-if (!window.__dispatchCreateWired) {
+// ---- Create Dispatch (modal) wiring (element-scoped, safe on rehydrate) ----
+{
   const btnCreate  = $("#btnCreateDispatch");
   const dlg        = document.getElementById("dispatchCreateModal");
   const form       = document.getElementById("dispatchCreateForm");
@@ -265,25 +266,30 @@ if (!window.__dispatchCreateWired) {
   const btnSubmit  = document.getElementById("dc-submit");
   const err        = document.getElementById("dc-error");
 
-  if (btnCreate && dlg && form && btnCancel && btnSubmit && err) {
+  // Only attach once per *current* DOM by marking elements
+  if (btnCreate && !btnCreate.dataset.wired) {
     btnCreate.addEventListener("click", async () => {
       clearCreateForm();
       await populateDriversForCreate();
       openDialog(dlg);
     });
+    btnCreate.dataset.wired = "1";
+  }
 
+  if (btnCancel && !btnCancel.dataset.wired) {
     btnCancel.addEventListener("click", () => closeDialog(dlg));
+    btnCancel.dataset.wired = "1";
+  }
 
+  if (form && !form.dataset.wired) {
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       hideCreateError();
-
       const payload = collectCreatePayload();
       if (!payload.order_id || String(payload.order_id).trim().length < 8) {
         showCreateError("Please enter a valid Order ID.");
         return;
       }
-
       try {
         setBusy(btnSubmit, true);
         const res = await fetch("/api/admin/dispatches", {
@@ -292,14 +298,8 @@ if (!window.__dispatchCreateWired) {
           credentials: "include",
           body: JSON.stringify(payload),
         });
-
-        if (!res.ok) {
-          await handleCreateError(res);
-          return;
-        }
-
+        if (!res.ok) { await handleCreateError(res); return; }
         closeDialog(dlg);
-        // refresh the table (align with your existing event name)
         document.dispatchEvent(new CustomEvent("admin:dispatch:refresh"));
       } catch {
         showCreateError("Network error. Please try again.");
@@ -307,11 +307,9 @@ if (!window.__dispatchCreateWired) {
         setBusy(btnSubmit, false);
       }
     });
-
-    window.__dispatchCreateWired = true;
+    form.dataset.wired = "1";
   }
 }
-
     // Initial, filter-free load so your existing row shows
     try { await loadAndRender({ page: "1", per: "20" }); } catch (err) {
       console.error("[dispatch] initial load failed:", err);
