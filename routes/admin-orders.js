@@ -185,9 +185,13 @@ router.get("/", (req, res) => {
   const page = Math.max(parseInt(req.query.page || "1", 10), 1);
   const per  = Math.min(Math.max(parseInt(req.query.per  || "10", 10), 1), 100);
   const q      = (req.query.q || "").trim();
-  const status = (req.query.status || "").trim();
-  const from   = (req.query.from || "").trim();
+  const statusRaw = (req.query.status || "").trim();
+  const status = safeStatus(normalizeStatus(statusRaw)) || "";
   const to     = (req.query.to   || "").trim();
+
+  const from   = (req.query.from || "").trim();   // <-- add this (from was missing)
+  const ymd    = /^\d{4}-\d{2}-\d{2}$/;           // tiny date guard (YYYY-MM-DD)
+  const fromOk = ymd.test(from), toOk = ymd.test(to);
 
   const where = [];
   const params = [];
@@ -201,8 +205,8 @@ router.get("/", (req, res) => {
     where.push("COALESCE(aom.status, o.status) = ?");
     params.push(status);
   }
-  if (from) { where.push("datetime(o.createdAt) >= datetime(?)"); params.push(from); }
-  if (to)   { where.push("datetime(o.createdAt) <  datetime(?)"); params.push(to); }
+  if (fromOk) { where.push("datetime(o.createdAt) >= datetime(?)"); params.push(from); }
+  if (toOk)   { where.push("datetime(o.createdAt) <  datetime(?)"); params.push(to); }
 
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const offset = (page - 1) * per;
@@ -228,7 +232,7 @@ router.get("/", (req, res) => {
       COALESCE(aom.status, o.status) AS displayStatus,
       COALESCE(aom.total_cents,  o.totalCents, it.items_total_cents)    AS displayTotalCents,
       COALESCE(aom.deposit_cents, it.items_deposit_cents, 0)            AS displayDepositCents,
-      aom.currency                                                      AS displayCurrency,
+      COALESCE(aom.currency, o.currency, 'KES')                         AS displayCurrency,
       aom.driver_id                                                     AS driverId,
       aom.notes                                                         AS notes,
 
@@ -299,7 +303,7 @@ router.get("/", (req, res) => {
 router.get("/:id/history", async (req, res) => {
   try {
     const orderId = String(req.params.id || "").trim();
-    if (!orderId) return res.status(400).json({ ok: false, error: "ORDER_ID_REQUIRED" });
+    if (!orderId) return res.status(400).json({ success: false, error: "ORDER_ID_REQUIRED" });
 
     const limit = Math.max(1, Math.min(parseInt(req.query.limit || "50", 10), 100));
     const cursorRaw = req.query.cursor;
@@ -341,10 +345,10 @@ router.get("/:id/history", async (req, res) => {
       [orderId]
     );
 
-    res.json({ ok: true, order, rows, next_cursor: nextCursor });
+    res.json({ success: true, order, rows, next_cursor: nextCursor });
   } catch (err) {
     console.error("GET /api/admin/orders/:id/history error:", err);
-    res.status(500).json({ ok: false, error: "HISTORY_FETCH_FAILED" });
+    res.status(500).json({ success: false, error: "HISTORY_FETCH_FAILED" });
   }
 });
 
@@ -371,7 +375,7 @@ router.get("/:idOrNumber", (req, res) => {
         COALESCE(aom.status, o.status)                               AS status,
         COALESCE(aom.total_cents,  o.totalCents, it.items_total_cents)    AS totalCents,
         COALESCE(aom.deposit_cents, it.items_deposit_cents, 0)            AS depositCents,
-        aom.currency                                                       AS currency,
+        COALESCE(aom.currency, o.currency, 'KES')                         AS currency,
         aom.driver_id                                                      AS driverId,
         aom.notes                                                          AS notes,
 

@@ -1,6 +1,6 @@
 // /public/admin/js/admin-orders.js
 // Canonical Orders controller (table + modal + atomic save)
-// Works with GET /api/orders -> { total, orders:[...] } or an array.
+// Admin list fetches GET /api/admin/orders?q&status&from&to&page&per -> { success, total, orders:[...] } or compatible.
 
 (function () {
   // ====== DIAG (temporary) ======
@@ -10,12 +10,7 @@
 
   let ordersData = [];
 
-  function pickOrdersPayload(data) {
-    if (Array.isArray(data)) return data;
-    if (data && Array.isArray(data.orders)) return data.orders;
-    return [];
-  }
-
+  
   function formatKESMaybe(n) {
     try {
       if (typeof window !== "undefined" && typeof window.formatKES === "function") {
@@ -24,6 +19,26 @@
     } catch {}
     return (typeof n === "number") ? `KES ${n.toLocaleString()}` : "—";
   }
+// === Build admin list URL from filters ===
+function buildAdminOrdersUrl() {
+  const q       = (document.getElementById("ordersSearch")?.value || "").trim();
+  const status  = (document.getElementById("ordersStatus")?.value || "").trim();
+  const from    = (document.getElementById("ordersFrom")?.value || "").trim();
+  const to      = (document.getElementById("ordersTo")?.value || "").trim();
+  const pageEl  = document.getElementById("ordersPageNum");
+  const page    = Number(pageEl?.dataset.page || 1) || 1;
+  const per     = 10; // admin default
+
+  const usp = new URLSearchParams();
+  if (q)      usp.set("q", q);
+  if (status) usp.set("status", status);
+  if (from)   usp.set("from", from);
+  if (to)     usp.set("to", to);
+  usp.set("page", String(page));
+  usp.set("per",  String(per));
+
+  return `/api/admin/orders?${usp.toString()}`;
+}
 
   // Find the Orders pane only; never paint outside it.
   function findOrdersPane() {
@@ -42,17 +57,27 @@
     const pane = findOrdersPane();
     if (!pane) return; // If user switched away, do nothing.
 
-    return fetch("/api/orders")
-      .then((r) => r.json())
-      .then((data) => {
-        ordersData = pickOrdersPayload(data);
-        renderOrdersTable(pane);
-      })
-      .catch((e) => {
-        console.error("Failed to load orders:", e);
-        ordersData = [];
-        renderOrdersTable(pane);
-      });
+  const url = buildAdminOrdersUrl();
+return fetch(url)
+  .then((r) => r.json())
+  .then((data) => {
+    // accept {success,orders} or raw array defensively
+    ordersData = Array.isArray(data) ? data :
+                 (Array.isArray(data.orders) ? data.orders : []);
+    renderOrdersTable(pane);
+
+    // Optional: update a "Total" meta if present
+    const meta = document.getElementById("ordersMeta");
+    if (meta && data && typeof data.total === "number") {
+      meta.textContent = `Total: ${data.total}`;
+    }
+  })
+  .catch((e) => {
+    console.error("Failed to load orders:", e);
+    ordersData = [];
+    renderOrdersTable(pane);
+  });
+
   }
 
   function renderOrdersTable(pane) {
@@ -107,11 +132,16 @@
         const status = o.status || o.orderType || "Pending";
         const phone = o.phone || "—";
         const email = o.email || "—";
-        const pm = o.paymentType || o.paymentMethod || "—";
-        const amount = formatKESMaybe(o.total);
+              const pm = o.paymentType || o.paymentMethod || "—";
+      const amount =
+        (typeof o.totalCents === "number")
+          ? (window.formatKES ? window.formatKES(o.totalCents) : `KES ${(o.totalCents/100).toLocaleString()}`)
+          : formatKESMaybe(o.total);
 
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
+      const tr = document.createElement("tr");
+      tr.setAttribute("data-id", id); // helpful for inline refresh later
+      tr.innerHTML = `
+
           <td class="whitespace-nowrap">${id}</td>
           <td class="whitespace-nowrap">${name}</td>
           <td class="whitespace-nowrap">${phone}</td>
@@ -142,6 +172,46 @@
     ensureModalScaffold(); // ensure modal exists/bound
   }
 
+function attachFilterListenersOnce() {
+  const byId = (id) => document.getElementById(id);
+  const on = (el, ev, fn) => { if (el && !el[`_on_${ev}`]) { el[`_on_${ev}`] = 1; el.addEventListener(ev, fn); } };
+
+  // ensure page state holder exists & has default
+  const pageEl = byId("ordersPageNum");
+  if (pageEl && !pageEl.dataset.page) pageEl.dataset.page = "1";
+
+ 
+ // Search + Clear
+  on(byId("ordersSearchBtn"), "click", () => { pageEl.dataset.page = "1"; fetchOrdersAndRender(); });
+  on(byId("ordersClearBtn"),  "click", () => {
+    if (byId("ordersSearch")) byId("ordersSearch").value = "";
+    if (byId("ordersStatus")) byId("ordersStatus").value = "";
+    if (byId("ordersFrom"))   byId("ordersFrom").value   = "";
+    if (byId("ordersTo"))     byId("ordersTo").value     = "";
+    pageEl.dataset.page = "1";
+    fetchOrdersAndRender();
+  });
+
+  // Enter in search box
+  on(byId("ordersSearch"), "keydown", (e) => {
+    if (e.key === "Enter") { pageEl.dataset.page = "1"; fetchOrdersAndRender(); }
+  });
+
+  // Status / Dates
+  ["ordersStatus","ordersFrom","ordersTo"].forEach(id => {
+    const el = byId(id);
+    on(el, "change", () => { pageEl.dataset.page = "1"; fetchOrdersAndRender(); });
+  });
+
+  // Pager buttons (ids expected in your partial)
+  const setPage = (p) => { pageEl.dataset.page = String(Math.max(1, p)); fetchOrdersAndRender(); };
+  on(byId("pagerFirst"), "click", () => setPage(1));
+  on(byId("pagerPrev"),  "click", () => setPage((Number(pageEl.dataset.page)||1) - 1));
+  on(byId("pagerNext"),  "click", () => setPage((Number(pageEl.dataset.page)||1) + 1));
+  // If you have "Last", wire similarly once you know the last page:
+  // on(byId("pagerLast"),  "click", () => setPage(Number(pageEl.dataset.lastpage)||1));
+}
+
   function setText(id, val) {
     const el = document.getElementById(id);
     if (el) el.textContent = val;
@@ -154,9 +224,17 @@
     setText("modal-customer-name", order.fullName || order.name || "—");
     setText("modal-phone", order.phone || "—");
     setText("modal-email", order.email || "—");
-    setText("modal-payment-method", order.paymentType || order.paymentMethod || "—");
-    setText("modal-amount", formatKESMaybe(order.total));
-    setText("modal-deposit", order.deposit == null ? "—" : String(order.deposit));
+        setText("modal-payment-method", order.paymentType || order.paymentMethod || "—");
+    // Prefer cents if provided by admin SQL list
+    const amtC = typeof order.totalCents === "number" ? order.totalCents : null;
+    const depC = typeof order.depositCents === "number" ? order.depositCents : null;
+    setText("modal-amount", amtC != null
+      ? (window.formatKES ? window.formatKES(amtC) : `KES ${(amtC/100).toLocaleString()}`)
+      : formatKESMaybe(order.total));
+    setText("modal-deposit", depC != null
+      ? (window.formatKES ? window.formatKES(depC) : `KES ${(depC/100).toLocaleString()}`)
+      : (order.deposit == null ? "—" : String(order.deposit)));
+
 
     const select = document.getElementById("modal-status");
     if (select) select.value = order.status || order.orderType || "Pending";
@@ -208,6 +286,9 @@
             throw new Error(j?.error || `Update failed (${r.status})`);
           }
           await fetchOrdersAndRender();
+	// Broadcast so other tabs/views can refresh immediately
+	localStorage.setItem("ordersUpdatedAt", String(Date.now()));
+	window.postMessage({ type: "orders-updated" }, "*");
           close();
           alert("Order updated");
         } catch (e) {
@@ -268,10 +349,12 @@
   }
 
   function init() {
-    __ORD_logBoot("initAdminOrders");
-    fetchOrdersAndRender();
-    ensureModalScaffold();
-  }
+  __ORD_logBoot("initAdminOrders");
+  attachFilterListenersOnce();
+  fetchOrdersAndRender();
+  ensureModalScaffold();
+}
+
 
   // Expose init for dashboard.js
   window.initAdminOrders = init;
