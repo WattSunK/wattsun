@@ -289,15 +289,58 @@
     if (el) el.textContent = val;
   }
 
+  // ========== [1] Replace openModal(order) with new Edit dialog wiring ==========
   function openModal(order) {
+    const eDlg = document.getElementById("orderEditModal");
+    const vDlg = document.getElementById("orderViewModal"); // not used yet, reserved
+
     const id = String(order.orderNumber || order.id || "");
 
+    // New Edit dialog present
+    if (eDlg) {
+      const selStatus = document.getElementById("orderStatus");
+      if (selStatus) selStatus.value = order.status || "Pending";
+
+      const selDriver = document.getElementById("orderDriver");
+      if (selDriver && !selDriver._loaded) {
+        selDriver._loaded = 1;
+        if (!selDriver.querySelector("option[value='']")) {
+          const opt = document.createElement("option");
+          opt.value = "";
+          opt.textContent = "(none)";
+          selDriver.appendChild(opt);
+        }
+      }
+      if (selDriver && order.driverId != null) {
+        selDriver.value = String(order.driverId);
+      }
+
+      const amtC = (typeof order.totalCents === "number") ? order.totalCents : null;
+      const depC = (typeof order.depositCents === "number") ? order.depositCents : null;
+      const cur  = order.currency || order.displayCurrency || "KES";
+
+      const fTotal   = document.getElementById("orderTotal");
+      const fDeposit = document.getElementById("orderDeposit");
+      const fCurr    = document.getElementById("orderCurrency");
+      const fNotes   = document.getElementById("orderNotes");
+
+      if (fTotal)   fTotal.value   = amtC != null ? String(amtC) : "";
+      if (fDeposit) fDeposit.value = depC != null ? String(depC) : "";
+      if (fCurr)    fCurr.value    = cur;
+      if (fNotes)   fNotes.value   = order.notes || "";
+
+      // stash id and open
+      eDlg.dataset.orderId = id;
+      try { eDlg.showModal(); } catch { eDlg.setAttribute("open", "open"); }
+      return;
+    }
+
+    // Legacy fallback (old modal)
     setText("modal-order-id", id);
     setText("modal-customer-name", order.fullName || order.name || "—");
     setText("modal-phone", order.phone || "—");
     setText("modal-email", order.email || "—");
     setText("modal-payment-method", order.paymentType || order.paymentMethod || "—");
-    // Prefer cents if provided by admin SQL list
     const amtC = typeof order.totalCents === "number" ? order.totalCents : null;
     const depC = typeof order.depositCents === "number" ? order.depositCents : null;
     setText("modal-amount", amtC != null
@@ -321,32 +364,32 @@
         list.appendChild(li);
       });
     }
-
-    const modal = document.getElementById("orderDetailsModal");
-    if (modal) modal.style.display = "block";
+    const legacy = document.getElementById("orderDetailsModal");
+    if (legacy) legacy.style.display = "block";
   }
 
+  // ========== [2] Bind Save/Cancel for new modal; keep legacy bindings ==========
   function bindModalButtons() {
-    const close = () => {
+    // --- Legacy modal close ---
+    const closeLegacy = () => {
       const m = document.getElementById("orderDetailsModal");
       if (m) m.style.display = "none";
     };
-
     const c1 = document.getElementById("closeOrderModal");
     const c2 = document.getElementById("closeOrderModalBtn");
-    if (c1 && !c1._bound) (c1._bound = 1), c1.addEventListener("click", close);
-    if (c2 && !c2._bound) (c2._bound = 1), c2.addEventListener("click", close);
+    if (c1 && !c1._bound) (c1._bound = 1), c1.addEventListener("click", closeLegacy);
+    if (c2 && !c2._bound) (c2._bound = 1), c2.addEventListener("click", closeLegacy);
 
-    const save = document.getElementById("updateOrderStatusBtn");
-    if (save && !save._bound) {
-      save._bound = 1;
-      save.addEventListener("click", async () => {
+    // --- Legacy modal save ---
+    const saveLegacy = document.getElementById("updateOrderStatusBtn");
+    if (saveLegacy && !saveLegacy._bound) {
+      saveLegacy._bound = 1;
+      saveLegacy.addEventListener("click", async () => {
         const orderId = document.getElementById("modal-order-id").textContent.trim();
         const newStatus = document.getElementById("modal-status").value;
         const newNotes  = (document.getElementById("modal-notes")?.value || "").trim();
 
         try {
-          // Align with backend used elsewhere: PATCH /api/admin/orders/:id
           const r = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -358,12 +401,10 @@
           }
 
           await fetchOrdersAndRender();
-
-          // Broadcast so other tabs/views can refresh immediately
           localStorage.setItem("ordersUpdatedAt", String(Date.now()));
           window.postMessage({ type: "orders-updated" }, "*");
 
-          close();
+          closeLegacy();
           alert("Order updated");
         } catch (e) {
           console.error(e);
@@ -371,10 +412,60 @@
         }
       });
     }
+
+    // --- New Edit dialog wiring ---
+    const eDlg   = document.getElementById("orderEditModal");
+    const eSave  = document.getElementById("oemSave");
+    const eCancel= document.getElementById("oemCancel");
+
+    if (eDlg && eSave && !eSave._bound) {
+      eSave._bound = 1;
+      eSave.addEventListener("click", async () => {
+        const orderId = eDlg.dataset.orderId || "";
+        const body = {
+          status:       document.getElementById("orderStatus")?.value || undefined,
+          driverId:     document.getElementById("orderDriver")?.value || undefined,
+          totalCents:   document.getElementById("orderTotal")?.value ? Number(document.getElementById("orderTotal").value) : undefined,
+          depositCents: document.getElementById("orderDeposit")?.value ? Number(document.getElementById("orderDeposit").value) : undefined,
+          currency:     document.getElementById("orderCurrency")?.value || undefined,
+          notes:        document.getElementById("orderNotes")?.value || undefined,
+        };
+
+        try {
+          const r = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok || !(j.ok || j.success)) {
+            throw new Error(j?.error || `Update failed (${r.status})`);
+          }
+
+          await fetchOrdersAndRender();
+          localStorage.setItem("ordersUpdatedAt", Date.now()+"");
+          window.postMessage({ type: "orders-updated" }, "*");
+
+          try { eDlg.close(); } catch { eDlg.removeAttribute("open"); }
+          alert("Order updated");
+        } catch (e) {
+          console.error(e);
+          alert("Failed to update: " + e.message);
+        }
+      });
+    }
+
+    if (eDlg && eCancel && !eCancel._bound) {
+      eCancel._bound = 1;
+      eCancel.addEventListener("click", () => {
+        try { eDlg.close(); } catch { eDlg.removeAttribute("open"); }
+      });
+    }
   }
 
+  // ========== [3] keep ensureModalScaffold() (loads partial + binds) ==========
   function ensureModalScaffold() {
-    if (document.getElementById("orderDetailsModal")) {
+    if (document.getElementById("orderDetailsModal") || document.getElementById("orderEditModal")) {
       bindModalButtons();
       return;
     }
@@ -386,7 +477,7 @@
           div.innerHTML = html;
           document.body.appendChild(div);
         } else {
-          // Minimal fallback if partial missing
+          // Minimal fallback if partial missing (legacy)
           const wrap = document.createElement("div");
           wrap.innerHTML = `
             <div id="orderDetailsModal" style="display:none">
