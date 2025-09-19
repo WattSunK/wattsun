@@ -34,6 +34,24 @@
     if (table && !table.id) table.id = "ordersTable";
     if (tbody && !tbody.id) tbody.id = "ordersTbody";
   }
+  
+// normalize cents-or-units-or-string into *cents* (integer) or null
+function toCentsMaybe(v) {
+  if (v == null || v === "") return null;
+  if (typeof v === "string") {
+    // strip non-digits except dot/comma
+    const s = v.replace(/[^\d.,-]/g, "").replace(/,/g, "");
+    if (!s) return null;
+    const n = Number(s);
+    if (!Number.isFinite(n)) return null;
+    // heuristic: if it's small, assume it's *units* and convert to cents
+    return n < 100000 ? Math.round(n * 100) : Math.round(n);
+  }
+  if (typeof v === "number") {
+    return v < 100000 ? Math.round(v * 100) : Math.round(v);
+  }
+  return null;
+}
 
   function renderRows() {
   const tbody = document.getElementById("ordersTbody");
@@ -52,17 +70,15 @@
     const total  = fmtMoney(o.totalCents, o.currency);
     const status = o.status || "Pending";
 
-   // accept several possible deposit shapes and let fmtMoney coerce
-const depositRaw = [
-  o.depositCents,
-  o.displayDepositCents,
-  o.deposit_cents,
-  o.depositAmountCents,
-  o.deposit
-].find(v => v !== undefined && v !== null && v !== "");
+// ---- deposit (robust over cents/units/strings) ----
+const depCents =
+  toCentsMaybe(o.displayDepositCents) ??
+  toCentsMaybe(o.depositCents) ??
+  toCentsMaybe(o.depositAmountCents) ??
+  toCentsMaybe(o.deposit);
 
-const deposit = depositRaw !== undefined && depositRaw !== null
-  ? fmtMoney(+depositRaw, o.currency)
+const deposit = depCents != null
+  ? (window.formatKES ? window.formatKES(depCents) : `KES ${(depCents/100).toLocaleString()}`)
   : "—";
 
     return `
@@ -302,8 +318,15 @@ async function fetchOrders() {
     set("ov_phone",       o.phone || "—");
     set("ov_email",       o.email || "—");
     set("ov_total",       fmtMoney(o.totalCents, o.currency));
-    const depC = (o.depositCents ?? o.displayDepositCents ?? o.depositAmountCents ?? o.deposit ?? null);
-    set("ov_deposit", Number.isFinite(+depC) ? fmtMoney(+depC, o.currency) : "—");
+    
+    const depC =
+    toCentsMaybe(o.displayDepositCents) ??
+    toCentsMaybe(o.depositCents) ??
+    toCentsMaybe(o.depositAmountCents) ??
+    toCentsMaybe(o.deposit);
+
+set("ov_deposit", depC != null ? fmtMoney(depC, o.currency) : "—");
+
     set("ov_currency",    o.currency || "—");
 
     const body = document.getElementById("ov_items");

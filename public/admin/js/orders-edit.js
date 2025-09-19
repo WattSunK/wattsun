@@ -11,9 +11,11 @@
 
 (function OrdersEditModule() {
   "use strict";
+  const EDIT_DEBUG = false;
+  const edbg = (...a) => { if (EDIT_DEBUG) console.debug("[orders-edit]", ...a); };
 
   const BUILD_TAG = "v20250915-06p";
-  console.debug(`[orders-edit] loader active ${BUILD_TAG}`);
+  edbg(`loader active ${BUILD_TAG}`);
 
   const ALLOWED_STATUSES = ["Pending","Confirmed","Dispatched","Delivered","Closed","Cancelled"];
 
@@ -67,7 +69,8 @@
       else document.body.appendChild(fetchedView);
     }
 
-    console.debug("[orders-edit] modal injected from /partials/orders-modal.html");
+    edbg("modal injected from /partials/orders-modal.html");
+
   }
 
   // Guard: auto-upgrade legacy modal if injected later
@@ -299,7 +302,9 @@
     (get('ov_status')      || {}).textContent = order.status || "—";
     (get('ov_createdAt')   || {}).textContent = order.createdAt || order.created || "—";
 
-    (get('ov_fullName') || {}).textContent = order.customerName || order.customer || "—";
+    (get('ov_fullName') || {}).textContent =
+    order.fullName || order.name || order.customerName || order.customer || "—";
+
     (get('ov_phone')    || {}).textContent = order.phone || "—";
     (get('ov_email')    || {}).textContent = order.email || "—";
     (get('ov_address')  || {}).textContent = order.address || order.deliveryAddress || "—";
