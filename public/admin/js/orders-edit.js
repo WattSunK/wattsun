@@ -256,6 +256,13 @@
     setSaving(true);
     try {
       await apiPatchOrder(currentId, payload);
+      
+    if (typeof window.__WS_ORDERS_FORCE_BOOT === "function") {
+    window.__WS_ORDERS_FORCE_BOOT();       // preferred: ask the list controller to re-fetch
+    } else {
+    window.dispatchEvent(new CustomEvent("orders:reload")); // generic fallback
+    }
+
       if (typeof window.refreshOrderRow === "function") {
         window.refreshOrderRow(currentId, payload);
       }

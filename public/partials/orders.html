@@ -117,3 +117,18 @@
   });
 })();
 </script>
+<script>
+  // When edit/add signal a change, ask the orders list to re-fetch
+  (function () {
+    function refresh() {
+      if (typeof window.__WS_ORDERS_FORCE_BOOT === "function") {
+        window.__WS_ORDERS_FORCE_BOOT();
+      }
+    }
+    window.addEventListener("orders:reload", refresh);
+    window.addEventListener("message", function (e) {
+      if (e && e.data && e.data.type === "orders-updated") refresh();
+    });
+  })();
+</script>
+<!-- End of file: public/partials/orders.html -->
