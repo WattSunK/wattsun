@@ -140,6 +140,46 @@ function appendStatusHistory(orderId, oldStatus, newStatus, note, changedBy) {
     });
   });
 }
+// 2.3-B — Ensure a dispatch exists when an order becomes Confirmed (idempotent)
+function ensureDispatchForConfirmedOrder(orderId, changedBy = null, note = 'auto from order Confirmed') {
+  return new Promise((resolve, reject) => {
+    // If a non-cancelled dispatch already exists for this order, do nothing
+    db.get(
+      `SELECT id FROM dispatches
+         WHERE order_id = ?
+           AND IFNULL(status,'') <> 'Cancelled'
+         ORDER BY id DESC
+         LIMIT 1`,
+      [orderId],
+      (selErr, row) => {
+        if (selErr) return reject(selErr);
+        if (row && row.id) return resolve({ created: false, dispatchId: row.id });
+
+        // Create a new 'Created' dispatch
+        db.run(
+          `INSERT INTO dispatches (order_id, driver_id, status, planned_date, notes, created_at, updated_at)
+           VALUES (?, NULL, 'Created', NULL, ?, datetime('now'), datetime('now'))`,
+          [orderId, note],
+          function (insErr) {
+            if (insErr) return reject(insErr);
+            const dispatchId = this.lastID;
+
+            // Append dispatch history
+            db.run(
+              `INSERT INTO dispatch_status_history (dispatch_id, old_status, new_status, changed_by, note, changed_at)
+               VALUES (?, NULL, 'Created', ?, ?, datetime('now'))`,
+              [dispatchId, changedBy, note],
+              (histErr) => {
+                if (histErr) return reject(histErr);
+                resolve({ created: true, dispatchId });
+              }
+            );
+          }
+        );
+      }
+    );
+  });
+}
 
 // Upsert overlay helper (returns minimal order payload)
 function upsertOverlay({ id, status, driverId, notes, totalCents, depositCents, currency }) {
@@ -447,6 +487,20 @@ router.put("/:idOrNumber/status", async (req, res) => {
     if (before !== status) {
       await appendStatusHistory(id, before, status, note || null, changedBy);
     }
+    // 2.3-B: if status moved to Confirmed, ensure a 'Created' dispatch exists
+    if (before !== status && status === "Confirmed") {
+      try {
+        const r = await ensureDispatchForConfirmedOrder(id, changedBy);
+        if (r.created) {
+          console.log(`[auto-sync] Created dispatch ${r.dispatchId} for order ${id}`);
+        } else {
+          console.log(`[auto-sync] Dispatch exists for order ${id} (id ${r.dispatchId}); skipped`);
+        }
+      } catch (syncErr) {
+        console.error("[auto-sync] ensureDispatchForConfirmedOrder failed:", syncErr);
+        // Do not fail the main request
+      }
+    }
 
     return res.json({ success:true, order:{ id, orderNumber: ord.orderNumber, status }, history:{ oldStatus: before, newStatus: status, changedBy, note: note || null } });
   } catch (e) {
@@ -511,6 +565,20 @@ router.patch("/:idOrNumber", (req, res) => {
       const changedBy = req.session?.user?.id || null;
       if (providedStatus && status && before !== status) {
         await appendStatusHistory(id, before, status, notesProvided ? (notes || null) : null, changedBy);
+      }
+      // 2.3-B: if status moved to Confirmed, ensure a 'Created' dispatch exists
+      if (providedStatus && status === "Confirmed" && before !== status) {
+        try {
+          const r = await ensureDispatchForConfirmedOrder(id, changedBy);
+          if (r.created) {
+            console.log(`[auto-sync] Created dispatch ${r.dispatchId} for order ${id}`);
+          } else {
+            console.log(`[auto-sync] Dispatch exists for order ${id} (id ${r.dispatchId}); skipped`);
+          }
+        } catch (syncErr) {
+          console.error("[auto-sync] ensureDispatchForConfirmedOrder failed:", syncErr);
+          // Non-fatal: do not block the PATCH response
+        }
       }
 
       return res.json({ success: true, order: overlayResult, message: "Order updated" });
