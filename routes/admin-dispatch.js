@@ -398,11 +398,22 @@ async function updateDispatch(req, res) {
   const { status, driver_id, notes, planned_date } = req.body || {};
   const admin = getAdminUser(req);
 
-  // normalize status casing (e.g., 'delivered' -> 'Delivered')
-  const normalizedStatus =
-    typeof status === "string"
-      ? status.trim().charAt(0).toUpperCase() + status.trim().slice(1).toLowerCase()
-      : undefined;
+  // normalize status to canonical tokens accepted by the server
+// supports common lowercase inputs and both Canceled/Cancelled spellings
+const CANON = {
+  created:   "Created",
+  assigned:  "Assigned",
+  intransit: "InTransit",
+  delivered: "Delivered",
+  canceled:  "Canceled",
+  cancelled: "Canceled",
+};
+
+const normalizedStatus =
+  typeof status === "string"
+    ? CANON[status.trim().toLowerCase()] // undefined if not a known key
+    : undefined;
+
 
 if (planned_date && !isIsoDate(planned_date)) {
   return badRequest(res, "BAD_DATE", "planned_date must be YYYY-MM-DD.");
