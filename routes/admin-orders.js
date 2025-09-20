@@ -704,4 +704,45 @@ router.patch("/:idOrNumber", (req, res) => {
 // Local diag
 router.get("/_diag/ping", (_req, res) => res.json({ success: true, time: new Date().toISOString() }));
 
+// DELETE /api/admin/orders/:id/meta
+// Admin tool: clear overlay so base order status shows through
+router.delete("/:id/meta", async (req, res) => {
+  try {
+    // Inline admin check; adapt to your auth/session shape
+    const user = req.session && req.session.user;
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Admin access required." },
+      });
+    }
+
+    const { id } = req.params;
+
+    // Use the same 'db' instance used elsewhere in this file
+    db.run(
+      "DELETE FROM admin_order_meta WHERE order_id = ?",
+      [id],
+      function (err) {
+        if (err) {
+          console.error("[admin-orders:clear-meta] DB error:", err);
+          return res
+            .status(500)
+            .json({ success: false, error: { code: "DB_ERROR", message: err.message } });
+        }
+        return res.json({
+          success: true,
+          orderId: id,
+          rowsDeleted: this.changes,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("[admin-orders:clear-meta] unexpected:", err);
+    return res
+      .status(500)
+      .json({ success: false, error: { code: "UNEXPECTED", message: err.message } });
+  }
+});
+
 module.exports = router;
