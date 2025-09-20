@@ -708,24 +708,7 @@ router.get("/_diag/ping", (_req, res) => res.json({ success: true, time: new Dat
 // Admin tool: clear overlay so base order status shows through
 router.delete("/:id/meta", async (req, res) => {
   try {
-    // Inline admin check; adapt to your auth/session shape
-    const user = req.session && req.session.user;
-const isAdmin =
-  !!user &&
-  (
-    (typeof user.role === "string" && user.role.toLowerCase() === "admin") ||
-    (typeof user.type === "string" && user.type.toLowerCase() === "admin") ||
-    user.isAdmin === true ||
-    (Array.isArray(user.permissions) && user.permissions.includes("admin"))
-  );
-
-if (!isAdmin) {
-  return res.status(403).json({
-    success: false,
-    error: { code: "FORBIDDEN", message: "Admin access required." },
-  });
-}
-    const { id } = req.params;
+       const { id } = req.params;
 
     // Use the same 'db' instance used elsewhere in this file
     db.run(
