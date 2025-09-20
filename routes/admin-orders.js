@@ -639,17 +639,21 @@ router.patch("/:idOrNumber", (req, res) => {
           // Non-fatal: do not block the PATCH response
         }
       }
-      // 2.3-C: if status rolled back, cancel active dispatches
-      const rollbackSet = new Set(["Pending","Cancelled","Processing","InProgress"]);
-      if (providedStatus && status && before !== status && rollbackSet.has(status)) {
-        try {
-          const r = await cancelActiveDispatchesForOrder(id, changedBy, `auto due to order -> ${status}`);
-          console.log(`[auto-sync] Cancelled ${r.cancelled} dispatch(es) for order ${id} (rollback to ${status})`);
-        } catch (syncErr) {
-          console.error("[auto-sync] cancelActiveDispatchesForOrder failed:", syncErr);
-          // non-fatal
-        }
-      }
+     // 2.3-C: if status rolled back, cancel active dispatches
+  const rollbackSet = new Set(["Pending", "Cancelled", "Processing", "InProgress"]);
+
+  // Normalize truthy change detection (some handlers use 'providedStatus', others don't)
+  const didStatusChange = (typeof before !== "undefined" && typeof status !== "undefined" && before !== status);
+
+  if (didStatusChange && rollbackSet.has(String(status))) {
+  try {
+    const r = await cancelActiveDispatchesForOrder(id, changedBy, `auto due to order -> ${status}`);
+    console.log(`[auto-sync] 2.3-C cancelled ${r.cancelled} dispatch(es), failed=${r.failed || 0}, order=${id}, to=${status}`);
+  } catch (syncErr) {
+    console.error("[auto-sync] 2.3-C failed:", syncErr);
+    // non-fatal
+  }
+}
 
       return res.json({ success: true, order: overlayResult, message: "Order updated" });
     } catch (err) {
