@@ -184,43 +184,62 @@ function ensureDispatchForConfirmedOrder(orderId, changedBy = null, note = 'auto
 // 2.3-C — Cancel any active dispatches when order is not moving forward
 function cancelActiveDispatchesForOrder(orderId, changedBy = null, reason = 'auto from order status rollback') {
   return new Promise((resolve, reject) => {
-    // Find all non-cancelled dispatches for this order
     db.all(
       `SELECT id, status FROM dispatches
        WHERE order_id = ? AND IFNULL(status,'') <> 'Cancelled'`,
       [orderId],
       (selErr, rows) => {
         if (selErr) return reject(selErr);
-        if (!rows || rows.length === 0) return resolve({ cancelled: 0 });
+        if (!rows || rows.length === 0) {
+          console.log(`[auto-sync] 2.3-C: no active dispatches to cancel for order ${orderId}`);
+          return resolve({ cancelled: 0, failed: 0 });
+        }
 
-        let done = 0, cancelled = 0, failed = 0;
-        rows.forEach(row => {
+        let pending = rows.length;
+        let cancelled = 0;
+        let failed = 0;
+
+        rows.forEach(({ id: dispatchId, status: oldStatus }) => {
           db.serialize(() => {
-            // history: old -> Cancelled
+            // Begin a small transaction per dispatch for atomicity
+            db.run('BEGIN');
+            // 1) append history
             db.run(
               `INSERT INTO dispatch_status_history (dispatch_id, old_status, new_status, changed_by, note, changed_at)
                VALUES (?, ?, 'Cancelled', ?, ?, datetime('now'))`,
-              [row.id, row.status || null, changedBy, reason],
-              (hErr) => {
-                if (hErr) { failed++; return check(); }
-                // flip the dispatch
+              [dispatchId, oldStatus || null, changedBy, reason],
+              (histErr) => {
+                if (histErr) {
+                  failed++;
+                  console.error(`[auto-sync] 2.3-C: history insert failed for dispatch ${dispatchId}`, histErr);
+                  db.run('ROLLBACK', () => done());
+                  return;
+                }
+                // 2) flip the dispatch
                 db.run(
                   `UPDATE dispatches
                    SET status='Cancelled', updated_at=datetime('now')
                    WHERE id = ?`,
-                  [row.id],
-                  (uErr) => {
-                    if (uErr) { failed++; return check(); }
-                    cancelled++; check();
+                  [dispatchId],
+                  (updErr) => {
+                    if (updErr) {
+                      failed++;
+                      console.error(`[auto-sync] 2.3-C: update failed for dispatch ${dispatchId}`, updErr);
+                      db.run('ROLLBACK', () => done());
+                      return;
+                    }
+                    cancelled++;
+                    db.run('COMMIT', () => done());
                   }
                 );
               }
             );
           });
 
-          function check() {
-            done++;
-            if (done === rows.length) {
+          function done() {
+            pending--;
+            if (pending === 0) {
+              console.log(`[auto-sync] 2.3-C: cancel summary order=${orderId} cancelled=${cancelled} failed=${failed}`);
               resolve({ cancelled, failed });
             }
           }
@@ -229,6 +248,7 @@ function cancelActiveDispatchesForOrder(orderId, changedBy = null, reason = 'aut
     );
   });
 }
+
   // Upsert overlay helper (returns minimal order payload)
 function upsertOverlay({ id, status, driverId, notes, totalCents, depositCents, currency }) {
   return new Promise((resolve, reject) => {
