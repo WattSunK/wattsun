@@ -505,111 +505,136 @@ if (normalizedStatus && nextStatus !== prevStatus) {
         note: notes ?? null,
       };
     }
-    // --- Step 5.5: sync orders on Delivered boundaries
-    if (normalizedStatus && nextStatus !== prevStatus) {
-      const link = await getAsync(db, "SELECT order_id FROM dispatches WHERE id = ?", [id]);
-      const orderId = link?.order_id;
+// --- Step 5.5: sync orders on Delivered boundaries (and clear overlay)
+// Capture the order's status BEFORE we mutate it so Step 5.6 can log accurately.
+let preSyncOrderStatus = null;
 
-      if (orderId != null) {
-        const completedAtExists = !!(await getAsync(
-          db,
-          "SELECT 1 AS ok FROM pragma_table_info('orders') WHERE name='completed_at' LIMIT 1",
-          []
-        ));
+if (normalizedStatus && nextStatus !== prevStatus) {
+  const link = await getAsync(db, "SELECT order_id FROM dispatches WHERE id = ?", [id]);
+  const orderId = link?.order_id ?? null;
 
-        const order = await getAsync(db, "SELECT id, status FROM orders WHERE id = ?", [orderId]);
-        const curStatus = order?.status || null;
+  if (orderId) {
+    const completedAtExists = !!(await getAsync(
+      db,
+      "SELECT 1 AS ok FROM pragma_table_info('orders') WHERE name='completed_at' LIMIT 1",
+      []
+    ));
 
-        const intoDelivered  = nextStatus === "Delivered" && prevStatus !== "Delivered";
-        const outOfDelivered = prevStatus === "Delivered" && nextStatus !== "Delivered";
+    // Read BEFORE any updates (for history)
+    const orderBefore = await getAsync(db, "SELECT id, status FROM orders WHERE id = ?", [orderId]);
+    preSyncOrderStatus = orderBefore?.status ?? null;
 
-        if (intoDelivered && order) {
-          if (!ORDER_TERMINAL_STATUSES.has(curStatus)) {
-            if (completedAtExists) {
-              await runAsync(
-                db,
-                "UPDATE orders SET status='Completed', completed_at = COALESCE(completed_at, datetime('now')) WHERE id = ?",
-                [order.id]
-              );
-            } else {
-              await runAsync(db, "UPDATE orders SET status='Completed' WHERE id = ?", [order.id]);
-            }
-          }
-        } else if (outOfDelivered && order) {
-          if (curStatus === "Completed") {
-            if (completedAtExists) {
-              await runAsync(db, "UPDATE orders SET status='InProgress', completed_at = NULL WHERE id = ?", [order.id]);
-            } else {
-              await runAsync(db, "UPDATE orders SET status='InProgress' WHERE id = ?", [order.id]);
-            }
-          }
-        }
-      }
-    }
+    const intoDelivered  = nextStatus === "Delivered" && prevStatus !== "Delivered";
+    const outOfDelivered = prevStatus === "Delivered" && nextStatus !== "Delivered";
 
-    // --- Step 5.6: append to order_status_history (schema-aware)
-    if (normalizedStatus && nextStatus !== prevStatus) {
-      const link = await getAsync(db, "SELECT order_id FROM dispatches WHERE id = ?", [id]);
-      const orderId = link?.order_id;
-      if (orderId != null) {
-        const intoDelivered  = nextStatus === "Delivered" && prevStatus !== "Delivered";
-        const outOfDelivered = prevStatus === "Delivered" && nextStatus !== "Delivered";
-
-        const oshTableExists = !!(await getAsync(
-          db,
-          "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='order_status_history' LIMIT 1",
-          []
-        ));
-        if (oshTableExists) {
-          const hasV2Columns = !!(await getAsync(
+    if (intoDelivered && orderBefore) {
+      // Flip base order to Completed on first entry into Delivered
+      if (!ORDER_TERMINAL_STATUSES.has(preSyncOrderStatus)) {
+        if (completedAtExists) {
+          await runAsync(
             db,
-            "SELECT 1 AS ok FROM pragma_table_info('order_status_history') WHERE name='old_order_status' LIMIT 1",
-            []
-          ));
+            "UPDATE orders SET status='Completed', completed_at = COALESCE(completed_at, datetime('now')) WHERE id = ?",
+            [orderBefore.id]
+          );
+        } else {
+          await runAsync(db, "UPDATE orders SET status='Completed' WHERE id = ?", [orderBefore.id]);
+        }
+      }
 
-          // Read current order status AFTER Step 5.5 sync
-          const orderRow = await getAsync(db, "SELECT status FROM orders WHERE id = ?", [orderId]);
-          const curOrderStatus = orderRow?.status ?? null;
+      // ✨ Overlay cleanup: ensure effectiveStatus == base (no stale override)
+      const overlayTableExists = !!(await getAsync(
+        db,
+        "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='admin_order_meta' LIMIT 1",
+        []
+      ));
+      if (overlayTableExists) {
+        await runAsync(db, "DELETE FROM admin_order_meta WHERE order_id = ?", [orderBefore.id]);
+      }
 
-          if (hasV2Columns) {
-            if (intoDelivered || outOfDelivered) {
-              const oldOrderStatus = outOfDelivered ? "Completed" : (curOrderStatus === "Completed" ? "InProgress" : curOrderStatus);
-              const newOrderStatus = intoDelivered ? "Completed" : "InProgress";
-              await runAsync(
-                db,
-                `INSERT INTO order_status_history
-                   (order_id, old_order_status, new_order_status,
-                    old_dispatch_status, new_dispatch_status,
-                    source, reason, note, changed_by, changed_at)
-                 VALUES (?, ?, ?, ?, ?, 'dispatch', NULL, ?, ?, datetime('now'))`,
-                [orderId, oldOrderStatus, newOrderStatus, prevStatus, nextStatus, notes ?? null, admin?.id ?? null]
-              );
-            } else {
-              await runAsync(
-                db,
-                `INSERT INTO order_status_history
-                   (order_id, old_order_status, new_order_status,
-                    old_dispatch_status, new_dispatch_status,
-                    source, reason, note, changed_by, changed_at)
-                 VALUES (?, ?, ?, ?, ?, 'dispatch', NULL, ?, ?, datetime('now'))`,
-                [orderId, curOrderStatus, curOrderStatus, prevStatus, nextStatus, notes ?? null, admin?.id ?? null]
-              );
-            }
-          } else {
-            // legacy single-column history
-            const derived = (intoDelivered ? "Completed" : outOfDelivered ? "InProgress" : curOrderStatus);
-            const noteWithDispatch = [notes || "", `(dispatch ${prevStatus}→${nextStatus})`].filter(Boolean).join(" ").trim();
-            await runAsync(
-              db,
-              `INSERT INTO order_status_history (order_id, status, note, changedBy, changedAt)
-               VALUES (?, ?, ?, ?, datetime('now'))`,
-              [orderId, derived, noteWithDispatch || null, admin?.id ?? null]
-            );
-          }
+    } else if (outOfDelivered && orderBefore) {
+      // If stepping away from Delivered and order was Completed, revert to InProgress
+      if (preSyncOrderStatus === "Completed") {
+        if (completedAtExists) {
+          await runAsync(
+            db,
+            "UPDATE orders SET status='InProgress', completed_at = NULL WHERE id = ?",
+            [orderBefore.id]
+          );
+        } else {
+          await runAsync(db, "UPDATE orders SET status='InProgress' WHERE id = ?", [orderBefore.id]);
         }
       }
     }
+  }
+}
 
+// --- Step 5.6: append to order_status_history (schema-aware, uses PRE-SYNC status)
+if (normalizedStatus && nextStatus !== prevStatus) {
+  const link = await getAsync(db, "SELECT order_id FROM dispatches WHERE id = ?", [id]);
+  const orderId = link?.order_id ?? null;
+
+  if (orderId) {
+    const intoDelivered  = nextStatus === "Delivered" && prevStatus !== "Delivered";
+    const outOfDelivered = prevStatus === "Delivered" && nextStatus !== "Delivered";
+
+    const oshTableExists = !!(await getAsync(
+      db,
+      "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='order_status_history' LIMIT 1",
+      []
+    ));
+    if (oshTableExists) {
+      const hasV2Columns = !!(await getAsync(
+        db,
+        "SELECT 1 AS ok FROM pragma_table_info('order_status_history') WHERE name='old_order_status' LIMIT 1",
+        []
+      ));
+
+      // Read AFTER Step 5.5 for the new status (only as a fallback / for no-change cases)
+      const orderAfter = await getAsync(db, "SELECT status FROM orders WHERE id = ?", [orderId]);
+      const postSyncOrderStatus = orderAfter?.status ?? null;
+
+      if (hasV2Columns) {
+        // Old = status BEFORE Step 5.5; New = derived from the dispatch boundary change
+        const oldOrderStatus =
+          preSyncOrderStatus ?? postSyncOrderStatus /* fallback if ever missing */;
+
+        const newOrderStatus =
+          intoDelivered  ? "Completed" :
+          outOfDelivered ? "InProgress" :
+                           oldOrderStatus; // no order-status change
+
+        await runAsync(
+          db,
+          `INSERT INTO order_status_history
+             (order_id, old_order_status, new_order_status,
+              old_dispatch_status, new_dispatch_status,
+              source, reason, note, changed_by, changed_at)
+           VALUES (?, ?, ?, ?, ?, 'dispatch', NULL, ?, ?, datetime('now'))`,
+          [orderId, oldOrderStatus, newOrderStatus, prevStatus, nextStatus, notes ?? null, admin?.id ?? null]
+        );
+
+      } else {
+        // Legacy single-column history
+        const derived =
+          intoDelivered  ? "Completed" :
+          outOfDelivered ? "InProgress" :
+                           (preSyncOrderStatus ?? postSyncOrderStatus);
+
+        const noteWithDispatch = [notes || "", `(dispatch ${prevStatus}→${nextStatus})`]
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+
+        await runAsync(
+          db,
+          `INSERT INTO order_status_history (order_id, status, note, changedBy, changedAt)
+           VALUES (?, ?, ?, ?, datetime('now'))`,
+          [orderId, derived, noteWithDispatch || null, admin?.id ?? null]
+        );
+      }
+    }
+  }
+}
     
     const updated = await getAsync(
       db,
