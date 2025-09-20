@@ -393,17 +393,24 @@ router.post("/", async (req, res) => {
 });
 
 // --- Update ----------------------------------------------------------------
-router.patch("/:id", async (req, res) => {
+async function updateDispatch(req, res) {
   const id = req.params.id;
   const { status, driver_id, notes, planned_date } = req.body || {};
   const admin = getAdminUser(req);
 
-  if (planned_date && !isIsoDate(planned_date)) {
-    return badRequest(res, "BAD_DATE", "planned_date must be YYYY-MM-DD.");
-  }
-  if (status && !ALLOWED_STATUSES.has(status)) {
-   return badRequest(res, "BAD_STATUS", "status must be one of Created|Assigned|InTransit|Delivered|Canceled.");
-  }
+  // normalize status casing (e.g., 'delivered' -> 'Delivered')
+  const normalizedStatus =
+    typeof status === "string"
+      ? status.trim().charAt(0).toUpperCase() + status.trim().slice(1).toLowerCase()
+      : undefined;
+
+if (planned_date && !isIsoDate(planned_date)) {
+  return badRequest(res, "BAD_DATE", "planned_date must be YYYY-MM-DD.");
+}
+if (normalizedStatus && !ALLOWED_STATUSES.has(normalizedStatus)) {
+  return badRequest(res, "BAD_STATUS", "status must be one of Created|Assigned|InTransit|Delivered|Canceled.");
+}
+
 
   const db = new sqlite3.Database(DB_PATH);
   try {
@@ -419,66 +426,66 @@ router.patch("/:id", async (req, res) => {
     }
 
     const prevStatus = existing.status;
-    const nextStatus = status || prevStatus;
+const nextStatus = normalizedStatus || prevStatus;
 
-    // Effective driver after this patch (used for rules)
-    const effectiveDriverId = driverIdIsProvided ? driver_id : existing.driver_id;
+// Effective driver after this patch (used for rules)
+const effectiveDriverId = driverIdIsProvided ? driver_id : existing.driver_id;
 
-    // Enforce transition rules only if status is explicitly set
-    if (status) {
-      const errMsg = validateTransition(prevStatus, nextStatus, effectiveDriverId);
-      if (errMsg) return badRequest(res, "BAD_TRANSITION", errMsg);
-    }
+// Enforce transition rules only if status is explicitly set
+if (normalizedStatus) {
+  const errMsg = validateTransition(prevStatus, nextStatus, effectiveDriverId);
+  if (errMsg) return badRequest(res, "BAD_TRANSITION", errMsg);
+}
 
-    // --- Build update
-    const set = [];
-    const params = [];
+   const set = [];
+const params = [];
 
-    set.push("status = COALESCE(?, status)");
-    params.push(status ?? null);
+set.push("status = COALESCE(?, status)");
+params.push(normalizedStatus ?? null);
 
-    if (driverIdIsProvided) {
-      set.push("driver_id = ?");
-      params.push(driver_id ?? null);
-    }
+if (driverIdIsProvided) {
+  set.push("driver_id = ?");
+  params.push(driver_id ?? null);
+}
 
-    set.push("notes = COALESCE(?, notes)");
-    params.push(notes ?? null);
+set.push("notes = COALESCE(?, notes)");
+params.push(notes ?? null);
 
-    const clearPlanned = status === "Created" && driverIdIsProvided && (driver_id == null);
-    if (clearPlanned) {
-      set.push("planned_date = NULL");
-    } else {
-      set.push("planned_date = COALESCE(?, planned_date)");
-      params.push(planned_date ?? null);
-    }
+const clearPlanned = normalizedStatus === "Created" && driverIdIsProvided && (driver_id == null);
+if (clearPlanned) {
+  set.push("planned_date = NULL");
+} else {
+  set.push("planned_date = COALESCE(?, planned_date)");
+  params.push(planned_date ?? null);
+}
 
-    set.push("updated_at = datetime('now')");
+set.push("updated_at = datetime('now')");
+
 
     // delivered_at rules
-    if (status && nextStatus !== prevStatus) {
-      if (nextStatus === "Delivered") {
-        set.push("delivered_at = datetime('now')");
-      } else if (prevStatus === "Delivered" && nextStatus !== "Delivered") {
-        set.push("delivered_at = NULL");
-      }
-    }
+if (normalizedStatus && nextStatus !== prevStatus) {
+  if (nextStatus === "Delivered") {
+    set.push("delivered_at = datetime('now')");
+  } else if (prevStatus === "Delivered" && nextStatus !== "Delivered") {
+    set.push("delivered_at = NULL");
+  }
+}
 
     const sql = `UPDATE dispatches SET ${set.join(", ")} WHERE id = ?`;
     params.push(id);
     await runAsync(db, sql, params);
 
     // History row for dispatch
-    let histRow = null;
-    if (status && nextStatus !== prevStatus) {
-      const hist = await insertHistory(db, {
-        dispatchId: Number(id),
-        oldStatus: prevStatus,
-        newStatus: nextStatus,
-        adminId: admin?.id,
-        note: notes,
-      });
-      histRow = {
+   let histRow = null;
+if (normalizedStatus && nextStatus !== prevStatus) {
+  const hist = await insertHistory(db, {
+    dispatchId: Number(id),
+    oldStatus: prevStatus,
+    newStatus: nextStatus,
+    adminId: admin?.id,
+    note: notes,
+  });
+  histRow = { 
         id: hist.lastID,
         dispatch_id: Number(id),
         old_status: prevStatus,
@@ -487,9 +494,8 @@ router.patch("/:id", async (req, res) => {
         note: notes ?? null,
       };
     }
-
     // --- Step 5.5: sync orders on Delivered boundaries
-    if (status && nextStatus !== prevStatus) {
+    if (normalizedStatus && nextStatus !== prevStatus) {
       const link = await getAsync(db, "SELECT order_id FROM dispatches WHERE id = ?", [id]);
       const orderId = link?.order_id;
 
@@ -503,7 +509,7 @@ router.patch("/:id", async (req, res) => {
         const order = await getAsync(db, "SELECT id, status FROM orders WHERE id = ?", [orderId]);
         const curStatus = order?.status || null;
 
-        const intoDelivered = nextStatus === "Delivered" && prevStatus !== "Delivered";
+        const intoDelivered  = nextStatus === "Delivered" && prevStatus !== "Delivered";
         const outOfDelivered = prevStatus === "Delivered" && nextStatus !== "Delivered";
 
         if (intoDelivered && order) {
@@ -531,14 +537,13 @@ router.patch("/:id", async (req, res) => {
     }
 
     // --- Step 5.6: append to order_status_history (schema-aware)
-    if (status && nextStatus !== prevStatus) {
+    if (normalizedStatus && nextStatus !== prevStatus) {
       const link = await getAsync(db, "SELECT order_id FROM dispatches WHERE id = ?", [id]);
       const orderId = link?.order_id;
       if (orderId != null) {
         const intoDelivered  = nextStatus === "Delivered" && prevStatus !== "Delivered";
         const outOfDelivered = prevStatus === "Delivered" && nextStatus !== "Delivered";
 
-        // Detect table + schema
         const oshTableExists = !!(await getAsync(
           db,
           "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='order_status_history' LIMIT 1",
@@ -556,7 +561,6 @@ router.patch("/:id", async (req, res) => {
           const curOrderStatus = orderRow?.status ?? null;
 
           if (hasV2Columns) {
-            // New schema (preferred)
             if (intoDelivered || outOfDelivered) {
               const oldOrderStatus = outOfDelivered ? "Completed" : (curOrderStatus === "Completed" ? "InProgress" : curOrderStatus);
               const newOrderStatus = intoDelivered ? "Completed" : "InProgress";
@@ -581,7 +585,7 @@ router.patch("/:id", async (req, res) => {
               );
             }
           } else {
-            // Legacy schema: (id, order_id, status, note, changedBy, changedAt)
+            // legacy single-column history
             const derived = (intoDelivered ? "Completed" : outOfDelivered ? "InProgress" : curOrderStatus);
             const noteWithDispatch = [notes || "", `(dispatch ${prevStatus}→${nextStatus})`].filter(Boolean).join(" ").trim();
             await runAsync(
@@ -595,6 +599,7 @@ router.patch("/:id", async (req, res) => {
       }
     }
 
+    
     const updated = await getAsync(
       db,
       `SELECT d.*, o.orderNumber, u.name AS driverName
@@ -619,6 +624,8 @@ router.patch("/:id", async (req, res) => {
   } finally {
     db.close();
   }
-});
+}
+router.patch("/:id", updateDispatch);
+router.put("/:id", updateDispatch);
 
 module.exports = router;
