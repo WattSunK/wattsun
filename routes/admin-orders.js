@@ -573,7 +573,20 @@ router.put("/:idOrNumber/status", async (req, res) => {
   console.log("[auto-sync] status transition", { id, before, status, path: req.method + " " + req.originalUrl });
 
     // 2.3-C: if status rolled back, cancel active dispatches
-const rollbackSet = new Set(["Pending","Cancelled","Processing","InProgress"]);
+  const didStatusChange =
+    typeof before !== "undefined" &&
+    typeof status !== "undefined" &&
+    before !== status;
+
+  if (didStatusChange && rollbackSet.has(String(status))) {
+    try {
+     const r = await cancelActiveDispatchesForOrder(id, changedBy, `auto due to order -> ${status}`);
+     console.log(`[auto-sync] Cancelled ${r.cancelled} dispatch(es) for order ${id} (rollback to ${status})`);
+    } catch (syncErr) {
+    console.error("[auto-sync] cancelActiveDispatchesForOrder failed:", syncErr);
+  }
+}
+
 if (before !== status && rollbackSet.has(status)) {
   try {
     const r = await cancelActiveDispatchesForOrder(id, changedBy, `auto due to order -> ${status}`);
@@ -690,5 +703,26 @@ router.patch("/:idOrNumber", (req, res) => {
 
 // Local diag
 router.get("/_diag/ping", (_req, res) => res.json({ success: true, time: new Date().toISOString() }));
+
+// DELETE /api/admin/orders/:id/meta
+// Admin tool: clear overlay so base order status shows through
+router.delete("/:id/meta", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = getDb(); // same helper you use above
+
+    const stmt = db.prepare("DELETE FROM admin_order_meta WHERE order_id = ?");
+    const info = stmt.run(id);
+
+    return res.json({
+      success: true,
+      orderId: id,
+      rowsDeleted: info.changes
+    });
+  } catch (err) {
+    console.error("[admin-orders:clear-meta]", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 module.exports = router;
