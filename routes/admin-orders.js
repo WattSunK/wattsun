@@ -190,6 +190,7 @@ function cancelActiveDispatchesForOrder(orderId, changedBy = null, reason = 'aut
       [orderId],
       (selErr, rows) => {
         if (selErr) return reject(selErr);
+        console.log(`[auto-sync] 2.3-C: found ${rows?.length || 0} active dispatch(es) for order ${orderId}`);
         if (!rows || rows.length === 0) {
           console.log(`[auto-sync] 2.3-C: no active dispatches to cancel for order ${orderId}`);
           return resolve({ cancelled: 0, failed: 0 });
@@ -568,8 +569,10 @@ router.put("/:idOrNumber/status", async (req, res) => {
         console.error("[auto-sync] ensureDispatchForConfirmedOrder failed:", syncErr);
         // Do not fail the main request
       }
-    }
-// 2.3-C: if status rolled back, cancel active dispatches
+    } 
+  console.log("[auto-sync] status transition", { id, before, status, path: req.method + " " + req.originalUrl });
+
+    // 2.3-C: if status rolled back, cancel active dispatches
 const rollbackSet = new Set(["Pending","Cancelled","Processing","InProgress"]);
 if (before !== status && rollbackSet.has(status)) {
   try {
@@ -659,7 +662,9 @@ router.patch("/:idOrNumber", (req, res) => {
           // Non-fatal: do not block the PATCH response
         }
       }
-     // 2.3-C: if status rolled back, cancel active dispatches
+     console.log("[auto-sync] status transition", { id, before, status, path: req.method + " " + req.originalUrl });
+
+      // 2.3-C: if status rolled back, cancel active dispatches
   const rollbackSet = new Set(["Pending", "Cancelled", "Processing", "InProgress"]);
 
   // Normalize truthy change detection (some handlers use 'providedStatus', others don't)
