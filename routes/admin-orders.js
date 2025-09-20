@@ -704,25 +704,4 @@ router.patch("/:idOrNumber", (req, res) => {
 // Local diag
 router.get("/_diag/ping", (_req, res) => res.json({ success: true, time: new Date().toISOString() }));
 
-// DELETE /api/admin/orders/:id/meta
-// Admin tool: clear overlay so base order status shows through
-router.delete("/:id/meta", requireAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const db = getDb(); // same helper you use above
-
-    const stmt = db.prepare("DELETE FROM admin_order_meta WHERE order_id = ?");
-    const info = stmt.run(id);
-
-    return res.json({
-      success: true,
-      orderId: id,
-      rowsDeleted: info.changes
-    });
-  } catch (err) {
-    console.error("[admin-orders:clear-meta]", err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
 module.exports = router;
