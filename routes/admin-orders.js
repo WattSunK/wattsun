@@ -147,7 +147,7 @@ function ensureDispatchForConfirmedOrder(orderId, changedBy = null, note = 'auto
     db.get(
       `SELECT id FROM dispatches
          WHERE order_id = ?
-           AND IFNULL(status,'') <> 'Cancelled'
+           AND IFNULL(status,'') <> 'Canceled'
          ORDER BY id DESC
          LIMIT 1`,
       [orderId],
@@ -186,7 +186,7 @@ function cancelActiveDispatchesForOrder(orderId, changedBy = null, reason = 'aut
   return new Promise((resolve, reject) => {
     db.all(
       `SELECT id, status FROM dispatches
-       WHERE order_id = ? AND IFNULL(status,'') <> 'Cancelled'`,
+       WHERE order_id = ? AND IFNULL(status,'') <> 'Canceled'`,
       [orderId],
       (selErr, rows) => {
         if (selErr) return reject(selErr);
@@ -207,7 +207,7 @@ function cancelActiveDispatchesForOrder(orderId, changedBy = null, reason = 'aut
             // 1) append history
             db.run(
               `INSERT INTO dispatch_status_history (dispatch_id, old_status, new_status, changed_by, note, changed_at)
-               VALUES (?, ?, 'Cancelled', ?, ?, datetime('now'))`,
+               VALUES (?, ?, 'Canceled', ?, ?, datetime('now'))`,
               [dispatchId, oldStatus || null, changedBy, reason],
               (histErr) => {
                 if (histErr) {
@@ -219,7 +219,7 @@ function cancelActiveDispatchesForOrder(orderId, changedBy = null, reason = 'aut
                 // 2) flip the dispatch
                 db.run(
                   `UPDATE dispatches
-                   SET status='Cancelled', updated_at=datetime('now')
+                   SET status='Canceled', updated_at=datetime('now')
                    WHERE id = ?`,
                   [dispatchId],
                   (updErr) => {
