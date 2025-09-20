@@ -181,7 +181,55 @@ function ensureDispatchForConfirmedOrder(orderId, changedBy = null, note = 'auto
   });
 }
 
-// Upsert overlay helper (returns minimal order payload)
+// 2.3-C — Cancel any active dispatches when order is not moving forward
+function cancelActiveDispatchesForOrder(orderId, changedBy = null, reason = 'auto from order status rollback') {
+  return new Promise((resolve, reject) => {
+    // Find all non-cancelled dispatches for this order
+    db.all(
+      `SELECT id, status FROM dispatches
+       WHERE order_id = ? AND IFNULL(status,'') <> 'Cancelled'`,
+      [orderId],
+      (selErr, rows) => {
+        if (selErr) return reject(selErr);
+        if (!rows || rows.length === 0) return resolve({ cancelled: 0 });
+
+        let done = 0, cancelled = 0, failed = 0;
+        rows.forEach(row => {
+          db.serialize(() => {
+            // history: old -> Cancelled
+            db.run(
+              `INSERT INTO dispatch_status_history (dispatch_id, old_status, new_status, changed_by, note, changed_at)
+               VALUES (?, ?, 'Cancelled', ?, ?, datetime('now'))`,
+              [row.id, row.status || null, changedBy, reason],
+              (hErr) => {
+                if (hErr) { failed++; return check(); }
+                // flip the dispatch
+                db.run(
+                  `UPDATE dispatches
+                   SET status='Cancelled', updated_at=datetime('now')
+                   WHERE id = ?`,
+                  [row.id],
+                  (uErr) => {
+                    if (uErr) { failed++; return check(); }
+                    cancelled++; check();
+                  }
+                );
+              }
+            );
+          });
+
+          function check() {
+            done++;
+            if (done === rows.length) {
+              resolve({ cancelled, failed });
+            }
+          }
+        });
+      }
+    );
+  });
+}
+  // Upsert overlay helper (returns minimal order payload)
 function upsertOverlay({ id, status, driverId, notes, totalCents, depositCents, currency }) {
   return new Promise((resolve, reject) => {
     db.get("SELECT 1 FROM admin_order_meta WHERE order_id = ?", [id], (selErr, row) => {
@@ -501,6 +549,17 @@ router.put("/:idOrNumber/status", async (req, res) => {
         // Do not fail the main request
       }
     }
+// 2.3-C: if status rolled back, cancel active dispatches
+const rollbackSet = new Set(["Pending","Cancelled","Processing","InProgress"]);
+if (before !== status && rollbackSet.has(status)) {
+  try {
+    const r = await cancelActiveDispatchesForOrder(id, changedBy, `auto due to order -> ${status}`);
+    console.log(`[auto-sync] Cancelled ${r.cancelled} dispatch(es) for order ${id} (rollback to ${status})`);
+  } catch (syncErr) {
+    console.error("[auto-sync] cancelActiveDispatchesForOrder failed:", syncErr);
+    // non-fatal
+  }
+}
 
     return res.json({ success:true, order:{ id, orderNumber: ord.orderNumber, status }, history:{ oldStatus: before, newStatus: status, changedBy, note: note || null } });
   } catch (e) {
@@ -578,6 +637,17 @@ router.patch("/:idOrNumber", (req, res) => {
         } catch (syncErr) {
           console.error("[auto-sync] ensureDispatchForConfirmedOrder failed:", syncErr);
           // Non-fatal: do not block the PATCH response
+        }
+      }
+      // 2.3-C: if status rolled back, cancel active dispatches
+      const rollbackSet = new Set(["Pending","Cancelled","Processing","InProgress"]);
+      if (providedStatus && status && before !== status && rollbackSet.has(status)) {
+        try {
+          const r = await cancelActiveDispatchesForOrder(id, changedBy, `auto due to order -> ${status}`);
+          console.log(`[auto-sync] Cancelled ${r.cancelled} dispatch(es) for order ${id} (rollback to ${status})`);
+        } catch (syncErr) {
+          console.error("[auto-sync] cancelActiveDispatchesForOrder failed:", syncErr);
+          // non-fatal
         }
       }
 
