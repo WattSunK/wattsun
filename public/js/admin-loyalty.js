@@ -1,101 +1,160 @@
+// public/js/admin-loyalty.js
 (() => {
-  const el = (id) => document.getElementById(id);
-  const fmt = (n) => new Intl.NumberFormat().format(n);
-  const toast = (msg) => { const t = el('toast'); t.textContent = msg; t.style.display='block'; setTimeout(()=>t.style.display='none', 2600); };
-  const api = async (path, opts={}) => {
-    const res = await fetch(path, { method:opts.method||'GET', headers:{'Content-Type':'application/json'}, body:opts.body?JSON.stringify(opts.body):undefined, credentials:'include' });
-    const data = await res.json().catch(()=>({}));
-    if (!res.ok || data.success===false) { throw new Error((data.error&&data.error.message)||`HTTP ${res.status}`); }
+  // ---------- tiny utils ----------
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n) => (n === 0 || n ? Number(n).toLocaleString() : '—');
+
+  const api = async (path, opts = {}) => {
+    const res = await fetch(path, {
+      method: opts.method || 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+    let data = {};
+    try { data = await res.json(); } catch {}
+    if (!res.ok || data.success === false) {
+      throw new Error((data.error && data.error.message) || `HTTP ${res.status}`);
+    }
     return data;
   };
 
-  function statusPill(s) {
-    const map = { Pending:'p', Approved:'a', Rejected:'r', Paid:'pay' };
-    return `<span class="pill ${map[s]||''}">${s}</span>`;
-  }
+  const pill = (status) => {
+    const s = String(status || '').toLowerCase();
+    const cls =
+      s === 'approved' ? 'pill pill--ok' :
+      s === 'rejected' ? 'pill pill--warn' :
+      s === 'paid'     ? 'pill pill--ok' :
+                         'pill';
+    return `<span class="${cls}">${status || '—'}</span>`;
+  };
 
- async function loadList() {
-  const body = document.getElementById('wdBody');
-  // show a neutral empty state while fetching
-  body.innerHTML = `<tr><td colspan="9" class="muted">(No data yet)</td></tr>`;
+  // ---------- state ----------
+  let refreshTimer = null;
 
-  const status = document.getElementById('statusSel').value;
-  const q = status ? `?status=${encodeURIComponent(status)}` : '';
+  // ---------- rendering ----------
+  async function loadList() {
+    const body = $('wdBody');
+    if (!body) return;
+    // neutral empty state while fetching
+    body.innerHTML = `<tr><td colspan="9" class="muted">(No data yet)</td></tr>`;
 
-  try {
-    const data = await api(`/api/admin/loyalty/withdrawals${q}`);
-    const rows = data.withdrawals || [];
-    body.innerHTML = '';
-    if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="9" class="muted">(No data yet)</td></tr>`;
-      return;
-    }
-    for (const w of rows) {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${w.id}</td>
-        <td>${w.user_id}</td>
-        <td>${fmt(w.requested_pts)}</td>
-        <td>€${fmt(w.requested_eur)}</td>
-        <td>${statusPill(w.status)}</td>
-        <td>${w.requested_at || ''}</td>
-        <td>${w.decided_at || ''}</td>
-        <td>${w.paid_at || ''}</td>
-        <td style="text-align:center;">
-          ${w.status==='Pending' ? `
-            <button data-act="approve" data-id="${w.id}" class="btn btn--small">Approve</button>
-            <button data-act="reject" data-id="${w.id}" class="btn btn--small">Reject</button>
-          ` : ''}
-          ${w.status==='Approved' ? `
-            <button data-act="paid" data-id="${w.id}" class="btn btn--small">Mark Paid</button>
-          ` : ''}
-        </td>
-      `;
-      body.appendChild(tr);
-    }
-  } catch (e) {
-    body.innerHTML = `<tr><td colspan="9" class="muted">Error: ${e.message}</td></tr>`;
-  }
-}
-  async function onAction(evt) {
-    const btn = evt.target.closest('button[data-act]');
-    if (!btn) return;
-    const id = btn.getAttribute('data-id');
-    const act = btn.getAttribute('data-act');
+    const status = $('statusSel')?.value || '';
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
 
     try {
-      if (act === 'approve') {
-        const note = prompt('Approval note (optional):','OK');
-        await api(`/api/admin/loyalty/withdrawals/${id}/decision`, { method:'POST', body:{ approve:true, note } });
-        toast(`Withdrawal #${id} approved`);
-      } else if (act === 'reject') {
-        const note = prompt('Reason for rejection:','');
-        await api(`/api/admin/loyalty/withdrawals/${id}/decision`, { method:'POST', body:{ approve:false, note } });
-        toast(`Withdrawal #${id} rejected`);
-      } else if (act === 'paid') {
-        const payoutRef = prompt('Payout reference (e.g., SEPA id):','SEPA-');
-        await api(`/api/admin/loyalty/withdrawals/${id}/mark-paid`, { method:'POST', body:{ payoutRef } });
-        toast(`Withdrawal #${id} marked Paid`);
+      const data = await api(`/api/admin/loyalty/withdrawals${q}`);
+      const rows = data.withdrawals || data.items || [];
+      body.innerHTML = '';
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="9" class="muted">(No data yet)</td></tr>`;
+        return;
       }
-      await loadList();
+
+      for (const w of rows) {
+        const id = w.id ?? w.withdrawal_id ?? '';
+        const user = w.user_email || w.email || w.user_id || '—';
+        const pts = w.requested_pts ?? w.points ?? '—';
+        const eur = (w.requested_eur ?? (w.eur ?? null));
+        const st  = w.status || 'Pending';
+        const requested = w.requested_at || w.created_at || '';
+        const decided   = w.decided_at   || '';
+        const paid      = w.paid_at      || '';
+
+        const canApprove = st === 'Pending';
+        const canReject  = st === 'Pending';
+        const canPaid    = st === 'Approved';
+
+        const actions = [
+          canApprove ? `<button class="btn btn--small" data-act="approve" data-id="${id}">Approve</button>` : '',
+          canReject  ? `<button class="btn btn--small" data-act="reject"  data-id="${id}">Reject</button>`  : '',
+          canPaid    ? `<button class="btn btn--small" data-act="paid"    data-id="${id}">Mark Paid</button>` : ''
+        ].filter(Boolean).join(' ');
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${id}</td>
+          <td>${user}</td>
+          <td>${fmt(pts)}</td>
+          <td>€${fmt(eur)}</td>
+          <td>${pill(st)}</td>
+          <td>${requested || '—'}</td>
+          <td>${decided   || '—'}</td>
+          <td>${paid      || '—'}</td>
+          <td style="text-align:center;">${actions || '—'}</td>
+        `;
+        body.appendChild(tr);
+      }
     } catch (e) {
-      toast(`Action failed: ${e.message}`);
+      body.innerHTML = `<tr><td colspan="9" class="muted">Error: ${e.message}</td></tr>`;
     }
   }
 
-  // Auto-refresh
-  let timer = null;
-  function setAutoRefresh() {
-    if (timer) { clearInterval(timer); timer = null; }
-    const secs = parseInt(el('autoRefresh').value||'0',10);
-    if (secs>0) timer = setInterval(loadList, secs*1000);
+  // ---------- actions ----------
+  async function doAct(act, id) {
+    let path = '';
+    let method = 'POST';
+    let body = { id };
+
+    if (act === 'approve') {
+      path = `/api/admin/loyalty/withdrawals/${id}/approve`;
+    } else if (act === 'reject') {
+      path = `/api/admin/loyalty/withdrawals/${id}/reject`;
+    } else if (act === 'paid') {
+      path = `/api/admin/loyalty/withdrawals/${id}/paid`;
+    } else {
+      return;
+    }
+
+    try {
+      await api(path, { method, body });
+      await loadList();
+    } catch (e) {
+      // inline error row at the top
+      const bodyEl = $('wdBody');
+      if (bodyEl) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="9" class="muted">Action failed: ${e.message}</td>`;
+        bodyEl.insertBefore(tr, bodyEl.firstChild);
+      } else {
+        alert(`Action failed: ${e.message}`);
+      }
+    }
   }
 
+  function bindTableActions() {
+    const body = $('wdBody');
+    if (!body) return;
+    body.addEventListener('click', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const act = t.getAttribute('data-act');
+      const id  = t.getAttribute('data-id');
+      if (!act || !id) return;
+      doAct(act, id);
+    });
+  }
+
+  // ---------- auto-refresh ----------
+  function setAutoRefresh() {
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+    const val = Number($('autoRefresh')?.value || 0);
+    if (val > 0) {
+      refreshTimer = setInterval(loadList, val * 1000);
+    }
+  }
+
+  // ---------- boot ----------
   document.addEventListener('DOMContentLoaded', () => {
-    el('refreshBtn').addEventListener('click', loadList);
-    el('wdBody').addEventListener('click', onAction);
-    el('statusSel').addEventListener('change', loadList);
-    el('autoRefresh').addEventListener('change', setAutoRefresh);
-    loadList().catch(e => toast(`Load failed: ${e.message}`));
+    $('refreshBtn')?.addEventListener('click', loadList);
+    $('statusSel')?.addEventListener('change', loadList);
+    $('autoRefresh')?.addEventListener('change', setAutoRefresh);
+
+    bindTableActions();
+    loadList();
+    setAutoRefresh();
   });
 })();
