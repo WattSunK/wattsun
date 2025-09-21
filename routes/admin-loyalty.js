@@ -10,7 +10,7 @@ router.use(express.urlencoded({ extended: true }));
 
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
-const { enqueue } = require("../lib/notify"); // NOTE: ensure this path exists in your repo
+const { enqueue } = require("./lib/notify"); // NOTE: ensure this path exists in your repo
 
 // ---- DB ------------------------------------------------------
 const DB_PATH = process.env.DB_PATH_USERS || process.env.SQLITE_DB || path.join(process.cwd(), "data/dev/wattsun.dev.db");
