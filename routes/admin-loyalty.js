@@ -1,5 +1,7 @@
+
 // routes/admin-loyalty.js
-// Admin endpoints for Loyalty program settings (list + update)
+// Admin endpoints for Loyalty program settings + account controls (status/penalize/extend)
+// Also enqueues notifications for penalty and status changes.
 
 const express = require("express");
 const router = express.Router();
@@ -8,6 +10,7 @@ router.use(express.urlencoded({ extended: true }));
 
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
+const { enqueue } = require("../lib/notify"); // NOTE: ensure this path exists in your repo
 
 // ---- DB ------------------------------------------------------
 const DB_PATH = process.env.DB_PATH_USERS || process.env.SQLITE_DB || path.join(process.cwd(), "data/dev/wattsun.dev.db");
@@ -63,7 +66,6 @@ function getAllPrograms() {
       [],
       (err, rows) => {
         if (err) return reject(err);
-        // group by program_id
         const byId = new Map();
         for (const r of rows) {
           if (!byId.has(r.program_id)) byId.set(r.program_id, []);
@@ -118,6 +120,53 @@ function setProgramActive(programId, active) {
   });
 }
 
+// Accounts helpers
+function getAccountById(id) {
+  return new Promise((resolve, reject) => {
+    db.get(`SELECT * FROM loyalty_accounts WHERE id=?`, [id], (err, row) => err ? reject(err) : resolve(row || null));
+  });
+}
+function getAccountByUser(programId, userId) {
+  return new Promise((resolve, reject) => {
+    db.get(`SELECT * FROM loyalty_accounts WHERE program_id=? AND user_id=?`, [programId, userId], (err, row) => err ? reject(err) : resolve(row || null));
+  });
+}
+function updateAccountStatus(id, newStatus) {
+  return new Promise((resolve, reject) => {
+    db.run(`UPDATE loyalty_accounts SET status=?, updated_at=datetime('now') WHERE id=?`, [newStatus, id], function (err) {
+      if (err) return reject(err);
+      resolve(true);
+    });
+  });
+}
+function insertLedger(accountId, kind, delta, note, adminId) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      `INSERT INTO loyalty_ledger (account_id, kind, points_delta, note, admin_user_id) VALUES (?,?,?,?,?)`,
+      [accountId, kind, delta, note || null, adminId || null],
+      function (err) { if (err) return reject(err); resolve(this.lastID); }
+    );
+  });
+}
+function addMonths(isoDate, months) {
+  const d = new Date(isoDate + "T00:00:00Z");
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().slice(0,10);
+}
+function extendAccountEndDate(id, months) {
+  return new Promise((resolve, reject) => {
+    db.get(`SELECT end_date FROM loyalty_accounts WHERE id=?`, [id], (err, row) => {
+      if (err) return reject(err);
+      if (!row) return reject(new Error("ACCOUNT_NOT_FOUND"));
+      const newEnd = addMonths(row.end_date, months);
+      db.run(`UPDATE loyalty_accounts SET end_date=?, updated_at=datetime('now') WHERE id=?`, [newEnd, id], function (err2) {
+        if (err2) return reject(err2);
+        resolve(newEnd);
+      });
+    });
+  });
+}
+
 // ---- routes --------------------------------------------------
 
 // GET /api/admin/loyalty/programs
@@ -140,7 +189,6 @@ router.put("/programs/:code/settings", async (req, res) => {
       return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
     }
 
-    // Accept partial body
     const {
       eligibleUserTypes,
       durationMonths,
@@ -150,8 +198,6 @@ router.put("/programs/:code/settings", async (req, res) => {
       signupBonus,
       active
     } = req.body || {};
-
-    // Validate/coerce inputs
     const patches = [];
 
     if (eligibleUserTypes !== undefined) {
@@ -161,11 +207,7 @@ router.put("/programs/:code/settings", async (req, res) => {
       patches.push(upsertSetting(current.programId, "eligibleUserTypes", JSON.stringify(eligibleUserTypes)));
     }
 
-    function toIntOrNull(v) {
-      const n = parseInt(v, 10);
-      return Number.isFinite(n) ? n : null;
-    }
-
+    function toIntOrNull(v) { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; }
     const intMap = [
       ["durationMonths", durationMonths],
       ["minWithdrawPoints", minWithdrawPoints],
@@ -176,25 +218,123 @@ router.put("/programs/:code/settings", async (req, res) => {
     for (const [k, v] of intMap) {
       if (v !== undefined) {
         const n = toIntOrNull(v);
-        if (n === null) {
-          return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:`${k} must be integer` } });
-        }
+        if (n === null) return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:`${k} must be integer` } });
         patches.push(upsertSetting(current.programId, k, String(n)));
       }
     }
 
     if (active !== undefined) {
       const flag = /^(true|1|yes)$/i.test(String(active)) || active === true;
-      patches.push(setProgramActive(current.programId, flag));
+      patches.push(new Promise((resolve, reject) => {
+        db.run(`UPDATE loyalty_programs SET active=?, updated_at=datetime('now') WHERE id=?`, [flag ? 1 : 0, current.programId],
+          function (err) { if (err) reject(err); else resolve(true); });
+      }));
     }
 
     await Promise.all(patches);
-
     const updated = await getProgramByCode(code);
     return res.json({ success:true, program: updated });
   } catch (err) {
     console.error("[admin/loyalty/programs/:code/settings]", err);
     return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to update settings" } });
+  }
+});
+
+// POST /api/admin/loyalty/accounts/:id/status
+router.post("/accounts/:id/status", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { status, note } = req.body || {};
+    if (!["Active","Paused","Closed"].includes(String(status))) {
+      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"status must be Active|Paused|Closed" } });
+    }
+    const acct = await getAccountById(id);
+    if (!acct) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Account not found" } });
+    const oldStatus = acct.status;
+    await updateAccountStatus(id, status);
+    await insertLedger(id, "status", 0, `Admin change: ${oldStatus} → ${status}. ${note || ""}`, req.session.user.id);
+
+    // enqueue notification
+    try {
+      await enqueue("status_change", {
+        userId: acct.user_id,
+        payload: { oldStatus, newStatus: status, note: note || "" }
+      });
+    } catch (e) {
+      console.warn("enqueue(status_change) failed:", e.message);
+    }
+
+    const updated = await getAccountById(id);
+    return res.json({ success:true, account: updated });
+  } catch (err) {
+    console.error("[admin/loyalty/accounts/:id/status]", err);
+    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to update status" } });
+  }
+});
+
+// POST /api/admin/loyalty/penalize
+router.post("/penalize", async (req, res) => {
+  try {
+    const { userId, points = 1, note } = req.body || {};
+    const p = parseInt(points, 10);
+    if (!userId || !Number.isFinite(p) || p <= 0) {
+      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"userId and positive integer points required" } });
+    }
+    // For now, assume STAFF program
+    const programId = await new Promise((resolve, reject) => {
+      db.get(`SELECT id FROM loyalty_programs WHERE code='STAFF'`, [], (err, row) => err ? reject(err) : resolve(row?.id));
+    });
+    if (!programId) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
+
+    const acct = await getAccountByUser(programId, parseInt(userId, 10));
+    if (!acct) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Account not found for user" } });
+
+    await insertLedger(acct.id, "penalty", -p, note || "Admin penalty", req.session.user.id);
+
+    // enqueue notification
+    try {
+      // Load fresh balance
+      const updated = await getAccountById(acct.id);
+      await enqueue("penalty", {
+        userId: acct.user_id,
+        payload: { points: p, note: note || "", balance: updated.points_balance }
+      });
+    } catch (e) {
+      console.warn("enqueue(penalty) failed:", e.message);
+    }
+
+    const updated = await getAccountById(acct.id);
+    return res.json({ success:true, account: updated });
+  } catch (err) {
+    console.error("[admin/loyalty/penalize]", err);
+    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to apply penalty" } });
+  }
+});
+
+// POST /api/admin/loyalty/extend
+router.post("/extend", async (req, res) => {
+  try {
+    const { userId, months = 6, note } = req.body || {};
+    const m = parseInt(months, 10);
+    if (!userId || !Number.isFinite(m) || m <= 0) {
+      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"userId and positive integer months required" } });
+    }
+    const programId = await new Promise((resolve, reject) => {
+      db.get(`SELECT id FROM loyalty_programs WHERE code='STAFF'`, [], (err, row) => err ? reject(err) : resolve(row?.id));
+    });
+    if (!programId) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
+
+    const acct = await getAccountByUser(programId, parseInt(userId, 10));
+    if (!acct) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Account not found for user" } });
+
+    const newEnd = await extendAccountEndDate(acct.id, m);
+    await insertLedger(acct.id, "extend", 0, `Extended by ${m} month(s). ${note || ""}`, req.session.user.id);
+
+    const updated = await getAccountById(acct.id);
+    return res.json({ success:true, account: updated });
+  } catch (err) {
+    console.error("[admin/loyalty/extend]", err);
+    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to extend account" } });
   }
 });
 

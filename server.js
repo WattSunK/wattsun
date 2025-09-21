@@ -103,7 +103,6 @@ app.use("/api/items", require("./routes/items")(db));
 app.use("/api/categories", require("./routes/categories")(db));
 app.use("/api/loyalty", require("./routes/loyalty")); // Staff-only enroll + me
 
-
 // Gate all /api/admin/* below with one line:
 app.use("/api/admin", requireAdmin);
 app.use("/api/admin/orders", require("./routes/admin-orders")); // NEW (PATCH)
@@ -115,6 +114,7 @@ app.use("/api", require("./routes/calculator"));
 app.use("/api", require("./routes/users"));
 app.use("/api", require("./routes/login"));
 app.use("/api", require("./routes/reset"));
+app.use("/api/admin/loyalty", require("./routes/admin-loyalty"));
 
 // --- Wrap /api/orders to cache the latest list in memory ---
 const ordersRouter = require("./routes/orders");
