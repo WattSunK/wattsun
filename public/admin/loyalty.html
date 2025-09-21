@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Admin — Loyalty Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#0b0f14; --panel:#111823; --muted:#8aa0b2; --text:#e8f0f7; --ok:#19c37d; --warn:#f5a623; --err:#f65164; }
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Inter,Segoe UI,Roboto;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1100px;margin:28px auto;padding:0 16px}
+    h1{margin:8px 0 18px;font-size:22px}
+    .card{background:var(--panel);border:1px solid #223041;border-radius:16px;padding:16px;margin-bottom:16px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    label{font-size:13px;color:var(--muted)}
+    select,input,button{background:#1a2431;color:var(--text);border:1px solid #2a3b4f;border-radius:10px;padding:8px 10px;font:inherit}
+    button{cursor:pointer} button.primary{background:#15334a;border-color:#2c6c9a}
+    table{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
+    th,td{border-bottom:1px solid #223041;padding:8px 6px;text-align:left}
+    .right{text-align:right} .muted{color:var(--muted)}
+    .pill{display:inline-block;padding:3px 8px;border-radius:999px;border:1px solid #2a3b4f;background:#0c121a;font-size:12px}
+    .pill.p{border-color:#6a5d20;color:#ffe59a} .pill.a{border-color:#1e7f5a;color:#89ffd2}
+    .pill.r{border-color:#7a2430;color:#ffb1ba} .pill.pay{border-color:#2b6a8f;color:#bfe6ff}
+    .toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between}
+    .toast{position:fixed;right:16px;bottom:16px;background:#132133;border:1px solid #2a3b4f;color:#cfe2f5;padding:10px 14px;border-radius:10px;display:none;z-index:10}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Loyalty Manager — Withdrawals</h1>
+
+    <div class="card">
+      <div class="toolbar">
+        <div class="row">
+          <div>
+            <label for="statusSel">Status</label><br/>
+            <select id="statusSel">
+              <option value="Pending" selected>Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Paid">Paid</option>
+              <option value="">All</option>
+            </select>
+          </div>
+          <div>
+            <label for="autoRefresh">Auto-refresh</label><br/>
+            <select id="autoRefresh">
+              <option value="0" selected>Off</option>
+              <option value="15">15s</option>
+              <option value="30">30s</option>
+              <option value="60">60s</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <button id="refreshBtn" class="primary">Refresh</button>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Points</th>
+            <th>EUR</th>
+            <th>Status</th>
+            <th>Requested</th>
+            <th>Decided</th>
+            <th>Paid</th>
+            <th class="right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="wdBody">
+          <tr><td colspan="9" class="muted">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="/js/admin-loyalty.js"></script>
+</body>
+</html>
