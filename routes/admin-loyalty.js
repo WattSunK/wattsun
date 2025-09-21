@@ -410,30 +410,39 @@ async function getProgramSettings() {
 
 /** helper: upsert a single (program_id, program_code, key) into *_json/_int/_text columns */
 async function upsertSettingTyped(programId, code, key, val) {
+  // derive typed fields
   let vJson = null, vInt = null, vText = null;
   if (Array.isArray(val) || (val && typeof val === 'object')) vJson = JSON.stringify(val);
   else if (typeof val === 'number' && Number.isFinite(val)) vInt = Math.trunc(val);
   else if (typeof val === 'boolean') vInt = val ? 1 : 0;
   else vText = String(val);
 
-  // 1) try update
+  // legacy string mirror for NOT NULL 'value' column
+  const vLegacy =
+    vText != null ? vText :
+    vInt  != null ? String(vInt) :
+    vJson != null ? vJson :
+    ""; // last-resort safe default
+
+  // 1) try UPDATE (also set legacy 'value')
   const upd = await run(
     `UPDATE loyalty_program_settings
-       SET value_json = ?, value_int = ?, value_text = ?, updated_at = datetime('now')
+       SET value = ?, value_json = ?, value_int = ?, value_text = ?, updated_at = datetime('now')
      WHERE program_code = ? AND key = ?`,
-    [vJson, vInt, vText, code, key]
+    [vLegacy, vJson, vInt, vText, code, key]
   );
 
-  // 2) if no row updated, insert (include program_id to satisfy NOT NULL)
+  // 2) if no row updated, INSERT (include program_id and legacy 'value')
   if (!upd.changes) {
     await run(
       `INSERT INTO loyalty_program_settings
-         (program_id, program_code, key, value_json, value_int, value_text, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
-      [programId, code, key, vJson, vInt, vText]
+         (program_id, program_code, key, value, value_json, value_int, value_text, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+      [programId, code, key, vLegacy, vJson, vInt, vText]
     );
   }
 }
+
 
 /** GET /api/admin/loyalty/program  → current settings */
 router.get("/program", async (req, res) => {
