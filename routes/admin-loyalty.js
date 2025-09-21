@@ -1,4 +1,3 @@
-
 // routes/admin-loyalty.js
 // Admin endpoints for Loyalty program settings + account controls (status/penalize/extend)
 // Also enqueues notifications for penalty and status changes.
@@ -13,8 +12,33 @@ const path = require("path");
 const { enqueue } = require("./lib/notify"); // NOTE: ensure this path exists in your repo
 
 // ---- DB ------------------------------------------------------
-const DB_PATH = process.env.DB_PATH_USERS || process.env.SQLITE_DB || path.join(process.cwd(), "data/dev/wattsun.dev.db");
+const DB_PATH =
+  process.env.DB_PATH_ADMIN ||
+  process.env.DB_PATH_USERS ||
+  process.env.SQLITE_DB ||
+  path.join(process.cwd(), "data/dev/wattsun.dev.db");
+
 const db = new sqlite3.Database(DB_PATH);
+
+// small promise helpers
+function run(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) return reject(err);
+      resolve({ changes: this.changes, lastID: this.lastID });
+    });
+  });
+}
+function all(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
+  });
+}
+function get(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)));
+  });
+}
 
 // ---- authz ---------------------------------------------------
 function requireAdmin(req, res, next) {
@@ -92,19 +116,24 @@ function getProgramByCode(code) {
   });
 }
 
-function upsertSetting(programId, key, value) {
-  return new Promise((resolve, reject) => {
-    db.run(
+/** KV-style setting upsert for legacy rows (program_id, key, value) */
+async function upsertSettingKV(programId, key, value) {
+  // 1) try update
+  const upd = await run(
+    `UPDATE loyalty_program_settings
+       SET value = ?, updated_at = datetime('now')
+     WHERE program_id = ? AND key = ?`,
+    [String(value), programId, key]
+  );
+  // 2) if no row updated, insert
+  if (!upd.changes) {
+    await run(
       `INSERT INTO loyalty_program_settings (program_id, key, value, updated_at)
-       VALUES (?,?,?,datetime('now'))
-       ON CONFLICT(program_id,key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`,
-      [programId, key, value],
-      function (err) {
-        if (err) return reject(err);
-        resolve(true);
-      }
+       VALUES (?,?,?, datetime('now'))`,
+      [programId, key, String(value)]
     );
-  });
+  }
+  return true;
 }
 
 function setProgramActive(programId, active) {
@@ -180,7 +209,7 @@ router.get("/programs", async (req, res) => {
   }
 });
 
-// PUT /api/admin/loyalty/programs/:code/settings
+// PUT /api/admin/loyalty/programs/:code/settings (legacy KV writer kept for compatibility)
 router.put("/programs/:code/settings", async (req, res) => {
   try {
     const code = String(req.params.code || "STAFF");
@@ -204,7 +233,7 @@ router.put("/programs/:code/settings", async (req, res) => {
       if (!Array.isArray(eligibleUserTypes) || eligibleUserTypes.some(v => typeof v !== "string")) {
         return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"eligibleUserTypes must be array of strings" } });
       }
-      patches.push(upsertSetting(current.programId, "eligibleUserTypes", JSON.stringify(eligibleUserTypes)));
+      patches.push(upsertSettingKV(current.programId, "eligibleUserTypes", JSON.stringify(eligibleUserTypes)));
     }
 
     function toIntOrNull(v) { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; }
@@ -219,16 +248,13 @@ router.put("/programs/:code/settings", async (req, res) => {
       if (v !== undefined) {
         const n = toIntOrNull(v);
         if (n === null) return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:`${k} must be integer` } });
-        patches.push(upsertSetting(current.programId, k, String(n)));
+        patches.push(upsertSettingKV(current.programId, k, String(n)));
       }
     }
 
     if (active !== undefined) {
       const flag = /^(true|1|yes)$/i.test(String(active)) || active === true;
-      patches.push(new Promise((resolve, reject) => {
-        db.run(`UPDATE loyalty_programs SET active=?, updated_at=datetime('now') WHERE id=?`, [flag ? 1 : 0, current.programId],
-          function (err) { if (err) reject(err); else resolve(true); });
-      }));
+      patches.push(setProgramActive(current.programId, flag));
     }
 
     await Promise.all(patches);
@@ -281,9 +307,8 @@ router.post("/penalize", async (req, res) => {
       return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"userId and positive integer points required" } });
     }
     // For now, assume STAFF program
-    const programId = await new Promise((resolve, reject) => {
-      db.get(`SELECT id FROM loyalty_programs WHERE code='STAFF'`, [], (err, row) => err ? reject(err) : resolve(row?.id));
-    });
+    const programRow = await get(`SELECT id FROM loyalty_programs WHERE code='STAFF'`, []);
+    const programId = programRow?.id;
     if (!programId) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
 
     const acct = await getAccountByUser(programId, parseInt(userId, 10));
@@ -293,7 +318,6 @@ router.post("/penalize", async (req, res) => {
 
     // enqueue notification
     try {
-      // Load fresh balance
       const updated = await getAccountById(acct.id);
       await enqueue("penalty", {
         userId: acct.user_id,
@@ -319,9 +343,8 @@ router.post("/extend", async (req, res) => {
     if (!userId || !Number.isFinite(m) || m <= 0) {
       return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"userId and positive integer months required" } });
     }
-    const programId = await new Promise((resolve, reject) => {
-      db.get(`SELECT id FROM loyalty_programs WHERE code='STAFF'`, [], (err, row) => err ? reject(err) : resolve(row?.id));
-    });
+    const programRow = await get(`SELECT id FROM loyalty_programs WHERE code='STAFF'`, []);
+    const programId = programRow?.id;
     if (!programId) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
 
     const acct = await getAccountByUser(programId, parseInt(userId, 10));
@@ -337,24 +360,20 @@ router.post("/extend", async (req, res) => {
     return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to extend account" } });
   }
 });
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Admin → Program Settings + Account Status (mount: /api/admin/loyalty/*)
-// These use the same DB handle you already created in this file.
-// Requires: const { enqueue } = require("./lib/notify");
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** helper: read all program settings for code 'STAFF' into a single object */
 async function getProgramSettings() {
   const code = 'STAFF';
-  const rows = await new Promise((resolve, reject) => {
-    db.all(
-      `SELECT key, value_json, value_text, value_int
-         FROM loyalty_program_settings
-        WHERE program_code = ?`,
-      [code],
-      (err, r) => (err ? reject(err) : resolve(r || []))
-    );
-  });
+  const rows = await all(
+    `SELECT key, value_json, value_text, value_int
+       FROM loyalty_program_settings
+      WHERE program_code = ?`,
+    [code]
+  );
 
   const out = {
     programCode: code,
@@ -382,25 +401,30 @@ async function getProgramSettings() {
 }
 
 /** helper: upsert a single (program_code, key) into *_json/_int/_text columns */
-function upsertSetting(db, code, key, val) {
-  let cols = { json: null, int: null, text: null };
-  if (Array.isArray(val) || typeof val === 'object') cols.json = JSON.stringify(val);
-  else if (typeof val === 'number' && Number.isFinite(val)) cols.int = Math.trunc(val);
-  else if (typeof val === 'boolean') cols.int = val ? 1 : 0;
-  else cols.text = String(val);
+async function upsertSettingTyped(code, key, val) {
+  let vJson = null, vInt = null, vText = null;
+  if (Array.isArray(val) || (val && typeof val === 'object')) vJson = JSON.stringify(val);
+  else if (typeof val === 'number' && Number.isFinite(val)) vInt = Math.trunc(val);
+  else if (typeof val === 'boolean') vInt = val ? 1 : 0;
+  else vText = String(val);
 
-  return new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO loyalty_program_settings (program_code, key, value_json, value_int, value_text)
-            VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(program_code, key) DO UPDATE SET
-            value_json = excluded.value_json,
-            value_int  = excluded.value_int,
-            value_text = excluded.value_text`,
-      [code, key, cols.json, cols.int, cols.text],
-      function (err) { return err ? reject(err) : resolve(this.changes); }
+  // 1) try update
+  const upd = await run(
+    `UPDATE loyalty_program_settings
+       SET value_json = ?, value_int = ?, value_text = ?, updated_at = datetime('now')
+     WHERE program_code = ? AND key = ?`,
+    [vJson, vInt, vText, code, key]
+  );
+
+  // 2) if no row updated, insert
+  if (!upd.changes) {
+    await run(
+      `INSERT INTO loyalty_program_settings
+         (program_code, key, value_json, value_int, value_text, updated_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+      [code, key, vJson, vInt, vText]
     );
-  });
+  }
 }
 
 /** GET /api/admin/loyalty/program  → current settings */
@@ -430,37 +454,39 @@ router.put("/program", async (req, res) => {
 
   db.serialize(async () => {
     try {
-      db.run("BEGIN");
+      await run("BEGIN");
       for (const [k, v] of entries) {
         // sanitize some obvious integers
         const vv = ['durationMonths','withdrawWaitDays','minWithdrawPoints','signupBonus']
           .includes(k) ? Math.max(0, parseInt(v, 10) || 0) : v;
-        await upsertSetting(db, code, k, vv);
+        await upsertSettingTyped(code, k, vv);
       }
-      db.run("COMMIT");
+      await run("COMMIT");
       const program = await getProgramSettings();
       return res.json({ success: true, program });
     } catch (e) {
-      try { db.run("ROLLBACK"); } catch {}
+      try { await run("ROLLBACK"); } catch {}
       return res.status(500).json({ success: false, error: { message: e.message } });
     }
   });
 });
 
 /** PATCH /api/admin/loyalty/accounts/:id/status  → Active|Paused|Closed  */
-router.patch("/accounts/:id/status", (req, res) => {
+router.patch("/accounts/:id/status", async (req, res) => {
   const id = Number(req.params.id);
   const status = String((req.body && req.body.status) || '').trim();
   if (!id || !['Active','Paused','Closed'].includes(status)) {
     return res.status(400).json({ success:false, error:{ message:"Invalid account id or status." } });
   }
 
-  db.run(`UPDATE loyalty_accounts SET status = ? WHERE id = ?`, [status, id], function (err) {
-    if (err) return res.status(500).json({ success:false, error:{ message: err.message } });
+  try {
+    const result = await run(`UPDATE loyalty_accounts SET status = ?, updated_at = datetime('now') WHERE id = ?`, [status, id]);
     // Notify member (best-effort)
     enqueue('status_change', { payload: { accountId: id, status } }).catch(()=>{});
-    return res.json({ success:true, updated: this.changes });
-  });
+    return res.json({ success:true, updated: result.changes });
+  } catch (err) {
+    return res.status(500).json({ success:false, error:{ message: err.message } });
+  }
 });
 
 // GET /api/admin/loyalty/accounts/:id  → returns minimal account info for the modal
