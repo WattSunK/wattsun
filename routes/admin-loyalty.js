@@ -463,4 +463,17 @@ router.patch("/accounts/:id/status", (req, res) => {
   });
 });
 
+// GET /api/admin/loyalty/accounts/:id  → returns minimal account info for the modal
+router.get("/accounts/:id", (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ success:false, error:{ message:"Invalid id" } });
+  db.get(`
+    SELECT id, user_id, status, start_date, eligible_from, end_date, points_balance
+    FROM loyalty_accounts WHERE id = ?`, [id], (err, row) => {
+      if (err) return res.status(500).json({ success:false, error:{ message:err.message }});
+      if (!row) return res.status(404).json({ success:false, error:{ message:"Not found" }});
+      return res.json({ success:true, account: row });
+  });
+});
+
 module.exports = router;

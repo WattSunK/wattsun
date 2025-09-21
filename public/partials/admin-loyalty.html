@@ -3,6 +3,7 @@
   <div class="card-header card-header--tight">
     <h2 class="h2">Loyalty — Withdrawals</h2>
     <div class="spacer"></div>
+    <button id="openSettings" class="btn">Settings</button>
     <button id="refreshBtn" class="btn">Refresh</button>
   </div>
 
@@ -55,4 +56,144 @@
   </div>
 </section>
 
+<!-- ===== Settings Modal (with tabs) ===== -->
+<div id="lsModal" aria-hidden="true"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+  <section class="card" style="max-width:900px;width:100%;max-height:92vh;overflow:auto;">
+    <div class="card-header card-header--tight">
+      <h3 class="h2">Loyalty — Settings & Accounts</h3>
+      <div class="spacer"></div>
+      <button id="lsClose" class="btn btn--ghost">Close</button>
+      <button id="lsSave" class="btn">Save</button>
+    </div>
+
+    <!-- simple tab header -->
+    <div class="filters-bar" style="border-top:1px solid #f0f0f0;">
+      <div class="group">
+        <button type="button" class="btn" id="tabProgramBtn">Program</button>
+        <button type="button" class="btn btn--ghost" id="tabAccountsBtn">Accounts</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="group"><span id="lsMsg" class="muted">Loading…</span></div>
+    </div>
+
+    <div class="card-body">
+
+      <!-- PROGRAM TAB -->
+      <div id="tabProgram" style="display:block;">
+        <form id="loyaltySettingsForm" onsubmit="return false;"
+              style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;">
+          <div class="group">
+            <label for="eligibleUserTypes">Eligible user types</label>
+            <input id="eligibleUserTypes" class="input" placeholder="e.g. Staff" />
+            <small class="muted">Comma-separated list (default: Staff).</small>
+          </div>
+
+          <div class="group">
+            <label for="durationMonths">Enrollment duration (months)</label>
+            <input id="durationMonths" type="number" min="1" step="1" class="input" placeholder="6" />
+            <small class="muted">Default: 6 months.</small>
+          </div>
+
+          <div class="group">
+            <label for="withdrawWaitDays">Withdraw wait (days)</label>
+            <input id="withdrawWaitDays" type="number" min="0" step="1" class="input" placeholder="90" />
+            <small class="muted">Days before member can withdraw (default: 90).</small>
+          </div>
+
+          <div class="group">
+            <label for="minWithdrawPoints">Min withdrawal (points)</label>
+            <input id="minWithdrawPoints" type="number" min="0" step="1" class="input" placeholder="100" />
+            <small class="muted">Minimum per request (default: 100).</small>
+          </div>
+
+          <div class="group">
+            <label for="eurPerPoint">Euro per point</label>
+            <input id="eurPerPoint" type="number" min="0" step="0.01" class="input" placeholder="1" />
+            <small class="muted">Conversion rate (default: €1.00 per point).</small>
+          </div>
+
+          <div class="group">
+            <label for="signupBonus">Signup bonus (points)</label>
+            <input id="signupBonus" type="number" min="0" step="1" class="input" placeholder="100" />
+            <small class="muted">One-time bonus on enrollment (default: 100).</small>
+          </div>
+
+          <div class="group">
+            <label for="active">Program active</label>
+            <select id="active" class="input">
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+            <small class="muted">If inactive, new enrollments are blocked.</small>
+          </div>
+        </form>
+      </div>
+
+      <!-- ACCOUNTS TAB -->
+      <div id="tabAccounts" style="display:none;">
+        <div class="filters-bar" style="padding-left:0;">
+          <div class="group">
+            <label for="accIdInput">Account ID</label>
+            <input id="accIdInput" class="input" placeholder="e.g. 42" style="width:160px;" />
+          </div>
+          <div class="group">
+            <button id="accLoadBtn" class="btn" type="button">Load</button>
+          </div>
+          <div class="spacer"></div>
+          <div class="group">
+            <span id="accMsg" class="muted"></span>
+          </div>
+        </div>
+
+        <div id="accPanel" class="card card-body--tight" style="display:none;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+            <div class="group">
+              <label>Account ID</label>
+              <div id="accFieldId" class="input" style="background:#fafafa;"></div>
+            </div>
+            <div class="group">
+              <label>User ID</label>
+              <div id="accFieldUserId" class="input" style="background:#fafafa;"></div>
+            </div>
+            <div class="group">
+              <label>Status</label>
+              <select id="accStatus" class="input">
+                <option value="Active">Active</option>
+                <option value="Paused">Paused</option>
+                <option value="Closed">Closed</option>
+              </select>
+              <small class="muted">Change and click “Update status”.</small>
+            </div>
+            <div class="group">
+              <label>Balance (pts)</label>
+              <div id="accFieldBalance" class="input" style="background:#fafafa;"></div>
+            </div>
+            <div class="group">
+              <label>Start date</label>
+              <div id="accFieldStart" class="input" style="background:#fafafa;"></div>
+            </div>
+            <div class="group">
+              <label>Eligible from</label>
+              <div id="accFieldEligible" class="input" style="background:#fafafa;"></div>
+            </div>
+            <div class="group">
+              <label>End date</label>
+              <div id="accFieldEnd" class="input" style="background:#fafafa;"></div>
+            </div>
+          </div>
+
+          <div class="card-footer" style="display:flex;gap:10px;margin-top:12px;">
+            <button id="accUpdateBtn" class="btn" type="button">Update status</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+<!-- existing scripts for this page -->
 <script defer src="/js/admin-loyalty.js"></script>
+<!-- modal logic with tabs (new) -->
+<script defer src="/js/admin-loyalty-settings-modal.js"></script>
