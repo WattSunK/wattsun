@@ -14,15 +14,20 @@
     return `<span class="pill ${map[s]||''}">${s}</span>`;
   }
 
-  async function loadList() {
-    const status = el('statusSel').value;
-    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+ async function loadList() {
+  const body = document.getElementById('wdBody');
+  // show a neutral empty state while fetching
+  body.innerHTML = `<tr><td colspan="9" class="muted">(No data yet)</td></tr>`;
+
+  const status = document.getElementById('statusSel').value;
+  const q = status ? `?status=${encodeURIComponent(status)}` : '';
+
+  try {
     const data = await api(`/api/admin/loyalty/withdrawals${q}`);
-    const body = el('wdBody');
-    body.innerHTML = '';
     const rows = data.withdrawals || [];
+    body.innerHTML = '';
     if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="9" class="muted">No rows.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="9" class="muted">(No data yet)</td></tr>`;
       return;
     }
     for (const w of rows) {
@@ -33,23 +38,25 @@
         <td>${fmt(w.requested_pts)}</td>
         <td>€${fmt(w.requested_eur)}</td>
         <td>${statusPill(w.status)}</td>
-        <td>${w.requested_at||''}</td>
-        <td>${w.decided_at||''}</td>
-        <td>${w.paid_at||''}</td>
-        <td class="right">
+        <td>${w.requested_at || ''}</td>
+        <td>${w.decided_at || ''}</td>
+        <td>${w.paid_at || ''}</td>
+        <td style="text-align:center;">
           ${w.status==='Pending' ? `
-            <button data-act="approve" data-id="${w.id}">Approve</button>
-            <button data-act="reject" data-id="${w.id}">Reject</button>
+            <button data-act="approve" data-id="${w.id}" class="btn btn--small">Approve</button>
+            <button data-act="reject" data-id="${w.id}" class="btn btn--small">Reject</button>
           ` : ''}
           ${w.status==='Approved' ? `
-            <button data-act="paid" data-id="${w.id}">Mark Paid</button>
+            <button data-act="paid" data-id="${w.id}" class="btn btn--small">Mark Paid</button>
           ` : ''}
         </td>
       `;
       body.appendChild(tr);
     }
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="9" class="muted">Error: ${e.message}</td></tr>`;
   }
-
+}
   async function onAction(evt) {
     const btn = evt.target.closest('button[data-act]');
     if (!btn) return;
