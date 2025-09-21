@@ -337,5 +337,130 @@ router.post("/extend", async (req, res) => {
     return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to extend account" } });
   }
 });
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin → Program Settings + Account Status (mount: /api/admin/loyalty/*)
+// These use the same DB handle you already created in this file.
+// Requires: const { enqueue } = require("./lib/notify");
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** helper: read all program settings for code 'STAFF' into a single object */
+async function getProgramSettings() {
+  const code = 'STAFF';
+  const rows = await new Promise((resolve, reject) => {
+    db.all(
+      `SELECT key, value_json, value_text, value_int
+         FROM loyalty_program_settings
+        WHERE program_code = ?`,
+      [code],
+      (err, r) => (err ? reject(err) : resolve(r || []))
+    );
+  });
+
+  const out = {
+    programCode: code,
+    // sensible defaults
+    eligibleUserTypes: ['Staff'],
+    durationMonths: 6,
+    withdrawWaitDays: 90,
+    minWithdrawPoints: 100,
+    eurPerPoint: 1,
+    signupBonus: 100,
+    active: true,
+  };
+
+  for (const row of rows) {
+    const k = row.key;
+    if (row.value_json != null) {
+      try { out[k] = JSON.parse(row.value_json); } catch { /* ignore */ }
+    } else if (row.value_int != null) {
+      out[k] = Number(row.value_int);
+    } else if (row.value_text != null) {
+      out[k] = row.value_text;
+    }
+  }
+  return out;
+}
+
+/** helper: upsert a single (program_code, key) into *_json/_int/_text columns */
+function upsertSetting(db, code, key, val) {
+  let cols = { json: null, int: null, text: null };
+  if (Array.isArray(val) || typeof val === 'object') cols.json = JSON.stringify(val);
+  else if (typeof val === 'number' && Number.isFinite(val)) cols.int = Math.trunc(val);
+  else if (typeof val === 'boolean') cols.int = val ? 1 : 0;
+  else cols.text = String(val);
+
+  return new Promise((resolve, reject) => {
+    db.run(
+      `INSERT INTO loyalty_program_settings (program_code, key, value_json, value_int, value_text)
+            VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(program_code, key) DO UPDATE SET
+            value_json = excluded.value_json,
+            value_int  = excluded.value_int,
+            value_text = excluded.value_text`,
+      [code, key, cols.json, cols.int, cols.text],
+      function (err) { return err ? reject(err) : resolve(this.changes); }
+    );
+  });
+}
+
+/** GET /api/admin/loyalty/program  → current settings */
+router.get("/program", async (req, res) => {
+  try {
+    const program = await getProgramSettings();
+    return res.json({ success: true, program });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: { message: e.message } });
+  }
+});
+
+/** PUT /api/admin/loyalty/program  → update settings */
+router.put("/program", async (req, res) => {
+  const code = 'STAFF';
+  const payload = req.body || {};
+  // only allow known keys
+  const allowed = [
+    'eligibleUserTypes', 'durationMonths', 'withdrawWaitDays',
+    'minWithdrawPoints', 'eurPerPoint', 'signupBonus', 'active'
+  ];
+  const entries = Object.entries(payload).filter(([k]) => allowed.includes(k));
+
+  if (!entries.length) {
+    return res.status(400).json({ success: false, error: { message: "No valid settings provided." } });
+  }
+
+  db.serialize(async () => {
+    try {
+      db.run("BEGIN");
+      for (const [k, v] of entries) {
+        // sanitize some obvious integers
+        const vv = ['durationMonths','withdrawWaitDays','minWithdrawPoints','signupBonus']
+          .includes(k) ? Math.max(0, parseInt(v, 10) || 0) : v;
+        await upsertSetting(db, code, k, vv);
+      }
+      db.run("COMMIT");
+      const program = await getProgramSettings();
+      return res.json({ success: true, program });
+    } catch (e) {
+      try { db.run("ROLLBACK"); } catch {}
+      return res.status(500).json({ success: false, error: { message: e.message } });
+    }
+  });
+});
+
+/** PATCH /api/admin/loyalty/accounts/:id/status  → Active|Paused|Closed  */
+router.patch("/accounts/:id/status", (req, res) => {
+  const id = Number(req.params.id);
+  const status = String((req.body && req.body.status) || '').trim();
+  if (!id || !['Active','Paused','Closed'].includes(status)) {
+    return res.status(400).json({ success:false, error:{ message:"Invalid account id or status." } });
+  }
+
+  db.run(`UPDATE loyalty_accounts SET status = ? WHERE id = ?`, [status, id], function (err) {
+    if (err) return res.status(500).json({ success:false, error:{ message: err.message } });
+    // Notify member (best-effort)
+    enqueue('status_change', { payload: { accountId: id, status } }).catch(()=>{});
+    return res.json({ success:true, updated: this.changes });
+  });
+});
 
 module.exports = router;
