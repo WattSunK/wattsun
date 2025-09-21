@@ -1,108 +1,109 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>My Account — Offers</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
-  <style>
-    :root { --bg:#0b0f14; --panel:#121821; --muted:#8aa0b2; --text:#e8f0f7; --ok:#19c37d; --warn:#f5a623; --err:#f65164; }
-    * { box-sizing: border-box; }
-    body { margin:0; font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial; background:var(--bg); color:var(--text); }
-    .wrap { max-width: 980px; margin: 32px auto; padding: 0 16px; }
-    .card { background:var(--panel); border:1px solid #223041; border-radius:16px; padding:16px; margin-bottom:16px; }
-    .row { display:flex; gap:12px; flex-wrap:wrap; }
-    .col { flex:1 1 240px; background:#0f141c; border:1px solid #223041; border-radius:12px; padding:12px; }
-    h1 { font-size: 22px; margin: 8px 0 16px; }
-    h2 { font-size: 16px; margin: 8px 0; color:#cfe2f5; }
-    .muted { color:var(--muted); font-size: 13px; }
-    .balance { font-size: 28px; font-weight: 700; }
-    .tag { display:inline-block; padding:3px 8px; border-radius:999px; font-size:12px; border:1px solid #2a3b4f; background:#0c121a; }
-    .tag.ok { border-color:#1e7f5a; color:#89ffd2; }
-    .tag.warn { border-color:#906a20; color:#ffd18a; }
-    .tag.err { border-color:#7a2430; color:#ffb1ba; }
-    button, input[type="number"] { background:#1a2431; color:var(--text); border:1px solid #2a3b4f; border-radius:10px; padding:8px 12px; font:inherit; }
-    button { cursor:pointer; }
-    button.primary { background:#15334a; border-color:#2c6c9a; }
-    button:disabled { opacity:.5; cursor:not-allowed; }
-    table { width:100%; border-collapse: collapse; font-size: 14px; }
-    th, td { border-bottom:1px solid #223041; padding:8px 6px; text-align:left; }
-    .right { text-align:right; }
-    .toast { position: fixed; right: 16px; bottom: 16px; background:#132133; border:1px solid #2a3b4f; color:#cfe2f5; padding: 10px 14px; border-radius: 10px; display:none; z-index: 10; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <h1>Staff Loyalty</h1>
+<!-- public/myaccount/offers.html -->
+<div class="ws-toolbar" style="display:flex;justify-content:flex-end;gap:10px;margin:10px 0;">
+  <button id="wsHome" class="ws-btn ws-btn-outline" style="padding:8px 14px;border-radius:8px;">Return to Home</button>
+  <button id="wsLogout" class="ws-btn ws-btn-yellow" style="padding:8px 14px;border-radius:8px;">Logout</button>
+</div>
 
-    <!-- Account summary -->
-    <div class="card" id="accountCard">
-      <div class="row">
-        <div class="col">
-          <h2>Balance</h2>
-          <div class="balance"><span id="pointsBalance">—</span> pts</div>
-          <div class="muted" id="eurBalance">€—</div>
-        </div>
-        <div class="col">
-          <h2>Status</h2>
-          <div><span class="tag" id="statusTag">—</span></div>
-          <div class="muted" id="dateInfo">Start — / Eligible — / End —</div>
-        </div>
-        <div class="col">
-          <h2>Actions</h2>
-          <div class="muted" id="minInfo">Minimum withdrawal: — pts</div>
-          <div style="margin-top:8px;">
-            <button id="enrollBtn" class="primary">Enroll</button>
-          </div>
+<!-- Loyalty – matches reference layout -->
+<section class="ws-loyalty">
+  <h2 class="ws-title">Staff Loyalty</h2>
+
+  <!-- Summary Card -->
+  <div class="ws-card" id="accountCard">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;">
+      <div style="flex:1 1 260px;min-width:260px;">
+        <h3 style="margin:4px 0 8px;">Balance</h3>
+        <div style="font-size:28px;font-weight:700;"><span id="pointsBalance">—</span> pts</div>
+        <div class="muted" id="eurBalance">€—</div>
+      </div>
+
+      <div style="flex:1 1 260px;min-width:260px;">
+        <h3 style="margin:4px 0 8px;">Status</h3>
+        <div><span id="statusTag" class="pill">—</span></div>
+        <div class="muted" id="dateInfo" style="margin-top:6px;">Start — / Eligible — / End —</div>
+      </div>
+
+      <div style="flex:1 1 260px;min-width:260px;">
+        <h3 style="margin:4px 0 8px;">Actions</h3>
+        <div class="muted" id="minInfo">Minimum withdrawal: — pts</div>
+        <div style="margin-top:8px;">
+          <button id="enrollBtn" class="ws-btn ws-btn-yellow">Enroll</button>
         </div>
       </div>
-    </div>
-
-    <!-- Withdraw -->
-    <div class="card" id="withdrawCard" style="display:none;">
-      <h2>Withdraw</h2>
-      <div class="muted" id="withdrawHelp">You can withdraw points (min shown above) at €1/pt.</div>
-      <div class="row" style="align-items:center;">
-        <div class="col" style="max-width:320px;">
-          <label class="muted" for="withdrawPoints">Points to withdraw</label>
-          <input id="withdrawPoints" type="number" min="100" step="1" value="100" style="width:100%;" />
-        </div>
-        <div class="col" style="max-width:220px;">
-          <div class="muted">Estimated payout</div>
-          <div class="balance" id="estimateEUR">€100</div>
-        </div>
-        <div class="col" style="max-width:220px;">
-          <button id="withdrawBtn" class="primary" disabled>Request Withdrawal</button>
-        </div>
-      </div>
-      <div id="withdrawMsg" class="muted" style="margin-top:8px;"></div>
-    </div>
-
-    <!-- Withdrawals history -->
-    <div class="card" id="historyCard" style="display:none;">
-      <h2>Withdrawal Requests</h2>
-      <table id="historyTable">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Requested</th>
-            <th>Status</th>
-            <th>Requested At</th>
-            <th>Decided</th>
-            <th>Paid</th>
-            <th class="right">Reference</th>
-          </tr>
-        </thead>
-        <tbody id="historyBody">
-          <tr><td colspan="7" class="muted">No withdrawals yet.</td></tr>
-        </tbody>
-      </table>
     </div>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <!-- Withdraw Card -->
+  <div class="ws-card" id="withdrawCard" style="display:none;">
+    <h3 style="margin:4px 0 12px;">Withdraw</h3>
+    <p class="muted" id="withdrawHelp" style="margin:0 0 10px;">You can withdraw points (min shown above) at €1/pt.</p>
 
-  <script src="/js/loyalty-offers.js"></script>
-</body>
-</html>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+      <div style="min-width:220px;">
+        <label class="muted" for="withdrawPoints">Points to withdraw</label><br/>
+        <input id="withdrawPoints" class="ws-input" type="number" min="100" step="1" value="100" style="width:220px;" />
+      </div>
+
+      <div style="min-width:180px;">
+        <div class="muted">Estimated payout</div>
+        <div style="font-size:22px;font-weight:700;" id="estimateEUR">€100</div>
+      </div>
+
+      <div style="min-width:200px;">
+        <button id="withdrawBtn" class="ws-btn ws-btn-yellow" disabled>Request Withdrawal</button>
+      </div>
+    </div>
+
+    <div id="withdrawMsg" class="muted" style="margin-top:8px;"></div>
+  </div>
+
+  <!-- History Card -->
+  <div class="ws-card" id="historyCard" style="display:none;">
+    <h3 style="margin:4px 0 12px;">Withdrawal Requests</h3>
+    <table class="ws-table" id="historyTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Requested</th>
+          <th>Status</th>
+          <th>Requested At</th>
+          <th>Decided</th>
+          <th>Paid</th>
+          <th>Reference</th>
+        </tr>
+      </thead>
+      <tbody id="historyBody"><tr><td colspan="7">No withdrawals yet.</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<link rel="stylesheet" href="/main.css"/>
+
+<style>
+  /* reuse same local helpers from myorders.html */
+  .ws-loyalty{ max-width:1180px; }
+  .ws-title{ margin:6px 0 12px; font-size:22px; }
+  .ws-card{ background:#fff; border:1px solid #f0e6bf; border-radius:10px; box-shadow:0 8px 18px rgba(0,0,0,.05); padding:10px; margin-bottom:12px; }
+  .ws-table{ width:100%; border-collapse:separate; border-spacing:0; }
+  .ws-table thead th{ text-align:left; font-weight:700; font-size:13px; padding:12px; background:#fffdf3; border-bottom:1px solid #f0e6bf; }
+  .ws-table tbody td{ padding:12px; border-bottom:1px solid #f5f5f5; font-size:14px; vertical-align:top; }
+  .ws-input{ padding:8px 10px; border-radius:8px; border:1px solid #e5e5e5; background:#fff; font-size:14px; outline:none; }
+  .ws-input:focus{ box-shadow:0 0 0 3px rgba(255,229,143,.5); border-color:#ffd666; }
+  .ws-btn{ appearance:none; border:none; border-radius:8px; padding:8px 14px; font-weight:600; cursor:pointer; }
+  .ws-btn-yellow{ background:#f0c419; }
+  .ws-btn-outline{ background:#fff; border:1px solid #d9d9d9; }
+  .muted{ color:#555; font-size:13px; }
+  .pill{ display:inline-block; padding:3px 8px; border-radius:999px; border:1px solid #d9d9d9; background:#fff; font-size:12px; }
+</style>
+
+<script defer src="/js/auth.js"></script>
+<script defer src="/js/loyalty-offers.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    var h=document.getElementById('wsHome'); var l=document.getElementById('wsLogout');
+    if(h) h.addEventListener('click', ()=>{ window.location.href='/index.html'; });
+    if(l) l.addEventListener('click', ()=>{ try{localStorage.removeItem('wattsunUser');}catch(e){} try{localStorage.removeItem('ws_user');}catch(e){} window.location.href='/index.html'; });
+    // loyalty-offers.js auto-inits; call here only if you wrap it in a named init
+    if (typeof initLoyaltyOffers === 'function') initLoyaltyOffers();
+  });
+</script>
