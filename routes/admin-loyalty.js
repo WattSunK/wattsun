@@ -69,10 +69,10 @@ function mergeProgramRowset(rows) {
     if (!r || !r.key) continue;
     let v = r.value;
     try {
-      if (/^\s*(\[|\{)/.test(v)) v = JSON.parse(v);
+      if (typeof v === "string" && /^\s*(\[|\{)/.test(v)) v = JSON.parse(v);
     } catch (_) {}
     if (["durationMonths","withdrawWaitDays","minWithdrawPoints","eurPerPoint","signupBonus"].includes(r.key)) {
-      const n = parseInt(v, 10);
+      const n = parseFloat(v);
       if (Number.isFinite(n)) v = n;
     }
     base[r.key] = v;
@@ -114,6 +114,12 @@ function getProgramByCode(code) {
       (err, rows) => (err ? reject(err) : resolve(mergeProgramRowset(rows)))
     );
   });
+}
+
+async function getProgramIdByCode(code) {
+  const row = await get(`SELECT id FROM loyalty_programs WHERE code = ?`, [code]);
+  if (!row) throw new Error(`PROGRAM_NOT_FOUND:${code}`);
+  return row.id;
 }
 
 /** KV-style setting upsert for legacy rows (program_id, key, value) */
@@ -375,6 +381,8 @@ async function getProgramSettings() {
     [code]
   );
 
+  const activeRow = await get(`SELECT active FROM loyalty_programs WHERE code = ?`, [code]);
+
   const out = {
     programCode: code,
     // sensible defaults
@@ -384,7 +392,7 @@ async function getProgramSettings() {
     minWithdrawPoints: 100,
     eurPerPoint: 1,
     signupBonus: 100,
-    active: true,
+    active: !!(activeRow && activeRow.active),
   };
 
   for (const row of rows) {
@@ -400,8 +408,8 @@ async function getProgramSettings() {
   return out;
 }
 
-/** helper: upsert a single (program_code, key) into *_json/_int/_text columns */
-async function upsertSettingTyped(code, key, val) {
+/** helper: upsert a single (program_id, program_code, key) into *_json/_int/_text columns */
+async function upsertSettingTyped(programId, code, key, val) {
   let vJson = null, vInt = null, vText = null;
   if (Array.isArray(val) || (val && typeof val === 'object')) vJson = JSON.stringify(val);
   else if (typeof val === 'number' && Number.isFinite(val)) vInt = Math.trunc(val);
@@ -416,13 +424,13 @@ async function upsertSettingTyped(code, key, val) {
     [vJson, vInt, vText, code, key]
   );
 
-  // 2) if no row updated, insert
+  // 2) if no row updated, insert (include program_id to satisfy NOT NULL)
   if (!upd.changes) {
     await run(
       `INSERT INTO loyalty_program_settings
-         (program_code, key, value_json, value_int, value_text, updated_at)
-       VALUES (?, ?, ?, ?, ?, datetime('now'))`,
-      [code, key, vJson, vInt, vText]
+         (program_id, program_code, key, value_json, value_int, value_text, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+      [programId, code, key, vJson, vInt, vText]
     );
   }
 }
@@ -452,23 +460,34 @@ router.put("/program", async (req, res) => {
     return res.status(400).json({ success: false, error: { message: "No valid settings provided." } });
   }
 
-  db.serialize(async () => {
-    try {
-      await run("BEGIN");
-      for (const [k, v] of entries) {
-        // sanitize some obvious integers
-        const vv = ['durationMonths','withdrawWaitDays','minWithdrawPoints','signupBonus']
-          .includes(k) ? Math.max(0, parseInt(v, 10) || 0) : v;
-        await upsertSettingTyped(code, k, vv);
+  try {
+    const programId = await getProgramIdByCode(code);
+
+    await run("BEGIN");
+    for (const [k, v] of entries) {
+      if (k === 'active') {
+        const flag = v === true || /^(true|1|yes)$/i.test(String(v));
+        await run(
+          `UPDATE loyalty_programs SET active = ?, updated_at = datetime('now') WHERE id = ?`,
+          [flag ? 1 : 0, programId]
+        );
+        continue;
       }
-      await run("COMMIT");
-      const program = await getProgramSettings();
-      return res.json({ success: true, program });
-    } catch (e) {
-      try { await run("ROLLBACK"); } catch {}
-      return res.status(500).json({ success: false, error: { message: e.message } });
+
+      // sanitize integers
+      const vv = ['durationMonths','withdrawWaitDays','minWithdrawPoints','signupBonus']
+        .includes(k) ? Math.max(0, parseInt(v, 10) || 0) : v;
+
+      await upsertSettingTyped(programId, code, k, vv);
     }
-  });
+    await run("COMMIT");
+
+    const program = await getProgramSettings();
+    return res.json({ success: true, program });
+  } catch (e) {
+    try { await run("ROLLBACK"); } catch {}
+    return res.status(500).json({ success: false, error: { message: e.message } });
+  }
 });
 
 /** PATCH /api/admin/loyalty/accounts/:id/status  → Active|Paused|Closed  */
