@@ -1,6 +1,7 @@
 // routes/admin-loyalty.js
 // Admin endpoints for Loyalty program settings + account controls (status/penalize/extend)
 // Also enqueues notifications for penalty and status changes.
+// NOTE: Admin authorization is enforced in server.js (global middleware). No route-level gate here.
 
 const express = require("express");
 const router = express.Router();
@@ -39,16 +40,6 @@ function get(sql, params = []) {
     db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)));
   });
 }
-
-// ---- authz ---------------------------------------------------
-function requireAdmin(req, res, next) {
-  const u = req?.session?.user;
-  if (!u || (u.type !== "Admin" && u.role !== "Admin")) {
-    return res.status(403).json({ success:false, error:{ code:"FORBIDDEN", message:"Admin only" } });
-  }
-  next();
-}
-router.use(requireAdmin);
 
 // ---- helpers -------------------------------------------------
 function mergeProgramRowset(rows) {
@@ -284,7 +275,7 @@ router.post("/accounts/:id/status", async (req, res) => {
     if (!acct) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Account not found" } });
     const oldStatus = acct.status;
     await updateAccountStatus(id, status);
-    await insertLedger(id, "status", 0, `Admin change: ${oldStatus} → ${status}. ${note || ""}`, req.session.user.id);
+    await insertLedger(id, "status", 0, `Admin change: ${oldStatus} → ${status}. ${note || ""}`, req.session.user?.id);
 
     // enqueue notification
     try {
@@ -320,7 +311,7 @@ router.post("/penalize", async (req, res) => {
     const acct = await getAccountByUser(programId, parseInt(userId, 10));
     if (!acct) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Account not found for user" } });
 
-    await insertLedger(acct.id, "penalty", -p, note || "Admin penalty", req.session.user.id);
+    await insertLedger(acct.id, "penalty", -p, note || "Admin penalty", req.session.user?.id);
 
     // enqueue notification
     try {
@@ -357,7 +348,7 @@ router.post("/extend", async (req, res) => {
     if (!acct) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Account not found for user" } });
 
     const newEnd = await extendAccountEndDate(acct.id, m);
-    await insertLedger(acct.id, "extend", 0, `Extended by ${m} month(s). ${note || ""}`, req.session.user.id);
+    await insertLedger(acct.id, "extend", 0, `Extended by ${m} month(s). ${note || ""}`, req.session.user?.id);
 
     const updated = await getAccountById(acct.id);
     return res.json({ success:true, account: updated });
@@ -451,8 +442,6 @@ async function upsertSettingTyped(programId, code, key, val) {
     );
   }
 }
-
-
 
 /** GET /api/admin/loyalty/program  → current settings */
 router.get("/program", async (req, res) => {
