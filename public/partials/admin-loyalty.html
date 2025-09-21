@@ -1,42 +1,58 @@
-<!-- /partials/admin-loyalty.html -->
-<section aria-label="Loyalty Manager">
-  <h2 class="ws-title">Loyalty — Withdrawals</h2>
-
-  <div class="ws-card">
-    <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;">
-      <div style="display:flex;gap:12px;align-items:center;">
-        <label for="statusSel" class="muted">Status</label>
-        <select id="statusSel" class="ws-input" style="width:160px;">
-          <option value="Pending" selected>Pending</option>
-          <option value="Approved">Approved</option>
-          <option value="Rejected">Rejected</option>
-          <option value="Paid">Paid</option>
-          <option value="">All</option>
-        </select>
-
-        <label for="autoRefresh" class="muted">Auto-refresh</label>
-        <select id="autoRefresh" class="ws-input" style="width:120px;">
-          <option value="0" selected>Off</option>
-          <option value="15">15s</option>
-          <option value="30">30s</option>
-          <option value="60">60s</option>
-        </select>
-      </div>
-      <button id="refreshBtn" class="ws-btn ws-btn-yellow">Refresh</button>
-    </div>
-
-    <table class="ws-table" style="margin-top:10px;">
-      <thead>
-        <tr>
-          <th>ID</th><th>User</th><th>Points</th><th>EUR</th>
-          <th>Status</th><th>Requested</th><th>Decided</th><th>Paid</th><th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="wdBody">
-        <tr><td colspan="9" class="muted">Loading…</td></tr>
-      </tbody>
-    </table>
+<!-- public/partials/admin-loyalty.html -->
+<section class="card">
+  <div class="card-header card-header--tight">
+    <h2 class="h2">Loyalty — Withdrawals</h2>
+    <div class="spacer"></div>
+    <button id="refreshBtn" class="btn">Refresh</button>
   </div>
 
-  <script defer src="/js/admin-loyalty.js"></script>
+  <div class="filters-bar">
+    <div class="group">
+      <label>Status</label>
+      <select id="statusSel" class="input">
+        <option value="Pending" selected>Pending</option>
+        <option value="Approved">Approved</option>
+        <option value="Rejected">Rejected</option>
+        <option value="Paid">Paid</option>
+        <option value="">All</option>
+      </select>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="group">
+      <label>Auto-refresh</label>
+      <select id="autoRefresh" class="input">
+        <option value="0" selected>Off</option>
+        <option value="15">15s</option>
+        <option value="30">30s</option>
+        <option value="60">60s</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card-body card-body--tight">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Points</th>
+            <th>EUR</th>
+            <th>Status</th>
+            <th>Requested</th>
+            <th>Decided</th>
+            <th>Paid</th>
+            <th style="text-align:center;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="wdBody">
+          <tr><td colspan="9" class="muted">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </section>
+
+<script defer src="/js/admin-loyalty.js"></script>
