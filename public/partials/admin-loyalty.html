@@ -2,39 +2,40 @@
 <section class="card" id="loyalty-root" aria-labelledby="loyalty-title">
   <header class="card-header">
     <h2 id="loyalty-title" class="card-title">Loyalty Program</h2>
-    <div class="tabs">
-      <button id="tabWithdrawalsBtn" class="btn btn--active">Withdrawals</button>
-      <button id="tabAccountsBtn">Accounts</button>
-      <button id="tabLedgerBtn">Ledger</button>
-      <button id="tabNotifsBtn">Notifications</button>
+    <div class="spacer"></div>
+    <div class="btn-group" role="group">
+      <button id="tabWithdrawalsBtn" class="btn">Withdrawals</button>
+      <button id="tabAccountsBtn" class="btn btn--ghost">Accounts</button>
+      <button id="tabLedgerBtn" class="btn btn--ghost">Ledger</button>
+      <button id="tabNotifsBtn" class="btn btn--ghost">Notifications</button>
     </div>
   </header>
 
-  <!-- Filters bar -->
-  <form id="loyalty-filters" class="filters-bar" autocomplete="off">
-    <div class="group">
-      <label for="loyalty-status">Status</label>
-      <select id="loyalty-status" name="status" class="input">
-        <option value="">All</option>
-        <option value="Pending">Pending</option>
-        <option value="Approved">Approved</option>
-        <option value="Rejected">Rejected</option>
-        <option value="Paid">Paid</option>
-        <option value="Active">Active</option>
-      </select>
-    </div>
-    <div class="group spacer"></div>
-    <div class="group">
-      <input id="loyalty-search" type="search" class="input" placeholder="Search…" />
-      <button type="button" id="loyalty-search-btn" class="btn">Search</button>
-      <button type="button" id="loyalty-clear-btn" class="btn">Clear</button>
-      <button type="button" id="loyalty-refresh-btn" class="btn btn--gold">Refresh</button>
-    </div>
-  </form>
+  <div class="card-body">
+    <!-- Filters -->
+    <form id="loyalty-filters" class="filters-bar" autocomplete="off">
+      <div class="group">
+        <label for="statusSel">Status</label>
+        <select id="statusSel" name="status">
+          <option value="">All</option>
+          <option value="Pending">Pending</option>
+          <option value="Approved">Approved</option>
+          <option value="Rejected">Rejected</option>
+          <option value="Paid">Paid</option>
+        </select>
+      </div>
 
-  <!-- Tab contents -->
-  <div id="loyaltyTabWithdrawals" class="loyalty-tab">
-    <div class="table-responsive">
+      <div class="group right">
+        <label for="loyaltySearch">Search</label>
+        <input id="loyaltySearch" name="q" class="input" placeholder="Find record…" />
+        <button type="button" id="loyaltySearchBtn" class="btn">Search</button>
+        <button type="button" id="loyaltyClearBtn" class="btn">Clear</button>
+        <button type="button" id="loyaltyRefreshBtn" class="btn">Refresh</button>
+      </div>
+    </form>
+
+    <!-- Withdrawals Table -->
+    <div id="loyaltyTabWithdrawals" class="loyalty-tab">
       <table class="table">
         <thead>
           <tr>
@@ -54,10 +55,9 @@
         </tbody>
       </table>
     </div>
-  </div>
 
-  <div id="loyaltyTabAccounts" class="loyalty-tab" style="display:none;">
-    <div class="table-responsive">
+    <!-- Accounts Table -->
+    <div id="loyaltyTabAccounts" class="loyalty-tab" style="display:none;">
       <table class="table">
         <thead>
           <tr>
@@ -79,10 +79,9 @@
         </tbody>
       </table>
     </div>
-  </div>
 
-  <div id="loyaltyTabLedger" class="loyalty-tab" style="display:none;">
-    <div class="table-responsive">
+    <!-- Ledger Table -->
+    <div id="loyaltyTabLedger" class="loyalty-tab" style="display:none;">
       <table class="table">
         <thead>
           <tr>
@@ -99,10 +98,9 @@
         </tbody>
       </table>
     </div>
-  </div>
 
-  <div id="loyaltyTabNotifs" class="loyalty-tab" style="display:none;">
-    <div class="table-responsive">
+    <!-- Notifications Table -->
+    <div id="loyaltyTabNotifs" class="loyalty-tab" style="display:none;">
       <table class="table">
         <thead>
           <tr>
@@ -118,17 +116,17 @@
         </tbody>
       </table>
     </div>
-  </div>
 
-  <!-- Shared meta + pager -->
-  <footer class="table-footer">
-    <div class="meta" id="loyalty-meta">0 results</div>
-    <div class="pager" id="loyalty-pager">
-      <button type="button" class="btn" data-page="first">First</button>
-      <button type="button" class="btn" data-page="prev">« Prev</button>
-      <span id="loyalty-page">1</span>
-      <button type="button" class="btn" data-page="next">Next »</button>
-      <button type="button" class="btn" data-page="last">Last</button>
-    </div>
-  </footer>
+    <!-- Shared Meta Bar + Pagination -->
+    <footer class="table-meta">
+      <div id="loyaltyMeta" class="meta">0 results</div>
+      <div class="pager" id="loyaltyPager">
+        <button class="btn btn--small">First</button>
+        <button class="btn btn--small">« Prev</button>
+        <span>1</span>
+        <button class="btn btn--small">Next »</button>
+        <button class="btn btn--small">Last</button>
+      </div>
+    </footer>
+  </div>
 </section>
