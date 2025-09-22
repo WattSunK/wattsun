@@ -1,7 +1,7 @@
 #!/bin/sh
 # Monorepo updater for NAS (pull-only)
 # - Fixes origin to WattSunK/wattsun and disables pushes
-# - Stops app, fetch/reset to origin/main
+# - Stops app, fetch/reset to origin/<current branch>
 # - Skips npm install if lockfile unchanged; shows progress if running
 # - Starts app and verifies health; logs to logs/update.log
 set -eu
@@ -41,7 +41,24 @@ fi
 
 echo "[step] fetching latest"
 git fetch --all
-git reset --hard origin/main
+
+# Detect current branch
+BRANCH=$(git branch --show-current)
+
+if [ -z "$BRANCH" ]; then
+  echo "[fatal] Could not detect current branch!"
+  exit 1
+fi
+
+# Check that branch exists remotely
+if ! git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+  echo "[fatal] Branch '$BRANCH' not found in origin!"
+  echo "[hint] Push it first: git push origin $BRANCH"
+  exit 1
+fi
+
+echo "[info] Resetting to origin/$BRANCH"
+git reset --hard "origin/$BRANCH"
 git clean -fd
 
 NEW_SHA="$(git rev-parse HEAD)"
@@ -54,7 +71,6 @@ chmod +x scripts/*.sh 2>/dev/null || true
 # Decide if we actually need npm install
 LOCK_CHANGED=1
 if [ -n "$OLD_SHA" ]; then
-  # 0 or 1+ if package-lock.json changed between deployed and new
   LOCK_CHANGED="$(git diff --name-only "$OLD_SHA" "$NEW_SHA" | grep -c '^package-lock\.json$' || true)"
 fi
 

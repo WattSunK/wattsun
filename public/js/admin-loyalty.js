@@ -1,4 +1,4 @@
-// public/js/admin-loyalty.js
+// public/admin/js/admin-loyalty.js
 (() => {
   // ---------- tiny utils ----------
   const $ = (id) => document.getElementById(id);
@@ -28,6 +28,104 @@
                          'pill';
     return `<span class="${cls}">${status || '—'}</span>`;
   };
+// --- Increment 2: Loyalty visibility loaders ---
+
+async function loadAccounts() {
+  const body = document.getElementById("loyaltyAccountsBody");
+  if (!body) return;
+  body.innerHTML = `<tr><td colspan="11" class="muted">Loading…</td></tr>`;
+  try {
+    const data = await api("/api/admin/loyalty/accounts");
+    const rows = data.accounts || [];
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="11" class="muted">(No data yet)</td></tr>`;
+      return;
+    }
+    body.innerHTML = "";
+    for (const a of rows) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${a.id}</td>
+        <td>${a.user_id}</td>
+        <td>${a.email || "—"}</td>
+        <td>${a.status}</td>
+        <td>${a.start_date || "—"}</td>
+        <td>${a.end_date || "—"}</td>
+        <td>${fmt(a.duration_months)}</td>
+        <td>${fmt(a.points_balance)}</td>
+        <td>${fmt(a.total_earned)}</td>
+        <td>${fmt(a.total_penalty)}</td>
+        <td>${fmt(a.total_paid)}</td>
+      `;
+      body.appendChild(tr);
+    }
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="11" class="muted">Error: ${e.message}</td></tr>`;
+  }
+}
+
+async function loadLedger() {
+  const body = document.getElementById("loyaltyLedgerBody");
+  if (!body) return;
+  body.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
+  try {
+    const data = await api("/api/admin/loyalty/ledger");
+    const rows = data.ledger || [];
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="6" class="muted">(No data yet)</td></tr>`;
+      return;
+    }
+    body.innerHTML = "";
+    for (const l of rows) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${l.id}</td>
+        <td>${l.account_id}</td>
+        <td>${l.kind}</td>
+        <td>${fmt(l.points_delta)}</td>
+        <td>${l.note || "—"}</td>
+        <td>${l.created_at}</td>
+      `;
+      body.appendChild(tr);
+    }
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="6" class="muted">Error: ${e.message}</td></tr>`;
+  }
+}
+
+async function loadNotifications() {
+  const body = document.getElementById("loyaltyNotificationsBody");
+  if (!body) return;
+  body.innerHTML = `<tr><td colspan="5" class="muted">Loading…</td></tr>`;
+  try {
+    const data = await api("/api/admin/loyalty/notifications");
+    const rows = data.notifications || [];
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="5" class="muted">(No data yet)</td></tr>`;
+      return;
+    }
+    body.innerHTML = "";
+    for (const n of rows) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${n.id}</td>
+        <td>${n.kind}</td>
+        <td>${n.email}</td>
+        <td>${n.status}</td>
+        <td>${n.created_at}</td>
+      `;
+      body.appendChild(tr);
+    }
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="5" class="muted">Error: ${e.message}</td></tr>`;
+  }
+}
+
+async function refreshAll() {
+  await loadAccounts();
+  await loadLedger();
+  await loadNotifications();
+}
 
   // ---------- state ----------
   let refreshTimer = null;
@@ -148,13 +246,18 @@
   }
 
   // ---------- boot ----------
-  document.addEventListener('DOMContentLoaded', () => {
-    $('refreshBtn')?.addEventListener('click', loadList);
-    $('statusSel')?.addEventListener('change', loadList);
-    $('autoRefresh')?.addEventListener('change', setAutoRefresh);
+ document.addEventListener('DOMContentLoaded', () => {
+  $('refreshBtn')?.addEventListener('click', loadList);
+  $('statusSel')?.addEventListener('change', loadList);
+  $('autoRefresh')?.addEventListener('change', setAutoRefresh);
 
-    bindTableActions();
-    loadList();
-    setAutoRefresh();
-  });
+  // Increment 2: Loyalty tables
+  document.getElementById("loyaltyRefreshBtn")?.addEventListener("click", refreshAll);
+  refreshAll();
+
+  bindTableActions();
+  loadList();
+  setAutoRefresh();
+});
+
 })();
