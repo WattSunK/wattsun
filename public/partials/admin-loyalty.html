@@ -193,91 +193,97 @@
   </section>
 </div>
 
-<!-- === Increment 2: Loyalty Visibility Tables === -->
-
+<!-- === Increment 2: Loyalty Visibility (Tabbed) === -->
 <section class="card">
   <div class="card-header card-header--tight">
-    <h2 class="h2">Loyalty — Accounts</h2>
+    <h2 class="h2">Loyalty — Visibility</h2>
     <div class="spacer"></div>
     <button id="loyaltyRefreshBtn" class="btn">Refresh</button>
   </div>
-  <div class="card-body card-body--tight">
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>User ID</th>
-            <th>Email</th>
-            <th>Status</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Duration (mo)</th>
-            <th>Balance</th>
-            <th>Earned</th>
-            <th>Penalty</th>
-            <th>Paid</th>
-          </tr>
-        </thead>
-        <tbody id="loyaltyAccountsBody">
-          <tr><td colspan="11" class="muted">(No data yet)</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
 
-<section class="card">
-  <div class="card-header card-header--tight">
-    <h2 class="h2">Loyalty — Ledger</h2>
-  </div>
-  <div class="card-body card-body--tight">
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Account</th>
-            <th>Kind</th>
-            <th>Δ Points</th>
-            <th>Note</th>
-            <th>Created</th>
-          </tr>
-        </thead>
-        <tbody id="loyaltyLedgerBody">
-          <tr><td colspan="6" class="muted">(No data yet)</td></tr>
-        </tbody>
-      </table>
+  <!-- tab header -->
+  <div class="filters-bar" style="border-top:1px solid #f0f0f0;">
+    <div class="group">
+      <button type="button" class="btn" id="tabAccountsBtn2">Accounts</button>
+      <button type="button" class="btn btn--ghost" id="tabLedgerBtn2">Ledger</button>
+      <button type="button" class="btn btn--ghost" id="tabNotifsBtn2">Notifications</button>
     </div>
+    <div class="spacer"></div>
+    <div class="group"><span id="loyaltyMsg" class="muted">Select a tab</span></div>
   </div>
-</section>
 
-<section class="card">
-  <div class="card-header card-header--tight">
-    <h2 class="h2">Loyalty — Notifications</h2>
-  </div>
-  <div class="card-body card-body--tight">
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Kind</th>
-            <th>Email</th>
-            <th>Status</th>
-            <th>Created</th>
-          </tr>
-        </thead>
-        <tbody id="loyaltyNotificationsBody">
-          <tr><td colspan="5" class="muted">(No data yet)</td></tr>
-        </tbody>
-      </table>
+  <div class="card-body">
+
+    <!-- ACCOUNTS TAB -->
+    <div id="loyaltyTabAccounts" style="display:block;">
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>User ID</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Duration (mo)</th>
+              <th>Balance</th>
+              <th>Earned</th>
+              <th>Penalty</th>
+              <th>Paid</th>
+            </tr>
+          </thead>
+          <tbody id="loyaltyAccountsBody">
+            <tr><td colspan="11" class="muted">(No data yet)</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
+
+    <!-- LEDGER TAB -->
+    <div id="loyaltyTabLedger" style="display:none;">
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Account</th>
+              <th>Kind</th>
+              <th>Δ Points</th>
+              <th>Note</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody id="loyaltyLedgerBody">
+            <tr><td colspan="6" class="muted">(No data yet)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- NOTIFICATIONS TAB -->
+    <div id="loyaltyTabNotifs" style="display:none;">
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Kind</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody id="loyaltyNotificationsBody">
+            <tr><td colspan="5" class="muted">(No data yet)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </section>
 
 <!-- existing scripts for this page -->
 <script defer src="/admin/js/admin-loyalty.js"></script>
-
-<!-- modal logic with tabs (new) -->
 <script defer src="/js/admin-loyalty-settings-modal.js"></script>
