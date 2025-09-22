@@ -519,8 +519,15 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
   width: 100%;
   box-sizing: border-box;
 }
-.btn--active {
-  background-color: #f4a940;
+/* Active tab button styling */
+.btn.btn--active {
+  background-color: #f4a940; /* golden (same as your brand color) */
   color: #fff;
   font-weight: 600;
+  border-color: #f4a940;
+}
+
+.btn.btn--active:hover {
+  background-color: #e69620; /* slightly darker on hover */
+  border-color: #e69620;
 }
