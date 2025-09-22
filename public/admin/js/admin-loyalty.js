@@ -1,13 +1,14 @@
 // public/admin/js/admin-loyalty.js
 (() => {
+  // ---------- tiny utils ----------
   const $ = (id) => document.getElementById(id);
-  const fmt = (n) => (n === 0 || n ? Number(n).toLocaleString() : "—");
+  const fmt = (n) => (n === 0 || n ? Number(n).toLocaleString() : '—');
 
   const api = async (path, opts = {}) => {
     const res = await fetch(path, {
-      method: opts.method || "GET",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
+      method: opts.method || 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: opts.body ? JSON.stringify(opts.body) : undefined
     });
     let data = {};
@@ -19,16 +20,16 @@
   };
 
   const pill = (status) => {
-    const s = String(status || "").toLowerCase();
+    const s = String(status || '').toLowerCase();
     const cls =
-      s === "approved" ? "pill pill--ok" :
-      s === "rejected" ? "pill pill--warn" :
-      s === "paid"     ? "pill pill--ok" :
-                         "pill";
-    return `<span class="${cls}">${status || "—"}</span>`;
+      s === 'approved' ? 'pill pill--ok' :
+      s === 'rejected' ? 'pill pill--warn' :
+      s === 'paid'     ? 'pill pill--ok' :
+                         'pill';
+    return `<span class="${cls}">${status || '—'}</span>`;
   };
 
-  // ---------- Loaders ----------
+  // ---------- loaders ----------
   async function loadAccounts() {
     const body = $("loyaltyAccountsBody");
     if (!body) return;
@@ -36,7 +37,6 @@
     try {
       const data = await api("/api/admin/loyalty/accounts");
       const rows = data.accounts || [];
-      updateMeta(rows.length);
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="11" class="muted">(No data yet)</td></tr>`;
         return;
@@ -71,7 +71,6 @@
     try {
       const data = await api("/api/admin/loyalty/ledger");
       const rows = data.ledger || [];
-      updateMeta(rows.length);
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="6" class="muted">(No data yet)</td></tr>`;
         return;
@@ -101,7 +100,6 @@
     try {
       const data = await api("/api/admin/loyalty/notifications");
       const rows = data.notifications || [];
-      updateMeta(rows.length);
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="5" class="muted">(No data yet)</td></tr>`;
         return;
@@ -123,16 +121,15 @@
     }
   }
 
-  async function loadList() {
+  async function loadWithdrawals() {
     const body = $("wdBody");
     if (!body) return;
-    body.innerHTML = `<tr><td colspan="9" class="muted">(No data yet)</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="muted">Loading…</td></tr>`;
     const status = $("statusSel")?.value || "";
     const q = status ? `?status=${encodeURIComponent(status)}` : "";
     try {
       const data = await api(`/api/admin/loyalty/withdrawals${q}`);
       const rows = data.withdrawals || data.items || [];
-      updateMeta(rows.length);
       body.innerHTML = "";
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="9" class="muted">(No data yet)</td></tr>`;
@@ -147,14 +144,17 @@
         const requested = w.requested_at || w.created_at || "";
         const decided = w.decided_at || "";
         const paid = w.paid_at || "";
+
         const canApprove = st === "Pending";
         const canReject = st === "Pending";
         const canPaid = st === "Approved";
+
         const actions = [
           canApprove ? `<button class="btn btn--small" data-act="approve" data-id="${id}">Approve</button>` : "",
-          canReject ? `<button class="btn btn--small" data-act="reject" data-id="${id}">Reject</button>` : "",
-          canPaid ? `<button class="btn btn--small" data-act="paid" data-id="${id}">Mark Paid</button>` : ""
+          canReject  ? `<button class="btn btn--small" data-act="reject" data-id="${id}">Reject</button>`  : "",
+          canPaid    ? `<button class="btn btn--small" data-act="paid" data-id="${id}">Mark Paid</button>` : ""
         ].filter(Boolean).join(" ");
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${id}</td>
@@ -174,13 +174,7 @@
     }
   }
 
-  // ---------- Meta + pager ----------
-  function updateMeta(count) {
-    const meta = $("loyaltyMeta");
-    if (meta) meta.textContent = `${count} results`;
-  }
-
-  // ---------- Actions ----------
+  // ---------- actions ----------
   async function doAct(act, id) {
     let path = "";
     let method = "POST";
@@ -191,14 +185,20 @@
       path = `/api/admin/loyalty/withdrawals/${id}/reject`;
     } else if (act === "paid") {
       path = `/api/admin/loyalty/withdrawals/${id}/paid`;
-    } else {
-      return;
-    }
+    } else return;
+
     try {
       await api(path, { method, body });
-      await loadList();
+      await loadWithdrawals();
     } catch (e) {
-      alert(`Action failed: ${e.message}`);
+      const bodyEl = $("wdBody");
+      if (bodyEl) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="9" class="muted">Action failed: ${e.message}</td>`;
+        bodyEl.insertBefore(tr, bodyEl.firstChild);
+      } else {
+        alert(`Action failed: ${e.message}`);
+      }
     }
   }
 
@@ -215,56 +215,47 @@
     });
   }
 
-  // ---------- Tabs ----------
+  // ---------- tab toggler ----------
   function initLoyaltyTabs() {
-    const btns = {
-      withdrawals: $("tabWithdrawalsBtn"),
-      accounts: $("tabAccountsBtn"),
-      ledger: $("tabLedgerBtn"),
-      notifs: $("tabNotifsBtn")
-    };
     const tabs = {
-      withdrawals: $("loyaltyTabWithdrawals"),
-      accounts: $("loyaltyTabAccounts"),
-      ledger: $("loyaltyTabLedger"),
-      notifs: $("loyaltyTabNotifs")
+      withdrawals: { btn: $("tabWithdrawalsBtn"), panel: $("loyaltyTabWithdrawals"), load: loadWithdrawals },
+      accounts:    { btn: $("tabAccountsBtn2"),  panel: $("loyaltyTabAccounts"),    load: loadAccounts },
+      ledger:      { btn: $("tabLedgerBtn2"),    panel: $("loyaltyTabLedger"),      load: loadLedger },
+      notifs:      { btn: $("tabNotifsBtn2"),    panel: $("loyaltyTabNotifs"),      load: loadNotifications }
     };
-    const filters = $("withdrawalsFilters");
 
     function showTab(which) {
-      Object.keys(tabs).forEach(k => {
-        tabs[k].style.display = (k === which) ? "block" : "none";
-        btns[k]?.classList.toggle("btn--active", k === which);
+      Object.entries(tabs).forEach(([key, { btn, panel }]) => {
+        if (panel) panel.style.display = key === which ? "block" : "none";
+        if (btn) btn.classList.toggle("btn--active", key === which);
       });
-      if (filters) filters.style.display = (which === "withdrawals" ? "flex" : "none");
-      if (which === "withdrawals") loadList();
-      if (which === "accounts") loadAccounts();
-      if (which === "ledger") loadLedger();
-      if (which === "notifs") loadNotifications();
+      tabs[which]?.load();
     }
 
-    btns.withdrawals?.addEventListener("click", () => showTab("withdrawals"));
-    btns.accounts?.addEventListener("click", () => showTab("accounts"));
-    btns.ledger?.addEventListener("click", () => showTab("ledger"));
-    btns.notifs?.addEventListener("click", () => showTab("notifs"));
+    Object.entries(tabs).forEach(([key, { btn }]) => {
+      btn?.addEventListener("click", () => showTab(key));
+    });
 
-    showTab("withdrawals");
+    showTab("withdrawals"); // default
   }
 
-  // ---------- Boot ----------
+  // ---------- boot ----------
   initLoyaltyTabs();
-  $("statusSel")?.addEventListener("change", loadList);
-  $("loyaltyRefreshBtn")?.addEventListener("click", () => refreshAll());
+  $("loyaltyRefreshBtn")?.addEventListener("click", () => {
+    const active = document.querySelector(".btn--active")?.id || "tabWithdrawalsBtn";
+    if (active.includes("Accounts")) loadAccounts();
+    else if (active.includes("Ledger")) loadLedger();
+    else if (active.includes("Notifs")) loadNotifications();
+    else loadWithdrawals();
+  });
   bindTableActions();
 
-  async function refreshAll() {
-    const active = document.querySelector(".btn--active");
-    if (!active) return;
-    if (active.id === "tabWithdrawalsBtn") await loadList();
-    if (active.id === "tabAccountsBtn") await loadAccounts();
-    if (active.id === "tabLedgerBtn") await loadLedger();
-    if (active.id === "tabNotifsBtn") await loadNotifications();
-  }
+  // Expose for debugging
+  window.refreshAll = () => {
+    loadWithdrawals();
+    loadAccounts();
+    loadLedger();
+    loadNotifications();
+  };
 
-  window.refreshAll = refreshAll;
 })();
