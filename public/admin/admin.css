@@ -519,3 +519,8 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
   width: 100%;
   box-sizing: border-box;
 }
+.btn--active {
+  background-color: #f4a940;
+  color: #fff;
+  font-weight: 600;
+}

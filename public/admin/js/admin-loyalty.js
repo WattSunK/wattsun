@@ -36,7 +36,6 @@
     body.innerHTML = `<tr><td colspan="11" class="muted">Loading…</td></tr>`;
     try {
       const data = await api("/api/admin/loyalty/accounts");
-      console.log("[loyalty] accounts data", data);
       const rows = data.accounts || [];
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="11" class="muted">(No data yet)</td></tr>`;
@@ -71,7 +70,6 @@
     body.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
     try {
       const data = await api("/api/admin/loyalty/ledger");
-      console.log("[loyalty] ledger data", data);
       const rows = data.ledger || [];
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="6" class="muted">(No data yet)</td></tr>`;
@@ -101,7 +99,6 @@
     body.innerHTML = `<tr><td colspan="5" class="muted">Loading…</td></tr>`;
     try {
       const data = await api("/api/admin/loyalty/notifications");
-      console.log("[loyalty] notifications data", data);
       const rows = data.notifications || [];
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="5" class="muted">(No data yet)</td></tr>`;
@@ -125,7 +122,6 @@
   }
 
   async function refreshAll() {
-    console.log("[loyalty] refreshAll called");
     await loadAccounts();
     await loadLedger();
     await loadNotifications();
@@ -145,7 +141,6 @@
 
     try {
       const data = await api(`/api/admin/loyalty/withdrawals${q}`);
-      console.log("[loyalty] withdrawals data", data);
       const rows = data.withdrawals || data.items || [];
       body.innerHTML = '';
       if (!rows.length) {
@@ -215,7 +210,7 @@
       const bodyEl = $('wdBody');
       if (bodyEl) {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td colspan="9" class="muted">Action failed: ${e.message}</td>`;
+        tr.innerHTML = `<td colspan="9" class="muted">Action failed: ${e.message}</td></tr>`;
         bodyEl.insertBefore(tr, bodyEl.firstChild);
       } else {
         alert(`Action failed: ${e.message}`);
@@ -265,30 +260,43 @@
       tabLedger.style.display   = which === "ledger"   ? "block" : "none";
       tabNotifs.style.display   = which === "notifs"   ? "block" : "none";
 
-      accountsBtn.classList.toggle("btn--ghost", which !== "accounts");
-      ledgerBtn.classList.toggle("btn--ghost",   which !== "ledger");
-      notifsBtn.classList.toggle("btn--ghost",   which !== "notifs");
+      [accountsBtn, ledgerBtn, notifsBtn].forEach(btn => btn?.classList.remove("btn--active"));
 
-      if (which === "accounts") loadAccounts();
-      if (which === "ledger")   loadLedger();
-      if (which === "notifs")   loadNotifications();
+      if (which === "accounts") {
+        accountsBtn?.classList.add("btn--active");
+        loadAccounts();
+      }
+      if (which === "ledger") {
+        ledgerBtn?.classList.add("btn--active");
+        loadLedger();
+      }
+      if (which === "notifs") {
+        notifsBtn?.classList.add("btn--active");
+        loadNotifications();
+      }
     }
 
     accountsBtn?.addEventListener("click", () => showTab("accounts"));
     ledgerBtn?.addEventListener("click",   () => showTab("ledger"));
     notifsBtn?.addEventListener("click",   () => showTab("notifs"));
 
-    showTab("accounts");
+    showTab("accounts"); // default
   }
 
   // ---------- boot ----------
-  // Run immediately since script is loaded with defer
-  initLoyaltyTabs();
-  document.getElementById("loyaltyRefreshBtn")?.addEventListener("click", refreshAll);
-  refreshAll();
-  bindTableActions();
-  loadList();
-  setAutoRefresh();
+  document.addEventListener('DOMContentLoaded', () => {
+    $('refreshBtn')?.addEventListener('click', loadList);
+    $('statusSel')?.addEventListener('change', loadList);
+    $('autoRefresh')?.addEventListener('change', setAutoRefresh);
+    initLoyaltyTabs();
+
+    document.getElementById("loyaltyRefreshBtn")?.addEventListener("click", refreshAll);
+    refreshAll();
+
+    bindTableActions();
+    loadList();
+    setAutoRefresh();
+  });
 
   // Expose refreshAll globally
   window.refreshAll = refreshAll;
