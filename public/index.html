@@ -310,7 +310,8 @@
       label.style.cursor = "pointer";
       label.addEventListener("click", () => {
         const target = user.type === "Admin" ? "/dashboard.html#system-status" : "/myaccount/userdash.html";
-        window.location.href = target;
+        console.log("[auth] login success", data);
+            window.location.href = target;
       });
       logout.addEventListener("click", () => {
         localStorage.removeItem("wattsunUser");
@@ -343,7 +344,8 @@
     localStorage.removeItem("redirectAfterLogin");
     localStorage.removeItem("checkoutRedirect");
 
-    window.location.href = dest;
+    console.log("[auth] login success", data);
+            window.location.href = dest;
   }
 
   function startAuthWatch() {
