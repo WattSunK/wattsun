@@ -28,104 +28,108 @@
                          'pill';
     return `<span class="${cls}">${status || '—'}</span>`;
   };
-// --- Increment 2: Loyalty visibility loaders ---
 
-async function loadAccounts() {
-  const body = document.getElementById("loyaltyAccountsBody");
-  if (!body) return;
-  body.innerHTML = `<tr><td colspan="11" class="muted">Loading…</td></tr>`;
-  try {
-    const data = await api("/api/admin/loyalty/accounts");
-    const rows = data.accounts || [];
-    if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="11" class="muted">(No data yet)</td></tr>`;
-      return;
+  // --- Increment 2: Loyalty visibility loaders ---
+  async function loadAccounts() {
+    const body = document.getElementById("loyaltyAccountsBody");
+    if (!body) return;
+    body.innerHTML = `<tr><td colspan="11" class="muted">Loading…</td></tr>`;
+    try {
+      const data = await api("/api/admin/loyalty/accounts");
+      console.log("[loyalty] accounts data", data);
+      const rows = data.accounts || [];
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="11" class="muted">(No data yet)</td></tr>`;
+        return;
+      }
+      body.innerHTML = "";
+      for (const a of rows) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${a.id}</td>
+          <td>${a.user_id}</td>
+          <td>${a.email || "—"}</td>
+          <td>${a.status}</td>
+          <td>${a.start_date || "—"}</td>
+          <td>${a.end_date || "—"}</td>
+          <td>${fmt(a.duration_months)}</td>
+          <td>${fmt(a.points_balance)}</td>
+          <td>${fmt(a.total_earned)}</td>
+          <td>${fmt(a.total_penalty)}</td>
+          <td>${fmt(a.total_paid)}</td>
+        `;
+        body.appendChild(tr);
+      }
+    } catch (e) {
+      body.innerHTML = `<tr><td colspan="11" class="muted">Error: ${e.message}</td></tr>`;
     }
-    body.innerHTML = "";
-    for (const a of rows) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${a.id}</td>
-        <td>${a.user_id}</td>
-        <td>${a.email || "—"}</td>
-        <td>${a.status}</td>
-        <td>${a.start_date || "—"}</td>
-        <td>${a.end_date || "—"}</td>
-        <td>${fmt(a.duration_months)}</td>
-        <td>${fmt(a.points_balance)}</td>
-        <td>${fmt(a.total_earned)}</td>
-        <td>${fmt(a.total_penalty)}</td>
-        <td>${fmt(a.total_paid)}</td>
-      `;
-      body.appendChild(tr);
-    }
-  } catch (e) {
-    body.innerHTML = `<tr><td colspan="11" class="muted">Error: ${e.message}</td></tr>`;
   }
-}
 
-async function loadLedger() {
-  const body = document.getElementById("loyaltyLedgerBody");
-  if (!body) return;
-  body.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
-  try {
-    const data = await api("/api/admin/loyalty/ledger");
-    const rows = data.ledger || [];
-    if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="6" class="muted">(No data yet)</td></tr>`;
-      return;
+  async function loadLedger() {
+    const body = document.getElementById("loyaltyLedgerBody");
+    if (!body) return;
+    body.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
+    try {
+      const data = await api("/api/admin/loyalty/ledger");
+      console.log("[loyalty] ledger data", data);
+      const rows = data.ledger || [];
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="6" class="muted">(No data yet)</td></tr>`;
+        return;
+      }
+      body.innerHTML = "";
+      for (const l of rows) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${l.id}</td>
+          <td>${l.account_id}</td>
+          <td>${l.kind}</td>
+          <td>${fmt(l.points_delta)}</td>
+          <td>${l.note || "—"}</td>
+          <td>${l.created_at}</td>
+        `;
+        body.appendChild(tr);
+      }
+    } catch (e) {
+      body.innerHTML = `<tr><td colspan="6" class="muted">Error: ${e.message}</td></tr>`;
     }
-    body.innerHTML = "";
-    for (const l of rows) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${l.id}</td>
-        <td>${l.account_id}</td>
-        <td>${l.kind}</td>
-        <td>${fmt(l.points_delta)}</td>
-        <td>${l.note || "—"}</td>
-        <td>${l.created_at}</td>
-      `;
-      body.appendChild(tr);
-    }
-  } catch (e) {
-    body.innerHTML = `<tr><td colspan="6" class="muted">Error: ${e.message}</td></tr>`;
   }
-}
 
-async function loadNotifications() {
-  const body = document.getElementById("loyaltyNotificationsBody");
-  if (!body) return;
-  body.innerHTML = `<tr><td colspan="5" class="muted">Loading…</td></tr>`;
-  try {
-    const data = await api("/api/admin/loyalty/notifications");
-    const rows = data.notifications || [];
-    if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="5" class="muted">(No data yet)</td></tr>`;
-      return;
+  async function loadNotifications() {
+    const body = document.getElementById("loyaltyNotificationsBody");
+    if (!body) return;
+    body.innerHTML = `<tr><td colspan="5" class="muted">Loading…</td></tr>`;
+    try {
+      const data = await api("/api/admin/loyalty/notifications");
+      console.log("[loyalty] notifications data", data);
+      const rows = data.notifications || [];
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="5" class="muted">(No data yet)</td></tr>`;
+        return;
+      }
+      body.innerHTML = "";
+      for (const n of rows) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${n.id}</td>
+          <td>${n.kind}</td>
+          <td>${n.email}</td>
+          <td>${n.status}</td>
+          <td>${n.created_at}</td>
+        `;
+        body.appendChild(tr);
+      }
+    } catch (e) {
+      body.innerHTML = `<tr><td colspan="5" class="muted">Error: ${e.message}</td></tr>`;
     }
-    body.innerHTML = "";
-    for (const n of rows) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${n.id}</td>
-        <td>${n.kind}</td>
-        <td>${n.email}</td>
-        <td>${n.status}</td>
-        <td>${n.created_at}</td>
-      `;
-      body.appendChild(tr);
-    }
-  } catch (e) {
-    body.innerHTML = `<tr><td colspan="5" class="muted">Error: ${e.message}</td></tr>`;
   }
-}
 
-async function refreshAll() {
-  await loadAccounts();
-  await loadLedger();
-  await loadNotifications();
-}
+  async function refreshAll() {
+    console.log("[loyalty] refreshAll called");
+    await loadAccounts();
+    await loadLedger();
+    await loadNotifications();
+  }
 
   // ---------- state ----------
   let refreshTimer = null;
@@ -134,7 +138,6 @@ async function refreshAll() {
   async function loadList() {
     const body = $('wdBody');
     if (!body) return;
-    // neutral empty state while fetching
     body.innerHTML = `<tr><td colspan="9" class="muted">(No data yet)</td></tr>`;
 
     const status = $('statusSel')?.value || '';
@@ -142,6 +145,7 @@ async function refreshAll() {
 
     try {
       const data = await api(`/api/admin/loyalty/withdrawals${q}`);
+      console.log("[loyalty] withdrawals data", data);
       const rows = data.withdrawals || data.items || [];
       body.innerHTML = '';
       if (!rows.length) {
@@ -208,7 +212,6 @@ async function refreshAll() {
       await api(path, { method, body });
       await loadList();
     } catch (e) {
-      // inline error row at the top
       const bodyEl = $('wdBody');
       if (bodyEl) {
         const tr = document.createElement('tr');
@@ -244,55 +247,52 @@ async function refreshAll() {
       refreshTimer = setInterval(loadList, val * 1000);
     }
   }
-// --- Increment 2: Loyalty tab toggler ---
-function initLoyaltyTabs() {
-  const accountsBtn = document.getElementById("tabAccountsBtn2");
-  const ledgerBtn   = document.getElementById("tabLedgerBtn2");
-  const notifsBtn   = document.getElementById("tabNotifsBtn2");
 
-  const tabAccounts = document.getElementById("loyaltyTabAccounts");
-  const tabLedger   = document.getElementById("loyaltyTabLedger");
-  const tabNotifs   = document.getElementById("loyaltyTabNotifs");
+  // --- Increment 2: Loyalty tab toggler ---
+  function initLoyaltyTabs() {
+    const accountsBtn = document.getElementById("tabAccountsBtn2");
+    const ledgerBtn   = document.getElementById("tabLedgerBtn2");
+    const notifsBtn   = document.getElementById("tabNotifsBtn2");
 
-  // ensure all buttons have base 'btn' class
-  [accountsBtn, ledgerBtn, notifsBtn].forEach(btn => btn?.classList.add("btn"));
+    const tabAccounts = document.getElementById("loyaltyTabAccounts");
+    const tabLedger   = document.getElementById("loyaltyTabLedger");
+    const tabNotifs   = document.getElementById("loyaltyTabNotifs");
 
-  function showTab(which) {
-    // show/hide tab panels
-    tabAccounts.style.display = which === "accounts" ? "block" : "none";
-    tabLedger.style.display   = which === "ledger"   ? "block" : "none";
-    tabNotifs.style.display   = which === "notifs"   ? "block" : "none";
+    [accountsBtn, ledgerBtn, notifsBtn].forEach(btn => btn?.classList.add("btn"));
 
-    // toggle ghost state
-    accountsBtn.classList.toggle("btn--ghost", which !== "accounts");
-    ledgerBtn.classList.toggle("btn--ghost",   which !== "ledger");
-    notifsBtn.classList.toggle("btn--ghost",   which !== "notifs");
+    function showTab(which) {
+      tabAccounts.style.display = which === "accounts" ? "block" : "none";
+      tabLedger.style.display   = which === "ledger"   ? "block" : "none";
+      tabNotifs.style.display   = which === "notifs"   ? "block" : "none";
+
+      accountsBtn.classList.toggle("btn--ghost", which !== "accounts");
+      ledgerBtn.classList.toggle("btn--ghost",   which !== "ledger");
+      notifsBtn.classList.toggle("btn--ghost",   which !== "notifs");
+    }
+
+    accountsBtn?.addEventListener("click", () => showTab("accounts"));
+    ledgerBtn?.addEventListener("click",   () => showTab("ledger"));
+    notifsBtn?.addEventListener("click",   () => showTab("notifs"));
+
+    showTab("accounts");
   }
 
-  accountsBtn?.addEventListener("click", () => showTab("accounts"));
-  ledgerBtn?.addEventListener("click",   () => showTab("ledger"));
-  notifsBtn?.addEventListener("click",   () => showTab("notifs"));
-
-  // default tab on load
-  showTab("accounts");
-}
-
   // ---------- boot ----------
- document.addEventListener('DOMContentLoaded', () => {
-  $('refreshBtn')?.addEventListener('click', loadList);
-  $('statusSel')?.addEventListener('change', loadList);
-  $('autoRefresh')?.addEventListener('change', setAutoRefresh);
-  initLoyaltyTabs();
+  document.addEventListener('DOMContentLoaded', () => {
+    $('refreshBtn')?.addEventListener('click', loadList);
+    $('statusSel')?.addEventListener('change', loadList);
+    $('autoRefresh')?.addEventListener('change', setAutoRefresh);
+    initLoyaltyTabs();
 
-  // Increment 2: Loyalty tables
-  document.getElementById("loyaltyRefreshBtn")?.addEventListener("click", refreshAll);
-  refreshAll();
+    document.getElementById("loyaltyRefreshBtn")?.addEventListener("click", refreshAll);
+    refreshAll();
 
-  bindTableActions();
-  loadList();
-  setAutoRefresh();
-});
-// Expose refreshAll globally for manual console use
-window.refreshAll = refreshAll;
+    bindTableActions();
+    loadList();
+    setAutoRefresh();
+  });
+
+  // Expose refreshAll globally
+  window.refreshAll = refreshAll;
 
 })();
