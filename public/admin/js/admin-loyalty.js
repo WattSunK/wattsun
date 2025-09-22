@@ -292,5 +292,7 @@ function initLoyaltyTabs() {
   loadList();
   setAutoRefresh();
 });
+// Expose refreshAll globally for manual console use
+window.refreshAll = refreshAll;
 
 })();
