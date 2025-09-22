@@ -2,17 +2,19 @@
 (() => {
   // ---------- tiny utils ----------
   const $ = (id) => document.getElementById(id);
-  const fmt = (n) => (n === 0 || n ? Number(n).toLocaleString() : '—');
+  const fmt = (n) => (n === 0 || n ? Number(n).toLocaleString() : "—");
 
   const api = async (path, opts = {}) => {
     const res = await fetch(path, {
-      method: opts.method || 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      method: opts.method || "GET",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: opts.body ? JSON.stringify(opts.body) : undefined
     });
     let data = {};
-    try { data = await res.json(); } catch {}
+    try {
+      data = await res.json();
+    } catch {}
     if (!res.ok || data.success === false) {
       throw new Error((data.error && data.error.message) || `HTTP ${res.status}`);
     }
@@ -20,14 +22,23 @@
   };
 
   const pill = (status) => {
-    const s = String(status || '').toLowerCase();
+    const s = String(status || "").toLowerCase();
     const cls =
-      s === 'approved' ? 'pill pill--ok' :
-      s === 'rejected' ? 'pill pill--warn' :
-      s === 'paid'     ? 'pill pill--ok' :
-                         'pill';
-    return `<span class="${cls}">${status || '—'}</span>`;
+      s === "approved" ? "pill pill--ok" :
+      s === "rejected" ? "pill pill--warn" :
+      s === "paid"     ? "pill pill--ok" :
+                         "pill";
+    return `<span class="${cls}">${status || "—"}</span>`;
   };
+
+  // ---------- state ----------
+  let activeTab = "withdrawals";
+
+  // ---------- meta updater ----------
+  function updateMeta(count) {
+    const meta = $("loyaltyMeta");
+    if (meta) meta.textContent = `${count} results`;
+  }
 
   // ---------- loaders ----------
   async function loadAccounts() {
@@ -37,6 +48,7 @@
     try {
       const data = await api("/api/admin/loyalty/accounts");
       const rows = data.accounts || [];
+      updateMeta(rows.length);
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="11" class="muted">(No data yet)</td></tr>`;
         return;
@@ -71,6 +83,7 @@
     try {
       const data = await api("/api/admin/loyalty/ledger");
       const rows = data.ledger || [];
+      updateMeta(rows.length);
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="6" class="muted">(No data yet)</td></tr>`;
         return;
@@ -100,6 +113,7 @@
     try {
       const data = await api("/api/admin/loyalty/notifications");
       const rows = data.notifications || [];
+      updateMeta(rows.length);
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="5" class="muted">(No data yet)</td></tr>`;
         return;
@@ -126,10 +140,14 @@
     if (!body) return;
     body.innerHTML = `<tr><td colspan="9" class="muted">Loading…</td></tr>`;
     const status = $("statusSel")?.value || "";
-    const q = status ? `?status=${encodeURIComponent(status)}` : "";
+    const search = $("loyaltySearch")?.value?.trim() || "";
+    const q = new URLSearchParams();
+    if (status) q.set("status", status);
+    if (search) q.set("q", search);
     try {
-      const data = await api(`/api/admin/loyalty/withdrawals${q}`);
+      const data = await api(`/api/admin/loyalty/withdrawals${q.toString() ? "?" + q.toString() : ""}`);
       const rows = data.withdrawals || data.items || [];
+      updateMeta(rows.length);
       body.innerHTML = "";
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="9" class="muted">(No data yet)</td></tr>`;
@@ -215,16 +233,25 @@
     });
   }
 
+  // ---------- refresh ----------
+  function refreshActiveTab() {
+    if (activeTab === "withdrawals") return loadWithdrawals();
+    if (activeTab === "accounts") return loadAccounts();
+    if (activeTab === "ledger") return loadLedger();
+    if (activeTab === "notifs") return loadNotifications();
+  }
+
   // ---------- tab toggler ----------
   function initLoyaltyTabs() {
     const tabs = {
       withdrawals: { btn: $("tabWithdrawalsBtn"), panel: $("loyaltyTabWithdrawals"), load: loadWithdrawals },
-      accounts:    { btn: $("tabAccountsBtn2"),  panel: $("loyaltyTabAccounts"),    load: loadAccounts },
-      ledger:      { btn: $("tabLedgerBtn2"),    panel: $("loyaltyTabLedger"),      load: loadLedger },
-      notifs:      { btn: $("tabNotifsBtn2"),    panel: $("loyaltyTabNotifs"),      load: loadNotifications }
+      accounts:    { btn: $("tabAccountsBtn"),    panel: $("loyaltyTabAccounts"),    load: loadAccounts },
+      ledger:      { btn: $("tabLedgerBtn"),      panel: $("loyaltyTabLedger"),      load: loadLedger },
+      notifs:      { btn: $("tabNotifsBtn"),      panel: $("loyaltyTabNotifs"),      load: loadNotifications }
     };
 
     function showTab(which) {
+      activeTab = which;
       Object.entries(tabs).forEach(([key, { btn, panel }]) => {
         if (panel) panel.style.display = key === which ? "block" : "none";
         if (btn) btn.classList.toggle("btn--active", key === which);
@@ -241,21 +268,29 @@
 
   // ---------- boot ----------
   initLoyaltyTabs();
-  $("loyaltyRefreshBtn")?.addEventListener("click", () => {
-    const active = document.querySelector(".btn--active")?.id || "tabWithdrawalsBtn";
-    if (active.includes("Accounts")) loadAccounts();
-    else if (active.includes("Ledger")) loadLedger();
-    else if (active.includes("Notifs")) loadNotifications();
-    else loadWithdrawals();
+  $("statusSel")?.addEventListener("change", refreshActiveTab);
+  $("loyaltySearch")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      refreshActiveTab();
+    }
   });
+  $("loyaltyClearBtn")?.addEventListener("click", () => {
+    const search = $("loyaltySearch");
+    if (search) search.value = "";
+    $("statusSel").value = "";
+    refreshActiveTab();
+  });
+  $("loyaltyRefreshBtn")?.addEventListener("click", refreshActiveTab);
   bindTableActions();
 
-  // Expose for debugging
-  window.refreshAll = () => {
-    loadWithdrawals();
-    loadAccounts();
-    loadLedger();
-    loadNotifications();
-  };
+  // ---------- pager (stubbed) ----------
+  $("loyaltyPager")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-page]");
+    if (!btn) return;
+    const page = btn.getAttribute("data-page");
+    console.log(`[loyalty] pager clicked: ${page} (not yet wired)`);
+    refreshActiveTab();
+  });
 
 })();
