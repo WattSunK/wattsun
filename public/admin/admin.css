@@ -531,3 +531,9 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
   background-color: #e69620; /* slightly darker on hover */
   border-color: #e69620;
 }
+.table-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+}
