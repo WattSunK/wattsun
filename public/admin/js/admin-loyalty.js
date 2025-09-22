@@ -1,6 +1,5 @@
 // public/admin/js/admin-loyalty.js
 (() => {
-  // ---------- tiny utils ----------
   const $ = (id) => document.getElementById(id);
   const fmt = (n) => (n === 0 || n ? Number(n).toLocaleString() : '—');
 
@@ -29,14 +28,13 @@
     return `<span class="${cls}">${status || '—'}</span>`;
   };
 
-  // --- Increment 2: Loyalty visibility loaders ---
+  // ----- Loaders -----
   async function loadAccounts() {
     const body = document.getElementById("loyaltyAccountsBody");
     if (!body) return;
     body.innerHTML = `<tr><td colspan="11" class="muted">Loading…</td></tr>`;
     try {
       const data = await api("/api/admin/loyalty/accounts");
-      console.log("[loyalty] accounts data", data);
       const rows = data.accounts || [];
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="11" class="muted">(No data yet)</td></tr>`;
@@ -71,7 +69,6 @@
     body.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
     try {
       const data = await api("/api/admin/loyalty/ledger");
-      console.log("[loyalty] ledger data", data);
       const rows = data.ledger || [];
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="6" class="muted">(No data yet)</td></tr>`;
@@ -101,7 +98,6 @@
     body.innerHTML = `<tr><td colspan="5" class="muted">Loading…</td></tr>`;
     try {
       const data = await api("/api/admin/loyalty/notifications");
-      console.log("[loyalty] notifications data", data);
       const rows = data.notifications || [];
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="5" class="muted">(No data yet)</td></tr>`;
@@ -124,17 +120,6 @@
     }
   }
 
-  async function refreshAll() {
-    console.log("[loyalty] refreshAll called");
-    await loadAccounts();
-    await loadLedger();
-    await loadNotifications();
-  }
-
-  // ---------- state ----------
-  let refreshTimer = null;
-
-  // ---------- rendering ----------
   async function loadList() {
     const body = $('wdBody');
     if (!body) return;
@@ -145,7 +130,6 @@
 
     try {
       const data = await api(`/api/admin/loyalty/withdrawals${q}`);
-      console.log("[loyalty] withdrawals data", data);
       const rows = data.withdrawals || data.items || [];
       body.innerHTML = '';
       if (!rows.length) {
@@ -192,7 +176,7 @@
     }
   }
 
-  // ---------- actions ----------
+  // ----- Actions -----
   async function doAct(act, id) {
     let path = '';
     let method = 'POST';
@@ -215,7 +199,7 @@
       const bodyEl = $('wdBody');
       if (bodyEl) {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td colspan="9" class="muted">Action failed: ${e.message}</td>`;
+        tr.innerHTML = `<td colspan="9" class="muted">Action failed: ${e.message}</td></tr>`;
         bodyEl.insertBefore(tr, bodyEl.firstChild);
       } else {
         alert(`Action failed: ${e.message}`);
@@ -236,61 +220,76 @@
     });
   }
 
-  // ---------- auto-refresh ----------
+  // ----- Auto refresh (withdrawals only) -----
+  let refreshTimer = null;
   function setAutoRefresh() {
-    if (refreshTimer) {
-      clearInterval(refreshTimer);
-      refreshTimer = null;
-    }
+    if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
     const val = Number($('autoRefresh')?.value || 0);
     if (val > 0) {
-      refreshTimer = setInterval(loadList, val * 1000);
+      refreshTimer = setInterval(() => {
+        const active = document.querySelector('.btn--active');
+        if (active && active.id === "tabWithdrawalsBtn") {
+          loadList();
+        }
+      }, val * 1000);
     }
   }
 
-  // --- Increment 2: Loyalty tab toggler ---
+  // ----- Tab toggler -----
   function initLoyaltyTabs() {
-    const accountsBtn = document.getElementById("tabAccountsBtn2");
-    const ledgerBtn   = document.getElementById("tabLedgerBtn2");
-    const notifsBtn   = document.getElementById("tabNotifsBtn2");
+    const btns = {
+      withdrawals: $("tabWithdrawalsBtn"),
+      accounts: $("tabAccountsBtn"),
+      ledger: $("tabLedgerBtn"),
+      notifs: $("tabNotifsBtn")
+    };
 
-    const tabAccounts = document.getElementById("loyaltyTabAccounts");
-    const tabLedger   = document.getElementById("loyaltyTabLedger");
-    const tabNotifs   = document.getElementById("loyaltyTabNotifs");
-
-    [accountsBtn, ledgerBtn, notifsBtn].forEach(btn => btn?.classList.add("btn"));
+    const tabs = {
+      withdrawals: $("loyaltyTabWithdrawals"),
+      accounts: $("loyaltyTabAccounts"),
+      ledger: $("loyaltyTabLedger"),
+      notifs: $("loyaltyTabNotifs")
+    };
 
     function showTab(which) {
-      tabAccounts.style.display = which === "accounts" ? "block" : "none";
-      tabLedger.style.display   = which === "ledger"   ? "block" : "none";
-      tabNotifs.style.display   = which === "notifs"   ? "block" : "none";
-
-      accountsBtn.classList.toggle("btn--ghost", which !== "accounts");
-      ledgerBtn.classList.toggle("btn--ghost",   which !== "ledger");
-      notifsBtn.classList.toggle("btn--ghost",   which !== "notifs");
-
+      Object.keys(tabs).forEach(k => {
+        tabs[k].style.display = (k === which) ? "block" : "none";
+        btns[k]?.classList.toggle("btn--active", k === which);
+      });
+      if (which === "withdrawals") loadList();
       if (which === "accounts") loadAccounts();
-      if (which === "ledger")   loadLedger();
-      if (which === "notifs")   loadNotifications();
+      if (which === "ledger") loadLedger();
+      if (which === "notifs") loadNotifications();
     }
 
-    accountsBtn?.addEventListener("click", () => showTab("accounts"));
-    ledgerBtn?.addEventListener("click",   () => showTab("ledger"));
-    notifsBtn?.addEventListener("click",   () => showTab("notifs"));
+    btns.withdrawals?.addEventListener("click", () => showTab("withdrawals"));
+    btns.accounts?.addEventListener("click", () => showTab("accounts"));
+    btns.ledger?.addEventListener("click", () => showTab("ledger"));
+    btns.notifs?.addEventListener("click", () => showTab("notifs"));
 
-    showTab("accounts");
+    showTab("withdrawals"); // default
   }
 
-  // ---------- boot ----------
-  // Run immediately since script is loaded with defer
+  // ----- Boot -----
   initLoyaltyTabs();
-  document.getElementById("loyaltyRefreshBtn")?.addEventListener("click", refreshAll);
-  refreshAll();
+  $("statusSel")?.addEventListener("change", loadList);
+  $("autoRefresh")?.addEventListener("change", setAutoRefresh);
+  $("loyaltyRefreshBtn")?.addEventListener("click", () => {
+    refreshAll();
+  });
+
   bindTableActions();
-  loadList();
   setAutoRefresh();
 
-  // Expose refreshAll globally
-  window.refreshAll = refreshAll;
+  // ----- RefreshAll (refreshes only active tab) -----
+  async function refreshAll() {
+    const active = document.querySelector('.btn--active');
+    if (!active) return;
+    if (active.id === "tabWithdrawalsBtn") await loadList();
+    if (active.id === "tabAccountsBtn") await loadAccounts();
+    if (active.id === "tabLedgerBtn") await loadLedger();
+    if (active.id === "tabNotifsBtn") await loadNotifications();
+  }
 
+  window.refreshAll = refreshAll;
 })();
