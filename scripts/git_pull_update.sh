@@ -4,6 +4,7 @@
 # - Stops app, fetch/reset to origin/<current branch>
 # - Skips npm install if lockfile unchanged; shows progress if running
 # - Starts app and verifies health; logs to logs/update.log
+
 set -eu
 
 ROOT="/volume1/web/wattsun"
@@ -32,7 +33,8 @@ if [ -x scripts/stop_nas.sh ]; then
   scripts/stop_nas.sh || true
 else
   if [ -f run/app.pid ]; then
-    PID="$(cat run/app.pid || true)"; [ -n "$PID" ] && kill "$PID" 2>/dev/null || true
+    PID="$(cat run/app.pid || true)"
+    [ -n "$PID" ] && kill "$PID" 2>/dev/null || true
     rm -f run/app.pid
   fi
   INUSE_PID="$(netstat -tlnp 2>/dev/null | awk -v P="$PORT" '$4 ~ ":"P && $6=="LISTEN" { split($7,a,"/"); print a[1]; exit }')"
@@ -50,7 +52,7 @@ if [ -z "$BRANCH" ]; then
   exit 1
 fi
 
-# Check that branch exists remotely
+# Check branch exists on origin
 if ! git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
   echo "[fatal] Branch '$BRANCH' not found in origin!"
   echo "[hint] Push it first: git push origin $BRANCH"
@@ -81,7 +83,9 @@ if [ ! -d node_modules ] || [ -z "$OLD_SHA" ] || [ "$LOCK_CHANGED" -gt 0 ]; then
   secs=0
   while kill -0 "$npm_pid" 2>/dev/null; do
     secs=$((secs+1))
-    if [ $((secs % 5)) -eq 0 ]; then echo "… npm still running (${secs}s)"; fi
+    if [ $((secs % 5)) -eq 0 ]; then
+      echo "… npm still running (${secs}s)"
+    fi
     sleep 1
   done
   wait "$npm_pid" || npm install --omit=dev
