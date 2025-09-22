@@ -1,35 +1,41 @@
+<!-- public/partials/admin-loyalty.html -->
 <section class="card" id="loyalty-root" aria-labelledby="loyalty-title">
-  <header class="card-header card-header--tight">
+  <header class="card-header">
     <h2 id="loyalty-title" class="card-title">Loyalty Program</h2>
-    <div class="spacer"></div>
-    <nav class="tabs">
-      <button id="tabWithdrawalsBtn" class="btn">Withdrawals</button>
-      <button id="tabAccountsBtn" class="btn btn--ghost">Accounts</button>
-      <button id="tabLedgerBtn" class="btn btn--ghost">Ledger</button>
-      <button id="tabNotifsBtn" class="btn btn--ghost">Notifications</button>
-    </nav>
+    <div class="tabs">
+      <button id="tabWithdrawalsBtn" class="btn btn--active">Withdrawals</button>
+      <button id="tabAccountsBtn">Accounts</button>
+      <button id="tabLedgerBtn">Ledger</button>
+      <button id="tabNotifsBtn">Notifications</button>
+    </div>
   </header>
 
-  <!-- Top filters -->
-  <form id="loyaltyFilters" class="filters-bar" autocomplete="off">
-    <div id="withdrawalsFilters" class="group">
-      <label for="statusSel">Status</label>
-      <select id="statusSel">
+  <!-- Filters bar -->
+  <form id="loyalty-filters" class="filters-bar" autocomplete="off">
+    <div class="group">
+      <label for="loyalty-status">Status</label>
+      <select id="loyalty-status" name="status" class="input">
         <option value="">All</option>
         <option value="Pending">Pending</option>
         <option value="Approved">Approved</option>
         <option value="Rejected">Rejected</option>
         <option value="Paid">Paid</option>
+        <option value="Active">Active</option>
       </select>
     </div>
-    <div class="spacer"></div>
-    <button id="loyaltyRefreshBtn" type="button" class="btn btn-primary">Refresh</button>
+    <div class="group spacer"></div>
+    <div class="group">
+      <input id="loyalty-search" type="search" class="input" placeholder="Search…" />
+      <button type="button" id="loyalty-search-btn" class="btn">Search</button>
+      <button type="button" id="loyalty-clear-btn" class="btn">Clear</button>
+      <button type="button" id="loyalty-refresh-btn" class="btn btn--gold">Refresh</button>
+    </div>
   </form>
 
-  <!-- Tables -->
-  <div class="card-body card-body--tight">
-    <div id="loyaltyTabWithdrawals" class="table-wrap">
-      <table>
+  <!-- Tab contents -->
+  <div id="loyaltyTabWithdrawals" class="loyalty-tab">
+    <div class="table-responsive">
+      <table class="table">
         <thead>
           <tr>
             <th>ID</th>
@@ -40,7 +46,7 @@
             <th>Requested</th>
             <th>Decided</th>
             <th>Paid</th>
-            <th style="text-align:center;">Actions</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody id="wdBody">
@@ -48,9 +54,11 @@
         </tbody>
       </table>
     </div>
+  </div>
 
-    <div id="loyaltyTabAccounts" class="table-wrap" style="display:none;">
-      <table>
+  <div id="loyaltyTabAccounts" class="loyalty-tab" style="display:none;">
+    <div class="table-responsive">
+      <table class="table">
         <thead>
           <tr>
             <th>ID</th>
@@ -59,7 +67,7 @@
             <th>Status</th>
             <th>Start</th>
             <th>End</th>
-            <th>Duration (months)</th>
+            <th>Duration (mo)</th>
             <th>Balance</th>
             <th>Earned</th>
             <th>Penalty</th>
@@ -71,15 +79,17 @@
         </tbody>
       </table>
     </div>
+  </div>
 
-    <div id="loyaltyTabLedger" class="table-wrap" style="display:none;">
-      <table>
+  <div id="loyaltyTabLedger" class="loyalty-tab" style="display:none;">
+    <div class="table-responsive">
+      <table class="table">
         <thead>
           <tr>
             <th>ID</th>
             <th>Account</th>
             <th>Kind</th>
-            <th>Points Δ</th>
+            <th>Δ Points</th>
             <th>Note</th>
             <th>Created</th>
           </tr>
@@ -89,9 +99,11 @@
         </tbody>
       </table>
     </div>
+  </div>
 
-    <div id="loyaltyTabNotifs" class="table-wrap" style="display:none;">
-      <table>
+  <div id="loyaltyTabNotifs" class="loyalty-tab" style="display:none;">
+    <div class="table-responsive">
+      <table class="table">
         <thead>
           <tr>
             <th>ID</th>
@@ -108,13 +120,15 @@
     </div>
   </div>
 
-  <!-- Shared footer -->
-  <div class="filters-bar">
-    <div class="meta" id="loyaltyMeta">0 results</div>
-    <div class="spacer"></div>
-    <div class="pager" id="loyaltyPager">
-      <button class="btn btn--small" disabled>« Prev</button>
-      <button class="btn btn--small" disabled>Next »</button>
+  <!-- Shared meta + pager -->
+  <footer class="table-footer">
+    <div class="meta" id="loyalty-meta">0 results</div>
+    <div class="pager" id="loyalty-pager">
+      <button type="button" class="btn" data-page="first">First</button>
+      <button type="button" class="btn" data-page="prev">« Prev</button>
+      <span id="loyalty-page">1</span>
+      <button type="button" class="btn" data-page="next">Next »</button>
+      <button type="button" class="btn" data-page="last">Last</button>
     </div>
-  </div>
+  </footer>
 </section>
