@@ -254,11 +254,16 @@ function initLoyaltyTabs() {
   const tabLedger   = document.getElementById("loyaltyTabLedger");
   const tabNotifs   = document.getElementById("loyaltyTabNotifs");
 
+  // ensure all buttons have base 'btn' class
+  [accountsBtn, ledgerBtn, notifsBtn].forEach(btn => btn?.classList.add("btn"));
+
   function showTab(which) {
+    // show/hide tab panels
     tabAccounts.style.display = which === "accounts" ? "block" : "none";
     tabLedger.style.display   = which === "ledger"   ? "block" : "none";
     tabNotifs.style.display   = which === "notifs"   ? "block" : "none";
 
+    // toggle ghost state
     accountsBtn.classList.toggle("btn--ghost", which !== "accounts");
     ledgerBtn.classList.toggle("btn--ghost",   which !== "ledger");
     notifsBtn.classList.toggle("btn--ghost",   which !== "notifs");
@@ -268,7 +273,7 @@ function initLoyaltyTabs() {
   ledgerBtn?.addEventListener("click",   () => showTab("ledger"));
   notifsBtn?.addEventListener("click",   () => showTab("notifs"));
 
-  // default tab
+  // default tab on load
   showTab("accounts");
 }
 
