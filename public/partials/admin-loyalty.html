@@ -1,124 +1,120 @@
 <section class="card" id="loyalty-root" aria-labelledby="loyalty-title">
-  <header class="card-header">
+  <header class="card-header card-header--tight">
     <h2 id="loyalty-title" class="card-title">Loyalty Program</h2>
     <div class="spacer"></div>
-
-    <!-- Tab buttons -->
     <nav class="tabs">
       <button id="tabWithdrawalsBtn" class="btn">Withdrawals</button>
       <button id="tabAccountsBtn" class="btn btn--ghost">Accounts</button>
       <button id="tabLedgerBtn" class="btn btn--ghost">Ledger</button>
       <button id="tabNotifsBtn" class="btn btn--ghost">Notifications</button>
     </nav>
-
-    <button id="loyaltyRefreshBtn" class="btn btn-primary">Refresh</button>
   </header>
 
-  <div class="card-body">
+  <!-- Top filters -->
+  <form id="loyaltyFilters" class="filters-bar" autocomplete="off">
+    <div id="withdrawalsFilters" class="group">
+      <label for="statusSel">Status</label>
+      <select id="statusSel">
+        <option value="">All</option>
+        <option value="Pending">Pending</option>
+        <option value="Approved">Approved</option>
+        <option value="Rejected">Rejected</option>
+        <option value="Paid">Paid</option>
+      </select>
+    </div>
+    <div class="spacer"></div>
+    <button id="loyaltyRefreshBtn" type="button" class="btn btn-primary">Refresh</button>
+  </form>
 
-    <!-- Withdrawals tab -->
-    <div id="loyaltyTabWithdrawals">
-      <form id="withdrawalsFilters" class="filters-bar" autocomplete="off">
-        <div class="group">
-          <label for="statusSel">Status</label>
-          <select id="statusSel">
-            <option value="">All</option>
-            <option value="Pending">Pending</option>
-            <option value="Approved">Approved</option>
-            <option value="Rejected">Rejected</option>
-            <option value="Paid">Paid</option>
-          </select>
-        </div>
-      </form>
-
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>User</th>
-              <th>Points</th>
-              <th>EUR</th>
-              <th>Status</th>
-              <th>Requested</th>
-              <th>Decided</th>
-              <th>Paid</th>
-              <th style="text-align:center;">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="wdBody">
-            <tr><td colspan="9" class="muted">(No data yet)</td></tr>
-          </tbody>
-        </table>
-      </div>
+  <!-- Tables -->
+  <div class="card-body card-body--tight">
+    <div id="loyaltyTabWithdrawals" class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Points</th>
+            <th>EUR</th>
+            <th>Status</th>
+            <th>Requested</th>
+            <th>Decided</th>
+            <th>Paid</th>
+            <th style="text-align:center;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="wdBody">
+          <tr><td colspan="9" class="muted">(No data yet)</td></tr>
+        </tbody>
+      </table>
     </div>
 
-    <!-- Accounts tab -->
-    <div id="loyaltyTabAccounts" style="display:none;">
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>User ID</th>
-              <th>Email</th>
-              <th>Status</th>
-              <th>Start</th>
-              <th>End</th>
-              <th>Duration (months)</th>
-              <th>Balance</th>
-              <th>Earned</th>
-              <th>Penalty</th>
-              <th>Paid</th>
-            </tr>
-          </thead>
-          <tbody id="loyaltyAccountsBody">
-            <tr><td colspan="11" class="muted">(No data yet)</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <div id="loyaltyTabAccounts" class="table-wrap" style="display:none;">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User ID</th>
+            <th>Email</th>
+            <th>Status</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Duration (months)</th>
+            <th>Balance</th>
+            <th>Earned</th>
+            <th>Penalty</th>
+            <th>Paid</th>
+          </tr>
+        </thead>
+        <tbody id="loyaltyAccountsBody">
+          <tr><td colspan="11" class="muted">(No data yet)</td></tr>
+        </tbody>
+      </table>
     </div>
 
-    <!-- Ledger tab -->
-    <div id="loyaltyTabLedger" style="display:none;">
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Account</th>
-              <th>Kind</th>
-              <th>Points Δ</th>
-              <th>Note</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody id="loyaltyLedgerBody">
-            <tr><td colspan="6" class="muted">(No data yet)</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <div id="loyaltyTabLedger" class="table-wrap" style="display:none;">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Account</th>
+            <th>Kind</th>
+            <th>Points Δ</th>
+            <th>Note</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody id="loyaltyLedgerBody">
+          <tr><td colspan="6" class="muted">(No data yet)</td></tr>
+        </tbody>
+      </table>
     </div>
 
-    <!-- Notifications tab -->
-    <div id="loyaltyTabNotifs" style="display:none;">
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Kind</th>
-              <th>Email</th>
-              <th>Status</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody id="loyaltyNotificationsBody">
-            <tr><td colspan="5" class="muted">(No data yet)</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <div id="loyaltyTabNotifs" class="table-wrap" style="display:none;">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Kind</th>
+            <th>Email</th>
+            <th>Status</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody id="loyaltyNotificationsBody">
+          <tr><td colspan="5" class="muted">(No data yet)</td></tr>
+        </tbody>
+      </table>
     </div>
+  </div>
 
+  <!-- Shared footer -->
+  <div class="filters-bar">
+    <div class="meta" id="loyaltyMeta">0 results</div>
+    <div class="spacer"></div>
+    <div class="pager" id="loyaltyPager">
+      <button class="btn btn--small" disabled>« Prev</button>
+      <button class="btn btn--small" disabled>Next »</button>
+    </div>
   </div>
 </section>
