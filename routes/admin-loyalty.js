@@ -529,4 +529,62 @@ router.get("/accounts/:id", (req, res) => {
   });
 });
 
+// --- Increment 2: Read-only visibility (Accounts, Ledger, Notifications) ---
+
+// GET /api/admin/loyalty/accounts
+router.get("/accounts", async (req, res) => {
+  try {
+    const rows = await all(
+      `SELECT id, user_id, email, status,
+              start_date, end_date,
+              duration_months,
+              points_balance, total_earned, total_penalty, total_paid
+         FROM loyalty_accounts
+        ORDER BY id DESC`
+    );
+    return res.json({ success: true, accounts: rows });
+  } catch (err) {
+    console.error("[admin/loyalty/accounts]", err);
+    return res
+      .status(500)
+      .json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
+  }
+});
+
+// GET /api/admin/loyalty/ledger
+router.get("/ledger", async (req, res) => {
+  try {
+    const rows = await all(
+      `SELECT id, account_id, kind, points_delta, note, created_at
+         FROM loyalty_ledger
+        ORDER BY created_at DESC
+        LIMIT 100`
+    );
+    return res.json({ success: true, ledger: rows });
+  } catch (err) {
+    console.error("[admin/loyalty/ledger]", err);
+    return res
+      .status(500)
+      .json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
+  }
+});
+
+// GET /api/admin/loyalty/notifications
+router.get("/notifications", async (req, res) => {
+  try {
+    const rows = await all(
+      `SELECT id, kind, email, payload, status, created_at
+         FROM notifications_queue
+        ORDER BY created_at DESC
+        LIMIT 100`
+    );
+    return res.json({ success: true, notifications: rows });
+  } catch (err) {
+    console.error("[admin/loyalty/notifications]", err);
+    return res
+      .status(500)
+      .json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
+  }
+});
+
 module.exports = router;
