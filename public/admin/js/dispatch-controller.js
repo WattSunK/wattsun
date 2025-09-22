@@ -106,11 +106,165 @@
     if (bar) bar.classList.add("is-ready");
   }
 
-  async function loadAndRender(state) {
-    const { list, total, page, per } = await fetchList(state);
-    renderTable(list);
-    renderPager(total, page, per);
+// ---------- Create modal helpers ----------
+function openDialog(dlg) {
+  if (dlg && typeof dlg.showModal === "function") dlg.showModal();
+  else if (dlg) dlg.setAttribute("open", "");
+}
+function closeDialog(dlg) {
+  if (dlg && typeof dlg.close === "function") dlg.close();
+  else if (dlg) dlg.removeAttribute("open");
+}
+function setBusy(btn, yes) {
+  if (!btn) return;
+  btn.disabled = !!yes;
+  btn.classList.toggle("is-busy", !!yes);
+}
+function showCreateError(msg) {
+  const el = document.getElementById("dc-error");
+  if (!el) return;
+  el.textContent = msg || "An error occurred.";
+  el.style.display = "";
+}
+function hideCreateError() {
+  const el = document.getElementById("dc-error");
+  if (!el) return;
+  el.textContent = "";
+  el.style.display = "none";
+}
+function _val(id) {
+  const el = document.getElementById(id);
+  return el ? el.value : "";
+}
+function clearCreateForm() {
+  ["dc-order-id","dc-driver-id","dc-planned-date","dc-notes"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === "SELECT") el.selectedIndex = 0;
+    else el.value = "";
+  });
+  hideCreateError();
+}
+function collectCreatePayload() {
+  const order_id      = _val("dc-order-id");
+  const driver_id_raw = _val("dc-driver-id");
+  const planned_date  = _val("dc-planned-date");
+  const notes         = _val("dc-notes");
+
+  const payload = { order_id, notes: notes || undefined };
+  if (driver_id_raw) {
+    const n = Number(driver_id_raw);
+    if (Number.isFinite(n)) payload.driver_id = n;
   }
+  if (planned_date) payload.planned_date = planned_date;
+  return payload;
+}
+async function populateDriversForCreate() {
+  const sel = document.getElementById("dc-driver-id");
+  if (!sel) return;
+
+  // keep placeholder; clear the rest
+  for (let i = sel.options.length - 1; i >= 1; i--) sel.remove(i);
+
+  // helper: normalize various response shapes
+  const normalize = (data) => {
+    if (!data) return [];
+    // common shapes: [], {users:[]}, {data:[]}, {list:[]}, {success:true, users:[]}
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.users)) return data.users;
+    if (Array.isArray(data.data)) return data.data;
+    if (Array.isArray(data.list)) return data.list;
+    // sometimes {success:true, data:{users:[...]}}
+    if (data.data && Array.isArray(data.data.users)) return data.data.users;
+    return [];
+  };
+
+  // try endpoints in order: ?type=Driver → ?role=Driver → /api/admin/users (client-side filter)
+  const endpoints = [
+    "/api/admin/users?type=Driver",
+    "/api/admin/users?role=Driver",
+    "/api/admin/users"
+  ];
+
+  let drivers = [];
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) {
+        // skip 404/204 silently; continue to next endpoint
+        continue;
+      }
+      let data = await res.json();
+      data = normalize(data);
+
+      // when we hit the unfiltered endpoint, filter here
+      if (url === "/api/admin/users") {
+        data = data.filter(u => {
+          const t = String(u.type || u.role || "").toLowerCase();
+          return t === "driver";
+        });
+      }
+
+      if (data.length) {
+        drivers = data;
+        break;
+      }
+      // else keep trying next endpoint
+    } catch (_) {
+      // ignore and continue
+    }
+  }
+
+  // Populate select
+  if (drivers.length) {
+    for (const u of drivers) {
+      const opt = document.createElement("option");
+      opt.value = String(u.id ?? "");
+      const label =
+        (u.name || u.fullName || u.displayName || u.email || `Driver #${u.id}`);
+      opt.textContent = label;
+      sel.appendChild(opt);
+    }
+  }
+  // If still empty, the placeholder (“— Unassigned —”) remains, which is OK.
+}
+
+async function handleCreateError(res) {
+  let msg = `Error ${res.status}`;
+  try {
+    const j = await res.json();
+    if (j?.error) msg = j.error.message || j.error;
+    else if (j?.message) msg = j.message;
+  } catch { /* ignore */ }
+
+  switch (res.status) {
+    case 400: showCreateError(msg || "Bad request. Check the fields and try again."); break;
+    case 401:
+    case 403: showCreateError(msg || "Not authorized."); break;
+    case 404: showCreateError(msg || "Order not found."); break;
+    case 409: showCreateError(msg || "Duplicate dispatch for this order already exists."); break;
+    default:  showCreateError(msg || "Unexpected error.");
+  }
+}
+
+// --- fetch + paint ---
+async function loadAndRender(state) {
+  // defaults + sanitize
+  const s = Object.assign({ page: "1", per: "20" }, state || {});
+  // coerce to integers for backend
+  const params = {
+    q: s.q,
+    status: s.status,
+    driverId: s.driverId,
+    planned_date: s.planned_date,
+    page: parseInt(s.page || "1", 10),
+    per:  parseInt(s.per  || "20", 10),
+  };
+
+  const { list, total, page, per } = await fetchList(params);
+  renderTable(list);
+  renderPager(total, page, per);
+}
 
   // -------- GLOBAL initializer expected by shell --------
   async function initDispatch() {
@@ -144,6 +298,60 @@
       try { await loadAndRender(s); } catch (err) { console.error(err); }
     });
 
+// ---- Create Dispatch (modal) wiring ----
+// ---- Create Dispatch (modal) wiring (element-scoped, safe on rehydrate) ----
+{
+  const btnCreate  = $("#btnCreateDispatch");
+  const dlg        = document.getElementById("dispatchCreateModal");
+  const form       = document.getElementById("dispatchCreateForm");
+  const btnCancel  = document.getElementById("dc-cancel");
+  const btnSubmit  = document.getElementById("dc-submit");
+  const err        = document.getElementById("dc-error");
+
+  // Only attach once per *current* DOM by marking elements
+  if (btnCreate && !btnCreate.dataset.wired) {
+    btnCreate.addEventListener("click", async () => {
+      clearCreateForm();
+      await populateDriversForCreate();
+      openDialog(dlg);
+    });
+    btnCreate.dataset.wired = "1";
+  }
+
+  if (btnCancel && !btnCancel.dataset.wired) {
+    btnCancel.addEventListener("click", () => closeDialog(dlg));
+    btnCancel.dataset.wired = "1";
+  }
+
+  if (form && !form.dataset.wired) {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideCreateError();
+      const payload = collectCreatePayload();
+      if (!payload.order_id || String(payload.order_id).trim().length < 8) {
+        showCreateError("Please enter a valid Order ID.");
+        return;
+      }
+      try {
+        setBusy(btnSubmit, true);
+        const res = await fetch("/api/admin/dispatches", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) { await handleCreateError(res); return; }
+        closeDialog(dlg);
+        document.dispatchEvent(new CustomEvent("admin:dispatch:refresh"));
+      } catch {
+        showCreateError("Network error. Please try again.");
+      } finally {
+        setBusy(btnSubmit, false);
+      }
+    });
+    form.dataset.wired = "1";
+  }
+}
     // Initial, filter-free load so your existing row shows
     try { await loadAndRender({ page: "1", per: "20" }); } catch (err) {
       console.error("[dispatch] initial load failed:", err);

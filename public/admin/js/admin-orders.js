@@ -1,6 +1,6 @@
 // /public/admin/js/admin-orders.js
 // Canonical Orders controller (table + modal + atomic save)
-// Works with GET /api/orders -> { total, orders:[...] } or an array.
+// Admin list fetches GET /api/admin/orders?q&status&from&to&page&per -> { success, total, orders:[...] } or compatible.
 
 (function () {
   // ====== DIAG (temporary) ======
@@ -9,12 +9,6 @@
   function __ORD_logBoot(where){ console.log(`[ORD] boot ${++__ORD_boots} via`, where, "active=", window.__activeSection); console.trace(); }
 
   let ordersData = [];
-
-  function pickOrdersPayload(data) {
-    if (Array.isArray(data)) return data;
-    if (data && Array.isArray(data.orders)) return data.orders;
-    return [];
-  }
 
   function formatKESMaybe(n) {
     try {
@@ -25,9 +19,32 @@
     return (typeof n === "number") ? `KES ${n.toLocaleString()}` : "—";
   }
 
+  // === Build admin list URL from filters ===
+  function buildAdminOrdersUrl() {
+    const q       = (document.getElementById("ordersSearch")?.value || "").trim();
+    const status  = (document.getElementById("ordersStatus")?.value || "").trim();
+    const from    = (document.getElementById("ordersFrom")?.value || "").trim();
+    const to      = (document.getElementById("ordersTo")?.value || "").trim();
+    const pageEl  = document.getElementById("ordersPageNum");
+    const page    = Number(pageEl?.dataset.page || 1) || 1;
+    const per     = 10; // admin default
+
+    const usp = new URLSearchParams();
+    if (q)      usp.set("q", q);
+    if (status) usp.set("status", status);
+    if (from)   usp.set("from", from);
+    if (to)     usp.set("to", to);
+    usp.set("page", String(page));
+    usp.set("per",  String(per));
+    usp.set("_", String(Date.now())); // cache buster
+
+    return `/api/admin/orders?${usp.toString()}`;
+  }
+
   // Find the Orders pane only; never paint outside it.
   function findOrdersPane() {
     const sel = [
+      "#ordersSection",
       "#admin-content #orders",
       "#admin-content [data-partial='orders']",
       "#admin-content section.orders",
@@ -42,11 +59,20 @@
     const pane = findOrdersPane();
     if (!pane) return; // If user switched away, do nothing.
 
-    return fetch("/api/orders")
+    const url = buildAdminOrdersUrl();
+    return fetch(url, { cache: "no-store", headers: { "Cache-Control": "no-cache" } })
       .then((r) => r.json())
       .then((data) => {
-        ordersData = pickOrdersPayload(data);
+        // accept {success,orders} or raw array defensively
+        ordersData = Array.isArray(data) ? data :
+                     (Array.isArray(data.orders) ? data.orders : []);
         renderOrdersTable(pane);
+
+        // Optional: update a "Total" meta if present
+        const meta = document.getElementById("ordersMeta");
+        if (meta && data && typeof data.total === "number") {
+          meta.textContent = `Total: ${data.total}`;
+        }
       })
       .catch((e) => {
         console.error("Failed to load orders:", e);
@@ -58,6 +84,64 @@
   function renderOrdersTable(pane) {
     if (!pane) return;
 
+    // ---- PATH A: Update the existing visible table body if present ----
+    const liveTbody = document.getElementById("ordersTbody");
+    if (liveTbody) {
+      const frag = document.createDocumentFragment();
+
+      if (!ordersData.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td class="empty-state" colspan="8">No orders found.</td>`;
+        frag.appendChild(tr);
+      } else {
+        ordersData.forEach((o) => {
+          const id     = String(o.orderNumber || o.id || "");
+          const name   = o.fullName || o.name || "";
+          const status = o.status || o.orderType || "Pending";
+          const phone  = o.phone || "—";
+          const email  = o.email || "—";
+          const pm     = o.paymentType || o.paymentMethod || "—";
+          const amount = (typeof o.totalCents === "number")
+            ? (window.formatKES ? window.formatKES(o.totalCents) : `KES ${(o.totalCents/100).toLocaleString()}`)
+            : formatKESMaybe(o.total);
+
+          const tr = document.createElement("tr");
+          tr.setAttribute("data-id", id);
+          tr.innerHTML = `
+            <td class="whitespace-nowrap">${id}</td>
+            <td class="whitespace-nowrap">${name}</td>
+            <td class="whitespace-nowrap">${phone}</td>
+            <td class="whitespace-nowrap">${email}</td>
+            <td class="whitespace-nowrap"><span class="badge badge-light">${status}</span></td>
+            <td class="whitespace-nowrap">${pm}</td>
+            <td class="whitespace-nowrap">${amount}</td>
+            <td><button class="btn btn-sm btn-outline-secondary view-order-btn" data-id="${id}">View</button></td>
+          `;
+          frag.appendChild(tr);
+        });
+      }
+
+      liveTbody.replaceChildren(frag);
+
+      // re-bind View buttons in the live table
+      liveTbody.querySelectorAll(".view-order-btn").forEach((btn) => {
+        if (!btn._bound) {
+          btn._bound = 1;
+          btn.addEventListener("click", (ev) => {
+            const orderId = ev.currentTarget.getAttribute("data-id");
+            const order = ordersData.find(
+              (o) => String(o.orderNumber || o.id || "") === orderId
+            );
+            if (order) openModal(order);
+          });
+        }
+      });
+
+      ensureModalScaffold(); // ensure modal exists/bound
+      return; // IMPORTANT: we updated the real table already
+    }
+
+    // ---- PATH B: Fallback to our own container if the partial lacks #ordersTbody ----
     let container = pane.querySelector("#orders-table");
     if (!container) {
       container = document.createElement("div");
@@ -102,15 +186,18 @@
       tbody.appendChild(tr);
     } else {
       ordersData.forEach((o) => {
-        const id = String(o.orderNumber || o.id || "");
-        const name = o.fullName || o.name || "";
+        const id     = String(o.orderNumber || o.id || "");
+        const name   = o.fullName || o.name || "";
         const status = o.status || o.orderType || "Pending";
-        const phone = o.phone || "—";
-        const email = o.email || "—";
-        const pm = o.paymentType || o.paymentMethod || "—";
-        const amount = formatKESMaybe(o.total);
+        const phone  = o.phone || "—";
+        const email  = o.email || "—";
+        const pm     = o.paymentType || o.paymentMethod || "—";
+        const amount = (typeof o.totalCents === "number")
+          ? (window.formatKES ? window.formatKES(o.totalCents) : `KES ${(o.totalCents/100).toLocaleString()}`)
+          : formatKESMaybe(o.total);
 
         const tr = document.createElement("tr");
+        tr.setAttribute("data-id", id);
         tr.innerHTML = `
           <td class="whitespace-nowrap">${id}</td>
           <td class="whitespace-nowrap">${name}</td>
@@ -130,33 +217,138 @@
     container.replaceChildren(frag);
 
     container.querySelectorAll(".view-order-btn").forEach((btn) => {
-      btn.addEventListener("click", (ev) => {
-        const orderId = ev.currentTarget.getAttribute("data-id");
-        const order = ordersData.find(
-          (o) => String(o.orderNumber || o.id || "") === orderId
-        );
-        if (order) openModal(order);
-      });
+      if (!btn._bound) {
+        btn._bound = 1;
+        btn.addEventListener("click", (ev) => {
+          const orderId = ev.currentTarget.getAttribute("data-id");
+          const order = ordersData.find(
+            (o) => String(o.orderNumber || o.id || "") === orderId
+          );
+          if (order) openModal(order);
+        });
+      }
     });
 
     ensureModalScaffold(); // ensure modal exists/bound
   }
+
+  function attachFilterListenersOnce() {
+    const byId = (id) => document.getElementById(id);
+    const on = (el, ev, fn) => { if (el && !el[`_on_${ev}`]) { el[`_on_${ev}`] = 1; el.addEventListener(ev, fn); } };
+
+    // ensure page state holder exists & has default
+    const pageEl = byId("ordersPageNum");
+    if (pageEl && !pageEl.dataset.page) pageEl.dataset.page = "1";
+
+    // Search + Clear
+    on(byId("ordersSearchBtn"), "click", () => {
+      pageEl.dataset.page = "1";
+      fetchOrdersAndRender();
+    });
+    on(byId("ordersClearBtn"), "click", () => {
+      if (byId("ordersSearch")) byId("ordersSearch").value = "";
+      if (byId("ordersStatus")) byId("ordersStatus").value = "";
+      if (byId("ordersFrom"))   byId("ordersFrom").value   = "";
+      if (byId("ordersTo"))     byId("ordersTo").value     = "";
+      pageEl.dataset.page = "1";
+      fetchOrdersAndRender();
+    });
+
+    // --- pager ---
+    on(byId("ordersFirst"), "click", () => { setPage(1); fetchOrdersAndRender(); });
+    on(byId("ordersPrev"),  "click", () => {
+      const p = Math.max(1, (Number(byId("ordersPageNum")?.dataset.page || 1) - 1));
+      setPage(p); fetchOrdersAndRender();
+    });
+    on(byId("ordersNext"),  "click", () => {
+      const p = (Number(byId("ordersPageNum")?.dataset.page || 1) + 1);
+      setPage(p); fetchOrdersAndRender();
+    });
+    on(byId("ordersLast"),  "click", () => {
+      // optional: if you track total pages, jump there; otherwise just ++ and let server clamp
+      const p = (Number(byId("ordersPageNum")?.dataset.page || 1) + 1);
+      setPage(p); fetchOrdersAndRender();
+    });
+
+    // Enter in search box
+    on(byId("ordersSearch"), "keydown", (e) => {
+      if (e.key === "Enter") { pageEl.dataset.page = "1"; fetchOrdersAndRender(); }
+    });
+
+    // Status / Dates
+    ["ordersStatus","ordersFrom","ordersTo"].forEach(id => {
+      const el = byId(id);
+      on(el, "change", () => { pageEl.dataset.page = "1"; fetchOrdersAndRender(); });
+    });
+
+    const setPage = (p) => { pageEl.dataset.page = String(Math.max(1, p)); };
+  } // <-- CLOSE attachFilterListenersOnce()
 
   function setText(id, val) {
     const el = document.getElementById(id);
     if (el) el.textContent = val;
   }
 
+  // ========== [1] Replace openModal(order) with new Edit dialog wiring ==========
   function openModal(order) {
+    const eDlg = document.getElementById("orderEditModal");
+    const vDlg = document.getElementById("orderViewModal"); // not used yet, reserved
+
     const id = String(order.orderNumber || order.id || "");
 
+    // New Edit dialog present
+    if (eDlg) {
+      const selStatus = document.getElementById("orderStatus");
+      if (selStatus) selStatus.value = order.status || "Pending";
+
+      const selDriver = document.getElementById("orderDriver");
+      if (selDriver && !selDriver._loaded) {
+        selDriver._loaded = 1;
+        if (!selDriver.querySelector("option[value='']")) {
+          const opt = document.createElement("option");
+          opt.value = "";
+          opt.textContent = "(none)";
+          selDriver.appendChild(opt);
+        }
+      }
+      if (selDriver && order.driverId != null) {
+        selDriver.value = String(order.driverId);
+      }
+
+      const amtC = (typeof order.totalCents === "number") ? order.totalCents : null;
+      const depC = (typeof order.depositCents === "number") ? order.depositCents : null;
+      const cur  = order.currency || order.displayCurrency || "KES";
+
+      const fTotal   = document.getElementById("orderTotal");
+      const fDeposit = document.getElementById("orderDeposit");
+      const fCurr    = document.getElementById("orderCurrency");
+      const fNotes   = document.getElementById("orderNotes");
+
+      if (fTotal)   fTotal.value   = amtC != null ? String(amtC) : "";
+      if (fDeposit) fDeposit.value = depC != null ? String(depC) : "";
+      if (fCurr)    fCurr.value    = cur;
+      if (fNotes)   fNotes.value   = order.notes || "";
+
+      // stash id and open
+      eDlg.dataset.orderId = id;
+      try { eDlg.showModal(); } catch { eDlg.setAttribute("open", "open"); }
+      return;
+    }
+
+    // Legacy fallback (old modal)
     setText("modal-order-id", id);
     setText("modal-customer-name", order.fullName || order.name || "—");
     setText("modal-phone", order.phone || "—");
     setText("modal-email", order.email || "—");
     setText("modal-payment-method", order.paymentType || order.paymentMethod || "—");
-    setText("modal-amount", formatKESMaybe(order.total));
-    setText("modal-deposit", order.deposit == null ? "—" : String(order.deposit));
+    const amtC = typeof order.totalCents === "number" ? order.totalCents : null;
+    const depC = typeof order.depositCents === "number" ? order.depositCents : null;
+    setText("modal-amount", amtC != null
+      ? (window.formatKES ? window.formatKES(amtC) : `KES ${(amtC/100).toLocaleString()}`)
+      : formatKESMaybe(order.total));
+    setText("modal-deposit", depC != null
+      ? (window.formatKES ? window.formatKES(depC) : `KES ${(depC/100).toLocaleString()}`)
+      : (order.deposit == null ? "—" : String(order.deposit)));
 
     const select = document.getElementById("modal-status");
     if (select) select.value = order.status || order.orderType || "Pending";
@@ -172,32 +364,32 @@
         list.appendChild(li);
       });
     }
-
-    const modal = document.getElementById("orderDetailsModal");
-    if (modal) modal.style.display = "block";
+    const legacy = document.getElementById("orderDetailsModal");
+    if (legacy) legacy.style.display = "block";
   }
 
+  // ========== [2] Bind Save/Cancel for new modal; keep legacy bindings ==========
   function bindModalButtons() {
-    const close = () => {
+    // --- Legacy modal close ---
+    const closeLegacy = () => {
       const m = document.getElementById("orderDetailsModal");
       if (m) m.style.display = "none";
     };
-
     const c1 = document.getElementById("closeOrderModal");
     const c2 = document.getElementById("closeOrderModalBtn");
-    if (c1 && !c1._bound) (c1._bound = 1), c1.addEventListener("click", close);
-    if (c2 && !c2._bound) (c2._bound = 1), c2.addEventListener("click", close);
+    if (c1 && !c1._bound) (c1._bound = 1), c1.addEventListener("click", closeLegacy);
+    if (c2 && !c2._bound) (c2._bound = 1), c2.addEventListener("click", closeLegacy);
 
-    const save = document.getElementById("updateOrderStatusBtn");
-    if (save && !save._bound) {
-      save._bound = 1;
-      save.addEventListener("click", async () => {
+    // --- Legacy modal save ---
+    const saveLegacy = document.getElementById("updateOrderStatusBtn");
+    if (saveLegacy && !saveLegacy._bound) {
+      saveLegacy._bound = 1;
+      saveLegacy.addEventListener("click", async () => {
         const orderId = document.getElementById("modal-order-id").textContent.trim();
         const newStatus = document.getElementById("modal-status").value;
         const newNotes  = (document.getElementById("modal-notes")?.value || "").trim();
 
         try {
-          // Align with backend used elsewhere: PATCH /api/admin/orders/:id
           const r = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -207,8 +399,12 @@
           if (!r.ok || !(j.ok || j.success)) {
             throw new Error(j?.error || `Update failed (${r.status})`);
           }
+
           await fetchOrdersAndRender();
-          close();
+          localStorage.setItem("ordersUpdatedAt", String(Date.now()));
+          window.postMessage({ type: "orders-updated" }, "*");
+
+          closeLegacy();
           alert("Order updated");
         } catch (e) {
           console.error(e);
@@ -216,10 +412,60 @@
         }
       });
     }
+
+    // --- New Edit dialog wiring ---
+    const eDlg   = document.getElementById("orderEditModal");
+    const eSave  = document.getElementById("oemSave");
+    const eCancel= document.getElementById("oemCancel");
+
+    if (eDlg && eSave && !eSave._bound) {
+      eSave._bound = 1;
+      eSave.addEventListener("click", async () => {
+        const orderId = eDlg.dataset.orderId || "";
+        const body = {
+          status:       document.getElementById("orderStatus")?.value || undefined,
+          driverId:     document.getElementById("orderDriver")?.value || undefined,
+          totalCents:   document.getElementById("orderTotal")?.value ? Number(document.getElementById("orderTotal").value) : undefined,
+          depositCents: document.getElementById("orderDeposit")?.value ? Number(document.getElementById("orderDeposit").value) : undefined,
+          currency:     document.getElementById("orderCurrency")?.value || undefined,
+          notes:        document.getElementById("orderNotes")?.value || undefined,
+        };
+
+        try {
+          const r = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok || !(j.ok || j.success)) {
+            throw new Error(j?.error || `Update failed (${r.status})`);
+          }
+
+          await fetchOrdersAndRender();
+          localStorage.setItem("ordersUpdatedAt", Date.now()+"");
+          window.postMessage({ type: "orders-updated" }, "*");
+
+          try { eDlg.close(); } catch { eDlg.removeAttribute("open"); }
+          alert("Order updated");
+        } catch (e) {
+          console.error(e);
+          alert("Failed to update: " + e.message);
+        }
+      });
+    }
+
+    if (eDlg && eCancel && !eCancel._bound) {
+      eCancel._bound = 1;
+      eCancel.addEventListener("click", () => {
+        try { eDlg.close(); } catch { eDlg.removeAttribute("open"); }
+      });
+    }
   }
 
+  // ========== [3] keep ensureModalScaffold() (loads partial + binds) ==========
   function ensureModalScaffold() {
-    if (document.getElementById("orderDetailsModal")) {
+    if (document.getElementById("orderDetailsModal") || document.getElementById("orderEditModal")) {
       bindModalButtons();
       return;
     }
@@ -231,7 +477,7 @@
           div.innerHTML = html;
           document.body.appendChild(div);
         } else {
-          // Minimal fallback if partial missing
+          // Minimal fallback if partial missing (legacy)
           const wrap = document.createElement("div");
           wrap.innerHTML = `
             <div id="orderDetailsModal" style="display:none">
@@ -269,9 +515,28 @@
 
   function init() {
     __ORD_logBoot("initAdminOrders");
+    attachFilterListenersOnce();
     fetchOrdersAndRender();
     ensureModalScaffold();
   }
+
+  // Allow the partial to force a boot when it mounts
+  window.__WS_ORDERS_FORCE_BOOT = function () {
+    try {
+      attachFilterListenersOnce();
+      ensureModalScaffold();
+      fetchOrdersAndRender();
+    } catch (e) {
+      console.error("[ORD] force boot error", e);
+    }
+  };
+
+  // Also react to the partial-loaded signal
+  window.addEventListener("admin:partial-loaded", (e) => {
+    if (e?.detail?.partial === "orders") {
+      window.__WS_ORDERS_FORCE_BOOT?.();
+    }
+  });
 
   // Expose init for dashboard.js
   window.initAdminOrders = init;

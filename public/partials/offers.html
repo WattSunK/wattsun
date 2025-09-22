@@ -1,0 +1,109 @@
+<!-- /partials/offers.html -->
+<section id="loyalty" aria-label="Staff Loyalty">
+
+  <!-- About the Program -->
+  <div class="ws-card" style="margin-bottom:12px;">
+    <h2 class="ws-title" style="margin-bottom:8px;">Staff Loyalty — About the Program</h2>
+    <div class="muted" style="line-height:1.6;">
+      <p><strong>What is it?</strong> A time-boxed rewards program for team members (“Staff”) that runs for
+        <strong>6 months</strong> per enrollment (extendable by Admin). You earn points automatically while Active and can convert them to cash.</p>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:10px;">
+        <div class="ws-card" style="border:1px dashed #f0e6bf;">
+          <h3 style="margin:4px 0 6px;">How you earn</h3>
+          <ul style="margin:0;padding-left:18px;">
+            <li><strong>+100 pts</strong> once on <strong>Enroll</strong>.</li>
+            <li><strong>+1 pt/day</strong> for each calendar day your account is <strong>Active</strong>.</li>
+            <li><strong>−1 pt</strong> penalties may be applied by Admin (you’ll be notified).</li>
+          </ul>
+        </div>
+
+        <div class="ws-card" style="border:1px dashed #f0e6bf;">
+          <h3 style="margin:4px 0 6px;">Withdrawals</h3>
+          <ul style="margin:0;padding-left:18px;">
+            <li>Available <strong>after 90 days</strong> from your start date.</li>
+            <li>Rate: <strong>€1 per point</strong>; <strong>minimum 100 pts</strong> per request.</li>
+            <li>Admin reviews each request: <strong>Approved</strong> → points deducted; <strong>Paid</strong> → payout reference emailed.</li>
+          </ul>
+        </div>
+
+        <div class="ws-card" style="border:1px dashed #f0e6bf;">
+          <h3 style="margin:4px 0 6px;">Lifecycle & Notifications</h3>
+          <ul style="margin:0;padding-left:18px;">
+            <li>Enrollment lasts <strong>6 months</strong> (extendable by Admin).</li>
+            <li>Admin may <strong>Pause/Deactivate</strong> the account (paused days don’t earn points).</li>
+            <li>Email notifications for penalties, status changes, weekly summary, and withdrawal updates.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="ws-card" id="accountCard">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;">
+      <div style="flex:1 1 260px;min-width:260px;">
+        <h3 style="margin:4px 0 8px;">Balance</h3>
+        <div style="font-size:28px;font-weight:700;"><span id="pointsBalance">—</span> pts</div>
+        <div class="muted" id="eurBalance">€—</div>
+      </div>
+
+      <div style="flex:1 1 260px;min-width:260px;">
+        <h3 style="margin:4px 0 8px;">Status</h3>
+        <div><span id="statusTag" class="pill">—</span></div>
+        <div class="muted" id="dateInfo" style="margin-top:6px;">Start — • Eligible — • End —</div>
+      </div>
+
+      <div style="flex:1 1 260px;min-width:260px;">
+        <h3 style="margin:4px 0 8px;">Actions</h3>
+        <div class="muted" id="minInfo">Minimum withdrawal: — pts</div>
+        <div style="margin-top:8px;">
+          <button id="enrollBtn" class="ws-btn ws-btn-yellow">Enroll</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Withdraw -->
+  <div class="ws-card" id="withdrawCard" style="display:none;">
+    <h3 style="margin:4px 0 12px;">Withdraw</h3>
+    <p class="muted" id="withdrawHelp" style="margin:0 0 10px;">You can withdraw points (min shown above) at €1/pt.</p>
+
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+      <div style="min-width:220px;">
+        <label class="muted" for="withdrawPoints">Points</label><br/>
+        <input id="withdrawPoints" class="ws-input" type="number" min="100" step="1" value="100" style="width:220px;" />
+      </div>
+      <div style="min-width:180px;">
+        <div class="muted">Estimated payout</div>
+        <div style="font-size:22px;font-weight:700;" id="estimateEUR">€100</div>
+      </div>
+      <div style="min-width:200px;">
+        <button id="withdrawBtn" class="ws-btn ws-btn-yellow" disabled>Request Withdrawal</button>
+      </div>
+    </div>
+
+    <div id="withdrawMsg" class="muted" style="margin-top:8px;"></div>
+  </div>
+
+  <!-- History -->
+  <div class="ws-card" id="historyCard" style="display:none;">
+    <h3 style="margin:4px 0 12px;">Withdrawal Requests</h3>
+    <table class="ws-table" id="historyTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Requested</th>
+          <th>Status</th>
+          <th>Requested At</th>
+          <th>Decided</th>
+          <th>Paid</th>
+          <th>Reference</th>
+        </tr>
+      </thead>
+      <tbody id="historyBody"><tr><td colspan="7" class="muted">(No data yet)</td></tr></tbody>
+    </table>
+  </div>
+
+  <script defer src="/js/loyalty-offers.js"></script>
+</section>

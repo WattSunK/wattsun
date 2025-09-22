@@ -1,6 +1,8 @@
 // public/admin/js/orders-controller.js
 (function () {
   "use strict";
+  const DEBUG = false;                        // flip to true when debugging
+  const dbg = (...a) => { if (DEBUG) console.log("[orders-controller]", ...a); };
 
   const getData = () => window.WattSunAdminData;
 
@@ -32,6 +34,24 @@
     if (table && !table.id) table.id = "ordersTable";
     if (tbody && !tbody.id) tbody.id = "ordersTbody";
   }
+  
+// normalize cents-or-units-or-string into *cents* (integer) or null
+function toCentsMaybe(v) {
+  if (v == null || v === "") return null;
+  if (typeof v === "string") {
+    // strip non-digits except dot/comma
+    const s = v.replace(/[^\d.,-]/g, "").replace(/,/g, "");
+    if (!s) return null;
+    const n = Number(s);
+    if (!Number.isFinite(n)) return null;
+    // heuristic: if it's small, assume it's *units* and convert to cents
+    return n < 100000 ? Math.round(n * 100) : Math.round(n);
+  }
+  if (typeof v === "number") {
+    return v < 100000 ? Math.round(v * 100) : Math.round(v);
+  }
+  return null;
+}
 
   function renderRows() {
   const tbody = document.getElementById("ordersTbody");
@@ -44,23 +64,21 @@
 
   const rowsHtml = slice.map((o) => {
     const id     = o.orderNumber || o.id || "";
-    const name   = o.fullName || "—";
+    const name   = o.fullName || o.name || o.customerName || o.customer || "—";
     const phone  = o.phone || o.customerPhone || o.contactPhone || "—";
     const when   = o.createdAt ? new Date(o.createdAt).toLocaleString() : "—";
     const total  = fmtMoney(o.totalCents, o.currency);
     const status = o.status || "Pending";
 
-   // accept several possible deposit shapes and let fmtMoney coerce
-const depositRaw = [
-  o.depositCents,
-  o.displayDepositCents,
-  o.deposit_cents,
-  o.depositAmountCents,
-  o.deposit
-].find(v => v !== undefined && v !== null && v !== "");
+// ---- deposit (robust over cents/units/strings) ----
+const depCents =
+  toCentsMaybe(o.displayDepositCents) ??
+  toCentsMaybe(o.depositCents) ??
+  toCentsMaybe(o.depositAmountCents) ??
+  toCentsMaybe(o.deposit);
 
-const deposit = depositRaw !== undefined && depositRaw !== null
-  ? fmtMoney(+depositRaw, o.currency)
+const deposit = depCents != null
+  ? (window.formatKES ? window.formatKES(depCents) : `KES ${(depCents/100).toLocaleString()}`)
   : "—";
 
     return `
@@ -132,7 +150,7 @@ const deposit = depositRaw !== undefined && depositRaw !== null
 async function fetchOrders() {
   const Data = getData();
   if (!Data || !Data.orders) {
-    console.debug("[orders-controller] Data adapter not ready; will retry.");
+    dbg("Data adapter not ready; will retry.");
     State.raw = [];
     return false;
   }
@@ -181,14 +199,14 @@ async function fetchOrders() {
   }
 
   State.raw = all;
-  console.debug("[orders-controller] fetched rows:", State.raw.length);
+  dbg("fetched rows:", State.raw.length);
   return true;
 }
 
   async function boot() {
     if (booted) return;
     booted = true;
-    console.debug("[orders-controller] boot");
+    dbg("boot");
 
     ensureTableHooks();
 
@@ -280,7 +298,7 @@ async function fetchOrders() {
       const tpl  = document.createElement("template");
       tpl.innerHTML = html;
       document.body.appendChild(tpl.content);
-      console.debug("[orders-controller] orders-modal injected");
+      dbg("orders-modal injected");
     } catch (err) {
       console.error("[orders-controller] modal injection failed:", err);
     }
@@ -296,11 +314,19 @@ async function fetchOrders() {
     set("ov_status",      o.status || "Pending");
     set("ov_createdAt",   o.createdAt ? fmtDT(o.createdAt) : "—");
     set("ov_address",     o.address || o.shippingAddress || "—");
-    set("ov_fullName",    o.fullName || "—");
+    set("ov_fullName",    o.fullName || o.name || o.customerName || o.customer || "—");
     set("ov_phone",       o.phone || "—");
     set("ov_email",       o.email || "—");
     set("ov_total",       fmtMoney(o.totalCents, o.currency));
-    set("ov_deposit",     fmtMoney(o.depositCents, o.currency));
+    
+    const depC =
+    toCentsMaybe(o.displayDepositCents) ??
+    toCentsMaybe(o.depositCents) ??
+    toCentsMaybe(o.depositAmountCents) ??
+    toCentsMaybe(o.deposit);
+
+set("ov_deposit", depC != null ? fmtMoney(depC, o.currency) : "—");
+
     set("ov_currency",    o.currency || "—");
 
     const body = document.getElementById("ov_items");

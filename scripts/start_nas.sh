@@ -2,7 +2,10 @@
 set -eu
 cd "$(dirname "$0")/.."
 mkdir -p data/dev logs run
+
+# Load .env safely
 set -a; [ -f .env ] && . ./.env; set +a
+
 nohup node server.js >> logs/app.out 2>> logs/app.err &
 echo $! > run/app.pid
 sleep 1

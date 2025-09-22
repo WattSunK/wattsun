@@ -2,7 +2,7 @@
   <header class="card-header">
     <h2 id="dispatch-title" class="card-title">Dispatches</h2>
      <div class="spacer"></div>
-    <button id="btnAddOrder_orders" class="btn btn-primary">Add Order</button>
+    <button id="btnCreateDispatch" class="btn btn-primary">+ Create Dispatch</button>
   </header>
   <div class="card-body">
     <!-- Standard filters component -->
@@ -86,6 +86,51 @@
     </div>
 
   </div>
+
+<!-- Create Dispatch Modal -->
+
+<dialog id="dispatchCreateModal" class="modal">
+  <form id="dispatchCreateForm" method="dialog" class="modal-body" autocomplete="off" novalidate>
+    <header class="modal-header">
+      <h3>Create Dispatch</h3>
+    </header>
+
+    <div class="grid grid-2">
+      <div class="form-field">
+        <label for="dc-order-id">Order ID <span class="req">*</span></label>
+        <input id="dc-order-id" name="order_id" type="text" class="input" placeholder="WATT2025..." required />
+        <small class="hint">Paste an existing order number, e.g. <code>WATT20250729205910</code>.</small>
+      </div>
+
+      <div class="form-field">
+        <label for="dc-driver-id">Driver</label>
+        <select id="dc-driver-id" name="driver_id" class="input">
+          <option value="">— Unassigned —</option>
+          <!-- options injected by JS -->
+        </select>
+        <small class="hint">Optional. You can assign later.</small>
+      </div>
+
+      <div class="form-field">
+        <label for="dc-planned-date">Planned date</label>
+        <input id="dc-planned-date" name="planned_date" type="date" class="input" />
+      </div>
+
+      <div class="form-field form-span-2">
+        <label for="dc-notes">Notes</label>
+        <textarea id="dc-notes" name="notes" class="input" rows="3" placeholder="Optional note…"></textarea>
+      </div>
+    </div>
+
+    <div id="dc-error" class="form-error" role="alert" aria-live="polite" style="display:none;"></div>
+
+    <footer class="modal-footer">
+      <button type="button" class="btn btn-ghost" id="dc-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="dc-submit">Create</button>
+    </footer>
+  </form>
+</dialog>
+
   <!-- Edit Dispatch Modal -->
 <div id="dispatch-edit" class="modal" aria-hidden="true">
   <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="dispatch-edit-title">

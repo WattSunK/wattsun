@@ -5,7 +5,14 @@ const sqlite3 = require("sqlite3").verbose();
 
 const router = express.Router();
 router.use(express.json());
-const { requireAdmin } = require("../middleware/requireAdmin");
+function requireAdmin(req, res, next) {
+  const u = req.session?.user;
+  const role = String(u?.type || u?.role || "");
+  if (!u || !/admin/i.test(role)) {
+    return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Admin only" } });
+  }
+  next();
+}
 router.use(requireAdmin);
 
 // --- DB helpers -------------------------------------------------------------
@@ -362,7 +369,7 @@ router.post("/", async (req, res) => {
       [dispatchId]
     );
 
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
       dispatch: created,
       history: {
@@ -386,17 +393,35 @@ router.post("/", async (req, res) => {
 });
 
 // --- Update ----------------------------------------------------------------
-router.patch("/:id", async (req, res) => {
+async function updateDispatch(req, res) {
   const id = req.params.id;
   const { status, driver_id, notes, planned_date } = req.body || {};
   const admin = getAdminUser(req);
 
-  if (planned_date && !isIsoDate(planned_date)) {
-    return badRequest(res, "BAD_DATE", "planned_date must be YYYY-MM-DD.");
-  }
-  if (status && !ALLOWED_STATUSES.has(status)) {
-    return badRequest(res, "BAD_STATUS", "status must be one of Created|Assigned|InTransit|Canceled.");
-  }
+  // normalize status to canonical tokens accepted by the server
+// supports common lowercase inputs and both Canceled/Cancelled spellings
+const CANON = {
+  created:   "Created",
+  assigned:  "Assigned",
+  intransit: "InTransit",
+  delivered: "Delivered",
+  canceled:  "Canceled",
+  cancelled: "Canceled",
+};
+
+const normalizedStatus =
+  typeof status === "string"
+    ? CANON[status.trim().toLowerCase()] // undefined if not a known key
+    : undefined;
+
+
+if (planned_date && !isIsoDate(planned_date)) {
+  return badRequest(res, "BAD_DATE", "planned_date must be YYYY-MM-DD.");
+}
+if (normalizedStatus && !ALLOWED_STATUSES.has(normalizedStatus)) {
+  return badRequest(res, "BAD_STATUS", "status must be one of Created|Assigned|InTransit|Delivered|Canceled.");
+}
+
 
   const db = new sqlite3.Database(DB_PATH);
   try {
@@ -412,66 +437,66 @@ router.patch("/:id", async (req, res) => {
     }
 
     const prevStatus = existing.status;
-    const nextStatus = status || prevStatus;
+const nextStatus = normalizedStatus || prevStatus;
 
-    // Effective driver after this patch (used for rules)
-    const effectiveDriverId = driverIdIsProvided ? driver_id : existing.driver_id;
+// Effective driver after this patch (used for rules)
+const effectiveDriverId = driverIdIsProvided ? driver_id : existing.driver_id;
 
-    // Enforce transition rules only if status is explicitly set
-    if (status) {
-      const errMsg = validateTransition(prevStatus, nextStatus, effectiveDriverId);
-      if (errMsg) return badRequest(res, "BAD_TRANSITION", errMsg);
-    }
+// Enforce transition rules only if status is explicitly set
+if (normalizedStatus) {
+  const errMsg = validateTransition(prevStatus, nextStatus, effectiveDriverId);
+  if (errMsg) return badRequest(res, "BAD_TRANSITION", errMsg);
+}
 
-    // --- Build update
-    const set = [];
-    const params = [];
+   const set = [];
+const params = [];
 
-    set.push("status = COALESCE(?, status)");
-    params.push(status ?? null);
+set.push("status = COALESCE(?, status)");
+params.push(normalizedStatus ?? null);
 
-    if (driverIdIsProvided) {
-      set.push("driver_id = ?");
-      params.push(driver_id ?? null);
-    }
+if (driverIdIsProvided) {
+  set.push("driver_id = ?");
+  params.push(driver_id ?? null);
+}
 
-    set.push("notes = COALESCE(?, notes)");
-    params.push(notes ?? null);
+set.push("notes = COALESCE(?, notes)");
+params.push(notes ?? null);
 
-    const clearPlanned = status === "Created" && driverIdIsProvided && (driver_id == null);
-    if (clearPlanned) {
-      set.push("planned_date = NULL");
-    } else {
-      set.push("planned_date = COALESCE(?, planned_date)");
-      params.push(planned_date ?? null);
-    }
+const clearPlanned = normalizedStatus === "Created" && driverIdIsProvided && (driver_id == null);
+if (clearPlanned) {
+  set.push("planned_date = NULL");
+} else {
+  set.push("planned_date = COALESCE(?, planned_date)");
+  params.push(planned_date ?? null);
+}
 
-    set.push("updated_at = datetime('now')");
+set.push("updated_at = datetime('now')");
+
 
     // delivered_at rules
-    if (status && nextStatus !== prevStatus) {
-      if (nextStatus === "Delivered") {
-        set.push("delivered_at = datetime('now')");
-      } else if (prevStatus === "Delivered" && nextStatus !== "Delivered") {
-        set.push("delivered_at = NULL");
-      }
-    }
+if (normalizedStatus && nextStatus !== prevStatus) {
+  if (nextStatus === "Delivered") {
+    set.push("delivered_at = datetime('now')");
+  } else if (prevStatus === "Delivered" && nextStatus !== "Delivered") {
+    set.push("delivered_at = NULL");
+  }
+}
 
     const sql = `UPDATE dispatches SET ${set.join(", ")} WHERE id = ?`;
     params.push(id);
     await runAsync(db, sql, params);
 
     // History row for dispatch
-    let histRow = null;
-    if (status && nextStatus !== prevStatus) {
-      const hist = await insertHistory(db, {
-        dispatchId: Number(id),
-        oldStatus: prevStatus,
-        newStatus: nextStatus,
-        adminId: admin?.id,
-        note: notes,
-      });
-      histRow = {
+   let histRow = null;
+if (normalizedStatus && nextStatus !== prevStatus) {
+  const hist = await insertHistory(db, {
+    dispatchId: Number(id),
+    oldStatus: prevStatus,
+    newStatus: nextStatus,
+    adminId: admin?.id,
+    note: notes,
+  });
+  histRow = { 
         id: hist.lastID,
         dispatch_id: Number(id),
         old_status: prevStatus,
@@ -480,114 +505,137 @@ router.patch("/:id", async (req, res) => {
         note: notes ?? null,
       };
     }
+// --- Step 5.5: sync orders on Delivered boundaries (and clear overlay)
+// Capture the order's status BEFORE we mutate it so Step 5.6 can log accurately.
+let preSyncOrderStatus = null;
 
-    // --- Step 5.5: sync orders on Delivered boundaries
-    if (status && nextStatus !== prevStatus) {
-      const link = await getAsync(db, "SELECT order_id FROM dispatches WHERE id = ?", [id]);
-      const orderId = link?.order_id;
+if (normalizedStatus && nextStatus !== prevStatus) {
+  const link = await getAsync(db, "SELECT order_id FROM dispatches WHERE id = ?", [id]);
+  const orderId = link?.order_id ?? null;
 
-      if (orderId != null) {
-        const completedAtExists = !!(await getAsync(
-          db,
-          "SELECT 1 AS ok FROM pragma_table_info('orders') WHERE name='completed_at' LIMIT 1",
-          []
-        ));
+  if (orderId) {
+    const completedAtExists = !!(await getAsync(
+      db,
+      "SELECT 1 AS ok FROM pragma_table_info('orders') WHERE name='completed_at' LIMIT 1",
+      []
+    ));
 
-        const order = await getAsync(db, "SELECT id, status FROM orders WHERE id = ?", [orderId]);
-        const curStatus = order?.status || null;
+    // Read BEFORE any updates (for history)
+    const orderBefore = await getAsync(db, "SELECT id, status FROM orders WHERE id = ?", [orderId]);
+    preSyncOrderStatus = orderBefore?.status ?? null;
 
-        const intoDelivered = nextStatus === "Delivered" && prevStatus !== "Delivered";
-        const outOfDelivered = prevStatus === "Delivered" && nextStatus !== "Delivered";
+    const intoDelivered  = nextStatus === "Delivered" && prevStatus !== "Delivered";
+    const outOfDelivered = prevStatus === "Delivered" && nextStatus !== "Delivered";
 
-        if (intoDelivered && order) {
-          if (!ORDER_TERMINAL_STATUSES.has(curStatus)) {
-            if (completedAtExists) {
-              await runAsync(
-                db,
-                "UPDATE orders SET status='Completed', completed_at = COALESCE(completed_at, datetime('now')) WHERE id = ?",
-                [order.id]
-              );
-            } else {
-              await runAsync(db, "UPDATE orders SET status='Completed' WHERE id = ?", [order.id]);
-            }
-          }
-        } else if (outOfDelivered && order) {
-          if (curStatus === "Completed") {
-            if (completedAtExists) {
-              await runAsync(db, "UPDATE orders SET status='InProgress', completed_at = NULL WHERE id = ?", [order.id]);
-            } else {
-              await runAsync(db, "UPDATE orders SET status='InProgress' WHERE id = ?", [order.id]);
-            }
-          }
-        }
-      }
-    }
-
-    // --- Step 5.6: append to order_status_history (schema-aware)
-    if (status && nextStatus !== prevStatus) {
-      const link = await getAsync(db, "SELECT order_id FROM dispatches WHERE id = ?", [id]);
-      const orderId = link?.order_id;
-      if (orderId != null) {
-        const intoDelivered  = nextStatus === "Delivered" && prevStatus !== "Delivered";
-        const outOfDelivered = prevStatus === "Delivered" && nextStatus !== "Delivered";
-
-        // Detect table + schema
-        const oshTableExists = !!(await getAsync(
-          db,
-          "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='order_status_history' LIMIT 1",
-          []
-        ));
-        if (oshTableExists) {
-          const hasV2Columns = !!(await getAsync(
+    if (intoDelivered && orderBefore) {
+      // Flip base order to Completed on first entry into Delivered
+      if (!ORDER_TERMINAL_STATUSES.has(preSyncOrderStatus)) {
+        if (completedAtExists) {
+          await runAsync(
             db,
-            "SELECT 1 AS ok FROM pragma_table_info('order_status_history') WHERE name='old_order_status' LIMIT 1",
-            []
-          ));
+            "UPDATE orders SET status='Completed', completed_at = COALESCE(completed_at, datetime('now')) WHERE id = ?",
+            [orderBefore.id]
+          );
+        } else {
+          await runAsync(db, "UPDATE orders SET status='Completed' WHERE id = ?", [orderBefore.id]);
+        }
+      }
 
-          // Read current order status AFTER Step 5.5 sync
-          const orderRow = await getAsync(db, "SELECT status FROM orders WHERE id = ?", [orderId]);
-          const curOrderStatus = orderRow?.status ?? null;
+      // ✨ Overlay cleanup: ensure effectiveStatus == base (no stale override)
+      const overlayTableExists = !!(await getAsync(
+        db,
+        "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='admin_order_meta' LIMIT 1",
+        []
+      ));
+      if (overlayTableExists) {
+        await runAsync(db, "DELETE FROM admin_order_meta WHERE order_id = ?", [orderBefore.id]);
+      }
 
-          if (hasV2Columns) {
-            // New schema (preferred)
-            if (intoDelivered || outOfDelivered) {
-              const oldOrderStatus = outOfDelivered ? "Completed" : (curOrderStatus === "Completed" ? "InProgress" : curOrderStatus);
-              const newOrderStatus = intoDelivered ? "Completed" : "InProgress";
-              await runAsync(
-                db,
-                `INSERT INTO order_status_history
-                   (order_id, old_order_status, new_order_status,
-                    old_dispatch_status, new_dispatch_status,
-                    source, reason, note, changed_by, changed_at)
-                 VALUES (?, ?, ?, ?, ?, 'dispatch', NULL, ?, ?, datetime('now'))`,
-                [orderId, oldOrderStatus, newOrderStatus, prevStatus, nextStatus, notes ?? null, admin?.id ?? null]
-              );
-            } else {
-              await runAsync(
-                db,
-                `INSERT INTO order_status_history
-                   (order_id, old_order_status, new_order_status,
-                    old_dispatch_status, new_dispatch_status,
-                    source, reason, note, changed_by, changed_at)
-                 VALUES (?, ?, ?, ?, ?, 'dispatch', NULL, ?, ?, datetime('now'))`,
-                [orderId, curOrderStatus, curOrderStatus, prevStatus, nextStatus, notes ?? null, admin?.id ?? null]
-              );
-            }
-          } else {
-            // Legacy schema: (id, order_id, status, note, changedBy, changedAt)
-            const derived = (intoDelivered ? "Completed" : outOfDelivered ? "InProgress" : curOrderStatus);
-            const noteWithDispatch = [notes || "", `(dispatch ${prevStatus}→${nextStatus})`].filter(Boolean).join(" ").trim();
-            await runAsync(
-              db,
-              `INSERT INTO order_status_history (order_id, status, note, changedBy, changedAt)
-               VALUES (?, ?, ?, ?, datetime('now'))`,
-              [orderId, derived, noteWithDispatch || null, admin?.id ?? null]
-            );
-          }
+    } else if (outOfDelivered && orderBefore) {
+      // If stepping away from Delivered and order was Completed, revert to InProgress
+      if (preSyncOrderStatus === "Completed") {
+        if (completedAtExists) {
+          await runAsync(
+            db,
+            "UPDATE orders SET status='InProgress', completed_at = NULL WHERE id = ?",
+            [orderBefore.id]
+          );
+        } else {
+          await runAsync(db, "UPDATE orders SET status='InProgress' WHERE id = ?", [orderBefore.id]);
         }
       }
     }
+  }
+}
 
+// --- Step 5.6: append to order_status_history (schema-aware, uses PRE-SYNC status)
+if (normalizedStatus && nextStatus !== prevStatus) {
+  const link = await getAsync(db, "SELECT order_id FROM dispatches WHERE id = ?", [id]);
+  const orderId = link?.order_id ?? null;
+
+  if (orderId) {
+    const intoDelivered  = nextStatus === "Delivered" && prevStatus !== "Delivered";
+    const outOfDelivered = prevStatus === "Delivered" && nextStatus !== "Delivered";
+
+    const oshTableExists = !!(await getAsync(
+      db,
+      "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='order_status_history' LIMIT 1",
+      []
+    ));
+    if (oshTableExists) {
+      const hasV2Columns = !!(await getAsync(
+        db,
+        "SELECT 1 AS ok FROM pragma_table_info('order_status_history') WHERE name='old_order_status' LIMIT 1",
+        []
+      ));
+
+      // Read AFTER Step 5.5 for the new status (only as a fallback / for no-change cases)
+      const orderAfter = await getAsync(db, "SELECT status FROM orders WHERE id = ?", [orderId]);
+      const postSyncOrderStatus = orderAfter?.status ?? null;
+
+      if (hasV2Columns) {
+        // Old = status BEFORE Step 5.5; New = derived from the dispatch boundary change
+        const oldOrderStatus =
+          preSyncOrderStatus ?? postSyncOrderStatus /* fallback if ever missing */;
+
+        const newOrderStatus =
+          intoDelivered  ? "Completed" :
+          outOfDelivered ? "InProgress" :
+                           oldOrderStatus; // no order-status change
+
+        await runAsync(
+          db,
+          `INSERT INTO order_status_history
+             (order_id, old_order_status, new_order_status,
+              old_dispatch_status, new_dispatch_status,
+              source, reason, note, changed_by, changed_at)
+           VALUES (?, ?, ?, ?, ?, 'dispatch', NULL, ?, ?, datetime('now'))`,
+          [orderId, oldOrderStatus, newOrderStatus, prevStatus, nextStatus, notes ?? null, admin?.id ?? null]
+        );
+
+      } else {
+        // Legacy single-column history
+        const derived =
+          intoDelivered  ? "Completed" :
+          outOfDelivered ? "InProgress" :
+                           (preSyncOrderStatus ?? postSyncOrderStatus);
+
+        const noteWithDispatch = [notes || "", `(dispatch ${prevStatus}→${nextStatus})`]
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+
+        await runAsync(
+          db,
+          `INSERT INTO order_status_history (order_id, status, note, changedBy, changedAt)
+           VALUES (?, ?, ?, ?, datetime('now'))`,
+          [orderId, derived, noteWithDispatch || null, admin?.id ?? null]
+        );
+      }
+    }
+  }
+}
+    
     const updated = await getAsync(
       db,
       `SELECT d.*, o.orderNumber, u.name AS driverName
@@ -612,6 +660,8 @@ router.patch("/:id", async (req, res) => {
   } finally {
     db.close();
   }
-});
+}
+router.patch("/:id", updateDispatch);
+router.put("/:id", updateDispatch);
 
 module.exports = router;

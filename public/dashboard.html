@@ -21,18 +21,24 @@
 
       <a href="#" class="nav-link"
          data-partial="users" data-url="/partials/users.html">Users</a>
-
+    
       <a href="#" class="nav-link"
          data-partial="orders" data-url="/partials/orders.html">Orders</a>
-
+   
       <a href="#" class="nav-link"
          data-partial="items" data-url="/partials/items.html">Items</a>
 
       <a href="#" class="nav-link"
          data-partial="dispatch" data-url="/partials/dispatch.html">Dispatch</a>
 
+      <a href="#" class="nav-link"
+         data-partial="admin-loyalty" data-url="/partials/admin-loyalty.html">Loyalty</a>
+
       <!-- Existing external link (optional, unchanged) -->
-      <a href="/myaccount/myorders.html" class="nav-link">My Account</a>
+       
+      <a href="/myaccount/userdash.html" class="nav-link">My Account</a>
+     
+
     </nav>
   </aside>
 
@@ -123,12 +129,13 @@
   <script>window.__ADMIN_VERSION__ = "20250906-02";</script>
 
   <!-- Load order-sensitive scripts in correct order -->
-  <script src="/admin/js/admin-skin.js?v=20250915-02"></script>
+  <script src="/admin/js/admin-skin.js?v=20250918-01"></script>
   <script src="/admin/js/data-adapter.js?v=202509-08" defer></script>
-  <script src="/admin/js/orders-controller.js?v=20250915-01" defer></script>
+  <script src="/admin/js/orders-controller.js?v=20250915-03" defer></script>
   <script src="/admin/js/dispatch-controller.js?v=20250912-03" defer></script>  
-  <script src="/admin/js/orders-edit.js?v=20250915-05" defer></script>
+  <script src="/admin/js/orders-edit.js?v=20250915-06" defer></script>
   <script src="/admin/js/orders-add.js?v=20250911-12" defer></script>
   <script src="/admin/js/admin-users.js?v=20250915-02"></script>
+  <script defer src="/js/admin-loyalty-settings-modal.js"></script>
 </body>
 </html>

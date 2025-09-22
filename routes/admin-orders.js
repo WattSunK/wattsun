@@ -140,8 +140,117 @@ function appendStatusHistory(orderId, oldStatus, newStatus, note, changedBy) {
     });
   });
 }
+// 2.3-B — Ensure a dispatch exists when an order becomes Confirmed (idempotent)
+function ensureDispatchForConfirmedOrder(orderId, changedBy = null, note = 'auto from order Confirmed') {
+  return new Promise((resolve, reject) => {
+    // If a non-cancelled dispatch already exists for this order, do nothing
+    db.get(
+      `SELECT id FROM dispatches
+         WHERE order_id = ?
+           AND IFNULL(status,'') <> 'Canceled'
+         ORDER BY id DESC
+         LIMIT 1`,
+      [orderId],
+      (selErr, row) => {
+        if (selErr) return reject(selErr);
+        if (row && row.id) return resolve({ created: false, dispatchId: row.id });
 
-// Upsert overlay helper (returns minimal order payload)
+        // Create a new 'Created' dispatch
+        db.run(
+          `INSERT INTO dispatches (order_id, driver_id, status, planned_date, notes, created_at, updated_at)
+           VALUES (?, NULL, 'Created', NULL, ?, datetime('now'), datetime('now'))`,
+          [orderId, note],
+          function (insErr) {
+            if (insErr) return reject(insErr);
+            const dispatchId = this.lastID;
+
+            // Append dispatch history
+            db.run(
+              `INSERT INTO dispatch_status_history (dispatch_id, old_status, new_status, changed_by, note, changed_at)
+               VALUES (?, NULL, 'Created', ?, ?, datetime('now'))`,
+              [dispatchId, changedBy, note],
+              (histErr) => {
+                if (histErr) return reject(histErr);
+                resolve({ created: true, dispatchId });
+              }
+            );
+          }
+        );
+      }
+    );
+  });
+}
+
+// 2.3-C — Cancel any active dispatches when order is not moving forward
+function cancelActiveDispatchesForOrder(orderId, changedBy = null, reason = 'auto from order status rollback') {
+  return new Promise((resolve, reject) => {
+    db.all(
+      `SELECT id, status FROM dispatches
+       WHERE order_id = ? AND IFNULL(status,'') <> 'Canceled'`,
+      [orderId],
+      (selErr, rows) => {
+        if (selErr) return reject(selErr);
+        console.log(`[auto-sync] 2.3-C: found ${rows?.length || 0} active dispatch(es) for order ${orderId}`);
+        if (!rows || rows.length === 0) {
+          console.log(`[auto-sync] 2.3-C: no active dispatches to cancel for order ${orderId}`);
+          return resolve({ cancelled: 0, failed: 0 });
+        }
+
+        let pending = rows.length;
+        let cancelled = 0;
+        let failed = 0;
+
+        rows.forEach(({ id: dispatchId, status: oldStatus }) => {
+          db.serialize(() => {
+            // Begin a small transaction per dispatch for atomicity
+            db.run('BEGIN');
+            // 1) append history
+            db.run(
+              `INSERT INTO dispatch_status_history (dispatch_id, old_status, new_status, changed_by, note, changed_at)
+               VALUES (?, ?, 'Canceled', ?, ?, datetime('now'))`,
+              [dispatchId, oldStatus || null, changedBy, reason],
+              (histErr) => {
+                if (histErr) {
+                  failed++;
+                  console.error(`[auto-sync] 2.3-C: history insert failed for dispatch ${dispatchId}`, histErr);
+                  db.run('ROLLBACK', () => done());
+                  return;
+                }
+                // 2) flip the dispatch
+                db.run(
+                  `UPDATE dispatches
+                   SET status='Canceled', updated_at=datetime('now')
+                   WHERE id = ?`,
+                  [dispatchId],
+                  (updErr) => {
+                    if (updErr) {
+                      failed++;
+                      console.error(`[auto-sync] 2.3-C: update failed for dispatch ${dispatchId}`, updErr);
+                      db.run('ROLLBACK', () => done());
+                      return;
+                    }
+                    cancelled++;
+                    db.run('COMMIT', () => done());
+                  }
+                );
+              }
+            );
+          });
+
+          function done() {
+            pending--;
+            if (pending === 0) {
+              console.log(`[auto-sync] 2.3-C: cancel summary order=${orderId} cancelled=${cancelled} failed=${failed}`);
+              resolve({ cancelled, failed });
+            }
+          }
+        });
+      }
+    );
+  });
+}
+
+  // Upsert overlay helper (returns minimal order payload)
 function upsertOverlay({ id, status, driverId, notes, totalCents, depositCents, currency }) {
   return new Promise((resolve, reject) => {
     db.get("SELECT 1 FROM admin_order_meta WHERE order_id = ?", [id], (selErr, row) => {
@@ -185,9 +294,13 @@ router.get("/", (req, res) => {
   const page = Math.max(parseInt(req.query.page || "1", 10), 1);
   const per  = Math.min(Math.max(parseInt(req.query.per  || "10", 10), 1), 100);
   const q      = (req.query.q || "").trim();
-  const status = (req.query.status || "").trim();
-  const from   = (req.query.from || "").trim();
+  const statusRaw = (req.query.status || "").trim();
+  const status = safeStatus(normalizeStatus(statusRaw)) || "";
   const to     = (req.query.to   || "").trim();
+
+  const from   = (req.query.from || "").trim();   // <-- add this (from was missing)
+  const ymd    = /^\d{4}-\d{2}-\d{2}$/;           // tiny date guard (YYYY-MM-DD)
+  const fromOk = ymd.test(from), toOk = ymd.test(to);
 
   const where = [];
   const params = [];
@@ -201,8 +314,8 @@ router.get("/", (req, res) => {
     where.push("COALESCE(aom.status, o.status) = ?");
     params.push(status);
   }
-  if (from) { where.push("datetime(o.createdAt) >= datetime(?)"); params.push(from); }
-  if (to)   { where.push("datetime(o.createdAt) <  datetime(?)"); params.push(to); }
+  if (fromOk) { where.push("datetime(o.createdAt) >= datetime(?)"); params.push(from); }
+  if (toOk)   { where.push("datetime(o.createdAt) <  datetime(?)"); params.push(to); }
 
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const offset = (page - 1) * per;
@@ -228,7 +341,7 @@ router.get("/", (req, res) => {
       COALESCE(aom.status, o.status) AS displayStatus,
       COALESCE(aom.total_cents,  o.totalCents, it.items_total_cents)    AS displayTotalCents,
       COALESCE(aom.deposit_cents, it.items_deposit_cents, 0)            AS displayDepositCents,
-      aom.currency                                                      AS displayCurrency,
+      COALESCE(aom.currency, o.currency, 'KES')                         AS displayCurrency,
       aom.driver_id                                                     AS driverId,
       aom.notes                                                         AS notes,
 
@@ -299,7 +412,7 @@ router.get("/", (req, res) => {
 router.get("/:id/history", async (req, res) => {
   try {
     const orderId = String(req.params.id || "").trim();
-    if (!orderId) return res.status(400).json({ ok: false, error: "ORDER_ID_REQUIRED" });
+    if (!orderId) return res.status(400).json({ success: false, error: "ORDER_ID_REQUIRED" });
 
     const limit = Math.max(1, Math.min(parseInt(req.query.limit || "50", 10), 100));
     const cursorRaw = req.query.cursor;
@@ -341,10 +454,10 @@ router.get("/:id/history", async (req, res) => {
       [orderId]
     );
 
-    res.json({ ok: true, order, rows, next_cursor: nextCursor });
+    res.json({ success: true, order, rows, next_cursor: nextCursor });
   } catch (err) {
     console.error("GET /api/admin/orders/:id/history error:", err);
-    res.status(500).json({ ok: false, error: "HISTORY_FETCH_FAILED" });
+    res.status(500).json({ success: false, error: "HISTORY_FETCH_FAILED" });
   }
 });
 
@@ -371,7 +484,7 @@ router.get("/:idOrNumber", (req, res) => {
         COALESCE(aom.status, o.status)                               AS status,
         COALESCE(aom.total_cents,  o.totalCents, it.items_total_cents)    AS totalCents,
         COALESCE(aom.deposit_cents, it.items_deposit_cents, 0)            AS depositCents,
-        aom.currency                                                       AS currency,
+        COALESCE(aom.currency, o.currency, 'KES')                         AS currency,
         aom.driver_id                                                      AS driverId,
         aom.notes                                                          AS notes,
 
@@ -443,6 +556,46 @@ router.put("/:idOrNumber/status", async (req, res) => {
     if (before !== status) {
       await appendStatusHistory(id, before, status, note || null, changedBy);
     }
+    // 2.3-B: if status moved to Confirmed, ensure a 'Created' dispatch exists
+    if (before !== status && status === "Confirmed") {
+      try {
+        const r = await ensureDispatchForConfirmedOrder(id, changedBy);
+        if (r.created) {
+          console.log(`[auto-sync] Created dispatch ${r.dispatchId} for order ${id}`);
+        } else {
+          console.log(`[auto-sync] Dispatch exists for order ${id} (id ${r.dispatchId}); skipped`);
+        }
+      } catch (syncErr) {
+        console.error("[auto-sync] ensureDispatchForConfirmedOrder failed:", syncErr);
+        // Do not fail the main request
+      }
+    } 
+  console.log("[auto-sync] status transition", { id, before, status, path: req.method + " " + req.originalUrl });
+
+    // 2.3-C: if status rolled back, cancel active dispatches
+  const didStatusChange =
+    typeof before !== "undefined" &&
+    typeof status !== "undefined" &&
+    before !== status;
+
+  if (didStatusChange && rollbackSet.has(String(status))) {
+    try {
+     const r = await cancelActiveDispatchesForOrder(id, changedBy, `auto due to order -> ${status}`);
+     console.log(`[auto-sync] Cancelled ${r.cancelled} dispatch(es) for order ${id} (rollback to ${status})`);
+    } catch (syncErr) {
+    console.error("[auto-sync] cancelActiveDispatchesForOrder failed:", syncErr);
+  }
+}
+
+if (before !== status && rollbackSet.has(status)) {
+  try {
+    const r = await cancelActiveDispatchesForOrder(id, changedBy, `auto due to order -> ${status}`);
+    console.log(`[auto-sync] Cancelled ${r.cancelled} dispatch(es) for order ${id} (rollback to ${status})`);
+  } catch (syncErr) {
+    console.error("[auto-sync] cancelActiveDispatchesForOrder failed:", syncErr);
+    // non-fatal
+  }
+}
 
     return res.json({ success:true, order:{ id, orderNumber: ord.orderNumber, status }, history:{ oldStatus: before, newStatus: status, changedBy, note: note || null } });
   } catch (e) {
@@ -508,6 +661,37 @@ router.patch("/:idOrNumber", (req, res) => {
       if (providedStatus && status && before !== status) {
         await appendStatusHistory(id, before, status, notesProvided ? (notes || null) : null, changedBy);
       }
+      // 2.3-B: if status moved to Confirmed, ensure a 'Created' dispatch exists
+      if (providedStatus && status === "Confirmed" && before !== status) {
+        try {
+          const r = await ensureDispatchForConfirmedOrder(id, changedBy);
+          if (r.created) {
+            console.log(`[auto-sync] Created dispatch ${r.dispatchId} for order ${id}`);
+          } else {
+            console.log(`[auto-sync] Dispatch exists for order ${id} (id ${r.dispatchId}); skipped`);
+          }
+        } catch (syncErr) {
+          console.error("[auto-sync] ensureDispatchForConfirmedOrder failed:", syncErr);
+          // Non-fatal: do not block the PATCH response
+        }
+      }
+     console.log("[auto-sync] status transition", { id, before, status, path: req.method + " " + req.originalUrl });
+
+      // 2.3-C: if status rolled back, cancel active dispatches
+  const rollbackSet = new Set(["Pending", "Cancelled", "Processing", "InProgress"]);
+
+  // Normalize truthy change detection (some handlers use 'providedStatus', others don't)
+  const didStatusChange = (typeof before !== "undefined" && typeof status !== "undefined" && before !== status);
+
+  if (didStatusChange && rollbackSet.has(String(status))) {
+  try {
+    const r = await cancelActiveDispatchesForOrder(id, changedBy, `auto due to order -> ${status}`);
+    console.log(`[auto-sync] 2.3-C cancelled ${r.cancelled} dispatch(es), failed=${r.failed || 0}, order=${id}, to=${status}`);
+  } catch (syncErr) {
+    console.error("[auto-sync] 2.3-C failed:", syncErr);
+    // non-fatal
+  }
+}
 
       return res.json({ success: true, order: overlayResult, message: "Order updated" });
     } catch (err) {
@@ -519,5 +703,37 @@ router.patch("/:idOrNumber", (req, res) => {
 
 // Local diag
 router.get("/_diag/ping", (_req, res) => res.json({ success: true, time: new Date().toISOString() }));
+
+// DELETE /api/admin/orders/:id/meta
+// Admin tool: clear overlay so base order status shows through
+router.delete("/:id/meta", async (req, res) => {
+  try {
+       const { id } = req.params;
+
+    // Use the same 'db' instance used elsewhere in this file
+    db.run(
+      "DELETE FROM admin_order_meta WHERE order_id = ?",
+      [id],
+      function (err) {
+        if (err) {
+          console.error("[admin-orders:clear-meta] DB error:", err);
+          return res
+            .status(500)
+            .json({ success: false, error: { code: "DB_ERROR", message: err.message } });
+        }
+        return res.json({
+          success: true,
+          orderId: id,
+          rowsDeleted: this.changes,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("[admin-orders:clear-meta] unexpected:", err);
+    return res
+      .status(500)
+      .json({ success: false, error: { code: "UNEXPECTED", message: err.message } });
+  }
+});
 
 module.exports = router;
