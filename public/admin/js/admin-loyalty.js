@@ -30,7 +30,7 @@
 
   // ----- Loaders -----
   async function loadAccounts() {
-    const body = document.getElementById("loyaltyAccountsBody");
+    const body = $("loyaltyAccountsBody");
     if (!body) return;
     body.innerHTML = `<tr><td colspan="11" class="muted">Loading…</td></tr>`;
     try {
@@ -64,7 +64,7 @@
   }
 
   async function loadLedger() {
-    const body = document.getElementById("loyaltyLedgerBody");
+    const body = $("loyaltyLedgerBody");
     if (!body) return;
     body.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
     try {
@@ -93,7 +93,7 @@
   }
 
   async function loadNotifications() {
-    const body = document.getElementById("loyaltyNotificationsBody");
+    const body = $("loyaltyNotificationsBody");
     if (!body) return;
     body.innerHTML = `<tr><td colspan="5" class="muted">Loading…</td></tr>`;
     try {
@@ -121,53 +121,53 @@
   }
 
   async function loadList() {
-    const body = $('wdBody');
+    const body = $("wdBody");
     if (!body) return;
     body.innerHTML = `<tr><td colspan="9" class="muted">(No data yet)</td></tr>`;
 
-    const status = $('statusSel')?.value || '';
-    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    const status = $("statusSel")?.value || "";
+    const q = status ? `?status=${encodeURIComponent(status)}` : "";
 
     try {
       const data = await api(`/api/admin/loyalty/withdrawals${q}`);
       const rows = data.withdrawals || data.items || [];
-      body.innerHTML = '';
+      body.innerHTML = "";
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="9" class="muted">(No data yet)</td></tr>`;
         return;
       }
 
       for (const w of rows) {
-        const id = w.id ?? w.withdrawal_id ?? '';
-        const user = w.user_email || w.email || w.user_id || '—';
-        const pts = w.requested_pts ?? w.points ?? '—';
-        const eur = (w.requested_eur ?? (w.eur ?? null));
-        const st  = w.status || 'Pending';
-        const requested = w.requested_at || w.created_at || '';
-        const decided   = w.decided_at   || '';
-        const paid      = w.paid_at      || '';
+        const id = w.id ?? w.withdrawal_id ?? "";
+        const user = w.user_email || w.email || w.user_id || "—";
+        const pts = w.requested_pts ?? w.points ?? "—";
+        const eur = w.requested_eur ?? w.eur ?? null;
+        const st = w.status || "Pending";
+        const requested = w.requested_at || w.created_at || "";
+        const decided = w.decided_at || "";
+        const paid = w.paid_at || "";
 
-        const canApprove = st === 'Pending';
-        const canReject  = st === 'Pending';
-        const canPaid    = st === 'Approved';
+        const canApprove = st === "Pending";
+        const canReject = st === "Pending";
+        const canPaid = st === "Approved";
 
         const actions = [
-          canApprove ? `<button class="btn btn--small" data-act="approve" data-id="${id}">Approve</button>` : '',
-          canReject  ? `<button class="btn btn--small" data-act="reject"  data-id="${id}">Reject</button>`  : '',
-          canPaid    ? `<button class="btn btn--small" data-act="paid"    data-id="${id}">Mark Paid</button>` : ''
-        ].filter(Boolean).join(' ');
+          canApprove ? `<button class="btn btn--small" data-act="approve" data-id="${id}">Approve</button>` : "",
+          canReject ? `<button class="btn btn--small" data-act="reject" data-id="${id}">Reject</button>` : "",
+          canPaid ? `<button class="btn btn--small" data-act="paid" data-id="${id}">Mark Paid</button>` : ""
+        ].filter(Boolean).join(" ");
 
-        const tr = document.createElement('tr');
+        const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${id}</td>
           <td>${user}</td>
           <td>${fmt(pts)}</td>
           <td>€${fmt(eur)}</td>
           <td>${pill(st)}</td>
-          <td>${requested || '—'}</td>
-          <td>${decided   || '—'}</td>
-          <td>${paid      || '—'}</td>
-          <td style="text-align:center;">${actions || '—'}</td>
+          <td>${requested || "—"}</td>
+          <td>${decided || "—"}</td>
+          <td>${paid || "—"}</td>
+          <td style="text-align:center;">${actions || "—"}</td>
         `;
         body.appendChild(tr);
       }
@@ -178,15 +178,15 @@
 
   // ----- Actions -----
   async function doAct(act, id) {
-    let path = '';
-    let method = 'POST';
+    let path = "";
+    let method = "POST";
     let body = { id };
 
-    if (act === 'approve') {
+    if (act === "approve") {
       path = `/api/admin/loyalty/withdrawals/${id}/approve`;
-    } else if (act === 'reject') {
+    } else if (act === "reject") {
       path = `/api/admin/loyalty/withdrawals/${id}/reject`;
-    } else if (act === 'paid') {
+    } else if (act === "paid") {
       path = `/api/admin/loyalty/withdrawals/${id}/paid`;
     } else {
       return;
@@ -196,10 +196,10 @@
       await api(path, { method, body });
       await loadList();
     } catch (e) {
-      const bodyEl = $('wdBody');
+      const bodyEl = $("wdBody");
       if (bodyEl) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td colspan="9" class="muted">Action failed: ${e.message}</td></tr>`;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="9" class="muted">Action failed: ${e.message}</td>`;
         bodyEl.insertBefore(tr, bodyEl.firstChild);
       } else {
         alert(`Action failed: ${e.message}`);
@@ -208,31 +208,16 @@
   }
 
   function bindTableActions() {
-    const body = $('wdBody');
+    const body = $("wdBody");
     if (!body) return;
-    body.addEventListener('click', (e) => {
+    body.addEventListener("click", (e) => {
       const t = e.target;
       if (!(t instanceof HTMLElement)) return;
-      const act = t.getAttribute('data-act');
-      const id  = t.getAttribute('data-id');
+      const act = t.getAttribute("data-act");
+      const id = t.getAttribute("data-id");
       if (!act || !id) return;
       doAct(act, id);
     });
-  }
-
-  // ----- Auto refresh (withdrawals only) -----
-  let refreshTimer = null;
-  function setAutoRefresh() {
-    if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
-    const val = Number($('autoRefresh')?.value || 0);
-    if (val > 0) {
-      refreshTimer = setInterval(() => {
-        const active = document.querySelector('.btn--active');
-        if (active && active.id === "tabWithdrawalsBtn") {
-          loadList();
-        }
-      }, val * 1000);
-    }
   }
 
   // ----- Tab toggler -----
@@ -251,11 +236,16 @@
       notifs: $("loyaltyTabNotifs")
     };
 
+    const filters = $("withdrawalsFilters");
+
     function showTab(which) {
       Object.keys(tabs).forEach(k => {
         tabs[k].style.display = (k === which) ? "block" : "none";
         btns[k]?.classList.toggle("btn--active", k === which);
       });
+
+      if (filters) filters.style.display = (which === "withdrawals" ? "flex" : "none");
+
       if (which === "withdrawals") loadList();
       if (which === "accounts") loadAccounts();
       if (which === "ledger") loadLedger();
@@ -273,17 +263,15 @@
   // ----- Boot -----
   initLoyaltyTabs();
   $("statusSel")?.addEventListener("change", loadList);
-  $("autoRefresh")?.addEventListener("change", setAutoRefresh);
   $("loyaltyRefreshBtn")?.addEventListener("click", () => {
     refreshAll();
   });
 
   bindTableActions();
-  setAutoRefresh();
 
   // ----- RefreshAll (refreshes only active tab) -----
   async function refreshAll() {
-    const active = document.querySelector('.btn--active');
+    const active = document.querySelector(".btn--active");
     if (!active) return;
     if (active.id === "tabWithdrawalsBtn") await loadList();
     if (active.id === "tabAccountsBtn") await loadAccounts();
