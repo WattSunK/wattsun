@@ -535,12 +535,14 @@ router.get("/accounts/:id", (req, res) => {
 router.get("/accounts", async (req, res) => {
   try {
     const rows = await all(
-      `SELECT id, user_id, email, status,
-              start_date, end_date,
-              duration_months,
-              points_balance, total_earned, total_penalty, total_paid
-         FROM loyalty_accounts
-        ORDER BY id DESC`
+      `SELECT a.id, a.user_id,
+              u.email,
+              a.status, a.start_date, a.end_date,
+              a.duration_months,
+              a.points_balance, a.total_earned, a.total_penalty, a.total_paid
+         FROM loyalty_accounts a
+    LEFT JOIN users u ON u.id = a.user_id
+        ORDER BY a.id DESC`
     );
     return res.json({ success: true, accounts: rows });
   } catch (err) {
