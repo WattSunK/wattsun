@@ -250,52 +250,45 @@
 
   // --- Increment 2: Loyalty tab toggler ---
   function initLoyaltyTabs() {
-  const accountsBtn = document.getElementById("tabAccountsBtn2");
-  const ledgerBtn   = document.getElementById("tabLedgerBtn2");
-  const notifsBtn   = document.getElementById("tabNotifsBtn2");
+    const accountsBtn = document.getElementById("tabAccountsBtn2");
+    const ledgerBtn   = document.getElementById("tabLedgerBtn2");
+    const notifsBtn   = document.getElementById("tabNotifsBtn2");
 
-  const tabAccounts = document.getElementById("loyaltyTabAccounts");
-  const tabLedger   = document.getElementById("loyaltyTabLedger");
-  const tabNotifs   = document.getElementById("loyaltyTabNotifs");
+    const tabAccounts = document.getElementById("loyaltyTabAccounts");
+    const tabLedger   = document.getElementById("loyaltyTabLedger");
+    const tabNotifs   = document.getElementById("loyaltyTabNotifs");
 
-  [accountsBtn, ledgerBtn, notifsBtn].forEach(btn => btn?.classList.add("btn"));
+    [accountsBtn, ledgerBtn, notifsBtn].forEach(btn => btn?.classList.add("btn"));
 
-  function showTab(which) {
-    tabAccounts.style.display = which === "accounts" ? "block" : "none";
-    tabLedger.style.display   = which === "ledger"   ? "block" : "none";
-    tabNotifs.style.display   = which === "notifs"   ? "block" : "none";
+    function showTab(which) {
+      tabAccounts.style.display = which === "accounts" ? "block" : "none";
+      tabLedger.style.display   = which === "ledger"   ? "block" : "none";
+      tabNotifs.style.display   = which === "notifs"   ? "block" : "none";
 
-    accountsBtn.classList.toggle("btn--ghost", which !== "accounts");
-    ledgerBtn.classList.toggle("btn--ghost",   which !== "ledger");
-    notifsBtn.classList.toggle("btn--ghost",   which !== "notifs");
+      accountsBtn.classList.toggle("btn--ghost", which !== "accounts");
+      ledgerBtn.classList.toggle("btn--ghost",   which !== "ledger");
+      notifsBtn.classList.toggle("btn--ghost",   which !== "notifs");
 
-    // 🔑 auto-refresh the active tab
-    if (which === "accounts") loadAccounts();
-    if (which === "ledger")   loadLedger();
-    if (which === "notifs")   loadNotifications();
+      if (which === "accounts") loadAccounts();
+      if (which === "ledger")   loadLedger();
+      if (which === "notifs")   loadNotifications();
+    }
+
+    accountsBtn?.addEventListener("click", () => showTab("accounts"));
+    ledgerBtn?.addEventListener("click",   () => showTab("ledger"));
+    notifsBtn?.addEventListener("click",   () => showTab("notifs"));
+
+    showTab("accounts");
   }
 
-  accountsBtn?.addEventListener("click", () => showTab("accounts"));
-  ledgerBtn?.addEventListener("click",   () => showTab("ledger"));
-  notifsBtn?.addEventListener("click",   () => showTab("notifs"));
-
-  showTab("accounts"); // default
-}
-
   // ---------- boot ----------
-  document.addEventListener('DOMContentLoaded', () => {
-    $('refreshBtn')?.addEventListener('click', loadList);
-    $('statusSel')?.addEventListener('change', loadList);
-    $('autoRefresh')?.addEventListener('change', setAutoRefresh);
-    initLoyaltyTabs();
-
-    document.getElementById("loyaltyRefreshBtn")?.addEventListener("click", refreshAll);
-    refreshAll();
-
-    bindTableActions();
-    loadList();
-    setAutoRefresh();
-  });
+  // Run immediately since script is loaded with defer
+  initLoyaltyTabs();
+  document.getElementById("loyaltyRefreshBtn")?.addEventListener("click", refreshAll);
+  refreshAll();
+  bindTableActions();
+  loadList();
+  setAutoRefresh();
 
   // Expose refreshAll globally
   window.refreshAll = refreshAll;
