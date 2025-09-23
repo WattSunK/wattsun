@@ -1,5 +1,6 @@
 // public/admin/js/admin-loyalty.js
-// Loyalty Admin Visibility — Phase 1 (ACCOUNTS ONLY, SPA-safe attach)
+// Loyalty Admin Visibility — SPA-safe attach
+// Phase 1: Read-only wiring for Accounts + Ledger + Notifications
 
 (function () {
   "use strict";
@@ -30,25 +31,32 @@
   function cacheEls() {
     rootEl = $("#loyalty-root");
     els = {
-      tabWithdrawalsBtn: $("#tabWithdrawalsBtn", rootEl?.ownerDocument || document),
-      tabAccountsBtn:    $("#tabAccountsBtn",    rootEl?.ownerDocument || document),
-      tabLedgerBtn:      $("#tabLedgerBtn",      rootEl?.ownerDocument || document),
-      tabNotifsBtn:      $("#tabNotifsBtn",      rootEl?.ownerDocument || document),
+      // tab buttons
+      tabWithdrawalsBtn: $("#tabWithdrawalsBtn"),
+      tabAccountsBtn:    $("#tabAccountsBtn"),
+      tabLedgerBtn:      $("#tabLedgerBtn"),
+      tabNotifsBtn:      $("#tabNotifsBtn"),
 
-      tabWithdrawals: $("#loyaltyTabWithdrawals", rootEl || document),
-      tabAccounts:    $("#loyaltyTabAccounts",    rootEl || document),
-      tabLedger:      $("#loyaltyTabLedger",      rootEl || document),
-      tabNotifs:      $("#loyaltyTabNotifs",      rootEl || document),
+      // tab panes
+      tabWithdrawals: $("#loyaltyTabWithdrawals"),
+      tabAccounts:    $("#loyaltyTabAccounts"),
+      tabLedger:      $("#loyaltyTabLedger"),
+      tabNotifs:      $("#loyaltyTabNotifs"),
 
-      statusSel:    $("#statusSel",          rootEl || document),
-      searchInput:  $("#loyaltySearch",      rootEl || document),
-      clearBtn:     $("#loyaltyClearBtn",    rootEl || document),
-      refreshBtn:   $("#loyaltyRefreshBtn",  rootEl || document),
+      // filters
+      statusSel:    $("#statusSel"),
+      searchInput:  $("#loyaltySearch"),
+      clearBtn:     $("#loyaltyClearBtn"),
+      refreshBtn:   $("#loyaltyRefreshBtn"),
 
-      accountsBody: $("#loyaltyAccountsBody", rootEl || document),
+      // table bodies
+      accountsBody:      $("#loyaltyAccountsBody"),
+      ledgerBody:        $("#loyaltyLedgerBody"),
+      notificationsBody: $("#loyaltyNotificationsBody"),
 
-      meta:  $("#loyaltyMeta",  rootEl || document),
-      pager: $("#loyaltyPager", rootEl || document),
+      // meta + pager
+      meta:  $("#loyaltyMeta"),
+      pager: $("#loyaltyPager"),
     };
   }
 
@@ -62,7 +70,8 @@
     if (attached) return;
 
     cacheEls();
-    if (!els.tabAccountsBtn || !els.tabAccounts) {
+    // wait until the Accounts pane exists (others come with it)
+    if (!els.tabAccounts || !els.tabAccountsBtn) {
       if (++tries < 20) setTimeout(tryAttach, 50);
       return;
     }
@@ -71,10 +80,10 @@
 
   // ---------- state ----------
   const state = {
-    activeTab: "Withdrawals",
+    activeTab: "Withdrawals",  // shell shows Withdrawals first
     page: 1,
     limit: 10,
-    total: null,
+    total: null,               // only used by Accounts for now
   };
 
   // ---------- attach ----------
@@ -90,7 +99,13 @@
       state.activeTab = "Accounts";
       loadAccounts({ resetPage: true });
     }
-    window.loyaltyAdmin = { state, refreshActiveTab, loadAccounts };
+
+    // expose for quick console checks
+    window.loyaltyAdmin = {
+      state,
+      refreshActiveTab,
+      loadAccounts, loadLedger, loadNotifications
+    };
   }
 
   // ---------- tabs ----------
@@ -101,9 +116,9 @@
       e.preventDefault();
 
       if (btn.id === "tabWithdrawalsBtn") showTab("Withdrawals");
-      if (btn.id === "tabAccountsBtn")    { showTab("Accounts"); loadAccounts({ resetPage: true }); }
-      if (btn.id === "tabLedgerBtn")      showTab("Ledger");
-      if (btn.id === "tabNotifsBtn")      showTab("Notifications");
+      if (btn.id === "tabAccountsBtn")    { showTab("Accounts");      loadAccounts({ resetPage: true }); }
+      if (btn.id === "tabLedgerBtn")      { showTab("Ledger");        loadLedger(); }
+      if (btn.id === "tabNotifsBtn")      { showTab("Notifications"); loadNotifications(); }
     });
   }
 
@@ -120,25 +135,27 @@
     toggleGhost(els.tabNotifsBtn,      name !== "Notifications");
   }
 
-  function toggleGhost(btn, ghostOn) { btn && btn.classList.toggle("btn--ghost", ghostOn); }
+  function toggleGhost(btn, on) { btn && btn.classList.toggle("btn--ghost", !!on); }
   function isShown(el){ return !!el && el.style.display !== "none"; }
   function setShown(el,on){ if (el) el.style.display = on ? "" : "none"; }
 
   // ---------- filters & refresh ----------
   function wireFilters() {
+    // status
     on(document, "change", (e) => {
       if (e.target?.id !== "statusSel") return;
       state.page = 1;
       refreshActiveTab();
     });
 
+    // search Enter
     on(document, "keydown", (e) => {
-      if (e.key !== "Enter") return;
-      if (e.target?.id !== "loyaltySearch") return;
+      if (e.key !== "Enter" || e.target?.id !== "loyaltySearch") return;
       state.page = 1;
       refreshActiveTab();
     });
 
+    // clear + refresh
     on(document, "click", (e) => {
       const clr = e.target.closest("#loyaltyClearBtn");
       if (clr) {
@@ -149,9 +166,7 @@
         return;
       }
       const ref = e.target.closest("#loyaltyRefreshBtn");
-      if (ref) {
-        refreshActiveTab();
-      }
+      if (ref) refreshActiveTab();
     });
   }
 
@@ -159,12 +174,16 @@
     cacheEls();
     if (state.activeTab === "Accounts") {
       loadAccounts({ resetPage: false });
+    } else if (state.activeTab === "Ledger") {
+      loadLedger();
+    } else if (state.activeTab === "Notifications") {
+      loadNotifications();
     } else {
       setMeta(0);
     }
   }
 
-  // ---------- pager ----------
+  // ---------- pager (Accounts only for now) ----------
   function wirePager() {
     on(document, "click", (e) => {
       const btn = e.target.closest("#loyaltyPager button");
@@ -244,7 +263,7 @@
       setMeta(count, state.total);
       updatePager();
     } catch (err) {
-      showErrorRow(tbody, err);
+      showErrorRow(tbody, err, 11);
       setMeta(0);
       state.total = null;
       updatePager();
@@ -284,6 +303,86 @@
     return rows.length;
   }
 
+  // ---------- LEDGER (read-only) ----------
+  async function loadLedger() {
+    cacheEls();
+    const tbody = els.ledgerBody || $("#loyaltyLedgerBody");
+    if (!tbody) return;
+    addLoading(tbody, true);
+
+    try {
+      const data = await api(`/api/admin/loyalty/ledger`);
+      const rows = Array.isArray(data) ? data : (data.ledger || []);
+
+      tbody.innerHTML = "";
+      if (!rows.length) {
+        tbody.appendChild(emptyRow(6));
+      } else {
+        const frag = document.createDocumentFragment();
+        for (const l of rows) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${esc(l.id)}</td>
+            <td>${esc(l.account_id)}</td>
+            <td>${esc(l.kind)}</td>
+            <td>${fmtInt(l.delta_points)}</td>
+            <td>${esc(l.note ?? "—")}</td>
+            <td>${esc(l.created_at)}</td>
+          `;
+          frag.appendChild(tr);
+        }
+        tbody.appendChild(frag);
+      }
+
+      // share the meta with Accounts counter semantics (show count only)
+      setMeta(rows.length);
+    } catch (err) {
+      showErrorRow(tbody, err, 6);
+      setMeta(0);
+    } finally {
+      addLoading(tbody, false);
+    }
+  }
+
+  // ---------- NOTIFICATIONS (read-only) ----------
+  async function loadNotifications() {
+    cacheEls();
+    const tbody = els.notificationsBody || $("#loyaltyNotificationsBody");
+    if (!tbody) return;
+    addLoading(tbody, true);
+
+    try {
+      const data = await api(`/api/admin/loyalty/notifications`);
+      const rows = Array.isArray(data) ? data : (data.notifications || []);
+
+      tbody.innerHTML = "";
+      if (!rows.length) {
+        tbody.appendChild(emptyRow(5));
+      } else {
+        const frag = document.createDocumentFragment();
+        for (const n of rows) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${esc(n.id)}</td>
+            <td>${esc(n.kind)}</td>
+            <td>${esc(n.email ?? "—")}</td>
+            <td>${esc(n.status)}</td>
+            <td>${esc(n.created_at)}</td>
+          `;
+          frag.appendChild(tr);
+        }
+        tbody.appendChild(frag);
+      }
+
+      setMeta(rows.length);
+    } catch (err) {
+      showErrorRow(tbody, err, 5);
+      setMeta(0);
+    } finally {
+      addLoading(tbody, false);
+    }
+  }
+
   // ---------- render helpers ----------
   function emptyRow(colspan, text="(No data yet)") {
     const tr = document.createElement("tr");
@@ -295,12 +394,12 @@
     return tr;
   }
 
-  function showErrorRow(tbody, err) {
+  function showErrorRow(tbody, err, colspan) {
     if (!tbody) return;
     tbody.innerHTML = "";
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 11;
+    td.colSpan = colspan;
     td.innerHTML = `<span style="color:#a00;">Error:</span> ${esc(err?.message || String(err))}`;
     tr.appendChild(td);
     tbody.appendChild(tr);
@@ -312,7 +411,6 @@
     table.classList.toggle("is-loading", !!on);
   }
 
-  // ✅ added: update the results meta counter
   function setMeta(count, total) {
     const meta = els.meta || $("#loyaltyMeta");
     if (!meta) return;
