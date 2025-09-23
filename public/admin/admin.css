@@ -521,10 +521,14 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 }
 /* Active tab button styling */
 .btn.btn--active {
-  background-color: #f4a940; /* golden (same as your brand color) */
-  color: #fff;
+  background: #fff;                       /* keep background white */
+  color: var(--ws-gold);                  /* golden text */
   font-weight: 600;
-  border-color: #f4a940;
+  border-color: var(--ws-gold);           /* golden border */
+  box-shadow: inset 0 0 0 2px var(--ws-gold); /* persistent golden ring */
+}
+.btn.btn--active:hover {
+  background: var(--ws-gold-50);          /* light gold tint on hover */
 }
 
 .btn.btn--active:hover {
