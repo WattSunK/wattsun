@@ -109,19 +109,34 @@
   }
 
   function showTab(name) {
-    state.activeTab = name;
-    setShown(els.tabWithdrawals, name==="Withdrawals");
-    setShown(els.tabAccounts,    name==="Accounts");
-    setShown(els.tabLedger,      name==="Ledger");
-    setShown(els.tabNotifs,      name==="Notifications");
+  state.activeTab = name;
+  setShown(els.tabWithdrawals, name==="Withdrawals");
+  setShown(els.tabAccounts,    name==="Accounts");
+  setShown(els.tabLedger,      name==="Ledger");
+  setShown(els.tabNotifs,      name==="Notifications");
 
-    toggleGhost(els.tabWithdrawalsBtn, name!=="Withdrawals");
-    toggleGhost(els.tabAccountsBtn,    name!=="Accounts");
-    toggleGhost(els.tabLedgerBtn,      name!=="Ledger");
-    toggleGhost(els.tabNotifsBtn,      name!=="Notifications");
+  // reset classes
+  [els.tabWithdrawalsBtn, els.tabAccountsBtn, els.tabLedgerBtn, els.tabNotifsBtn]
+    .forEach(btn => btn && btn.classList.remove("btn--active"));
 
-    setStatusVisible(name === "Withdrawals");
-  }
+  // ghost style for inactive
+  toggleGhost(els.tabWithdrawalsBtn, name!=="Withdrawals");
+  toggleGhost(els.tabAccountsBtn,    name!=="Accounts");
+  toggleGhost(els.tabLedgerBtn,      name!=="Ledger");
+  toggleGhost(els.tabNotifsBtn,      name!=="Notifications");
+
+  // add active class for the current tab
+  const activeBtn = {
+    "Withdrawals": els.tabWithdrawalsBtn,
+    "Accounts": els.tabAccountsBtn,
+    "Ledger": els.tabLedgerBtn,
+    "Notifications": els.tabNotifsBtn,
+  }[name];
+  if (activeBtn) activeBtn.classList.add("btn--active");
+
+  setStatusVisible(name === "Withdrawals");
+}
+
 
   // ---------- filters & refresh ----------
   function wireFilters() {
