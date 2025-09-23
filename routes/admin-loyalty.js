@@ -397,7 +397,9 @@ router.get("/ledger", async (req, res) => {
       params.push(kind);
     }
     const rows = await all(
-      `SELECT id, account_id, kind, points_delta, note, created_at
+      `SELECT id, account_id, kind,
+              points_delta AS delta_points,
+              note, created_at
          FROM loyalty_ledger
          ${where}
         ORDER BY created_at DESC
@@ -410,6 +412,7 @@ router.get("/ledger", async (req, res) => {
     return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
   }
 });
+
 
 // GET /api/admin/loyalty/notifications
 router.get("/notifications", async (req, res) => {
