@@ -611,26 +611,4 @@ router.get("/notifications", async (req, res) => {
   }
 });
 
-// ---- Debug endpoint (remove when satisfied) ------------------
-router.get("/debug/db", async (_req, res) => {
-  try {
-    const info = { DB_PATH };
-    try {
-      info.realpath = fs.realpathSync(DB_PATH);
-      const st = fs.statSync(DB_PATH);
-      info.size_bytes = st.size; info.mtime = st.mtime;
-    } catch (e) {
-      info.fs_error = e.message;
-    }
-    const diag = await withDb(async (db) => {
-      const tables = await all(db, `SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`);
-      const jmode = await get(db, `PRAGMA journal_mode`);
-      return { tables, jmode };
-    });
-    res.json({ success: true, ...info, ...diag });
-  } catch (e) {
-    res.status(500).json({ success: false, error: { code: "DEBUG_FAIL", message: e.message } });
-  }
-});
-
 module.exports = router;
