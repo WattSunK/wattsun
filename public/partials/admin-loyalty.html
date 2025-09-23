@@ -12,28 +12,64 @@
   </header>
 
   <div class="card-body">
-    <!-- Filters -->
-    <form id="loyalty-filters" class="filters-bar" autocomplete="off">
-      <div class="group">
-        <label for="statusSel">Status</label>
-        <select id="statusSel" name="status">
-          <option value="">All</option>
-          <option value="Pending">Pending</option>
-          <option value="Approved">Approved</option>
-          <option value="Rejected">Rejected</option>
-          <option value="Paid">Paid</option>
-        </select>
-      </div>
+   <!-- Filters -->
+<form id="loyalty-filters" class="filters-bar" autocomplete="off">
+  <!-- Withdrawals Filter -->
+  <div class="group" id="filterWithdrawals">
+    <label for="statusSel">Status</label>
+    <select id="statusSel" name="status">
+      <option value="">All</option>
+      <option value="Pending">Pending</option>
+      <option value="Approved">Approved</option>
+      <option value="Rejected">Rejected</option>
+      <option value="Paid">Paid</option>
+    </select>
+  </div>
 
-      <div class="group" style="margin-left:auto; display:flex; align-items:flex-end; gap:0.5rem;">
-        <div>
-          <label for="loyaltySearch">Search</label>
-          <input id="loyaltySearch" name="q" class="input" placeholder="Find record…" />
-        </div>
-        <button type="button" id="loyaltyClearBtn" class="btn">Clear</button>
-        <button type="button" id="loyaltyRefreshBtn" class="btn">Refresh</button>
-      </div>
-    </form>
+  <!-- Accounts Filter -->
+  <div class="group" id="filterAccounts" style="display:none;">
+    <label for="accStatusSel">Status</label>
+    <select id="accStatusSel" name="accStatus">
+      <option value="">All</option>
+      <option value="Active">Active</option>
+      <option value="Closed">Closed</option>
+      <option value="Suspended">Suspended</option>
+    </select>
+  </div>
+
+  <!-- Ledger Filter -->
+  <div class="group" id="filterLedger" style="display:none;">
+    <label for="ledgerKindSel">Kind</label>
+    <select id="ledgerKindSel" name="kind">
+      <option value="">All</option>
+      <option value="Earn">Earn</option>
+      <option value="Penalty">Penalty</option>
+      <option value="Withdraw">Withdraw</option>
+      <option value="Deposit">Deposit</option>
+    </select>
+  </div>
+
+  <!-- Notifications Filter -->
+  <div class="group" id="filterNotifs" style="display:none;">
+    <label for="notifStatusSel">Status</label>
+    <select id="notifStatusSel" name="notifStatus">
+      <option value="">All</option>
+      <option value="Sent">Sent</option>
+      <option value="Failed">Failed</option>
+      <option value="Pending">Pending</option>
+    </select>
+  </div>
+
+  <!-- Search + buttons (always visible, aligned right) -->
+  <div class="group" style="margin-left:auto; display:flex; align-items:flex-end; gap:0.5rem;">
+    <div>
+      <label for="loyaltySearch">Search</label>
+      <input id="loyaltySearch" name="q" class="input" placeholder="Find record…" />
+    </div>
+    <button type="button" id="loyaltyClearBtn" class="btn">Clear</button>
+    <button type="button" id="loyaltyRefreshBtn" class="btn">Refresh</button>
+  </div>
+</form>
 
     <!-- Withdrawals Table -->
     <div id="loyaltyTabWithdrawals" class="loyalty-tab">
