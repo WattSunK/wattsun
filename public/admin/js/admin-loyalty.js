@@ -72,11 +72,10 @@
     attached = true; tries=0;
     wireTabs(); wireFilters(); wirePager();
 
- // Default to Withdrawals on load
-  state.activeTab = "Withdrawals";
-  showTab("Withdrawals");
-  loadWithdrawals({ resetPage:true });
-
+    // Default to Withdrawals on load
+    state.activeTab = "Withdrawals";
+    showTab("Withdrawals");
+    loadWithdrawals({ resetPage:true });
 
     window.loyaltyAdmin = { state, refreshActiveTab, loadWithdrawals, loadAccounts, loadLedger, loadNotifications };
   }
@@ -85,16 +84,6 @@
   function isShown(el){ return !!el && el.style.display !== "none"; }
   function setShown(el,on){ if (el) el.style.display = on ? "" : "none"; }
   function toggleGhost(btn, on){ btn && btn.classList.toggle("btn--ghost", !!on); }
-
-  function findFieldWrap(selectEl) {
-    if (!selectEl) return null;
-    return selectEl.closest(".filters-bar .group, .form-row, .form-field, .field, .group") || selectEl.parentElement || selectEl;
-  }
-  function setStatusVisible(on) {
-    const wrap = findFieldWrap(els.statusSel || $("#statusSel"));
-    if (!wrap) return;
-    wrap.style.display = on ? "" : "none";
-  }
 
   // ---------- tabs ----------
   function wireTabs() {
@@ -109,40 +98,46 @@
   }
 
   function showTab(name) {
-  state.activeTab = name;
-  setShown(els.tabWithdrawals, name==="Withdrawals");
-  setShown(els.tabAccounts,    name==="Accounts");
-  setShown(els.tabLedger,      name==="Ledger");
-  setShown(els.tabNotifs,      name==="Notifications");
+    state.activeTab = name;
+    setShown(els.tabWithdrawals, name==="Withdrawals");
+    setShown(els.tabAccounts,    name==="Accounts");
+    setShown(els.tabLedger,      name==="Ledger");
+    setShown(els.tabNotifs,      name==="Notifications");
 
-  // reset classes
-  [els.tabWithdrawalsBtn, els.tabAccountsBtn, els.tabLedgerBtn, els.tabNotifsBtn]
-    .forEach(btn => btn && btn.classList.remove("btn--active"));
+    // reset classes
+    [els.tabWithdrawalsBtn, els.tabAccountsBtn, els.tabLedgerBtn, els.tabNotifsBtn]
+      .forEach(btn => btn && btn.classList.remove("btn--active"));
 
-  // ghost style for inactive
-  toggleGhost(els.tabWithdrawalsBtn, name!=="Withdrawals");
-  toggleGhost(els.tabAccountsBtn,    name!=="Accounts");
-  toggleGhost(els.tabLedgerBtn,      name!=="Ledger");
-  toggleGhost(els.tabNotifsBtn,      name!=="Notifications");
+    // ghost style for inactive
+    toggleGhost(els.tabWithdrawalsBtn, name!=="Withdrawals");
+    toggleGhost(els.tabAccountsBtn,    name!=="Accounts");
+    toggleGhost(els.tabLedgerBtn,      name!=="Ledger");
+    toggleGhost(els.tabNotifsBtn,      name!=="Notifications");
 
-  // add active class for the current tab
-  const activeBtn = {
-    "Withdrawals": els.tabWithdrawalsBtn,
-    "Accounts": els.tabAccountsBtn,
-    "Ledger": els.tabLedgerBtn,
-    "Notifications": els.tabNotifsBtn,
-  }[name];
-  if (activeBtn) activeBtn.classList.add("btn--active");
+    // add active class for the current tab
+    const activeBtn = {
+      "Withdrawals": els.tabWithdrawalsBtn,
+      "Accounts": els.tabAccountsBtn,
+      "Ledger": els.tabLedgerBtn,
+      "Notifications": els.tabNotifsBtn,
+    }[name];
+    if (activeBtn) activeBtn.classList.add("btn--active");
 
-  setStatusVisible(name === "Withdrawals");
-}
-
+    // toggle filter groups
+    ["filterWithdrawals","filterAccounts","filterLedger","filterNotifs"]
+      .forEach(id => { const el = document.getElementById(id); if (el) el.style.display="none"; });
+    if (name==="Withdrawals")   $("#filterWithdrawals").style.display="";
+    if (name==="Accounts")      $("#filterAccounts").style.display="";
+    if (name==="Ledger")        $("#filterLedger").style.display="";
+    if (name==="Notifications") $("#filterNotifs").style.display="";
+  }
 
   // ---------- filters & refresh ----------
   function wireFilters() {
     on(document, "change", (e) => {
-      if (e.target?.id !== "statusSel") return;
-      state.page=1; refreshActiveTab();
+      if (["statusSel","accStatusSel","ledgerKindSel","notifStatusSel"].includes(e.target?.id)) {
+        state.page=1; refreshActiveTab();
+      }
     });
 
     on(document, "keydown", (e) => {
@@ -158,7 +153,14 @@
 
     on(document, "click", (e) => {
       const clr = e.target.closest("#loyaltyClearBtn");
-      if (clr) { if(els.statusSel) els.statusSel.value=""; if(els.searchInput) els.searchInput.value=""; state.page=1; refreshActiveTab(); return; }
+      if (clr) {
+        if(els.statusSel) els.statusSel.value="";
+        const accSel=$("#accStatusSel"); if (accSel) accSel.value="";
+        const ledSel=$("#ledgerKindSel"); if (ledSel) ledSel.value="";
+        const notSel=$("#notifStatusSel"); if (notSel) notSel.value="";
+        if(els.searchInput) els.searchInput.value="";
+        state.page=1; refreshActiveTab(); return;
+      }
       const ref = e.target.closest("#loyaltyRefreshBtn");
       if (ref) refreshActiveTab();
     });
@@ -202,11 +204,26 @@
 
   // ---------- QUERY (Accounts/Withdrawals share) ----------
   function buildQuery() {
-    const statusSel = $("#statusSel") || els.statusSel;
-    const searchInp = $("#loyaltySearch") || els.searchInput;
     const p = new URLSearchParams();
-    const s=(statusSel?.value||"").trim(), q=(searchInp?.value||"").trim();
-    if (s) p.set("status", s);
+    const q=($("#loyaltySearch")?.value||"").trim();
+
+    if (state.activeTab==="Withdrawals") {
+      const s=($("#statusSel")?.value||"").trim();
+      if (s) p.set("status", s);
+    }
+    if (state.activeTab==="Accounts") {
+      const s=($("#accStatusSel")?.value||"").trim();
+      if (s) p.set("status", s);
+    }
+    if (state.activeTab==="Ledger") {
+      const k=($("#ledgerKindSel")?.value||"").trim();
+      if (k) p.set("kind", k);
+    }
+    if (state.activeTab==="Notifications") {
+      const s=($("#notifStatusSel")?.value||"").trim();
+      if (s) p.set("status", s);
+    }
+
     if (q) p.set("q", q);
     p.set("page", String(state.page));
     p.set("limit", String(state.limit));
@@ -222,9 +239,7 @@
     try {
       const data = await api(`/api/admin/loyalty/withdrawals${buildQuery()}`);
       const rows = Array.isArray(data) ? data : (data.withdrawals || []);
-      // (optional) if backend returns total: state.total = typeof data.total === 'number' ? data.total : null;
-      state.total = null; // keep pager simple for this tab for now
-
+      state.total = null;
       renderWithdrawalsRows(tbody, rows);
       setMeta(rows.length);
     } catch (err) {
@@ -317,7 +332,7 @@
     cacheEls(); const tbody=els.ledgerBody||$("#loyaltyLedgerBody"); if (!tbody) return;
     addLoading(tbody,true);
     try{
-      const data = await api(`/api/admin/loyalty/ledger`);
+      const data = await api(`/api/admin/loyalty/ledger${buildQuery()}`);
       const rows = Array.isArray(data)?data:(data.ledger||[]);
       tbody.innerHTML="";
       if (!rows.length) tbody.appendChild(emptyRow(6));
@@ -346,7 +361,7 @@
     cacheEls(); const tbody=els.notificationsBody||$("#loyaltyNotificationsBody"); if (!tbody) return;
     addLoading(tbody,true);
     try{
-      const data = await api(`/api/admin/loyalty/notifications`);
+      const data = await api(`/api/admin/loyalty/notifications${buildQuery()}`);
       const rows = Array.isArray(data)?data:(data.notifications||[]);
       tbody.innerHTML="";
       if (!rows.length) tbody.appendChild(emptyRow(5));
