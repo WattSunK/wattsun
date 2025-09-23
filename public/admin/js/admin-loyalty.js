@@ -23,46 +23,38 @@
   }
 
   // ---------- SPA-safe activation ----------
-  let attached = false;         // guards duplicate wiring
-  let rootEl   = null;          // #loyalty-root
-  let els      = {};            // resolved handles (rebuilt on attach)
+  let attached = false;
+  let rootEl   = null;
+  let els      = {};
 
-  // Rebuild all element handles whenever the partial is (re)attached
   function cacheEls() {
     rootEl = $("#loyalty-root");
     els = {
-      // Tabs (buttons)
       tabWithdrawalsBtn: $("#tabWithdrawalsBtn", rootEl?.ownerDocument || document),
       tabAccountsBtn:    $("#tabAccountsBtn",    rootEl?.ownerDocument || document),
       tabLedgerBtn:      $("#tabLedgerBtn",      rootEl?.ownerDocument || document),
       tabNotifsBtn:      $("#tabNotifsBtn",      rootEl?.ownerDocument || document),
 
-      // Tab panes
       tabWithdrawals: $("#loyaltyTabWithdrawals", rootEl || document),
       tabAccounts:    $("#loyaltyTabAccounts",    rootEl || document),
       tabLedger:      $("#loyaltyTabLedger",      rootEl || document),
       tabNotifs:      $("#loyaltyTabNotifs",      rootEl || document),
 
-      // Filters
-      statusSel:   $("#statusSel",       rootEl || document),
-      searchInput: $("#loyaltySearch",   rootEl || document),
-      clearBtn:    $("#loyaltyClearBtn", rootEl || document),
-      refreshBtn:  $("#loyaltyRefreshBtn", rootEl || document),
+      statusSel:    $("#statusSel",          rootEl || document),
+      searchInput:  $("#loyaltySearch",      rootEl || document),
+      clearBtn:     $("#loyaltyClearBtn",    rootEl || document),
+      refreshBtn:   $("#loyaltyRefreshBtn",  rootEl || document),
 
-      // Tables
       accountsBody: $("#loyaltyAccountsBody", rootEl || document),
 
-      // Meta + pager
       meta:  $("#loyaltyMeta",  rootEl || document),
       pager: $("#loyaltyPager", rootEl || document),
     };
   }
 
-  // Observe DOM for the partial being inserted/removed
   const mo = new MutationObserver(() => tryAttach());
   mo.observe(document.documentElement, { childList: true, subtree: true });
 
-  // Also do a quick retry loop (covers fast SPA swaps without mutations touching <html>)
   let tries = 0;
   function tryAttach() {
     const found = $("#loyalty-root");
@@ -79,13 +71,13 @@
 
   // ---------- state ----------
   const state = {
-    activeTab: "Withdrawals", // shell shows Withdrawals first
+    activeTab: "Withdrawals",
     page: 1,
     limit: 10,
     total: null,
   };
 
-  // ---------- attach once the partial exists ----------
+  // ---------- attach ----------
   function attach() {
     attached = true;
     tries = 0;
@@ -94,23 +86,20 @@
     wireFilters();
     wirePager();
 
-    // If Accounts pane is already visible (style toggled), load it
     if (isShown(els.tabAccounts)) {
       state.activeTab = "Accounts";
       loadAccounts({ resetPage: true });
     }
-    // Make debug handle available after attach
     window.loyaltyAdmin = { state, refreshActiveTab, loadAccounts };
   }
 
   // ---------- tabs ----------
   function wireTabs() {
-    // Use event delegation on the root; survives hot-swaps
     on(document, "click", (e) => {
       const btn = e.target.closest("#tabWithdrawalsBtn, #tabAccountsBtn, #tabLedgerBtn, #tabNotifsBtn");
       if (!btn) return;
-
       e.preventDefault();
+
       if (btn.id === "tabWithdrawalsBtn") showTab("Withdrawals");
       if (btn.id === "tabAccountsBtn")    { showTab("Accounts"); loadAccounts({ resetPage: true }); }
       if (btn.id === "tabLedgerBtn")      showTab("Ledger");
@@ -135,44 +124,39 @@
   function isShown(el){ return !!el && el.style.display !== "none"; }
   function setShown(el,on){ if (el) el.style.display = on ? "" : "none"; }
 
-  // ---------- filters & refresh (delegated) ----------
+  // ---------- filters & refresh ----------
   function wireFilters() {
-    // Status change
     on(document, "change", (e) => {
-      if (!e.target || e.target.id !== "statusSel") return;
+      if (e.target?.id !== "statusSel") return;
       state.page = 1;
       refreshActiveTab();
     });
 
-    // Search enter
     on(document, "keydown", (e) => {
       if (e.key !== "Enter") return;
-      const t = e.target;
-      if (!t || t.id !== "loyaltySearch") return;
+      if (e.target?.id !== "loyaltySearch") return;
       state.page = 1;
       refreshActiveTab();
     });
 
-    // Clear
     on(document, "click", (e) => {
-      const btn = e.target.closest("#loyaltyClearBtn");
-      if (!btn) return;
-      if (els.statusSel) els.statusSel.value = "";
-      if (els.searchInput) els.searchInput.value = "";
-      state.page = 1;
-      refreshActiveTab();
-    });
-
-    // Refresh
-    on(document, "click", (e) => {
-      const btn = e.target.closest("#loyaltyRefreshBtn");
-      if (!btn) return;
-      refreshActiveTab();
+      const clr = e.target.closest("#loyaltyClearBtn");
+      if (clr) {
+        if (els.statusSel) els.statusSel.value = "";
+        if (els.searchInput) els.searchInput.value = "";
+        state.page = 1;
+        refreshActiveTab();
+        return;
+      }
+      const ref = e.target.closest("#loyaltyRefreshBtn");
+      if (ref) {
+        refreshActiveTab();
+      }
     });
   }
 
   function refreshActiveTab() {
-    cacheEls(); // recapture handles in case the partial was re-rendered
+    cacheEls();
     if (state.activeTab === "Accounts") {
       loadAccounts({ resetPage: false });
     } else {
@@ -180,7 +164,7 @@
     }
   }
 
-  // ---------- pager (delegated) ----------
+  // ---------- pager ----------
   function wirePager() {
     on(document, "click", (e) => {
       const btn = e.target.closest("#loyaltyPager button");
@@ -245,12 +229,11 @@
   async function loadAccounts({ resetPage = false } = {}) {
     if (resetPage) state.page = 1;
 
-    cacheEls(); // ensure accountsBody/meta/pager are current nodes
+    cacheEls();
     const tbody = els.accountsBody || $("#loyaltyAccountsBody");
     addLoading(tbody, true);
 
     try {
-      // Expected prior contract: { accounts: [...] }
       const url  = `/api/admin/loyalty/accounts${buildQuery()}`;
       const data = await api(url);
 
@@ -281,8 +264,6 @@
 
     const frag = document.createDocumentFragment();
     for (const a of rows) {
-      // Fields per earlier working version: id, user_id, email, status,
-      // start_date, end_date, duration_months, points_balance, total_earned, total_penalty, total_paid
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${esc(a.id)}</td>
@@ -329,6 +310,15 @@
     const table = tbody?.closest("table");
     if (!table) return;
     table.classList.toggle("is-loading", !!on);
+  }
+
+  // ✅ added: update the results meta counter
+  function setMeta(count, total) {
+    const meta = els.meta || $("#loyaltyMeta");
+    if (!meta) return;
+    meta.textContent = (typeof total === "number")
+      ? `${count} / ${total} results`
+      : `${count} results`;
   }
 
   // ---------- kick off ----------
