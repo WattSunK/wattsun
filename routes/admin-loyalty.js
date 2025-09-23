@@ -206,7 +206,7 @@ router.get("/programs", async (req, res) => {
   }
 });
 
-// PUT /api/admin/loyalty/programs/:code/settings (legacy KV writer kept for compatibility)
+// PUT /api/admin/loyalty/programs/:code/settings
 router.put("/programs/:code/settings", async (req, res) => {
   try {
     const code = String(req.params.code || "STAFF");
@@ -277,7 +277,6 @@ router.post("/accounts/:id/status", async (req, res) => {
     await updateAccountStatus(id, status);
     await insertLedger(id, "status", 0, `Admin change: ${oldStatus} → ${status}. ${note || ""}`, req.session.user?.id);
 
-    // enqueue notification
     try {
       await enqueue("status_change", {
         userId: acct.user_id,
@@ -303,7 +302,6 @@ router.post("/penalize", async (req, res) => {
     if (!userId || !Number.isFinite(p) || p <= 0) {
       return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"userId and positive integer points required" } });
     }
-    // For now, assume STAFF program
     const programRow = await get(`SELECT id FROM loyalty_programs WHERE code='STAFF'`, []);
     const programId = programRow?.id;
     if (!programId) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
@@ -313,7 +311,6 @@ router.post("/penalize", async (req, res) => {
 
     await insertLedger(acct.id, "penalty", -p, note || "Admin penalty", req.session.user?.id);
 
-    // enqueue notification
     try {
       const updated = await getAccountById(acct.id);
       await enqueue("penalty", {
@@ -358,182 +355,18 @@ router.post("/extend", async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Admin → Program Settings + Account Status (mount: /api/admin/loyalty/*)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** helper: read all program settings for code 'STAFF' into a single object */
-async function getProgramSettings() {
-  const code = 'STAFF';
-  const rows = await all(
-    `SELECT key, value_json, value_text, value_int
-       FROM loyalty_program_settings
-      WHERE program_code = ?`,
-    [code]
-  );
-
-  const activeRow = await get(`SELECT active FROM loyalty_programs WHERE code = ?`, [code]);
-
-  const out = {
-    programCode: code,
-    // sensible defaults
-    eligibleUserTypes: ['Staff'],
-    durationMonths: 6,
-    withdrawWaitDays: 90,
-    minWithdrawPoints: 100,
-    eurPerPoint: 1,
-    signupBonus: 100,
-    active: !!(activeRow && activeRow.active),
-  };
-
-  for (const row of rows) {
-    const k = row.key;
-    if (row.value_json != null) {
-      try { out[k] = JSON.parse(row.value_json); } catch { /* ignore */ }
-    } else if (row.value_int != null) {
-      out[k] = Number(row.value_int);
-    } else if (row.value_text != null) {
-      out[k] = row.value_text;
-    }
-  }
-  return out;
-}
-
-/** helper: upsert a single (program_id, program_code, key) into *_json/_int/_text columns */
-async function upsertSettingTyped(programId, code, key, val) {
-  // derive typed fields
-  let vJson = null, vInt = null, vText = null;
-  if (Array.isArray(val) || (val && typeof val === 'object')) vJson = JSON.stringify(val);
-  else if (typeof val === 'number' && Number.isFinite(val)) vInt = Math.trunc(val);
-  else if (typeof val === 'boolean') vInt = val ? 1 : 0;
-  else vText = String(val);
-
-  // mirror into legacy 'value' (NOT NULL)
-  const vLegacy =
-    vText != null ? vText :
-    vInt  != null ? String(vInt) :
-    vJson != null ? vJson : "";
-
-  // 1) try UPDATE by program_id (robust)
-  let upd = await run(
-    `UPDATE loyalty_program_settings
-       SET value = ?, value_json = ?, value_int = ?, value_text = ?, updated_at = datetime('now')
-     WHERE program_id = ? AND key = ?`,
-    [vLegacy, vJson, vInt, vText, programId, key]
-  );
-
-  // 2) fallback: update by program_code (in case legacy rows use code only)
-  if (!upd.changes) {
-    upd = await run(
-      `UPDATE loyalty_program_settings
-         SET value = ?, value_json = ?, value_int = ?, value_text = ?, program_id = ?, updated_at = datetime('now')
-       WHERE program_code = ? AND key = ?`,
-      [vLegacy, vJson, vInt, vText, programId, code, key]
-    );
-  }
-
-  // 3) still nothing? insert (include both program_id & program_code)
-  if (!upd.changes) {
-    await run(
-      `INSERT INTO loyalty_program_settings
-         (program_id, program_code, key, value, value_json, value_int, value_text, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-      [programId, code, key, vLegacy, vJson, vInt, vText]
-    );
-  }
-}
-
-/** GET /api/admin/loyalty/program  → current settings */
-router.get("/program", async (req, res) => {
-  try {
-    const program = await getProgramSettings();
-    return res.json({ success: true, program });
-  } catch (e) {
-    return res.status(500).json({ success: false, error: { message: e.message } });
-  }
-});
-
-/** PUT /api/admin/loyalty/program  → update settings */
-router.put("/program", async (req, res) => {
-  const code = 'STAFF';
-  const payload = req.body || {};
-  // only allow known keys
-  const allowed = [
-    'eligibleUserTypes', 'durationMonths', 'withdrawWaitDays',
-    'minWithdrawPoints', 'eurPerPoint', 'signupBonus', 'active'
-  ];
-  const entries = Object.entries(payload).filter(([k]) => allowed.includes(k));
-
-  if (!entries.length) {
-    return res.status(400).json({ success: false, error: { message: "No valid settings provided." } });
-  }
-
-  try {
-    const programId = await getProgramIdByCode(code);
-
-    await run("BEGIN");
-    for (const [k, v] of entries) {
-      if (k === 'active') {
-        const flag = v === true || /^(true|1|yes)$/i.test(String(v));
-        await run(
-          `UPDATE loyalty_programs SET active = ?, updated_at = datetime('now') WHERE id = ?`,
-          [flag ? 1 : 0, programId]
-        );
-        continue;
-      }
-
-      // sanitize integers
-      const vv = ['durationMonths','withdrawWaitDays','minWithdrawPoints','signupBonus']
-        .includes(k) ? Math.max(0, parseInt(v, 10) || 0) : v;
-
-      await upsertSettingTyped(programId, code, k, vv);
-    }
-    await run("COMMIT");
-
-    const program = await getProgramSettings();
-    return res.json({ success: true, program });
-  } catch (e) {
-    try { await run("ROLLBACK"); } catch {}
-    return res.status(500).json({ success: false, error: { message: e.message } });
-  }
-});
-
-/** PATCH /api/admin/loyalty/accounts/:id/status  → Active|Paused|Closed  */
-router.patch("/accounts/:id/status", async (req, res) => {
-  const id = Number(req.params.id);
-  const status = String((req.body && req.body.status) || '').trim();
-  if (!id || !['Active','Paused','Closed'].includes(status)) {
-    return res.status(400).json({ success:false, error:{ message:"Invalid account id or status." } });
-  }
-
-  try {
-    const result = await run(`UPDATE loyalty_accounts SET status = ?, updated_at = datetime('now') WHERE id = ?`, [status, id]);
-    // Notify member (best-effort)
-    enqueue('status_change', { payload: { accountId: id, status } }).catch(()=>{});
-    return res.json({ success:true, updated: result.changes });
-  } catch (err) {
-    return res.status(500).json({ success:false, error:{ message: err.message } });
-  }
-});
-
-// GET /api/admin/loyalty/accounts/:id  → returns minimal account info for the modal
-router.get("/accounts/:id", (req, res) => {
-  const id = Number(req.params.id);
-  if (!id) return res.status(400).json({ success:false, error:{ message:"Invalid id" } });
-  db.get(`
-    SELECT id, user_id, status, start_date, eligible_from, end_date, points_balance
-    FROM loyalty_accounts WHERE id = ?`, [id], (err, row) => {
-      if (err) return res.status(500).json({ success:false, error:{ message:err.message }});
-      if (!row) return res.status(404).json({ success:false, error:{ message:"Not found" }});
-      return res.json({ success:true, account: row });
-  });
-});
-
-// --- Increment 2: Read-only visibility (Accounts, Ledger, Notifications) ---
+// --- Read-only visibility (Accounts, Ledger, Notifications) ---
 
 // GET /api/admin/loyalty/accounts
 router.get("/accounts", async (req, res) => {
   try {
+    const { status } = req.query;
+    const params = [];
+    let where = "";
+    if (status) {
+      where = "WHERE a.status = ?";
+      params.push(status);
+    }
     const rows = await all(
       `SELECT a.id, a.user_id,
               u.email,
@@ -542,50 +375,64 @@ router.get("/accounts", async (req, res) => {
               a.points_balance, a.total_earned, a.total_penalty, a.total_paid
          FROM loyalty_accounts a
     LEFT JOIN users u ON u.id = a.user_id
-        ORDER BY a.id DESC`
+        ${where}
+        ORDER BY a.id DESC`,
+      params
     );
     return res.json({ success: true, accounts: rows });
   } catch (err) {
     console.error("[admin/loyalty/accounts]", err);
-    return res
-      .status(500)
-      .json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
+    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
   }
 });
 
 // GET /api/admin/loyalty/ledger
 router.get("/ledger", async (req, res) => {
   try {
+    const { kind } = req.query;
+    const params = [];
+    let where = "";
+    if (kind) {
+      where = "WHERE kind = ?";
+      params.push(kind);
+    }
     const rows = await all(
       `SELECT id, account_id, kind, points_delta, note, created_at
          FROM loyalty_ledger
+         ${where}
         ORDER BY created_at DESC
-        LIMIT 100`
+        LIMIT 100`,
+      params
     );
     return res.json({ success: true, ledger: rows });
   } catch (err) {
     console.error("[admin/loyalty/ledger]", err);
-    return res
-      .status(500)
-      .json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
+    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
   }
 });
 
 // GET /api/admin/loyalty/notifications
 router.get("/notifications", async (req, res) => {
   try {
+    const { status } = req.query;
+    const params = [];
+    let where = "";
+    if (status) {
+      where = "WHERE status = ?";
+      params.push(status);
+    }
     const rows = await all(
       `SELECT id, kind, email, payload, status, created_at
          FROM notifications_queue
+         ${where}
         ORDER BY created_at DESC
-        LIMIT 100`
+        LIMIT 100`,
+      params
     );
     return res.json({ success: true, notifications: rows });
   } catch (err) {
     console.error("[admin/loyalty/notifications]", err);
-    return res
-      .status(500)
-      .json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
+    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
   }
 });
 
