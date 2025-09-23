@@ -1,6 +1,6 @@
 // public/admin/js/admin-loyalty.js
 // Loyalty Admin Visibility — SPA-safe attach
-// Phase 1: Read-only wiring for Accounts + Ledger + Notifications
+// Phase 1: Read-only wiring for Withdrawals + Accounts + Ledger + Notifications
 (function () {
   "use strict";
 
@@ -11,6 +11,7 @@
   const fmtInt = (n) => (n === 0 || n ? Number(n).toLocaleString() : "—");
   const esc = (v) => String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const debounce = (fn, ms=400) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
+  const pick = (o, keys, d="—") => { for (const k of keys) if (o && o[k]!=null) return o[k]; return d; };
 
   async function api(path) {
     const res = await fetch(path, { credentials: "include" });
@@ -24,7 +25,6 @@
   let els = {};
 
   function cacheEls() {
-    const root = $("#loyalty-root");
     els = {
       // tab buttons
       tabWithdrawalsBtn: $("#tabWithdrawalsBtn"),
@@ -41,7 +41,8 @@
       searchInput: $("#loyaltySearch"),
       clearBtn:    $("#loyaltyClearBtn"),
       refreshBtn:  $("#loyaltyRefreshBtn"),
-      // tables
+      // table bodies
+      wdBody:            $("#wdBody"),
       accountsBody:      $("#loyaltyAccountsBody"),
       ledgerBody:        $("#loyaltyLedgerBody"),
       notificationsBody: $("#loyaltyNotificationsBody"),
@@ -71,18 +72,17 @@
     attached = true; tries=0;
     wireTabs(); wireFilters(); wirePager();
 
-    // If Accounts is already visible on load
     if (isShown(els.tabAccounts)) { state.activeTab="Accounts"; loadAccounts({resetPage:true}); }
     setStatusVisible(state.activeTab === "Withdrawals");
 
-    window.loyaltyAdmin = { state, refreshActiveTab, loadAccounts, loadLedger, loadNotifications };
+    window.loyaltyAdmin = { state, refreshActiveTab, loadWithdrawals, loadAccounts, loadLedger, loadNotifications };
   }
 
   // ---------- helpers for visibility ----------
   function isShown(el){ return !!el && el.style.display !== "none"; }
   function setShown(el,on){ if (el) el.style.display = on ? "" : "none"; }
+  function toggleGhost(btn, on){ btn && btn.classList.toggle("btn--ghost", !!on); }
 
-  // Find a neat wrapper around the Status control (label+select) so hiding looks clean
   function findFieldWrap(selectEl) {
     if (!selectEl) return null;
     return selectEl.closest(".filters-bar .group, .form-row, .form-field, .field, .group") || selectEl.parentElement || selectEl;
@@ -93,15 +93,13 @@
     wrap.style.display = on ? "" : "none";
   }
 
-  function toggleGhost(btn, on){ btn && btn.classList.toggle("btn--ghost", !!on); }
-
   // ---------- tabs ----------
   function wireTabs() {
     on(document, "click", (e) => {
       const btn = e.target.closest("#tabWithdrawalsBtn, #tabAccountsBtn, #tabLedgerBtn, #tabNotifsBtn");
       if (!btn) return; e.preventDefault();
-      if (btn.id==="tabWithdrawalsBtn"){ showTab("Withdrawals"); }
-      if (btn.id==="tabAccountsBtn")   { showTab("Accounts");      loadAccounts({resetPage:true}); }
+      if (btn.id==="tabWithdrawalsBtn"){ showTab("Withdrawals"); loadWithdrawals({ resetPage:true }); }
+      if (btn.id==="tabAccountsBtn")   { showTab("Accounts");      loadAccounts({ resetPage:true }); }
       if (btn.id==="tabLedgerBtn")     { showTab("Ledger");        loadLedger(); }
       if (btn.id==="tabNotifsBtn")     { showTab("Notifications"); loadNotifications(); }
     });
@@ -119,7 +117,6 @@
     toggleGhost(els.tabLedgerBtn,      name!=="Ledger");
     toggleGhost(els.tabNotifsBtn,      name!=="Notifications");
 
-    // ✅ Only show Status filter on Withdrawals
     setStatusVisible(name === "Withdrawals");
   }
 
@@ -151,13 +148,14 @@
 
   function refreshActiveTab() {
     cacheEls();
-    if (state.activeTab==="Accounts") loadAccounts({resetPage:false});
+    if (state.activeTab==="Withdrawals") loadWithdrawals({resetPage:false});
+    else if (state.activeTab==="Accounts") loadAccounts({resetPage:false});
     else if (state.activeTab==="Ledger") loadLedger();
     else if (state.activeTab==="Notifications") loadNotifications();
     else setMeta(0);
   }
 
-  // ---------- pager (Accounts only) ----------
+  // ---------- pager (Accounts only for now) ----------
   function wirePager() {
     on(document, "click", (e) => {
       const btn = e.target.closest("#loyaltyPager button"); if (!btn) return;
@@ -182,10 +180,9 @@
     setDisabled(next,!hasNext); setDisabled(last,!(hasNext && maxPage!==null));
     if (current) current.textContent=String(page);
   }
-
   function setDisabled(btn,on){ if(btn){ btn.disabled=!!on; btn.classList.toggle("is-disabled", !!on); } }
 
-  // ---------- ACCOUNTS ----------
+  // ---------- QUERY (Accounts/Withdrawals share) ----------
   function buildQuery() {
     const statusSel = $("#statusSel") || els.statusSel;
     const searchInp = $("#loyaltySearch") || els.searchInput;
@@ -198,6 +195,63 @@
     return `?${p.toString()}`;
   }
 
+  // ---------- WITHDRAWALS ----------
+  async function loadWithdrawals({ resetPage=false } = {}) {
+    if (resetPage) state.page = 1;
+    cacheEls();
+    const tbody = els.wdBody || $("#wdBody");
+    addLoading(tbody, true);
+    try {
+      const data = await api(`/api/admin/loyalty/withdrawals${buildQuery()}`);
+      const rows = Array.isArray(data) ? data : (data.withdrawals || []);
+      // (optional) if backend returns total: state.total = typeof data.total === 'number' ? data.total : null;
+      state.total = null; // keep pager simple for this tab for now
+
+      renderWithdrawalsRows(tbody, rows);
+      setMeta(rows.length);
+    } catch (err) {
+      showErrorRow(tbody, err, 9);
+      setMeta(0);
+    } finally {
+      addLoading(tbody, false);
+    }
+  }
+
+  function renderWithdrawalsRows(tbody, rows) {
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    if (!rows || rows.length === 0) {
+      tbody.appendChild(emptyRow(9));
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for (const r of rows) {
+      const id   = pick(r, ["id","withdrawal_id"]);
+      const user = pick(r, ["email","user_email","user_id"]);
+      const pts  = pick(r, ["points","requested_pts"], 0);
+      const eur  = pick(r, ["eur","requested_eur"], 0);
+      const st   = pick(r, ["status"]);
+      const req  = pick(r, ["requested_at","created_at"]);
+      const dec  = pick(r, ["decided_at"]);
+      const paid = pick(r, ["paid_at"]);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${esc(id)}</td>
+        <td>${esc(user)}</td>
+        <td>${fmtInt(pts)}</td>
+        <td>${fmtInt(eur)}</td>
+        <td>${esc(st)}</td>
+        <td>${esc(req)}</td>
+        <td>${esc(dec)}</td>
+        <td>${esc(paid)}</td>
+        <td><!-- actions (later) --></td>
+      `;
+      frag.appendChild(tr);
+    }
+    tbody.appendChild(frag);
+  }
+
+  // ---------- ACCOUNTS ----------
   async function loadAccounts({resetPage=false}={}) {
     if (resetPage) state.page=1;
     cacheEls();
@@ -318,3 +372,4 @@
   if (document.readyState==="loading") document.addEventListener("DOMContentLoaded", tryAttach);
   else tryAttach();
 })();
+// EOF
