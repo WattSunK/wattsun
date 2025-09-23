@@ -11,192 +11,296 @@
       <button id="btnSettingsRefresh" class="btn small">Refresh</button>
     </div>
     <div id="settingsIntro" class="help">
-      Configure company info, user management, notifications, integrations, appearance, and system controls.
+      Configure company info, user management, notifications, integrations, appearance, loyalty program, and system controls.
     </div>
   </div>
 </section>
 
+<!-- Tiny utilities (move into /admin/admin.css later) -->
+<style>
+  /* optional micro-utility for tighter inline rows when needed */
+  .form-row { display: flex; align-items: center; gap: .75rem; }
+  .form-row > * { flex: 0 0 auto; }
+  .form-row .input { flex: 1 1 auto; }
+
+  /* moved out of inline danger styles; migrate to admin.css when convenient */
+  .danger-zone .card-header { color: #a30000; }
+  .danger-zone .btn-danger { background: #c62828; color: #fff; }
+  .danger-zone .btn-danger:hover { filter: brightness(0.95); }
+</style>
+
+<!-- Settings grid -->
 <div class="dash-cards">
 
+  <!-- Company Information -->
   <section class="card">
     <div class="card-header">Company Information</div>
     <div class="card-body">
-      <div class="form-group">
-        <label for="companyName"><strong>Company Name</strong></label>
-        <input id="companyName" type="text" class="input" value="WattSun Solar" />
-      </div>
-
-      <div class="form-group">
-        <label for="supportEmail"><strong>Support Email</strong></label>
-        <input id="supportEmail" type="email" class="input" value="support@wattsun.co.ke" />
-      </div>
-
-      <div class="form-group">
-        <label for="supportPhone"><strong>Support Phone</strong></label>
-        <input id="supportPhone" type="tel" class="input" value="+254700123456" />
-      </div>
-
-      <div class="form-group">
-        <label for="physicalAddress"><strong>Physical Address</strong></label>
-        <input id="physicalAddress" type="text" class="input" value="Nairobi, Kenya" />
-      </div>
+      <form id="companyInfoForm">
+        <div class="form-group">
+          <label for="companyName"><strong>Company Name</strong></label>
+          <input id="companyName" type="text" class="input" value="WattSun Solar" />
+        </div>
+        <div class="form-group">
+          <label for="supportEmail"><strong>Support Email</strong></label>
+          <input id="supportEmail" type="email" class="input" value="support@wattsun.co.ke" />
+        </div>
+        <div class="form-group">
+          <label for="supportPhone"><strong>Support Phone</strong></label>
+          <input id="supportPhone" type="tel" class="input" value="+254700123456" />
+        </div>
+        <div class="form-group">
+          <label for="physicalAddress"><strong>Physical Address</strong></label>
+          <input id="physicalAddress" type="text" class="input" value="Nairobi, Kenya" />
+        </div>
+        <div class="actions">
+          <button type="button" class="btn" id="btnSaveCompany">Save</button>
+        </div>
+      </form>
     </div>
   </section>
 
+  <!-- User Management -->
   <section class="card">
     <div class="card-header">User Management</div>
     <div class="card-body">
-      <div class="form-group">
-        <label class="form-row">
-          <input id="enforceStrongPw" type="checkbox" />
-          Enforce strong passwords
-        </label>
-      </div>
+      <form id="userMgmtForm">
+        <div class="form-group">
+          <label class="form-row">
+            <input id="enforceStrongPasswords" type="checkbox" checked />
+            Enforce strong passwords
+          </label>
+        </div>
 
-      <div class="form-group">
-        <label for="sessionTimeout"><strong>Session Timeout</strong></label>
-        <select id="sessionTimeout" class="input">
-          <option>15 minutes</option>
-          <option>30 minutes</option>
-          <option selected>1 hour</option>
-          <option>2 hours</option>
-          <option>8 hours</option>
-        </select>
-      </div>
+        <div class="form-group">
+          <label for="sessionTimeout"><strong>Session Timeout</strong></label>
+          <select id="sessionTimeout" class="input">
+            <option value="15m">15 minutes</option>
+            <option value="30m">30 minutes</option>
+            <option value="1h" selected>1 hour</option>
+            <option value="4h">4 hours</option>
+            <option value="8h">8 hours</option>
+          </select>
+        </div>
 
-      <div class="form-group">
-        <label class="form-row">
-          <input id="allowPwReset" type="checkbox" />
-          Allow Password Reset
-        </label>
-      </div>
+        <div class="form-group">
+          <label class="form-row">
+            <input id="allowPasswordReset" type="checkbox" checked />
+            Allow Password Reset
+          </label>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn" id="btnSaveUserMgmt">Save</button>
+        </div>
+      </form>
     </div>
   </section>
 
+  <!-- Notifications -->
   <section class="card">
     <div class="card-header">Notifications</div>
     <div class="card-body">
-      <div class="form-group">
-        <label class="form-row">
-          <input id="notifOrderPlaced" type="checkbox" checked />
-          Order Placed Email
-        </label>
-      </div>
-
-      <div class="form-group">
-        <label class="form-row">
-          <input id="notifOrderDelivered" type="checkbox" checked />
-          Order Delivered Email
-        </label>
-      </div>
-
-      <div class="form-group form-row">
-        <label class="form-row">
-          <input id="notifLowStock" type="checkbox" checked />
-          Low Stock Alerts
-        </label>
-        <label for="lowStockThreshold" class="form-row">
-          <input id="lowStockThreshold" class="input w-90" type="number" min="1" value="10" />
-          <span>threshold</span>
-        </label>
-      </div>
-
-      <div class="form-group">
-        <label for="notifEmailTo"><strong>Send notifications to</strong></label>
-        <input id="notifEmailTo" type="email" class="input" value="alerts@wattsun.co.ke" />
-      </div>
+      <form id="notificationsForm">
+        <div class="form-group">
+          <label class="form-row"><input id="notifyOrderPlaced" type="checkbox" checked /> Order Placed Email</label>
+        </div>
+        <div class="form-group">
+          <label class="form-row"><input id="notifyOrderDelivered" type="checkbox" checked /> Order Delivered Email</label>
+        </div>
+        <div class="form-group form-row">
+          <label for="lowStockThreshold"><strong>Low Stock Alerts</strong></label>
+          <input id="lowStockThreshold" type="number" min="0" step="1" class="input" style="max-width: 140px;" value="10" />
+          <span class="help">threshold</span>
+        </div>
+        <div class="form-group">
+          <label for="alertsEmail"><strong>Send notifications to</strong></label>
+          <input id="alertsEmail" type="email" class="input" value="alerts@wattsun.co.ke" />
+        </div>
+        <div class="actions">
+          <button type="button" class="btn" id="btnSaveNotifications">Save</button>
+        </div>
+      </form>
     </div>
   </section>
 
+  <!-- Integrations -->
   <section class="card">
     <div class="card-header">Integrations</div>
     <div class="card-body">
-      <div class="form-group">
-        <label for="paybill"><strong>Paybill Number</strong></label>
-        <input id="paybill" type="text" class="input" value="123456" />
-      </div>
-
-      <div class="form-group">
-        <label for="apiKey"><strong>API Key</strong></label>
-        <input id="apiKey" type="password" class="input" value="********" />
-      </div>
-
-      <div class="form-group">
-        <label for="smsGateway"><strong>SMS Gateway</strong></label>
-        <select id="smsGateway" class="input">
-          <option selected>Africa's Talking</option>
-          <option>Twilio</option>
-          <option>Infobip</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="smsSenderId"><strong>Sender ID</strong></label>
-        <input id="smsSenderId" type="text" class="input" value="WattSun" />
-      </div>
+      <form id="integrationsForm">
+        <div class="form-group">
+          <label for="paybillNumber"><strong>Paybill Number</strong></label>
+          <input id="paybillNumber" type="text" class="input" value="123456" />
+        </div>
+        <div class="form-group">
+          <label for="apiKey"><strong>API Key</strong></label>
+          <input id="apiKey" type="password" class="input" value="••••••••••" />
+        </div>
+        <div class="form-group">
+          <label for="smsGateway"><strong>SMS Gateway</strong></label>
+          <select id="smsGateway" class="input">
+            <option>Africa's Talking</option>
+            <option>Twilio</option>
+            <option>Infobip</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="smsSenderId"><strong>Sender ID</strong></label>
+          <input id="smsSenderId" type="text" class="input" value="WattSun" />
+        </div>
+        <div class="actions">
+          <button type="button" class="btn" id="btnSaveIntegrations">Save</button>
+        </div>
+      </form>
     </div>
   </section>
 
+  <!-- Appearance -->
   <section class="card">
     <div class="card-header">Appearance</div>
     <div class="card-body">
-      <div class="form-group">
-        <label for="logoUpload"><strong>Logo Upload</strong></label>
-        <input id="logoUpload" type="file" class="input" />
-      </div>
-
-      <div class="form-group">
-        <label for="themeSelect"><strong>Theme</strong></label>
-        <select id="themeSelect" class="input">
-          <option selected>Light</option>
-          <option>Dark</option>
-          <option>System</option>
-        </select>
-      </div>
-
-      <div class="actions">
-        <button id="btnSaveAppearance" class="btn">Save</button>
-      </div>
+      <form id="appearanceForm">
+        <div class="form-group form-row">
+          <label for="logoUpload"><strong>Logo Upload</strong></label>
+          <input id="logoUpload" type="file" />
+        </div>
+        <div class="form-group">
+          <label for="theme"><strong>Theme</strong></label>
+          <select id="theme" class="input">
+            <option>Light</option>
+            <option>Dark</option>
+          </select>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn" id="btnSaveAppearance">Save</button>
+        </div>
+      </form>
     </div>
   </section>
 
+  <!-- ✅ Loyalty Program (new) -->
+  <section class="card" id="card-loyalty-program">
+    <div class="card-header">Loyalty Program</div>
+    <div class="card-body">
+      <form id="loyalty-settings-form">
+        <div class="form-group">
+          <label for="dailyAccrualPoints"><strong>Daily Accrual (points/day)</strong></label>
+          <input id="dailyAccrualPoints" type="number" min="0" step="1" class="input" required />
+        </div>
+
+        <div class="form-group">
+          <label for="signupBonus"><strong>Signup Bonus (points)</strong></label>
+          <input id="signupBonus" type="number" min="0" step="1" class="input" required />
+        </div>
+
+        <div class="form-group">
+          <label for="referralBonus"><strong>Referral Bonus (points)</strong></label>
+          <input id="referralBonus" type="number" min="0" step="1" class="input" required />
+        </div>
+
+        <div class="form-group">
+          <label for="minWithdrawalPoints"><strong>Min Withdrawal (points)</strong></label>
+          <input id="minWithdrawalPoints" type="number" min="0" step="1" class="input" required />
+        </div>
+
+        <div class="form-group">
+          <label for="pointsPerKES"><strong>Points per KES (conversion)</strong></label>
+          <input id="pointsPerKES" type="number" min="0" step="0.0001" class="input" required />
+          <div class="help">Example: if 1 KES = 1 point, enter 1.</div>
+        </div>
+
+        <div class="form-group">
+          <label for="digestDay"><strong>Weekly Digest Day</strong></label>
+          <select id="digestDay" class="input" required>
+            <option>Mon</option><option>Tue</option><option>Wed</option>
+            <option>Thu</option><option>Fri</option><option>Sat</option><option>Sun</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-row">
+            <input id="enableDailyAccrual" type="checkbox" />
+            Enable Daily Accrual
+          </label>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn">Save</button>
+          <span id="loyalty-settings-status" class="help"></span>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- System Controls -->
   <section class="card">
     <div class="card-header">System Controls</div>
     <div class="card-body">
-      <div class="actions">
-        <button id="btnBackup" class="btn">Backup Data</button>
-        <label class="btn" for="restoreFile">Restore from Backup</label>
-        <input id="restoreFile" type="file" class="input" hidden />
-        <button id="btnExport" class="btn">Export Data</button>
-      </div>
+      <form id="systemControlsForm">
+        <div class="form-group">
+          <button type="button" class="btn" id="btnBackup">Backup Data</button>
+        </div>
+        <div class="form-group form-row">
+          <label for="restoreFile"><strong>Restore from Backup</strong></label>
+          <input id="restoreFile" type="file" />
+        </div>
+        <div class="form-group">
+          <button type="button" class="btn" id="btnExport">Export Data</button>
+        </div>
+        <div class="form-group">
+          <button type="button" class="btn" id="btnClearCache">Clear Server Cache</button>
+        </div>
+      </form>
     </div>
   </section>
 
-  <section class="card">
+  <!-- Danger Zone -->
+  <section class="card danger-zone">
     <div class="card-header">Danger Zone</div>
     <div class="card-body">
-      <style>
-        .danger-note { color:#b91c1c; font-weight:600; }
-        .btn-danger { background:#fef2f2; border:1px solid #fecaca; }
-        .btn-danger:hover { background:#fee2e2; }
-      </style>
-      <p class="danger-note">Caution: these actions are irreversible.</p>
+      <div class="help">Proceed with caution. These actions are irreversible.</div>
       <div class="actions">
-        <button class="btn btn-danger" id="btnClearCache">Clear Server Cache</button>
-        <button class="btn btn-danger" id="btnResetEmails">Reset Email Settings</button>
-        <button class="btn btn-danger" id="btnDeleteTestData">Delete Test Data</button>
+        <button type="button" class="btn btn-danger" id="btnResetEmails">Reset Email Settings</button>
+        <button type="button" class="btn btn-danger" id="btnDeleteTestData">Delete ALL Test Data</button>
       </div>
     </div>
   </section>
 
-</div>
+</div><!-- /dash-cards -->
 
+<!-- Page script (only minimal wiring for demo actions; real save hooks can be added later) -->
 <script>
-  (function(){
-    const confirmDo = (msg, fn) => { if (confirm(msg)) fn?.(); };
+  (function () {
+    function toast(msg) {
+      console.log('[settings]', msg);
+    }
+    function confirmDo(msg, fn) {
+      if (confirm(msg)) fn();
+    }
 
-    document.getElementById('btnSettingsRefresh')?.addEventListener('click', () => location.reload());
-    document.getElementById('btnSaveAppearance')?.addEventListener('click', () => alert('Appearance saved.'));
+    // Generic header refresh
+    document.getElementById('btnSettingsRefresh')?.addEventListener('click', () => {
+      toast('Refreshing…');
+      location.reload();
+    });
+
+    // Company Info
+    document.getElementById('btnSaveCompany')?.addEventListener('click', () => toast('Company info saved.'));
+
+    // User Mgmt
+    document.getElementById('btnSaveUserMgmt')?.addEventListener('click', () => toast('User management saved.'));
+
+    // Notifications
+    document.getElementById('btnSaveNotifications')?.addEventListener('click', () => toast('Notifications saved.'));
+
+    // Integrations
+    document.getElementById('btnSaveIntegrations')?.addEventListener('click', () => toast('Integrations saved.'));
+
+    // Appearance
+    document.getElementById('btnSaveAppearance')?.addEventListener('click', () => toast('Appearance saved.'));
+
+    // System Controls
     document.getElementById('btnBackup')?.addEventListener('click', () => alert('Backup started.'));
     document.getElementById('restoreFile')?.addEventListener('change', (e) => {
       if (e.target.files?.length) alert('Restore uploaded: ' + e.target.files[0].name);
@@ -205,6 +309,8 @@
     document.getElementById('btnClearCache')?.addEventListener('click', () =>
       confirmDo('Clear server cache now?', () => console.log('[settings] clear cache'))
     );
+
+    // Danger Zone
     document.getElementById('btnResetEmails')?.addEventListener('click', () =>
       confirmDo('Reset email settings?', () => console.log('[settings] reset SMTP'))
     );
@@ -213,3 +319,6 @@
     );
   })();
 </script>
+
+<!-- Loyalty settings loader (wired to /api/admin/loyalty/program) -->
+<script src="/admin/js/settings-loyalty.js?v=20250923"></script>
