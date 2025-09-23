@@ -1,5 +1,6 @@
-// Loyalty Program Settings – Admin
-// Wires the form in public/partials/settings.html to the backend
+// Loyalty Program Settings — Global (Card)
+// Loads/saves only the high-level fields that live on the card.
+// Advanced fields are handled by the modal script.
 
 (function () {
   const form = document.getElementById('loyalty-settings-form');
@@ -8,13 +9,10 @@
   const statusEl = document.getElementById('loyalty-settings-status');
 
   const fields = {
-    dailyAccrualPoints: document.getElementById('dailyAccrualPoints'),
-    signupBonus: document.getElementById('signupBonus'),
-    referralBonus: document.getElementById('referralBonus'),
-    minWithdrawalPoints: document.getElementById('minWithdrawalPoints'),
-    pointsPerKES: document.getElementById('pointsPerKES'),
+    eligibleUserTypes: document.getElementById('eligibleUserTypes'),
+    programActive: document.getElementById('programActive'),
     digestDay: document.getElementById('digestDay'),
-    enableDailyAccrual: document.getElementById('enableDailyAccrual'),
+    referralBonus: document.getElementById('referralBonus'),
   };
 
   function setStatus(msg, ok = true) {
@@ -24,20 +22,22 @@
     statusEl.classList.add(ok ? 'ok' : 'error');
   }
 
+  function coerceBool(v) {
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'number') return v === 1;
+    return String(v).toLowerCase() === 'true';
+  }
+
   async function fetchSettings() {
     try {
       const res = await fetch('/api/admin/loyalty/program', { credentials: 'include' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      // Populate with defaults if missing
-      fields.dailyAccrualPoints.value = +data.dailyAccrualPoints ?? 0;
-      fields.signupBonus.value       = +data.signupBonus ?? 0;
-      fields.referralBonus.value     = +data.referralBonus ?? 0;
-      fields.minWithdrawalPoints.value = +data.minWithdrawalPoints ?? 0;
-      fields.pointsPerKES.value      = data.pointsPerKES ?? 1;
-      fields.digestDay.value         = data.digestDay ?? 'Mon';
-      fields.enableDailyAccrual.checked = !!(data.enableDailyAccrual === true || data.enableDailyAccrual === 'true' || data.enableDailyAccrual === 1);
+      fields.eligibleUserTypes.value = data.eligibleUserTypes ?? '';
+      fields.programActive.value = coerceBool(data.active ?? data.programActive) ? 'true' : 'false';
+      fields.digestDay.value = data.digestDay ?? 'Mon';
+      fields.referralBonus.value = Number(data.referralBonus ?? 0);
 
       setStatus('Loaded.');
     } catch (err) {
@@ -51,13 +51,10 @@
     setStatus('Saving…');
 
     const payload = {
-      dailyAccrualPoints: Number(fields.dailyAccrualPoints.value || 0),
-      signupBonus: Number(fields.signupBonus.value || 0),
-      referralBonus: Number(fields.referralBonus.value || 0),
-      minWithdrawalPoints: Number(fields.minWithdrawalPoints.value || 0),
-      pointsPerKES: Number(fields.pointsPerKES.value || 1),
+      eligibleUserTypes: (fields.eligibleUserTypes.value || '').trim(),
+      active: fields.programActive.value === 'true' ? 1 : 0,
       digestDay: fields.digestDay.value,
-      enableDailyAccrual: fields.enableDailyAccrual.checked ? 1 : 0,
+      referralBonus: Number(fields.referralBonus.value || 0),
     };
 
     try {
@@ -76,5 +73,12 @@
   }
 
   form.addEventListener('submit', saveSettings);
+
+  // Open Advanced modal
+  document.getElementById('openSettings')?.addEventListener('click', () => {
+    const overlay = document.getElementById('lsModal');
+    if (overlay) overlay.style.display = 'block';
+  });
+
   fetchSettings();
 })();

@@ -190,60 +190,59 @@
     </div>
   </section>
 
-  <!-- ✅ Loyalty Program (inline card) -->
-  <section class="card" id="card-loyalty-program">
-    <div class="card-header">Loyalty Program</div>
-    <div class="card-body">
-      <form id="loyalty-settings-form">
-        <div class="form-group">
-          <label for="dailyAccrualPoints"><strong>Daily Accrual (points/day)</strong></label>
-          <input id="dailyAccrualPoints" type="number" min="0" step="1" class="input" required />
-        </div>
+  <!-- ✅ Loyalty Program (global settings only) -->
+<section class="card" id="card-loyalty-program">
+  <div class="card-header">Loyalty Program</div>
+  <div class="card-body">
+    <form id="loyalty-settings-form">
 
-        <div class="form-group">
-          <label for="signupBonus"><strong>Signup Bonus (points)</strong></label>
-          <input id="signupBonus" type="number" min="0" step="1" class="input" required />
-        </div>
+      <!-- Program (global) -->
+      <div class="form-group">
+        <label for="eligibleUserTypes"><strong>Eligible user types</strong></label>
+        <input id="eligibleUserTypes" class="input" placeholder="e.g. Staff, Customers" />
+        <div class="help">Comma-separated list.</div>
+      </div>
 
-        <div class="form-group">
-          <label for="referralBonus"><strong>Referral Bonus (points)</strong></label>
-          <input id="referralBonus" type="number" min="0" step="1" class="input" required />
-        </div>
+      <div class="form-group">
+        <label for="programActive"><strong>Program active</strong></label>
+        <select id="programActive" class="input">
+          <option value="true">Active</option>
+          <option value="false">Paused</option>
+        </select>
+        <div class="help">If inactive, new enrollments are blocked.</div>
+      </div>
 
-        <div class="form-group">
-          <label for="minWithdrawalPoints"><strong>Min Withdrawal (points)</strong></label>
-          <input id="minWithdrawalPoints" type="number" min="0" step="1" class="input" required />
-        </div>
+      <div class="form-group">
+        <label for="digestDay"><strong>Weekly Digest Day</strong></label>
+        <select id="digestDay" class="input">
+          <option>Mon</option><option>Tue</option><option>Wed</option>
+          <option>Thu</option><option>Fri</option><option>Sat</option><option>Sun</option>
+        </select>
+      </div>
 
-        <div class="form-group">
-          <label for="pointsPerKES"><strong>Points per KES (conversion)</strong></label>
-          <input id="pointsPerKES" type="number" min="0" step="0.0001" class="input" required />
-          <div class="help">Example: if 1 KES = 1 point, enter 1.</div>
-        </div>
+      <div class="form-group">
+        <label for="referralBonus"><strong>Referral Bonus (points)</strong></label>
+        <input id="referralBonus" type="number" min="0" step="1" class="input" />
+      </div>
 
-        <div class="form-group">
-          <label for="digestDay"><strong>Weekly Digest Day</strong></label>
-          <select id="digestDay" class="input" required>
-            <option>Mon</option><option>Tue</option><option>Wed</option>
-            <option>Thu</option><option>Fri</option><option>Sat</option><option>Sun</option>
-          </select>
+      <!-- Accounts (global) -->
+      <hr class="divider" />
+      <div class="form-group">
+        <label><strong>Accounts</strong></label>
+        <div class="help">
+          Manage individual accounts (status, balances) in <em>Advanced…</em>
         </div>
+      </div>
 
-        <div class="form-group">
-          <label class="form-row">
-            <input id="enableDailyAccrual" type="checkbox" />
-            Enable Daily Accrual
-          </label>
-        </div>
+      <div class="actions">
+        <button type="submit" class="btn">Save</button>
+        <button type="button" class="btn small" id="openSettings">Advanced…</button>
+        <span id="loyalty-settings-status" class="help"></span>
+      </div>
+    </form>
+  </div>
+</section>
 
-        <div class="actions">
-          <button type="submit" class="btn">Save</button>
-          <button type="button" class="btn small" id="openSettings">Advanced…</button>
-          <span id="loyalty-settings-status" class="help"></span>
-        </div>
-      </form>
-    </div>
-  </section>
 
   <!-- System Controls -->
   <section class="card">
