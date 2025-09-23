@@ -123,13 +123,26 @@
     }[name];
     if (activeBtn) activeBtn.classList.add("btn--active");
 
-    // toggle filter groups
+    // toggle filter groups and reset to All
     ["filterWithdrawals","filterAccounts","filterLedger","filterNotifs"]
       .forEach(id => { const el = document.getElementById(id); if (el) el.style.display="none"; });
-    if (name==="Withdrawals")   $("#filterWithdrawals").style.display="";
-    if (name==="Accounts")      $("#filterAccounts").style.display="";
-    if (name==="Ledger")        $("#filterLedger").style.display="";
-    if (name==="Notifications") $("#filterNotifs").style.display="";
+
+    if (name==="Withdrawals") {
+      $("#filterWithdrawals").style.display="";
+      const sel=document.getElementById("statusSel"); if (sel) sel.value="";
+    }
+    if (name==="Accounts") {
+      $("#filterAccounts").style.display="";
+      const sel=document.getElementById("accStatusSel"); if (sel) sel.value="";
+    }
+    if (name==="Ledger") {
+      $("#filterLedger").style.display="";
+      const sel=document.getElementById("ledgerKindSel"); if (sel) sel.value="";
+    }
+    if (name==="Notifications") {
+      $("#filterNotifs").style.display="";
+      const sel=document.getElementById("notifStatusSel"); if (sel) sel.value="";
+    }
   }
 
   // ---------- filters & refresh ----------
@@ -202,7 +215,7 @@
   }
   function setDisabled(btn,on){ if(btn){ btn.disabled=!!on; btn.classList.toggle("is-disabled", !!on); } }
 
-  // ---------- QUERY (Accounts/Withdrawals share) ----------
+  // ---------- QUERY ----------
   function buildQuery() {
     const p = new URLSearchParams();
     const q=($("#loyaltySearch")?.value||"").trim();
