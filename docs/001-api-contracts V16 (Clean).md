@@ -1,8 +1,7 @@
-# ADR-001: API Contracts & Domain Ownership
-**Status:** Proposed • **Date:** 2025-08-11  
-**Decision:** Standardize endpoint shapes and ownership per domain to reduce regressions and enable gradual refactor without changing URLs.
+# 001-api-contracts – V16 (Canonical Clean Layout)
 
----
+This version consolidates all changes from V1–V15 into a single coherent layout. 
+It is the **single source of truth** for WattSun API contracts.
 
 ## Principles
 - **No breaking changes now.** Existing routes continue to work; this ADR documents the contract.
@@ -13,21 +12,14 @@
 
 ---
 
-## Auth (Domain: `auth`)
-- `POST /api/auth/signup`  
-  **Body:** `{ fullName, email, phone, password }`  
-  **Returns:** `{ success, user:{ id, fullName, email, phone, role }, message }`  
-  **Notes:** Frontend stores session object as `wattsunUser` in localStorage (source of truth for UI).
+---
 
-- `POST /api/auth/login`  
-  **Body:** `{ emailOrPhone, password }`  
-  **Returns:** `{ success, user:{...}, message }`
+## Security & AuthZ (summary)
+- Admin endpoints require role `Admin`.  
+- Customer endpoints read-only where unauthenticated (Tracking), richer data when logged in.  
+- Current frontends use `wattsunUser` in localStorage to drive UI; backend to enforce roles via middleware (implementation timing TBD).
 
-- `POST /api/auth/reset` (request link/code)  
-  **Body:** `{ emailOrPhone }` → `{ success, message }`
-
-- `POST /api/auth/reset/confirm`  
-  **Body:** `{ tokenOrCode, newPassword }` → `{ success, message }`
+---
 
 ---
 
@@ -40,6 +32,8 @@
 
 ---
 
+---
+
 ## Catalog (Domain: `catalog`)
 - `GET /api/items`  
   **Query:** optional filters later  
@@ -47,6 +41,8 @@
 
 - `GET /api/categories`  
   → `{ success, categories:[ { id, name, image, active } ] }`
+
+---
 
 ---
 
@@ -77,13 +73,6 @@
 
 ---
 
-## Orders (Customer scope) (Domain: `orders`)
-- `GET /api/orders`  
-  **Query:** `phone`, `page=1`, `per=5`  
-  **Returns:** `{ success, page, per, total, orders:[ { id, orderNumber, status, totalCents, createdAt } ] }`
-
-*(Note: Customer view overlaps with tracking but may include more details when logged in.)*
-
 ---
 
 ## Tracking (Public) (Domain: `tracking`)
@@ -109,6 +98,8 @@
 
 ---
 
+---
+
 ## Admin Orders (Admin scope) (Domain: `orders`)
 - `GET /api/admin/orders`  
   **Query (optional):** `q`, `status`, `page=1`, `per=10`, `from`, `to`  
@@ -125,11 +116,30 @@
 
 ---
 
+---
+
+### GET /api/admin/loyalty/notifications
+Returns notifications.  
+Supports optional filter:
+- `status=Sent|Failed|Pending`
+
+
+
+
+---
+# Source: 001-api-contracts V9.md
+
+# 001-api-contracts.md (V7)
+
+---
+
 ## Notifications (Domain: `notifications`)
 - (Internal) `POST /api/internal/notify`  
   **Body:** `{ channel:"email", template:"order_status_changed", to, payload }`  
   **Returns:** `{ success }`  
   **Later:** Store send attempts in `notifications` with status.
+
+---
 
 ---
 
@@ -140,10 +150,14 @@
 
 ---
 
+---
+
 ## Security & AuthZ (summary)
 - Admin endpoints require role `Admin`.  
 - Customer endpoints read-only where unauthenticated (Tracking), richer data when logged in.  
 - Current frontends use `wattsunUser` in localStorage to drive UI; backend to enforce roles via middleware (implementation timing TBD).
+
+---
 
 ---
 
@@ -154,25 +168,5 @@
 
 ---
 
-### Step 6.8 — Dashboard Completion (Dispatch, Settings, MyOrders, Profile)
+---
 
-**Scope:** Wire up remaining dashboard tabs with minimal APIs and clear RBAC.
-
-**RBAC (summary):**
-- Admin: full read/write on Dispatch & Settings; read on Users & Orders.
-- Driver: read assigned orders (limited), update dispatch status/note.
-- Customer: read own orders (MyOrders), update own profile (limited).
-- Staff: similar to Admin but no Settings writes (config-protected).
-
-**API Stubs:**
-- `GET /api/admin/dispatch?status=&driver_id=` → list orders with dispatch metadata.
-- `PUT /api/admin/dispatch/:orderId` → body { driver_id?, dispatch_status?, note? }.
-- `GET /api/admin/settings` → key–value map of settings.
-- `PUT /api/admin/settings` → upsert key–value entries (admin-only).
-- `GET /api/profile/me` → current user profile (from session/wattsunUser).
-- `PUT /api/profile/me` → update allowed fields (name, phone, email*, password*).
-- `GET /api/my/orders?page=&status=&from=&to=` → customer’s orders (paginated).
-
-**Validation & Security:**
-- Validate all inputs; enforce site-relative redirects (`^/[A-Za-z0-9._\-/?#=&]*$`).
-- Audit fields: `updated_by`, `updated_at` on admin mutations.
