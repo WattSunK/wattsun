@@ -72,8 +72,11 @@
     attached = true; tries=0;
     wireTabs(); wireFilters(); wirePager();
 
-    if (isShown(els.tabAccounts)) { state.activeTab="Accounts"; loadAccounts({resetPage:true}); }
-    setStatusVisible(state.activeTab === "Withdrawals");
+ // Default to Withdrawals on load
+  state.activeTab = "Withdrawals";
+  showTab("Withdrawals");
+  loadWithdrawals({ resetPage:true });
+
 
     window.loyaltyAdmin = { state, refreshActiveTab, loadWithdrawals, loadAccounts, loadLedger, loadNotifications };
   }
