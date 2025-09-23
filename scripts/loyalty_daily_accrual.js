@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 /**
- * Loyalty Daily Accrual (idempotent)
+ * Loyalty Daily Accrual (idempotent) + optional Ledger Audit
+ *
  * - Inserts 1 row per Active account per local day into loyalty_daily_log.
  * - Reads points from loyalty_program_settings key 'dailyAccrualPoints' (value_int or value). Fallback = 1.
  * - UNIQUE(account_id, accrual_date) prevents duplicates.
  * - On first insert, increments points_balance + total_earned in loyalty_accounts.
  * - Uses local date (Europe/Paris via SQLite 'localtime').
+ * - If table `loyalty_ledger` exists, writes an audit row: (account_id, points, 'daily', created_at).
  */
 
 const fs = require('fs');
@@ -63,6 +65,18 @@ const mode = Better ? 'better' : 'sqlite3';
     WHERE id = ?;
   `;
 
+  const checkLedgerSQL = `
+    SELECT 1 AS ok
+    FROM sqlite_master
+    WHERE type='table' AND name='loyalty_ledger'
+    LIMIT 1;
+  `;
+
+  const insertLedgerSQL = `
+    INSERT INTO loyalty_ledger (account_id, points, kind, created_at)
+    VALUES (?, ?, 'daily', datetime('now','localtime'));
+  `;
+
   if (mode === 'better') {
     const db = new Better(DB);
     try {
@@ -83,10 +97,16 @@ const mode = Better ? 'better' : 'sqlite3';
       const ins = db.prepare(insertDailySQL);
       const bump = db.prepare(bumpAccountSQL);
 
+      const hasLedger = !!db.prepare(checkLedgerSQL).get();
+      const insLedger = hasLedger ? db.prepare(insertLedgerSQL) : null;
+      if (!hasLedger) {
+        console.log('[loyalty_daily_accrual] loyalty_ledger not found — skipping audit inserts (ok).');
+      }
+
       let inserted = 0;
       const tx = db.transaction(() => {
         for (const a of accounts) {
-          // Optional enrollment window guard:
+          // Enrollment window guard:
           // only accrue if today within [start_date, start_date + duration_months)
           const within = db.prepare(`
             SELECT
@@ -99,6 +119,9 @@ const mode = Better ? 'better' : 'sqlite3';
           if (info.changes === 1) {
             inserted++;
             bump.run(dailyPoints, dailyPoints, a.account_id);
+            if (insLedger) {
+              insLedger.run(a.account_id, dailyPoints);
+            }
           }
         }
       });
@@ -138,6 +161,12 @@ const mode = Better ? 'better' : 'sqlite3';
       const accounts = await all(activeAccountsSQL);
       console.log('[loyalty_daily_accrual] Active accounts =', accounts.length);
 
+      const hasLedgerRow = await get(checkLedgerSQL);
+      const hasLedger = !!hasLedgerRow;
+      if (!hasLedger) {
+        console.log('[loyalty_daily_accrual] loyalty_ledger not found — skipping audit inserts (ok).');
+      }
+
       await run('BEGIN;');
       let inserted = 0;
       for (const a of accounts) {
@@ -152,6 +181,9 @@ const mode = Better ? 'better' : 'sqlite3';
         if (info && info.changes === 1) {
           inserted++;
           await run(bumpAccountSQL, [dailyPoints, dailyPoints, a.account_id]);
+          if (hasLedger) {
+            await run(insertLedgerSQL, [a.account_id, dailyPoints]);
+          }
         }
       }
       await run('COMMIT;');
