@@ -1,7 +1,8 @@
 // routes/admin-loyalty.js
-// Admin endpoints for Loyalty program settings + account controls (status/penalize/extend)
-// Adds a flat GET/PUT /program compat layer so the Settings card and Advanced modal
-// can share the same storage seamlessly.
+// Admin endpoints for Loyalty program settings + account controls
+// - Fast + safe SQLite usage (WAL, memoized schema/seed)
+// - Flat GET/PUT /program so the Settings card + Advanced modal share storage
+// - Backward-compatible routes for programs, accounts, ledger, notifications
 
 const express = require("express");
 const router = express.Router();
@@ -10,24 +11,39 @@ router.use(express.urlencoded({ extended: true }));
 
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
+const fs = require("fs");
 
-// Optional: your notify queue util (leave as no-op if missing)
+// Optional notify util (best-effort)
 let enqueue = async () => {};
-try {
-  ({ enqueue } = require("./lib/notify"));
-} catch (_) {}
+try { ({ enqueue } = require("./lib/notify")); } catch (_) {}
 
-// ---- DB ------------------------------------------------------
+// ---- DB path (env-first, consistent across your stack) ----
 const DB_PATH =
-  process.env.DB_PATH_ADMIN ||
-  process.env.DB_PATH_USERS ||
-  process.env.SQLITE_DB ||
+  process.env.WATTSUN_DB_PATH ||  // preferred override
+  process.env.DB_PATH_ADMIN ||    // admin env
+  process.env.DB_PATH_USERS ||    // users env
+  process.env.SQLITE_DB ||        // generic fallback
   path.join(process.cwd(), "data/dev/wattsun.dev.db");
 
-const db = new sqlite3.Database(DB_PATH);
+console.log("📂 Loyalty router DB path:", DB_PATH);
 
-// small promise helpers
-function run(sql, params = []) {
+// ---- small per-call DB helpers (safe + simple) ----
+function withDb(fn) {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(DB_PATH, (err) => {
+      if (err) return reject(err);
+      db.serialize(async () => {
+        try {
+          const out = await fn(db);
+          db.close(() => resolve(out));
+        } catch (e) {
+          db.close(() => reject(e));
+        }
+      });
+    });
+  });
+}
+function run(db, sql, params = []) {
   return new Promise((resolve, reject) => {
     db.run(sql, params, function (err) {
       if (err) return reject(err);
@@ -35,356 +51,294 @@ function run(sql, params = []) {
     });
   });
 }
-function all(sql, params = []) {
+function all(db, sql, params = []) {
   return new Promise((resolve, reject) => {
     db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
   });
 }
-function get(sql, params = []) {
+function get(db, sql, params = []) {
   return new Promise((resolve, reject) => {
     db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)));
   });
 }
 
-// ---- schema + seed (idempotent) ------------------------------
+// ---- memoized schema/seed + WAL (runs once per process) ----
+let __ensureOnce;
 async function ensureSchemaAndSeed() {
-  await run(`
-    CREATE TABLE IF NOT EXISTS loyalty_programs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      code TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL,
-      active INTEGER NOT NULL DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+  if (__ensureOnce) return __ensureOnce;
+  __ensureOnce = withDb(async (db) => {
+    // NAS-friendly PRAGMAs
+    await get(db, `PRAGMA journal_mode=WAL`);
+    await run(db, `PRAGMA synchronous=NORMAL`);
+    await run(db, `PRAGMA temp_store=MEMORY`);
 
-  await run(`
-    CREATE TABLE IF NOT EXISTS loyalty_program_settings (
-      program_id INTEGER NOT NULL,
-      key TEXT NOT NULL,
-      value TEXT NOT NULL,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY(program_id, key),
-      FOREIGN KEY(program_id) REFERENCES loyalty_programs(id) ON DELETE CASCADE
-    )
-  `);
+    await run(db, `
+      CREATE TABLE IF NOT EXISTS loyalty_programs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-  // Seed default program (STAFF) and a few sensible defaults if missing.
-  const row = await get(`SELECT id FROM loyalty_programs WHERE code='STAFF'`, []);
-  let programId = row?.id;
-  if (!programId) {
-    const ins = await run(
-      `INSERT INTO loyalty_programs (code, name, active) VALUES ('STAFF','Default Loyalty Program',1)`
-    );
-    programId = ins.lastID;
-  }
+    await run(db, `
+      CREATE TABLE IF NOT EXISTS loyalty_program_settings (
+        program_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(program_id, key),
+        FOREIGN KEY(program_id) REFERENCES loyalty_programs(id) ON DELETE CASCADE
+      )
+    `);
 
-  const defaults = {
-    // Global/card fields
-    eligibleUserTypes: 'Staff',
-    active: 1,                   // lives on programs table, not settings
-    digestDay: 'Mon',
-    referralBonus: 10,
-    // Advanced/modal fields
-    durationMonths: 6,
-    withdrawWaitDays: 90,
-    minWithdrawPoints: 100,
-    pointsPerKES: 1,
-    eurPerPoint: 1,              // optional alt-key
-    signupBonus: 100,
-    dailyAccrualPoints: 5,
-    enableDailyAccrual: 1
-  };
+    // Ensure default program
+    const row = await get(db, `SELECT id FROM loyalty_programs WHERE code='STAFF'`);
+    let programId = row?.id;
+    if (!programId) {
+      const ins = await run(
+        db,
+        `INSERT INTO loyalty_programs (code, name, active)
+         VALUES ('STAFF','Default Loyalty Program',1)`
+      );
+      programId = ins.lastID;
+    }
 
-  // Program active is stored on programs table
-  await run(
-    `UPDATE loyalty_programs SET active=COALESCE(active,1) WHERE id=?`,
-    [programId]
-  );
+    // Seed sensible defaults (card + advanced)
+    const defaults = {
+      eligibleUserTypes: 'Staff',
+      digestDay: 'Mon',
+      referralBonus: 10,
+      durationMonths: 6,
+      withdrawWaitDays: 90,
+      minWithdrawPoints: 100,
+      pointsPerKES: 1,
+      eurPerPoint: 1,            // alt to pointsPerKES if you prefer EUR
+      signupBonus: 100,
+      dailyAccrualPoints: 5,
+      enableDailyAccrual: 1
+    };
+    for (const [k, v] of Object.entries(defaults)) {
+      await run(
+        db,
+        `INSERT OR IGNORE INTO loyalty_program_settings (program_id, key, value)
+         VALUES (?,?,?)`,
+        [programId, k, String(v)]
+      );
+    }
 
-  for (const [k, v] of Object.entries(defaults)) {
-    if (k === "active") continue; // handled above
-    await run(
-      `INSERT OR IGNORE INTO loyalty_program_settings (program_id, key, value)
-       VALUES (?,?,?)`,
-      [programId, k, String(v)]
-    );
-  }
-
-  return programId;
+    return programId;
+  });
+  return __ensureOnce;
 }
 
 // ---- helpers -------------------------------------------------
 function parseMaybeJSON(v) {
   try {
     if (typeof v === "string" && /^\s*(\[|\{)/.test(v)) return JSON.parse(v);
-  } catch (_) {}
+  } catch {}
   return v;
 }
-
-function mergeProgramRowset(rows) {
-  if (!rows || rows.length === 0) return null;
-  const base = {
-    programId: rows[0].program_id,
-    code: rows[0].code,
-    name: rows[0].name,
-    active: !!rows[0].active,
-  };
-  for (const r of rows) {
-    if (!r || !r.key) continue;
-    let v = parseMaybeJSON(r.value);
-    if (["durationMonths","withdrawWaitDays","minWithdrawPoints","pointsPerKES","eurPerPoint","signupBonus","dailyAccrualPoints","enableDailyAccrual","referralBonus"].includes(r.key)) {
-      const n = Number(v);
-      if (Number.isFinite(n)) v = n;
-    }
-    base[r.key] = v;
+function normalizeEligible(val) {
+  if (Array.isArray(val)) return val.filter(Boolean).map(String);
+  if (typeof val === "string") {
+    return val.split(",").map(s => s.trim()).filter(Boolean);
   }
-  return base;
+  return [];
+}
+
+// Merge program rowset from JOIN into a single object
+async function getProgramByCode(code = "STAFF") {
+  return withDb(async (db) => {
+    const rows = await all(
+      db,
+      `SELECT p.id AS program_id, p.code, p.name, p.active, s.key, s.value
+         FROM loyalty_programs p
+    LEFT JOIN loyalty_program_settings s ON s.program_id = p.id
+        WHERE p.code = ?`,
+      [code]
+    );
+    if (!rows || !rows.length) return null;
+    const out = {
+      programId: rows[0].program_id,
+      code: rows[0].code,
+      name: rows[0].name,
+      active: !!rows[0].active
+    };
+    for (const r of rows) {
+      if (!r || !r.key) continue;
+      let v = parseMaybeJSON(r.value);
+      if ([
+        "durationMonths","withdrawWaitDays","minWithdrawPoints","pointsPerKES",
+        "eurPerPoint","signupBonus","dailyAccrualPoints","enableDailyAccrual","referralBonus"
+      ].includes(r.key)) {
+        const n = Number(v); if (Number.isFinite(n)) v = n;
+      }
+      out[r.key] = v;
+    }
+    // csv convenience for the card
+    const elig = out.eligibleUserTypes;
+    out.eligibleUserTypesCsv = Array.isArray(elig) ? elig.join(", ") : String(elig || "");
+    return out;
+  });
 }
 
 function mapToFlat(out) {
-  // Flatten settings object for the card
-  // Eligible user types may be array or csv; return csv string for the card.
-  const eligible = out.eligibleUserTypes;
-  const eligibleCsv = Array.isArray(eligible) ? eligible.join(", ") : String(eligible || "");
+  // Flatten for the card; include advanced fields so modal can reuse this endpoint too
   return {
-    // card (global)
-    eligibleUserTypes: eligibleCsv,
+    eligibleUserTypes: out.eligibleUserTypesCsv || "",
     active: !!out.active,
     digestDay: out.digestDay ?? "Mon",
     referralBonus: Number(out.referralBonus ?? 0),
-    // plus a few advanced keys so the card could show them later if needed
+
     durationMonths: Number(out.durationMonths ?? 6),
     withdrawWaitDays: Number(out.withdrawWaitDays ?? 90),
     minWithdrawPoints: Number(out.minWithdrawPoints ?? 100),
-    pointsPerKES: Number(out.pointsPerKES ?? (out.eurPerPoint ?? 1)),
+    pointsPerKES: Number(out.pointsPerKES ?? out.eurPerPoint ?? 1),
+    eurPerPoint: Number(out.eurPerPoint ?? out.pointsPerKES ?? 1),
     signupBonus: Number(out.signupBonus ?? 100),
     dailyAccrualPoints: Number(out.dailyAccrualPoints ?? 5),
     enableDailyAccrual: !!out.enableDailyAccrual
   };
 }
 
-async function getAllPrograms() {
-  const rows = await all(
-    `SELECT p.id AS program_id, p.code, p.name, p.active, s.key, s.value
-       FROM loyalty_programs p
-       LEFT JOIN loyalty_program_settings s ON s.program_id = p.id
-       ORDER BY p.id ASC`,
-    []
+async function setProgramActive(programId, active) {
+  return withDb((db) =>
+    run(db, `UPDATE loyalty_programs SET active=?, updated_at=datetime('now') WHERE id=?`, [active ? 1 : 0, programId])
   );
-  const byId = new Map();
-  for (const r of rows) {
-    if (!byId.has(r.program_id)) byId.set(r.program_id, []);
-    byId.get(r.program_id).push(r);
-  }
-  const list = [];
-  for (const [, group] of byId) list.push(mergeProgramRowset(group));
-  return list;
 }
-
-async function getProgramByCode(code) {
-  const rows = await all(
-    `SELECT p.id AS program_id, p.code, p.name, p.active, s.key, s.value
-       FROM loyalty_programs p
-       LEFT JOIN loyalty_program_settings s ON s.program_id = p.id
-       WHERE p.code = ?`,
-    [code]
-  );
-  return mergeProgramRowset(rows);
-}
-
-async function getProgramIdByCode(code) {
-  const row = await get(`SELECT id FROM loyalty_programs WHERE code = ?`, [code]);
-  if (!row) throw new Error(`PROGRAM_NOT_FOUND:${code}`);
-  return row.id;
-}
-
-/** KV-style upsert for settings */
-async function upsertSettingKV(programId, key, value) {
-  const upd = await run(
-    `UPDATE loyalty_program_settings
-       SET value = ?, updated_at = datetime('now')
-     WHERE program_id = ? AND key = ?`,
-    [String(value), programId, key]
-  );
-  if (!upd.changes) {
-    await run(
-      `INSERT INTO loyalty_program_settings (program_id, key, value, updated_at)
-       VALUES (?,?,?, datetime('now'))`,
-      [programId, key, String(value)]
+async function upsertSetting(programId, key, value) {
+  return withDb(async (db) => {
+    const u = await run(
+      db,
+      `UPDATE loyalty_program_settings SET value=?, updated_at=datetime('now')
+       WHERE program_id=? AND key=?`,
+      [String(value), programId, key]
     );
-  }
-  return true;
-}
-
-function setProgramActive(programId, active) {
-  return run(
-    `UPDATE loyalty_programs SET active=?, updated_at=datetime('now') WHERE id=?`,
-    [active ? 1 : 0, programId]
-  ).then(() => true);
-}
-
-// Accounts helpers
-function getAccountById(id) {
-  return new Promise((resolve, reject) => {
-    db.get(`SELECT * FROM loyalty_accounts WHERE id=?`, [id], (err, row) => err ? reject(err) : resolve(row || null));
-  });
-}
-function getAccountByUser(programId, userId) {
-  return new Promise((resolve, reject) => {
-    db.get(`SELECT * FROM loyalty_accounts WHERE program_id=? AND user_id=?`, [programId, userId], (err, row) => err ? reject(err) : resolve(row || null));
-  });
-}
-function updateAccountStatus(id, newStatus) {
-  return new Promise((resolve, reject) => {
-    db.run(`UPDATE loyalty_accounts SET status=?, updated_at=datetime('now') WHERE id=?`, [newStatus, id], function (err) {
-      if (err) return reject(err);
-      resolve(true);
-    });
-  });
-}
-function insertLedger(accountId, kind, delta, note, adminId) {
-  return new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO loyalty_ledger (account_id, kind, points_delta, note, admin_user_id) VALUES (?,?,?,?,?)`,
-      [accountId, kind, delta, note || null, adminId || null],
-      function (err) { if (err) return reject(err); resolve(this.lastID); }
-    );
-  });
-}
-function addMonths(isoDate, months) {
-  const d = new Date(isoDate + "T00:00:00Z");
-  d.setUTCMonth(d.getUTCMonth() + months);
-  return d.toISOString().slice(0,10);
-}
-function extendAccountEndDate(id, months) {
-  return new Promise((resolve, reject) => {
-    db.get(`SELECT end_date FROM loyalty_accounts WHERE id=?`, [id], (err, row) => {
-      if (err) return reject(err);
-      if (!row) return reject(new Error("ACCOUNT_NOT_FOUND"));
-      const newEnd = addMonths(row.end_date, months);
-      db.run(`UPDATE loyalty_accounts SET end_date=?, updated_at=datetime('now') WHERE id=?`, [newEnd, id], function (err2) {
-        if (err2) return reject(err2);
-        resolve(newEnd);
-      });
-    });
+    if (!u.changes) {
+      await run(
+        db,
+        `INSERT INTO loyalty_program_settings (program_id, key, value, updated_at)
+         VALUES (?,?,?, datetime('now'))`,
+        [programId, key, String(value)]
+      );
+    }
+    return true;
   });
 }
 
-// ---- compat layer for Settings card --------------------------
-// GET  /api/admin/loyalty/program      -> flat object for the card
-// PUT  /api/admin/loyalty/program      -> accepts card + modal keys
-
-router.get("/program", async (req, res) => {
+// ---- card-compat endpoints ----------------------------------
+// GET  /api/admin/loyalty/program   -> flat object
+router.get("/program", async (_req, res) => {
   try {
     await ensureSchemaAndSeed();
     const program = await getProgramByCode("STAFF");
-    if (!program) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
-    return res.json(mapToFlat(program));
-  } catch (err) {
-    console.error("[admin/loyalty/program][GET]", err);
-    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to load program" } });
+    if (!program) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+    res.json(mapToFlat(program));
+  } catch (e) {
+    console.error("[loyalty/program][GET]", e);
+    res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: e.message } });
   }
 });
 
+// PUT  /api/admin/loyalty/program   -> accepts card + modal keys
 router.put("/program", async (req, res) => {
   try {
     const programId = await ensureSchemaAndSeed();
-
-    // Accept both shapes:
-    // Card: { eligibleUserTypes: 'Staff, Customers', active, digestDay, referralBonus }
-    // Modal: { eligibleUserTypes: ['Staff','Customers'], durationMonths, withdrawWaitDays, ... }
     const body = req.body || {};
-    const patches = [];
 
-    // Normalize alias programActive -> active
-    if (body.programActive !== undefined && body.active === undefined) {
-      body.active = body.programActive;
-    }
+    // allow alias programActive
+    if (body.programActive !== undefined && body.active === undefined) body.active = body.programActive;
 
-    // active → programs table
+    // active on programs table
     if (body.active !== undefined) {
       const flag = /^(true|1|yes)$/i.test(String(body.active)) || body.active === true || body.active === 1;
-      patches.push(setProgramActive(programId, flag));
+      await setProgramActive(programId, flag);
     }
 
-    // eligibleUserTypes: accept csv string or array
+    // eligible user types (csv or array) -> JSON array in settings
     if (body.eligibleUserTypes !== undefined) {
-      let val = body.eligibleUserTypes;
-      if (typeof val === "string") {
-        val = val.split(",").map(s => s.trim()).filter(Boolean);
-      }
-      if (!Array.isArray(val) || val.some(v => typeof v !== "string")) {
-        return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"eligibleUserTypes must be array or csv string" } });
-      }
-      patches.push(upsertSettingKV(programId, "eligibleUserTypes", JSON.stringify(val)));
+      const arr = normalizeEligible(body.eligibleUserTypes);
+      await upsertSetting(programId, "eligibleUserTypes", JSON.stringify(arr));
     }
 
-    // digestDay + referralBonus (card fields)
     if (body.digestDay !== undefined) {
-      patches.push(upsertSettingKV(programId, "digestDay", String(body.digestDay)));
-    }
-    if (body.referralBonus !== undefined) {
-      const n = Number(body.referralBonus);
-      if (!Number.isFinite(n) || n < 0) {
-        return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"referralBonus must be a non-negative number" } });
-      }
-      patches.push(upsertSettingKV(programId, "referralBonus", String(n)));
+      await upsertSetting(programId, "digestDay", String(body.digestDay));
     }
 
-    // Advanced fields tolerated here too (so modal can also call /program)
+    // numeric keys (card + advanced)
     const numericKeys = [
-      "durationMonths",
-      "withdrawWaitDays",
-      "minWithdrawPoints",
-      "pointsPerKES",
-      "eurPerPoint",
-      "signupBonus",
-      "dailyAccrualPoints",
-      "enableDailyAccrual"
+      "referralBonus",
+      "durationMonths","withdrawWaitDays","minWithdrawPoints",
+      "pointsPerKES","eurPerPoint","signupBonus",
+      "dailyAccrualPoints","enableDailyAccrual"
     ];
     for (const k of numericKeys) {
       if (body[k] !== undefined) {
         const n = Number(body[k]);
         if (!Number.isFinite(n) || n < 0) {
-          return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:`${k} must be a non-negative number` } });
+          return res.status(400).json({ success: false, error: { code: "BAD_INPUT", message: `${k} must be >= 0` } });
         }
-        patches.push(upsertSettingKV(programId, k, String(n)));
+        await upsertSetting(programId, k, n);
       }
     }
 
-    await Promise.all(patches);
     const updated = await getProgramByCode("STAFF");
-    return res.json({ success:true, program: mapToFlat(updated) });
-  } catch (err) {
-    console.error("[admin/loyalty/program][PUT]", err);
-    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to update program" } });
+    res.json({ success: true, program: mapToFlat(updated) });
+  } catch (e) {
+    console.error("[loyalty/program][PUT]", e);
+    res.status(400).json({ success: false, error: { code: "BAD_INPUT", message: e.message } });
   }
 });
 
-// ---- existing routes (kept as-is; minor refactor to use helpers) ----
-// GET /api/admin/loyalty/programs
-router.get("/programs", async (req, res) => {
+// ---- programs list / settings by code -----------------------
+router.get("/programs", async (_req, res) => {
   try {
     await ensureSchemaAndSeed();
-    const programs = await getAllPrograms();
-    return res.json({ success:true, programs });
-  } catch (err) {
-    console.error("[admin/loyalty/programs]", err);
-    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to load programs" } });
+    const list = await withDb(async (db) => {
+      const rows = await all(
+        db,
+        `SELECT p.id AS program_id, p.code, p.name, p.active, s.key, s.value
+           FROM loyalty_programs p
+      LEFT JOIN loyalty_program_settings s ON s.program_id = p.id
+       ORDER BY p.id ASC`
+      );
+      const byId = new Map();
+      for (const r of rows) {
+        if (!byId.has(r.program_id)) byId.set(r.program_id, []);
+        byId.get(r.program_id).push(r);
+      }
+      const out = [];
+      for (const [, group] of byId) {
+        const merged = {
+          programId: group[0].program_id,
+          code: group[0].code,
+          name: group[0].name,
+          active: !!group[0].active
+        };
+        for (const g of group) {
+          if (!g.key) continue;
+          merged[g.key] = parseMaybeJSON(g.value);
+        }
+        out.push(merged);
+      }
+      return out;
+    });
+    res.json({ success: true, programs: list });
+  } catch (e) {
+    console.error("[loyalty/programs][GET]", e);
+    res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: e.message } });
   }
 });
 
-// PUT /api/admin/loyalty/programs/:code/settings
 router.put("/programs/:code/settings", async (req, res) => {
   try {
     await ensureSchemaAndSeed();
     const code = String(req.params.code || "STAFF");
     const current = await getProgramByCode(code);
-    if (!current) {
-      return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
-    }
+    if (!current) return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Program not found" } });
 
     const {
       eligibleUserTypes,
@@ -400,18 +354,18 @@ router.put("/programs/:code/settings", async (req, res) => {
       dailyAccrualPoints,
       enableDailyAccrual
     } = req.body || {};
-    const patches = [];
+    const pid = current.programId;
 
-    // eligibleUserTypes array only on this route
+    // eligibleUserTypes expects array here
     if (eligibleUserTypes !== undefined) {
       if (!Array.isArray(eligibleUserTypes) || eligibleUserTypes.some(v => typeof v !== "string")) {
         return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"eligibleUserTypes must be array of strings" } });
       }
-      patches.push(upsertSettingKV(current.programId, "eligibleUserTypes", JSON.stringify(eligibleUserTypes)));
+      await upsertSetting(pid, "eligibleUserTypes", JSON.stringify(eligibleUserTypes));
     }
 
-    function toNumberOrNull(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
-    const intMap = [
+    function toNum(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
+    const nmap = [
       ["durationMonths", durationMonths],
       ["minWithdrawPoints", minWithdrawPoints],
       ["withdrawWaitDays", withdrawWaitDays],
@@ -420,66 +374,106 @@ router.put("/programs/:code/settings", async (req, res) => {
       ["signupBonus", signupBonus],
       ["referralBonus", referralBonus],
       ["dailyAccrualPoints", dailyAccrualPoints],
-      ["enableDailyAccrual", enableDailyAccrual],
+      ["enableDailyAccrual", enableDailyAccrual]
     ];
-    for (const [k, v] of intMap) {
+    for (const [k, v] of nmap) {
       if (v !== undefined) {
-        const n = toNumberOrNull(v);
+        const n = toNum(v);
         if (n === null || n < 0) return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:`${k} must be non-negative number` } });
-        patches.push(upsertSettingKV(current.programId, k, String(n)));
+        await upsertSetting(pid, k, n);
       }
     }
 
     if (digestDay !== undefined) {
-      patches.push(upsertSettingKV(current.programId, "digestDay", String(digestDay)));
+      await upsertSetting(pid, "digestDay", String(digestDay));
     }
 
     if (active !== undefined) {
       const flag = /^(true|1|yes)$/i.test(String(active)) || active === true || active === 1;
-      patches.push(setProgramActive(current.programId, flag));
+      await setProgramActive(pid, flag);
     }
 
-    await Promise.all(patches);
     const updated = await getProgramByCode(code);
-    return res.json({ success:true, program: updated });
-  } catch (err) {
-    console.error("[admin/loyalty/programs/:code/settings]", err);
-    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to update settings" } });
+    res.json({ success: true, program: updated });
+  } catch (e) {
+    console.error("[loyalty/programs/:code/settings][PUT]", e);
+    res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: e.message } });
   }
 });
 
-// POST /api/admin/loyalty/accounts/:id/status
-router.post("/accounts/:id/status", async (req, res) => {
+// ---- Accounts helpers ---------------------------------------
+async function getAccountById(id) {
+  return withDb((db) =>
+    get(db, `SELECT * FROM loyalty_accounts WHERE id=?`, [id])
+  );
+}
+async function getAccountByUser(programId, userId) {
+  return withDb((db) =>
+    get(db, `SELECT * FROM loyalty_accounts WHERE program_id=? AND user_id=?`, [programId, userId])
+  );
+}
+async function updateAccountStatus(id, newStatus) {
+  return withDb((db) =>
+    run(db, `UPDATE loyalty_accounts SET status=?, updated_at=datetime('now') WHERE id=?`, [newStatus, id])
+  );
+}
+async function insertLedger(accountId, kind, delta, note, adminId) {
+  return withDb((db) =>
+    run(db, `INSERT INTO loyalty_ledger (account_id, kind, points_delta, note, admin_user_id)
+             VALUES (?,?,?,?,?)`, [accountId, kind, delta, note || null, adminId || null])
+  );
+}
+function addMonths(isoDate, months) {
+  const d = new Date(isoDate + "T00:00:00Z");
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().slice(0,10);
+}
+async function extendAccountEndDate(id, months) {
+  return withDb(async (db) => {
+    const row = await get(db, `SELECT end_date FROM loyalty_accounts WHERE id=?`, [id]);
+    if (!row) throw new Error("ACCOUNT_NOT_FOUND");
+    const newEnd = addMonths(row.end_date, months);
+    await run(db, `UPDATE loyalty_accounts SET end_date=?, updated_at=datetime('now') WHERE id=?`, [newEnd, id]);
+    return newEnd;
+  });
+}
+
+// ---- Accounts & Ledger endpoints ----------------------------
+// Accept PATCH (new) and POST (legacy) for status updates
+async function handleAccountStatus(req, res) {
   try {
     const id = parseInt(req.params.id, 10);
-    const { status, note } = req.body || {};
-    if (!["Active","Paused","Closed"].includes(String(status))) {
-      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"status must be Active|Paused|Closed" } });
+    const status = String((req.body?.status || "")).trim();
+    if (!["Active","Suspended","Closed","Paused"].includes(status)) {
+      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"Invalid status" } });
     }
     const acct = await getAccountById(id);
     if (!acct) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Account not found" } });
+
     const oldStatus = acct.status;
     await updateAccountStatus(id, status);
-    await insertLedger(id, "status", 0, `Admin change: ${oldStatus} → ${status}. ${note || ""}`, req.session?.user?.id);
+    await insertLedger(id, "status", 0, `Admin change: ${oldStatus} → ${status}. ${req.body?.note || ""}`, req.session?.user?.id);
 
     try {
       await enqueue("status_change", {
         userId: acct.user_id,
-        payload: { oldStatus, newStatus: status, note: note || "" }
+        payload: { oldStatus, newStatus: status, note: req.body?.note || "" }
       });
     } catch (e) {
       console.warn("enqueue(status_change) failed:", e.message);
     }
 
     const updated = await getAccountById(id);
-    return res.json({ success:true, account: updated });
-  } catch (err) {
-    console.error("[admin/loyalty/accounts/:id/status]", err);
-    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to update status" } });
+    res.json({ success:true, account: updated });
+  } catch (e) {
+    console.error("[loyalty/accounts/:id/status]", e);
+    res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:e.message } });
   }
-});
+}
+router.patch("/accounts/:id/status", handleAccountStatus);
+router.post("/accounts/:id/status", handleAccountStatus);
 
-// POST /api/admin/loyalty/penalize
+// Penalize points
 router.post("/penalize", async (req, res) => {
   try {
     const { userId, points = 1, note } = req.body || {};
@@ -487,11 +481,10 @@ router.post("/penalize", async (req, res) => {
     if (!userId || !Number.isFinite(p) || p <= 0) {
       return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"userId and positive integer points required" } });
     }
-    const programRow = await get(`SELECT id FROM loyalty_programs WHERE code='STAFF'`, []);
-    const programId = programRow?.id;
-    if (!programId) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
+    const prog = await withDb((db) => get(db, `SELECT id FROM loyalty_programs WHERE code='STAFF'`));
+    if (!prog?.id) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
 
-    const acct = await getAccountByUser(programId, parseInt(userId, 10));
+    const acct = await getAccountByUser(prog.id, parseInt(userId, 10));
     if (!acct) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Account not found for user" } });
 
     await insertLedger(acct.id, "penalty", -p, note || "Admin penalty", req.session?.user?.id);
@@ -507,14 +500,14 @@ router.post("/penalize", async (req, res) => {
     }
 
     const updated = await getAccountById(acct.id);
-    return res.json({ success:true, account: updated });
-  } catch (err) {
-    console.error("[admin/loyalty/penalize]", err);
-    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to apply penalty" } });
+    res.json({ success:true, account: updated });
+  } catch (e) {
+    console.error("[admin/loyalty/penalize]", e);
+    res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:e.message } });
   }
 });
 
-// POST /api/admin/loyalty/extend
+// Extend end date
 router.post("/extend", async (req, res) => {
   try {
     const { userId, months = 6, note } = req.body || {};
@@ -522,47 +515,49 @@ router.post("/extend", async (req, res) => {
     if (!userId || !Number.isFinite(m) || m <= 0) {
       return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"userId and positive integer months required" } });
     }
-    const programRow = await get(`SELECT id FROM loyalty_programs WHERE code='STAFF'`, []);
-    const programId = programRow?.id;
-    if (!programId) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
+    const prog = await withDb((db) => get(db, `SELECT id FROM loyalty_programs WHERE code='STAFF'`));
+    if (!prog?.id) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
 
-    const acct = await getAccountByUser(programId, parseInt(userId, 10));
+    const acct = await getAccountByUser(prog.id, parseInt(userId, 10));
     if (!acct) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Account not found for user" } });
 
     const newEnd = await extendAccountEndDate(acct.id, m);
     await insertLedger(acct.id, "extend", 0, `Extended by ${m} month(s). ${note || ""}`, req.session?.user?.id);
 
     const updated = await getAccountById(acct.id);
-    return res.json({ success:true, account: updated });
-  } catch (err) {
-    console.error("[admin/loyalty/extend]", err);
-    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to extend account" } });
+    res.json({ success:true, account: updated, newEnd });
+  } catch (e) {
+    console.error("[admin/loyalty/extend]", e);
+    res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:e.message } });
   }
 });
 
-// --- Read-only visibility (Accounts, Ledger, Notifications) ---
+// ---- Read-only visibility (Accounts, Ledger, Notifications) --
 router.get("/accounts", async (req, res) => {
   try {
     const { status } = req.query;
     const params = [];
     let where = "";
     if (status) { where = "WHERE a.status = ?"; params.push(status); }
-    const rows = await all(
-      `SELECT a.id, a.user_id,
-              u.email,
-              a.status, a.start_date, a.end_date,
-              a.duration_months,
-              a.points_balance, a.total_earned, a.total_penalty, a.total_paid
-         FROM loyalty_accounts a
-    LEFT JOIN users u ON u.id = a.user_id
-        ${where}
-        ORDER BY a.id DESC`,
-      params
+    const rows = await withDb((db) =>
+      all(
+        db,
+        `SELECT a.id, a.user_id,
+                u.email,
+                a.status, a.start_date, a.end_date,
+                a.duration_months,
+                a.points_balance, a.total_earned, a.total_penalty, a.total_paid
+           FROM loyalty_accounts a
+      LEFT JOIN users u ON u.id = a.user_id
+          ${where}
+          ORDER BY a.id DESC`,
+        params
+      )
     );
-    return res.json({ success: true, accounts: rows });
-  } catch (err) {
-    console.error("[admin/loyalty/accounts]", err);
-    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
+    res.json({ success: true, accounts: rows });
+  } catch (e) {
+    console.error("[admin/loyalty/accounts]", e);
+    res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: e.message } });
   }
 });
 
@@ -572,20 +567,23 @@ router.get("/ledger", async (req, res) => {
     const params = [];
     let where = "";
     if (kind) { where = "WHERE kind = ?"; params.push(kind); }
-    const rows = await all(
-      `SELECT id, account_id, kind,
-              points_delta AS delta_points,
-              note, created_at
-         FROM loyalty_ledger
-         ${where}
-        ORDER BY created_at DESC
-        LIMIT 100`,
-      params
-    );
-    return res.json({ success: true, ledger: rows });
-  } catch (err) {
-    console.error("[admin/loyalty/ledger]", err);
-    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
+    const rows = await withDb((db) =>
+      all(
+        db,
+        `SELECT id, account_id, kind,
+                points_delta AS delta_points,
+                note, created_at
+           FROM loyalty_ledger
+           ${where}
+          ORDER BY created_at DESC
+          LIMIT 100`,
+        params
+      )
+    ).catch(() => []);
+    res.json({ success: true, ledger: rows });
+  } catch (e) {
+    console.error("[admin/loyalty/ledger]", e);
+    res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: e.message } });
   }
 });
 
@@ -595,18 +593,43 @@ router.get("/notifications", async (req, res) => {
     const params = [];
     let where = "";
     if (status) { where = "WHERE status = ?"; params.push(status); }
-    const rows = await all(
-      `SELECT id, kind, email, payload, status, created_at
-         FROM notifications_queue
-         ${where}
-        ORDER BY created_at DESC
-        LIMIT 100`,
-      params
-    );
-    return res.json({ success: true, notifications: rows });
-  } catch (err) {
-    console.error("[admin/loyalty/notifications]", err);
-    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
+    const rows = await withDb((db) =>
+      all(
+        db,
+        `SELECT id, kind, email, payload, status, created_at
+           FROM notifications_queue
+           ${where}
+          ORDER BY created_at DESC
+          LIMIT 100`,
+        params
+      )
+    ).catch(() => []);
+    res.json({ success: true, notifications: rows });
+  } catch (e) {
+    console.error("[admin/loyalty/notifications]", e);
+    res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: e.message } });
+  }
+});
+
+// ---- Debug endpoint (remove when satisfied) ------------------
+router.get("/debug/db", async (_req, res) => {
+  try {
+    const info = { DB_PATH };
+    try {
+      info.realpath = fs.realpathSync(DB_PATH);
+      const st = fs.statSync(DB_PATH);
+      info.size_bytes = st.size; info.mtime = st.mtime;
+    } catch (e) {
+      info.fs_error = e.message;
+    }
+    const diag = await withDb(async (db) => {
+      const tables = await all(db, `SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`);
+      const jmode = await get(db, `PRAGMA journal_mode`);
+      return { tables, jmode };
+    });
+    res.json({ success: true, ...info, ...diag });
+  } catch (e) {
+    res.status(500).json({ success: false, error: { code: "DEBUG_FAIL", message: e.message } });
   }
 });
 
