@@ -98,52 +98,57 @@
   }
 
   function showTab(name) {
-    state.activeTab = name;
-    setShown(els.tabWithdrawals, name==="Withdrawals");
-    setShown(els.tabAccounts,    name==="Accounts");
-    setShown(els.tabLedger,      name==="Ledger");
-    setShown(els.tabNotifs,      name==="Notifications");
+  state.activeTab = name;
+  setShown(els.tabWithdrawals, name==="Withdrawals");
+  setShown(els.tabAccounts,    name==="Accounts");
+  setShown(els.tabLedger,      name==="Ledger");
+  setShown(els.tabNotifs,      name==="Notifications");
 
-    // reset classes
-    [els.tabWithdrawalsBtn, els.tabAccountsBtn, els.tabLedgerBtn, els.tabNotifsBtn]
-      .forEach(btn => btn && btn.classList.remove("btn--active"));
+  // reset classes
+  [els.tabWithdrawalsBtn, els.tabAccountsBtn, els.tabLedgerBtn, els.tabNotifsBtn]
+    .forEach(btn => btn && btn.classList.remove("btn--active"));
 
-    // ghost style for inactive
-    toggleGhost(els.tabWithdrawalsBtn, name!=="Withdrawals");
-    toggleGhost(els.tabAccountsBtn,    name!=="Accounts");
-    toggleGhost(els.tabLedgerBtn,      name!=="Ledger");
-    toggleGhost(els.tabNotifsBtn,      name!=="Notifications");
+  // ghost style for inactive
+  toggleGhost(els.tabWithdrawalsBtn, name!=="Withdrawals");
+  toggleGhost(els.tabAccountsBtn,    name!=="Accounts");
+  toggleGhost(els.tabLedgerBtn,      name!=="Ledger");
+  toggleGhost(els.tabNotifsBtn,      name!=="Notifications");
 
-    // add active class for the current tab
-    const activeBtn = {
-      "Withdrawals": els.tabWithdrawalsBtn,
-      "Accounts": els.tabAccountsBtn,
-      "Ledger": els.tabLedgerBtn,
-      "Notifications": els.tabNotifsBtn,
-    }[name];
-    if (activeBtn) activeBtn.classList.add("btn--active");
+  // add active class for the current tab
+  const activeBtn = {
+    "Withdrawals": els.tabWithdrawalsBtn,
+    "Accounts": els.tabAccountsBtn,
+    "Ledger": els.tabLedgerBtn,
+    "Notifications": els.tabNotifsBtn,
+  }[name];
+  if (activeBtn) activeBtn.classList.add("btn--active");
 
-    // toggle filter groups and reset to All
-    ["filterWithdrawals","filterAccounts","filterLedger","filterNotifs"]
-      .forEach(id => { const el = document.getElementById(id); if (el) el.style.display="none"; });
+  // toggle filter groups and reset to All
+  ["filterWithdrawals","filterAccounts","filterLedger","filterNotifs"]
+    .forEach(id => { const el = document.getElementById(id); if (el) el.style.display="none"; });
 
-    if (name==="Withdrawals") {
-      $("#filterWithdrawals").style.display="";
-      const sel=document.getElementById("statusSel"); if (sel) sel.value="";
-    }
-    if (name==="Accounts") {
-      $("#filterAccounts").style.display="";
-      const sel=document.getElementById("accStatusSel"); if (sel) sel.value="";
-    }
-    if (name==="Ledger") {
-      $("#filterLedger").style.display="";
-      const sel=document.getElementById("ledgerKindSel"); if (sel) sel.value="";
-    }
-    if (name==="Notifications") {
-      $("#filterNotifs").style.display="";
-      const sel=document.getElementById("notifStatusSel"); if (sel) sel.value="";
-    }
+  if (name==="Withdrawals") {
+    $("#filterWithdrawals").style.display="";
+    const sel=document.getElementById("statusSel"); if (sel) sel.value="";
   }
+  if (name==="Accounts") {
+    $("#filterAccounts").style.display="";
+    const sel=document.getElementById("accStatusSel"); if (sel) sel.value="";
+  }
+  if (name==="Ledger") {
+    $("#filterLedger").style.display="";
+    const sel=document.getElementById("ledgerKindSel"); if (sel) sel.value="";
+  }
+  if (name==="Notifications") {
+    $("#filterNotifs").style.display="";
+    const sel=document.getElementById("notifStatusSel"); if (sel) sel.value="";
+  }
+
+  // always clear search on tab switch
+  const search = document.getElementById("loyaltySearch");
+  if (search) search.value = "";
+}
+
 
   // ---------- filters & refresh ----------
   function wireFilters() {
