@@ -27,6 +27,17 @@
   .danger-zone .card-header { color: #a30000; }
   .danger-zone .btn-danger { background: #c62828; color: #fff; }
   .danger-zone .btn-danger:hover { filter: brightness(0.95); }
+
+  /* minimal modal helpers if needed (keeps to your existing naming) */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); display:none; z-index: 1000; }
+  .modal { background: #fff; max-width: 980px; margin: 4rem auto; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+  .modal-header, .modal-footer { padding: 12px 16px; display: flex; align-items: center; gap: 8px; }
+  .modal-header { border-bottom: 1px solid #eee; justify-content: space-between; }
+  .modal-footer { border-top: 1px solid #eee; justify-content: flex-end; }
+  .modal-tabs { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid #f0f0f0; }
+  .modal-body { padding: 16px; }
+  .modal .spacer { flex: 1; }
+  .banner-error { background:#ffecec; color:#b10000; padding:6px 10px; border-radius:6px; font-size: 12px; }
 </style>
 
 <!-- Settings grid -->
@@ -179,7 +190,7 @@
     </div>
   </section>
 
-  <!-- ✅ Loyalty Program (new) -->
+  <!-- ✅ Loyalty Program (inline card) -->
   <section class="card" id="card-loyalty-program">
     <div class="card-header">Loyalty Program</div>
     <div class="card-body">
@@ -227,6 +238,7 @@
 
         <div class="actions">
           <button type="submit" class="btn">Save</button>
+          <button type="button" class="btn small" id="openSettings">Advanced…</button>
           <span id="loyalty-settings-status" class="help"></span>
         </div>
       </form>
@@ -272,17 +284,12 @@
 <!-- Page script (only minimal wiring for demo actions; real save hooks can be added later) -->
 <script>
   (function () {
-    function toast(msg) {
-      console.log('[settings]', msg);
-    }
-    function confirmDo(msg, fn) {
-      if (confirm(msg)) fn();
-    }
+    function toast(msg) { console.log('[settings]', msg); }
+    function confirmDo(msg, fn) { if (confirm(msg)) fn(); }
 
     // Generic header refresh
     document.getElementById('btnSettingsRefresh')?.addEventListener('click', () => {
-      toast('Refreshing…');
-      location.reload();
+      toast('Refreshing…'); location.reload();
     });
 
     // Company Info
@@ -317,8 +324,122 @@
     document.getElementById('btnDeleteTestData')?.addEventListener('click', () =>
       confirmDo('Delete ALL test data? This cannot be undone.', () => console.log('[settings] delete test data'))
     );
+
+    // Open advanced modal
+    document.getElementById('openSettings')?.addEventListener('click', () => {
+      const overlay = document.getElementById('lsModal');
+      if (overlay) overlay.style.display = 'block';
+    });
   })();
 </script>
 
-<!-- Loyalty settings loader (wired to /api/admin/loyalty/program) -->
+<!-- Loyalty settings loader (inline card wired to /api/admin/loyalty/program) -->
 <script src="/admin/js/settings-loyalty.js?v=20250923"></script>
+
+<!-- Loyalty — Settings & Accounts Modal (matches your standalone version/screenshot) -->
+<div id="lsModal" class="modal-overlay" style="display:none" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="lsTitle">
+    <div class="modal-header">
+      <h3 id="lsTitle">Loyalty — Settings &amp; Accounts</h3>
+      <div class="modal-actions">
+        <button class="btn small" id="lsClose">Close</button>
+        <button class="btn" id="lsSave">Save</button>
+      </div>
+    </div>
+
+    <div class="modal-tabs">
+      <button class="btn" id="tabProgramBtn">Program</button>
+      <button class="btn btn--ghost" id="tabAccountsBtn">Accounts</button>
+      <div class="spacer"></div>
+      <!-- error surface identical to screenshot text -->
+      <span id="lsError" class="banner-error" style="display:none;">Error: Admin access required.</span>
+    </div>
+
+    <div class="modal-body">
+      <!-- Program tab -->
+      <div id="tabProgram">
+        <div class="form-group">
+          <label for="eligibleUserTypes"><strong>Eligible user types</strong></label>
+          <input id="eligibleUserTypes" class="input" placeholder="e.g. Staff" />
+          <div class="help">Comma-separated list (default: Staff).</div>
+        </div>
+
+        <div class="form-group">
+          <label for="durationMonths"><strong>Enrollment duration (months)</strong></label>
+          <input id="durationMonths" type="number" min="0" step="1" class="input" value="6" />
+          <div class="help">Default: 6 months.</div>
+        </div>
+
+        <div class="form-group">
+          <label for="withdrawWaitDays"><strong>Withdraw wait (days)</strong></label>
+          <input id="withdrawWaitDays" type="number" min="0" step="1" class="input" value="90" />
+          <div class="help">Days before member can withdraw (default: 90).</div>
+        </div>
+
+        <div class="form-group">
+          <label for="minWithdrawPoints"><strong>Min withdrawal (points)</strong></label>
+          <input id="minWithdrawPoints" type="number" min="0" step="1" class="input" value="100" />
+          <div class="help">Minimum per request (default: 100).</div>
+        </div>
+
+        <div class="form-group">
+          <label for="eurPerPoint"><strong>Euro per point</strong></label>
+          <input id="eurPerPoint" type="number" min="0" step="0.0001" class="input" value="1" />
+          <div class="help">Conversion rate (default: €1.00 per point).</div>
+        </div>
+
+        <div class="form-group">
+          <label for="signupBonus"><strong>Signup bonus (points)</strong></label>
+          <input id="signupBonus" type="number" min="0" step="1" class="input" value="100" />
+          <div class="help">One-time bonus on enrollment (default: 100).</div>
+        </div>
+
+        <div class="form-group">
+          <label for="active"><strong>Program active</strong></label>
+          <select id="active" class="input">
+            <option value="true" selected>Active</option>
+            <option value="false">Paused</option>
+          </select>
+          <div class="help">If inactive, new enrollments are blocked.</div>
+        </div>
+      </div>
+
+      <!-- Accounts tab -->
+      <div id="tabAccounts" style="display:none">
+        <div class="form-group form-row">
+          <label for="accIdInput"><strong>Account ID</strong></label>
+          <input id="accIdInput" class="input" style="max-width:180px" />
+          <button class="btn" id="accLoadBtn">Load</button>
+        </div>
+        <div id="accMsg" class="help"></div>
+
+        <div id="accPanel" style="display:none">
+          <div class="form-group"><strong>ID:</strong> <span id="accFieldId"></span></div>
+          <div class="form-group"><strong>User ID:</strong> <span id="accFieldUserId"></span></div>
+          <div class="form-group">
+            <label for="accStatus"><strong>Status</strong></label>
+            <select id="accStatus" class="input">
+              <option>Active</option>
+              <option>Suspended</option>
+              <option>Closed</option>
+            </select>
+          </div>
+          <div class="form-group"><strong>Balance:</strong> <span id="accFieldBalance"></span></div>
+          <div class="form-group"><strong>Start:</strong> <span id="accFieldStart"></span></div>
+          <div class="form-group"><strong>Eligible From:</strong> <span id="accFieldEligible"></span></div>
+          <div class="form-group"><strong>End:</strong> <span id="accFieldEnd"></span></div>
+          <div class="actions">
+            <button class="btn" id="accUpdateBtn">Update Status</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <span id="lsMsg" class="help"></span>
+    </div>
+  </div>
+</div>
+
+<!-- modal controller (your uploaded file; uses event delegation and the IDs above) -->
+<script src="/js/admin-loyalty-settings-modal.js?v=20250923"></script>
