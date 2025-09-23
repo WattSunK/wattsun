@@ -39,14 +39,20 @@ function getWithdrawal(id) {
 function listWithdrawals(status, limit=100) {
   const params = [];
   let where = "";
-  if (status) { where = "WHERE w.status=?"; params.push(status); }
+  if (status) { 
+    where = "WHERE w.status=?"; 
+    params.push(status); 
+  }
   return new Promise((resolve, reject) => {
     db.all(
       `SELECT w.id, w.account_id, w.requested_pts, w.requested_eur, w.status,
-              w.requested_at, w.decided_at, w.decided_by, w.decision_note, w.paid_at, w.payout_ref,
-              la.user_id
+              w.requested_at, w.decided_at, w.decided_by, w.decision_note, 
+              w.paid_at, w.payout_ref,
+              la.user_id,
+              u.email AS user_email
        FROM loyalty_withdrawals w
        JOIN loyalty_accounts la ON la.id = w.account_id
+       LEFT JOIN users u ON u.id = la.user_id
        ${where}
        ORDER BY w.id DESC
        LIMIT ?`,
@@ -55,6 +61,7 @@ function listWithdrawals(status, limit=100) {
     );
   });
 }
+
 function insertLedger(accountId, kind, delta, note, adminId) {
   return new Promise((resolve, reject) => {
     db.run(
