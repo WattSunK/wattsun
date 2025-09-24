@@ -21,6 +21,28 @@
     statusEl.classList.remove('error', 'ok');
     statusEl.classList.add(ok ? 'ok' : 'error');
   }
+// Multi-select helpers
+async function loadUserTypes() {
+  const res = await fetch('/api/admin/loyalty/user-types', { credentials: 'include' });
+  const data = await res.json();
+  const sel = fields.eligibleUserTypes; // now a <select multiple>
+  if (!sel) return;
+  sel.innerHTML = '';
+  (data.types || []).forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    sel.appendChild(opt);
+  });
+}
+function setEligibleSelections(csv) {
+  const sel = fields.eligibleUserTypes;
+  const chosen = (csv || '').split(',').map(s => s.trim()).filter(Boolean);
+  [...sel.options].forEach(o => { o.selected = chosen.includes(o.value); });
+}
+function getEligibleSelections() {
+  const sel = fields.eligibleUserTypes;
+  return [...sel.selectedOptions].map(o => o.value);
+}
 
   function coerceBool(v) {
     if (typeof v === 'boolean') return v;
@@ -28,33 +50,34 @@
     return String(v).toLowerCase() === 'true';
   }
 
-  async function fetchSettings() {
-    try {
-      const res = await fetch('/api/admin/loyalty/program', { credentials: 'include' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+ async function fetchSettings() {
+  try {
+    await loadUserTypes(); // populate options first
+    const res = await fetch('/api/admin/loyalty/program', { credentials: 'include' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
 
-      fields.eligibleUserTypes.value = data.eligibleUserTypes ?? '';
-      fields.programActive.value = coerceBool(data.active ?? data.programActive) ? 'true' : 'false';
-      fields.digestDay.value = data.digestDay ?? 'Mon';
-      fields.referralBonus.value = Number(data.referralBonus ?? 0);
+    setEligibleSelections(data.eligibleUserTypes); // CSV -> selections
+    fields.programActive.value = coerceBool(data.active ?? data.programActive) ? 'true' : 'false';
+    fields.digestDay.value = data.digestDay ?? 'Mon';
+    fields.referralBonus.value = Number(data.referralBonus ?? 0);
 
-      setStatus('Loaded.');
-    } catch (err) {
-      console.error(err);
-      setStatus('Failed to load settings.', false);
-    }
+    setStatus('Loaded.');
+  } catch (err) {
+    console.error(err);
+    setStatus('Failed to load settings.', false);
   }
+}
 
   async function saveSettings(e) {
     e.preventDefault();
     setStatus('Saving…');
 
     const payload = {
-      eligibleUserTypes: (fields.eligibleUserTypes.value || '').trim(),
-      active: fields.programActive.value === 'true' ? 1 : 0,
-      digestDay: fields.digestDay.value,
-      referralBonus: Number(fields.referralBonus.value || 0),
+     eligibleUserTypes: getEligibleSelections(),  // send array; backend accepts CSV or array
+     active: fields.programActive.value === 'true' ? 1 : 0,
+     digestDay: fields.digestDay.value,
+     referralBonus: Number(fields.referralBonus.value || 0),
     };
 
     try {

@@ -156,26 +156,35 @@
 
   // ---------- Tabs / Modal wiring (delegated) ----------
   function switchTab(which) {
-    const prog = $('tabProgram');
-    const acct = $('tabAccounts');
-    const bProg = $('tabProgramBtn');
-    const bAcct = $('tabAccountsBtn');
-    if (which === 'accounts') {
-      if (prog) prog.style.display = 'none';
-      if (acct) acct.style.display = 'block';
-      bProg && bProg.classList.add('btn--ghost');
-      bAcct && bAcct.classList.remove('btn--ghost');
-      $('lsSave') && ($('lsSave').style.display = 'none');
-      $('lsMsg') && ($('lsMsg').textContent = '');
-    } else {
-      if (prog) prog.style.display = 'block';
-      if (acct) acct.style.display = 'none';
-      bProg && bProg.classList.remove('btn--ghost');
-      bAcct && bAcct.classList.add('btn--ghost');
-      $('lsSave') && ($('lsSave').style.display = 'inline-block');
-      $('lsMsg') && ($('lsMsg').textContent = '');
-    }
+  const prog = $('tabProgram');
+  const acct = $('tabAccounts');
+  const bProg = $('tabProgramBtn');
+  const bAcct = $('tabAccountsBtn');
+
+  const setActive = (btn, isOn) => {
+    if (!btn) return;
+    btn.classList.toggle('is-active', !!isOn);   // golden ring hook
+    // keep your ghost style for the inactive one
+    btn.classList.toggle('btn--ghost', !isOn);
+  };
+
+  if (which === 'accounts') {
+    if (prog) prog.style.display = 'none';
+    if (acct) acct.style.display = 'block';
+    setActive(bProg, false);
+    setActive(bAcct, true);
+    $('lsSave') && ($('lsSave').style.display = 'none');
+    $('lsMsg') && ($('lsMsg').textContent = '');
+  } else {
+    if (prog) prog.style.display = 'block';
+    if (acct) acct.style.display = 'none';
+    setActive(bProg, true);
+    setActive(bAcct, false);
+    $('lsSave') && ($('lsSave').style.display = 'inline-block');
+    $('lsMsg') && ($('lsMsg').textContent = '');
   }
+}
+
 
   async function openModal() {
     const modal = $('lsModal');

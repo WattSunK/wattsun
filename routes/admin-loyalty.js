@@ -400,6 +400,22 @@ router.put("/programs/:code/settings", async (req, res) => {
     res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: e.message } });
   }
 });
+// ---- User types (for multi-select on card) ------------------
+router.get("/user-types", async (_req, res) => {
+  try {
+    await ensureSchemaAndSeed();
+    const rows = await withDb(db => all(db, `
+      SELECT DISTINCT TRIM(COALESCE(type, role)) AS user_type
+      FROM users
+      WHERE COALESCE(type, role) IS NOT NULL AND TRIM(COALESCE(type, role)) <> ''
+      ORDER BY user_type COLLATE NOCASE
+    `));
+    res.json({ success: true, types: rows.map(r => r.user_type) });
+  } catch (e) {
+    console.error("[loyalty/user-types][GET]", e);
+    res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: e.message } });
+  }
+});
 
 // ---- Accounts helpers ---------------------------------------
 async function getAccountById(id) {
