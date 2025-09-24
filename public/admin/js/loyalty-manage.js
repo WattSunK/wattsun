@@ -31,17 +31,10 @@
 
   // Robustly detect if Accounts tab is active
   function isAccountsActive() {
-    // Prefer the tab container if present, fall back to the filter group
     const tab = document.getElementById("loyaltyTabAccounts");
-    if (tab) {
-      const ds = window.getComputedStyle(tab).display;
-      return ds !== "none";
-    }
+    if (tab) return window.getComputedStyle(tab).display !== "none";
     const fa = document.getElementById("filterAccounts");
-    if (fa) {
-      const ds = window.getComputedStyle(fa).display;
-      return ds !== "none";
-    }
+    if (fa) return window.getComputedStyle(fa).display !== "none";
     return false;
   }
 
@@ -52,7 +45,7 @@
     btn.style.display = isAccountsActive() ? "" : "none";
   }
 
-  // Account ops → existing endpoints
+  // ---------- API ----------
   async function apiUpdateStatus({ accountId, status, note }) {
     const r = await fetch(`/api/admin/loyalty/accounts/${encodeURIComponent(accountId)}/status`, {
       method: "PATCH",
@@ -61,6 +54,7 @@
     });
     return r.json();
   }
+
   async function apiExtend({ userId, months, note }) {
     const r = await fetch(`/api/admin/loyalty/extend`, {
       method: "POST",
@@ -69,6 +63,7 @@
     });
     return r.json();
   }
+
   async function apiPenalize({ userId, points, note }) {
     const r = await fetch(`/api/admin/loyalty/penalize`, {
       method: "POST",
@@ -78,19 +73,20 @@
     return r.json();
   }
 
+  // ---------- UI helpers ----------
   function show(resp) {
     const out = document.getElementById("mOut");
     if (!out) return;
     out.textContent = JSON.stringify(resp, null, 2);
   }
 
-  // Bind tab buttons and observe visibility changes
   function bindTabButtons() {
     ["tabWithdrawalsBtn", "tabAccountsBtn", "tabLedgerBtn", "tabNotifsBtn"].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.addEventListener("click", () => setTimeout(toggleManageVisibility, 0));
     });
 
+    // Observe loyalty-root for class/style changes that might hide/show tabs
     const observeEl = document.getElementById("loyalty-root") || document;
     if (observeEl && window.MutationObserver) {
       const mo = new MutationObserver(() => toggleManageVisibility());
@@ -107,61 +103,88 @@
 
     btn.addEventListener("click", () => dlg.showModal());
 
-    document.getElementById("mUpdateStatus")?.addEventListener("click", async () => {
+    const upd = document.getElementById("mUpdateStatus");
+    const ext = document.getElementById("mExtend");
+    const pen = document.getElementById("mPenalize");
+
+    upd?.addEventListener("click", async () => {
       const accountId = document.getElementById("mAccId").value.trim();
       const status = document.getElementById("mStatus").value;
       if (!accountId) return show({ success: false, error: { message: "Account ID required" } });
-      const resp = await apiUpdateStatus({ accountId, status });
-      show(resp);
+      try {
+        const resp = await apiUpdateStatus({ accountId, status });
+        show(resp);
+      } catch (e) {
+        show({ success: false, error: { code: "NETWORK", message: String(e.message || e) } });
+      }
     });
 
-    document.getElementById("mExtend")?.addEventListener("click", async () => {
+    ext?.addEventListener("click", async () => {
       const userId = document.getElementById("mUserId").value.trim();
       const months = document.getElementById("mExtendMonths").value;
       const note = document.getElementById("mExtendNote").value.trim();
       if (!userId) return show({ success: false, error: { message: "User ID required" } });
-      const resp = await apiExtend({ userId, months, note });
-      show(resp);
+      try {
+        const resp = await apiExtend({ userId, months, note });
+        show(resp);
+      } catch (e) {
+        show({ success: false, error: { code: "NETWORK", message: String(e.message || e) } });
+      }
     });
 
-    document.getElementById("mPenalize")?.addEventListener("click", async () => {
+    pen?.addEventListener("click", async () => {
       const userId = document.getElementById("mUserId").value.trim();
       const points = document.getElementById("mPenaltyPoints").value;
       const note = document.getElementById("mPenaltyNote").value.trim();
       if (!userId) return show({ success: false, error: { message: "User ID required" } });
-      const resp = await apiPenalize({ userId, points, note });
-      show(resp);
+      try {
+        const resp = await apiPenalize({ userId, points, note });
+        show(resp);
+      } catch (e) {
+        show({ success: false, error: { code: "NETWORK", message: String(e.message || e) } });
+      }
     });
+
+    // Optional: clicking a row pre-fills Account ID + User ID and opens the dialog
+    const accTbody = document.getElementById("loyaltyAccountsBody");
+    if (accTbody) {
+      accTbody.addEventListener("click", (e) => {
+        const tr = e.target.closest("tr");
+        if (!tr) return;
+        const cells = tr.querySelectorAll("td");
+        const id = cells[0]?.textContent?.trim();
+        const uid = cells[1]?.textContent?.trim();
+        if (id) document.getElementById("mAccId").value = id;
+        if (uid) document.getElementById("mUserId").value = uid;
+        dlg.showModal();
+      });
+    }
   }
 
   // Initialize after the Loyalty partial is injected
   let boundOnce = false;
   async function initWhenReady() {
     try {
-      await waitForElement("#accManageBtn", { timeout: 0 }); // wait as long as needed
-      if (boundOnce) {
-        // re-toggle in case of re-render
-        toggleManageVisibility();
-        return;
-      }
+      await waitForElement("#accManageBtn", { timeout: 0 }); // wait until partial is present
       bindTabButtons();
       bindDialog();
       toggleManageVisibility();
       boundOnce = true;
     } catch (_) {
-      // no-op
+      /* ignore */
     }
   }
 
-  // Start a global observer to detect when the partial is inserted/replaced
+  // Detect partial insertions/reloads
   document.addEventListener("DOMContentLoaded", () => {
-    initWhenReady(); // try once in case it's already present
+    initWhenReady(); // try immediately
 
     if (window.MutationObserver) {
       const root = document.getElementById("content") || document.body;
       const mo = new MutationObserver(() => {
-        // If our elements appear (or re-appear), (re)bind.
-        if (document.getElementById("accManageBtn")) initWhenReady();
+        if (!boundOnce || document.getElementById("accManageBtn")) {
+          initWhenReady();
+        }
       });
       mo.observe(root, { childList: true, subtree: true });
     }
