@@ -203,24 +203,21 @@
       if (results.length) show(results[results.length - 1]);
 
       const ok = results.every(r => r && r.success !== false);
-      if (ok) {
-  // Clear optional inputs so they don't get treated as new edits next time
-  const m = (id) => document.getElementById(id);
-  if (m("mExtendMonths")) m("mExtendMonths").value = "";   // blank => not submitted
-  if (m("mExtendNote"))   m("mExtendNote").value   = "";
-  if (m("mPenaltyPoints"))m("mPenaltyPoints").value= "";
-  if (m("mPenaltyNote"))  m("mPenaltyNote").value  = "";
+     if (ok) {
+      const m = (id) => document.getElementById(id);
+      if (m("mExtendMonths")) m("mExtendMonths").value = "";
+      if (m("mExtendNote"))   m("mExtendNote").value   = "";
+      if (m("mPenaltyPoints"))m("mPenaltyPoints").value= "";
+      if (m("mPenaltyNote"))  m("mPenaltyNote").value  = "";
 
-  // Re-snapshot the baseline to the cleared/current values
-  captureSnapshot();
-
-  // Refresh → close → toast
-  refreshTables();
-  dlg.close();
-  toast("Changes applied", true);
-} else {
-  toast("Some actions failed — see Response", false);
-}
+      captureSnapshot();     // re-baseline to cleared values
+      refreshTables();
+      dlg.close();
+      toast("Changes applied", true);
+    }
+    else {
+            toast("Some actions failed — see Response", false);
+      }
 
     };
   }
