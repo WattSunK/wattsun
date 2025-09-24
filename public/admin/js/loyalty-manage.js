@@ -174,6 +174,22 @@
       /* ignore */
     }
   }
+// Auto-prefill from Accounts table and open modal
+(function bindRowOpenDialog() {
+  const tbody = document.getElementById("loyaltyAccountsBody");
+  const dlg = document.getElementById("accManageDialog");
+  if (!tbody || !dlg) return;
+  tbody.addEventListener("click", (e) => {
+    const tr = e.target.closest("tr");
+    if (!tr) return;
+    const cells = tr.querySelectorAll("td");
+    const accId = cells[0]?.textContent?.trim();
+    const userId = cells[1]?.textContent?.trim();
+    if (accId) document.getElementById("mAccId").value = accId;
+    if (userId) document.getElementById("mUserId").value = userId;
+    dlg.showModal();
+  });
+})();
 
   // Detect partial insertions/reloads
   document.addEventListener("DOMContentLoaded", () => {

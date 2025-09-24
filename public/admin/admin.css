@@ -540,3 +540,27 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
   justify-content: space-between;
   padding: 0.5rem 0;
 }
+/* Modal sizing & layout */
+.modal::backdrop { background: rgba(0,0,0,.35); }
+.modal { padding: 0; border: 0; background: transparent; }
+.modal__sheet { width: min(96vw, 760px); max-height: 90vh; display: flex; flex-direction: column; }
+.modal__body { display: flex; flex-direction: column; gap: 1rem; overflow: auto; }
+
+/* Sections */
+.section { padding: .75rem; }
+.section__title { color: var(--muted-foreground, #666); margin: 0 0 .5rem; }
+
+/* Grids */
+.row--cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.row--inline { display: grid; grid-template-columns: minmax(180px, 260px) 1fr auto; gap: .75rem; align-items: end; }
+.group--xs { width: 130px; }
+.group--btn { width: auto; }
+.panel { background:#fafafa; border:1px solid #eee; padding:.5rem; max-height: 180px; overflow:auto; }
+
+/* Mobile-friendly */
+@media (max-width: 720px) {
+  .modal__sheet { width: 96vw; max-height: 92vh; }
+  .row--cols { grid-template-columns: 1fr; }
+  .row--inline { grid-template-columns: 1fr; }
+  .group--btn { width: 100%; }
+}
