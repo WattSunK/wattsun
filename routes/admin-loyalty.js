@@ -414,13 +414,13 @@ async function getAccountByUser(programId, userId) {
 }
 async function updateAccountStatus(id, newStatus) {
   return withDb((db) =>
-    run(db, `UPDATE loyalty_accounts SET status=?, updated_at=datetime('now') WHERE id=?`, [newStatus, id])
+    run(db, `UPDATE loyalty_accounts SET status=?, updated_at=datetime('now','localtime') WHERE id=?`, [newStatus, id])
   );
 }
-async function insertLedger(accountId, kind, delta, note, adminId) {
+async function insertLedger(accountId, kind, delta, note, adminId, adminNote = null) {
   return withDb((db) =>
-    run(db, `INSERT INTO loyalty_ledger (account_id, kind, points_delta, note, admin_user_id)
-             VALUES (?,?,?,?,?)`, [accountId, kind, delta, note || null, adminId || null])
+    run(db, `INSERT INTO loyalty_ledger (account_id, kind, points_delta, note, admin_user_id, admin_note)
+             VALUES (?,?,?,?,?,?)`, [accountId, kind, delta, note || null, adminId || null, adminNote])
   );
 }
 function addMonths(isoDate, months) {
@@ -432,8 +432,9 @@ async function extendAccountEndDate(id, months) {
   return withDb(async (db) => {
     const row = await get(db, `SELECT end_date FROM loyalty_accounts WHERE id=?`, [id]);
     if (!row) throw new Error("ACCOUNT_NOT_FOUND");
-    const newEnd = addMonths(row.end_date, months);
-    await run(db, `UPDATE loyalty_accounts SET end_date=?, updated_at=datetime('now') WHERE id=?`, [newEnd, id]);
+    const base = row.end_date || new Date().toISOString().slice(0,10);
+    const newEnd = addMonths(base, months);
+    await run(db, `UPDATE loyalty_accounts SET end_date=?, updated_at=datetime('now','localtime') WHERE id=?`, [newEnd, id]);
     return newEnd;
   });
 }
@@ -451,8 +452,21 @@ async function handleAccountStatus(req, res) {
     if (!acct) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Account not found" } });
 
     const oldStatus = acct.status;
+
+    // —— NO-OP GUARD: do nothing if status didn't change
+    if (oldStatus === status) {
+      return res.json({ success:true, account: acct, note: "No change" });
+    }
+
     await updateAccountStatus(id, status);
-    await insertLedger(id, "status", 0, `Admin change: ${oldStatus} → ${status}. ${req.body?.note || ""}`, req.session?.user?.id);
+    await insertLedger(
+      id,
+      "status",
+      0,
+      `Admin change: ${oldStatus} → ${status}. ${req.body?.note || ""}`,
+      req.session?.user?.id,
+      req.body?.note || null
+    );
 
     try {
       await enqueue("status_change", {
@@ -476,10 +490,10 @@ router.post("/accounts/:id/status", handleAccountStatus);
 // Penalize points
 router.post("/penalize", async (req, res) => {
   try {
-    const { userId, points = 1, note } = req.body || {};
-    const p = parseInt(points, 10);
-    if (!userId || !Number.isFinite(p) || p <= 0) {
-      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"userId and positive integer points required" } });
+    const { userId, points, note } = req.body || {};
+    const p = Number(points);
+    if (!userId || !Number.isInteger(p) || p < 1) {
+      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"userId and points>=1 required" } });
     }
     const prog = await withDb((db) => get(db, `SELECT id FROM loyalty_programs WHERE code='STAFF'`));
     if (!prog?.id) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
@@ -487,7 +501,14 @@ router.post("/penalize", async (req, res) => {
     const acct = await getAccountByUser(prog.id, parseInt(userId, 10));
     if (!acct) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Account not found for user" } });
 
-    await insertLedger(acct.id, "penalty", -p, note || "Admin penalty", req.session?.user?.id);
+    await insertLedger(
+      acct.id,
+      "penalty",
+      -p,
+      note || "Admin penalty",
+      req.session?.user?.id,
+      note || null
+    );
 
     try {
       const updatedNow = await getAccountById(acct.id);
@@ -510,10 +531,10 @@ router.post("/penalize", async (req, res) => {
 // Extend end date
 router.post("/extend", async (req, res) => {
   try {
-    const { userId, months = 6, note } = req.body || {};
-    const m = parseInt(months, 10);
-    if (!userId || !Number.isFinite(m) || m <= 0) {
-      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"userId and positive integer months required" } });
+    const { userId, months, note } = req.body || {};
+    const m = Number(months);
+    if (!userId || !Number.isInteger(m) || m < 1) {
+      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"userId and months>=1 required" } });
     }
     const prog = await withDb((db) => get(db, `SELECT id FROM loyalty_programs WHERE code='STAFF'`));
     if (!prog?.id) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
@@ -522,7 +543,14 @@ router.post("/extend", async (req, res) => {
     if (!acct) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Account not found for user" } });
 
     const newEnd = await extendAccountEndDate(acct.id, m);
-    await insertLedger(acct.id, "extend", 0, `Extended by ${m} month(s). ${note || ""}`, req.session?.user?.id);
+    await insertLedger(
+      acct.id,
+      "extend",
+      0,
+      `Extended by ${m} month(s). ${note || ""}`,
+      req.session?.user?.id,
+      note || null
+    );
 
     const updated = await getAccountById(acct.id);
     res.json({ success:true, account: updated, newEnd });
@@ -575,7 +603,7 @@ router.get("/ledger", async (req, res) => {
                 note, created_at
            FROM loyalty_ledger
            ${where}
-          ORDER BY created_at DESC
+          ORDER BY id DESC
           LIMIT 100`,
         params
       )
@@ -592,14 +620,23 @@ router.get("/notifications", async (req, res) => {
     const { status } = req.query;
     const params = [];
     let where = "";
-    if (status) { where = "WHERE status = ?"; params.push(status); }
+    if (status) { where = "WHERE nq.status = ?"; params.push(status); }
+
+    // Enrich email from users via user_id or via account_id -> loyalty_accounts.user_id
     const rows = await withDb((db) =>
       all(
         db,
-        `SELECT id, kind, email, payload, status, created_at
-           FROM notifications_queue
+        `SELECT nq.id,
+                nq.kind,
+                COALESCE(nq.email, u.email, u2.email) AS email,
+                nq.status,
+                nq.created_at
+           FROM notifications_queue nq
+      LEFT JOIN users u               ON u.id = nq.user_id
+      LEFT JOIN loyalty_accounts a    ON a.id = nq.account_id
+      LEFT JOIN users u2              ON u2.id = a.user_id
            ${where}
-          ORDER BY created_at DESC
+          ORDER BY nq.id DESC
           LIMIT 100`,
         params
       )
