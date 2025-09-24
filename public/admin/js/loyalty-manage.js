@@ -101,6 +101,17 @@
     $("#loyaltyRefreshBtn")?.click();
   }
 
+  // Snapshot current dialog values when it opens, so Apply only sends changes
+  function captureSnapshot() {
+    const dlg = document.getElementById("accManageDialog");
+    if (!dlg) return;
+    dlg.dataset.baseStatus       = document.getElementById("mStatus")?.value ?? "";
+    dlg.dataset.baseMonths       = document.getElementById("mExtendMonths")?.value ?? "";
+    dlg.dataset.baseExtendNote   = document.getElementById("mExtendNote")?.value ?? "";
+    dlg.dataset.basePoints       = document.getElementById("mPenaltyPoints")?.value ?? "";
+    dlg.dataset.basePenaltyNote  = document.getElementById("mPenaltyNote")?.value ?? "";
+  }
+
   // ----- binders -----
   function bindTabButtonsOnce() {
     if (bindTabButtonsOnce._done) return;
@@ -129,6 +140,7 @@
       const userId = cells[1]?.textContent?.trim();
       if (accId) $("#mAccId").value = accId;
       if (userId) $("#mUserId").value = userId;
+      captureSnapshot();  // <— snapshot baseline when opened via row
       dlg.showModal();
     }, { passive: true });
   }
@@ -138,6 +150,13 @@
     const btn = $("#mApplyAll"); if (!btn || btn.dataset.bound === "1") return;
     btn.dataset.bound = "1";
 
+    // Also bind the main Manage button to snapshot on open (if present)
+    const manageBtn = $("#accManageBtn");
+    if (manageBtn && !manageBtn.dataset.snapBound) {
+      manageBtn.dataset.snapBound = "1";
+      manageBtn.addEventListener("click", () => { captureSnapshot(); dlg.showModal(); });
+    }
+
     btn.onclick = async () => {
       if (btn.disabled) return;
       btn.disabled = true;
@@ -146,31 +165,41 @@
       const accountId = $("#mAccId")?.value?.trim();
       const userId    = $("#mUserId")?.value?.trim();
       const status    = $("#mStatus")?.value;
-      const months    = $("#mExtendMonths")?.value;
-      const extendNote= $("#mExtendNote")?.value?.trim();
-      const points    = $("#mPenaltyPoints")?.value;
-      const penaltyNote = $("#mPenaltyNote")?.value?.trim();
+      const months       = $("#mExtendMonths")?.value;
+      const extendNote   = $("#mExtendNote")?.value?.trim();
+      const points       = $("#mPenaltyPoints")?.value;
+      const penaltyNote  = $("#mPenaltyNote")?.value?.trim();
+
+      // Compare with snapshot (only send changed sections)
+      const baseStatus      = dlg.dataset.baseStatus || "";
+      const baseMonths      = dlg.dataset.baseMonths || "";
+      const baseExtendNote  = dlg.dataset.baseExtendNote || "";
+      const basePoints      = dlg.dataset.basePoints || "";
+      const basePenaltyNote = dlg.dataset.basePenaltyNote || "";
+
+      const changedStatus  = accountId && status &&
+                             (status !== baseStatus);
+      const changedExtend  = userId && months && Number(months) > 0 &&
+                             (months !== baseMonths || (extendNote || "") !== baseExtendNote);
+      const changedPenalty = userId && points && Number(points) > 0 &&
+                             (points !== basePoints || (penaltyNote || "") !== basePenaltyNote);
 
       const results = [];
-
       try {
-        // Run only when inputs present/valid
-        if (accountId && status) {
-          results.push(await api.updateStatus({ accountId, status, note: "" }));
-        }
-        if (userId && months && Number(months) > 0) {
-          results.push(await api.extend({ userId, months, note: extendNote }));
-        }
-        if (userId && points && Number(points) > 0) {
-          results.push(await api.penalize({ userId, points, note: penaltyNote || "Admin penalty" }));
-        }
+        if (changedStatus)  results.push(await api.updateStatus({ accountId, status, note: "" }));
+        if (changedExtend)  results.push(await api.extend({ userId, months, note: extendNote }));
+        if (changedPenalty) results.push(await api.penalize({ userId, points, note: penaltyNote || "Admin penalty" }));
       } catch (e) {
         results.push({ success: false, error: { code: "NETWORK", message: String(e?.message || e) } });
       } finally {
         btn.disabled = false;
       }
 
-      // Show last response in panel
+      if (!changedStatus && !changedExtend && !changedPenalty) {
+        show({ success: true, message: "No changes to apply." });
+        return;
+      }
+
       if (results.length) show(results[results.length - 1]);
 
       const ok = results.every(r => r && r.success !== false);
