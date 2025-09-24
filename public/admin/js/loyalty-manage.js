@@ -141,6 +141,12 @@
       if (accId) $("#mAccId").value = accId;
       if (userId) $("#mUserId").value = userId;
       captureSnapshot();  // <— snapshot baseline when opened via row
+      // on Manage button open (not from a row), wipe optional fields
+      ["mExtendMonths","mExtendNote","mPenaltyPoints","mPenaltyNote"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      });
+      captureSnapshot();
       dlg.showModal();
     }, { passive: true });
   }
