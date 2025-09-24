@@ -564,3 +564,5 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
   .row--inline { grid-template-columns: 1fr; }
   .group--btn { width: 100%; }
 }
+.section { margin: 1rem 0; }
+.section-title { font-weight: 600; margin: 0 0 .25rem; }

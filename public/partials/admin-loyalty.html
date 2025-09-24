@@ -169,12 +169,11 @@
 
   </div>
 
-  <!-- Minimal native dialog for Manage actions (status/extend/penalize) -->
-  <!-- Minimal native dialog for Manage actions (status/extend/penalize) -->
+ <!-- Manage dialog (div+h4 sections, single Apply button) -->
 <dialog id="accManageDialog" class="modal modal--lg">
   <form method="dialog" class="card modal__sheet">
 
-    <!-- Header with Apply + Close -->
+    <!-- Header -->
     <header class="card-header" style="display:flex;gap:.5rem;align-items:center;justify-content:space-between;">
       <h3 class="card-title">Manage Loyalty Account</h3>
       <div class="row" style="gap:.5rem;">
@@ -199,8 +198,8 @@
       </div>
 
       <!-- Status -->
-      <fieldset class="section">
-        <legend><strong>Status</strong></legend>
+      <div class="section">
+        <h4 class="section-title">Status</h4>
         <div class="row row--cols">
           <div class="group">
             <label for="mStatus">New status</label>
@@ -212,11 +211,11 @@
             </select>
           </div>
         </div>
-      </fieldset>
+      </div>
 
       <!-- Extend -->
-      <fieldset class="section">
-        <legend><strong>Extend</strong></legend>
+      <div class="section">
+        <h4 class="section-title">Extend</h4>
         <div class="row row--cols">
           <div class="group">
             <label for="mExtendMonths">Months</label>
@@ -227,29 +226,28 @@
             <input id="mExtendNote" class="input" placeholder="reason or note">
           </div>
         </div>
-      </fieldset>
+      </div>
 
       <!-- Penalty -->
-      <fieldset class="section">
-        <legend><strong>Penalty</strong></legend>
+      <div class="section">
+        <h4 class="section-title">Penalty</h4>
         <div class="row row--cols">
           <div class="group">
             <label for="mPenaltyPoints">Points</label>
-            <input id="mPenaltyPoints" type="number" class="input" value="1">
+            <input id="mPenaltyPoints" type="number" class="input" value="1" min="1">
           </div>
           <div class="group">
             <label for="mPenaltyNote">Reason</label>
             <input id="mPenaltyNote" class="input" placeholder="reason for penalty">
           </div>
         </div>
-      </fieldset>
+      </div>
 
       <!-- Response -->
-      <fieldset class="section">
-        <legend><strong>Response</strong></legend>
+      <div class="section">
+        <h4 class="section-title">Response</h4>
         <pre id="mOut" class="output"></pre>
-      </fieldset>
-
+      </div>
     </div>
   </form>
 </dialog>
