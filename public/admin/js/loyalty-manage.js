@@ -1,206 +1,232 @@
 // public/admin/js/loyalty-manage.js
-// Minimal enhancer for Accounts Manage button + dialog
-// Works even when the Loyalty partial is injected after DOMContentLoaded.
+// Enhancer for Accounts -> Manage dialog. Works with injected partials.
+// - Sends cookies/CSRF with fetch
+// - Binds once, debounces clicks, and refreshes the table on success
+// - Prefills Account/User from clicked row
 
 (function () {
+  // ---------- small utils ----------
   const $ = (s, r = document) => r.querySelector(s);
 
-  // ---------- utilities ----------
   function waitForElement(selector, { timeout = 10000, root = document } = {}) {
     return new Promise((resolve, reject) => {
-      const el = root.querySelector(selector);
-      if (el) return resolve(el);
-
-      const obs = new MutationObserver(() => {
-        const found = root.querySelector(selector);
-        if (found) {
-          obs.disconnect();
-          resolve(found);
+      const existing = root.querySelector(selector);
+      if (existing) return resolve(existing);
+      const mo = new MutationObserver(() => {
+        const el = root.querySelector(selector);
+        if (el) {
+          mo.disconnect();
+          resolve(el);
         }
       });
-      obs.observe(root, { childList: true, subtree: true });
-
+      mo.observe(root, { childList: true, subtree: true });
       if (timeout > 0) {
         setTimeout(() => {
-          obs.disconnect();
+          mo.disconnect();
           reject(new Error(`waitForElement timeout: ${selector}`));
         }, timeout);
       }
     });
   }
 
-  // Robustly detect if Accounts tab is active
-  function isAccountsActive() {
-    const tab = document.getElementById("loyaltyTabAccounts");
-    if (tab) return window.getComputedStyle(tab).display !== "none";
-    const fa = document.getElementById("filterAccounts");
-    if (fa) return window.getComputedStyle(fa).display !== "none";
-    return false;
+  // Fetch wrapper: same-origin cookies + optional CSRF, readable errors
+  function csrfHeaders(h = {}) {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta && meta.content) {
+      h["X-CSRF-Token"] = meta.content;
+    }
+    return h;
+  }
+  async function jfetch(url, opts = {}) {
+    const res = await fetch(url, {
+      credentials: "same-origin",
+      ...opts,
+      headers: {
+        "Content-Type": "application/json",
+        ...(opts.headers || {}),
+        ...csrfHeaders(),
+      },
+    });
+    const text = await res.text(); // read once
+    let data;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { success: false, error: { code: "HTTP_" + res.status, message: text || res.statusText } };
+    }
+    if (!res.ok) {
+      // normalize error shape
+      if (!data || data.success !== false) {
+        data = { success: false, error: { code: "HTTP_" + res.status, message: (data && data.message) || text || res.statusText } };
+      }
+    }
+    return data;
   }
 
-  // Show Manage button only when Accounts tab is active
+  // Detect Accounts tab visibility
+  function isAccountsActive() {
+    const tab = document.getElementById("loyaltyTabAccounts");
+    if (tab) return getComputedStyle(tab).display !== "none";
+    const fa = document.getElementById("filterAccounts");
+    if (fa) return getComputedStyle(fa).display !== "none";
+    return false;
+  }
   function toggleManageVisibility() {
     const btn = document.getElementById("accManageBtn");
-    if (!btn) return;
-    btn.style.display = isAccountsActive() ? "" : "none";
+    if (btn) btn.style.display = isAccountsActive() ? "" : "none";
   }
 
   // ---------- API ----------
-  async function apiUpdateStatus({ accountId, status, note }) {
-    const r = await fetch(`/api/admin/loyalty/accounts/${encodeURIComponent(accountId)}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, note: note || "" }),
+  const api = {
+    updateStatus({ accountId, status, note }) {
+      return jfetch(`/api/admin/loyalty/accounts/${encodeURIComponent(accountId)}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, note: note || "" }),
+      });
+    },
+    extend({ userId, months, note }) {
+      return jfetch(`/api/admin/loyalty/extend`, {
+        method: "POST",
+        body: JSON.stringify({ userId: Number(userId), months: Number(months), note: note || "" }),
+      });
+    },
+    penalize({ userId, points, note }) {
+      return jfetch(`/api/admin/loyalty/penalize`, {
+        method: "POST",
+        body: JSON.stringify({ userId: Number(userId), points: Number(points), note: note || "" }),
+      });
+    },
+  };
+
+  // ---------- binders ----------
+  function bindTabButtonsOnce() {
+    if (bindTabButtonsOnce._done) return;
+    ["tabWithdrawalsBtn", "tabAccountsBtn", "tabLedgerBtn", "tabNotifsBtn"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("click", () => setTimeout(toggleManageVisibility, 0), { passive: true });
     });
-    return r.json();
+    const root = document.getElementById("loyalty-root") || document.body;
+    if (window.MutationObserver) {
+      const mo = new MutationObserver(() => toggleManageVisibility());
+      mo.observe(root, { attributes: true, attributeFilter: ["style", "class"], subtree: true });
+    }
+    bindTabButtonsOnce._done = true;
+    toggleManageVisibility();
   }
 
-  async function apiExtend({ userId, months, note }) {
-    const r = await fetch(`/api/admin/loyalty/extend`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: Number(userId), months: Number(months), note: note || "" }),
-    });
-    return r.json();
-  }
-
-  async function apiPenalize({ userId, points, note }) {
-    const r = await fetch(`/api/admin/loyalty/penalize`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: Number(userId), points: Number(points), note: note || "" }),
-    });
-    return r.json();
-  }
-
-  // ---------- UI helpers ----------
   function show(resp) {
     const out = document.getElementById("mOut");
     if (!out) return;
     out.textContent = JSON.stringify(resp, null, 2);
   }
 
-  function bindTabButtons() {
-    ["tabWithdrawalsBtn", "tabAccountsBtn", "tabLedgerBtn", "tabNotifsBtn"].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.addEventListener("click", () => setTimeout(toggleManageVisibility, 0));
-    });
-
-    // Observe loyalty-root for class/style changes that might hide/show tabs
-    const observeEl = document.getElementById("loyalty-root") || document;
-    if (observeEl && window.MutationObserver) {
-      const mo = new MutationObserver(() => toggleManageVisibility());
-      mo.observe(observeEl, { attributes: true, attributeFilter: ["style", "class"], subtree: true });
-    }
-
-    toggleManageVisibility();
+  function disableWhilePending(btn, fn) {
+    return async () => {
+      if (!btn || btn.disabled) return;
+      btn.disabled = true;
+      try {
+        await fn();
+      } finally {
+        btn.disabled = false;
+      }
+    };
   }
 
-  function bindDialog() {
+  function refreshTables() {
+    // Reuse your existing UX: click the main Refresh button
+    const ref = document.getElementById("loyaltyRefreshBtn");
+    ref && ref.click();
+  }
+
+  function bindDialogOnce() {
     const dlg = document.getElementById("accManageDialog");
     const btn = document.getElementById("accManageBtn");
     if (!dlg || !btn) return;
 
-    btn.addEventListener("click", () => dlg.showModal());
+    // Open modal
+    if (!bindDialogOnce._openBound) {
+      btn.addEventListener("click", () => dlg.showModal());
+      bindDialogOnce._openBound = true;
+    }
 
+    // Overwrite handlers (prevents duplicate API calls on partial reloads)
     const upd = document.getElementById("mUpdateStatus");
     const ext = document.getElementById("mExtend");
     const pen = document.getElementById("mPenalize");
 
-    upd?.addEventListener("click", async () => {
-      const accountId = document.getElementById("mAccId").value.trim();
-      const status = document.getElementById("mStatus").value;
-      if (!accountId) return show({ success: false, error: { message: "Account ID required" } });
-      try {
-        const resp = await apiUpdateStatus({ accountId, status });
+    if (upd) {
+      upd.onclick = disableWhilePending(upd, async () => {
+        const accountId = document.getElementById("mAccId").value.trim();
+        const status = document.getElementById("mStatus").value;
+        if (!accountId) return show({ success: false, error: { message: "Account ID required" } });
+        const resp = await api.updateStatus({ accountId, status });
         show(resp);
-      } catch (e) {
-        show({ success: false, error: { code: "NETWORK", message: String(e.message || e) } });
-      }
-    });
+        if (resp && resp.success) refreshTables();
+      });
+    }
 
-    ext?.addEventListener("click", async () => {
-      const userId = document.getElementById("mUserId").value.trim();
-      const months = document.getElementById("mExtendMonths").value;
-      const note = document.getElementById("mExtendNote").value.trim();
-      if (!userId) return show({ success: false, error: { message: "User ID required" } });
-      try {
-        const resp = await apiExtend({ userId, months, note });
+    if (ext) {
+      ext.onclick = disableWhilePending(ext, async () => {
+        const userId = document.getElementById("mUserId").value.trim();
+        const months = document.getElementById("mExtendMonths").value;
+        const note = document.getElementById("mExtendNote").value.trim();
+        if (!userId) return show({ success: false, error: { message: "User ID required" } });
+        const resp = await api.extend({ userId, months, note });
         show(resp);
-      } catch (e) {
-        show({ success: false, error: { code: "NETWORK", message: String(e.message || e) } });
-      }
-    });
+        if (resp && resp.success) refreshTables();
+      });
+    }
 
-    pen?.addEventListener("click", async () => {
-      const userId = document.getElementById("mUserId").value.trim();
-      const points = document.getElementById("mPenaltyPoints").value;
-      const note = document.getElementById("mPenaltyNote").value.trim();
-      if (!userId) return show({ success: false, error: { message: "User ID required" } });
-      try {
-        const resp = await apiPenalize({ userId, points, note });
+    if (pen) {
+      pen.onclick = disableWhilePending(pen, async () => {
+        const userId = document.getElementById("mUserId").value.trim();
+        const points = document.getElementById("mPenaltyPoints").value;
+        const note = document.getElementById("mPenaltyNote").value.trim();
+        if (!userId) return show({ success: false, error: { message: "User ID required" } });
+        const resp = await api.penalize({ userId, points, note });
         show(resp);
-      } catch (e) {
-        show({ success: false, error: { code: "NETWORK", message: String(e.message || e) } });
-      }
-    });
-
-    // Optional: clicking a row pre-fills Account ID + User ID and opens the dialog
-    const accTbody = document.getElementById("loyaltyAccountsBody");
-    if (accTbody) {
-      accTbody.addEventListener("click", (e) => {
-        const tr = e.target.closest("tr");
-        if (!tr) return;
-        const cells = tr.querySelectorAll("td");
-        const id = cells[0]?.textContent?.trim();
-        const uid = cells[1]?.textContent?.trim();
-        if (id) document.getElementById("mAccId").value = id;
-        if (uid) document.getElementById("mUserId").value = uid;
-        dlg.showModal();
+        if (resp && resp.success) refreshTables();
       });
     }
   }
 
-  // Initialize after the Loyalty partial is injected
-  let boundOnce = false;
-  async function initWhenReady() {
-    try {
-      await waitForElement("#accManageBtn", { timeout: 0 }); // wait until partial is present
-      bindTabButtons();
-      bindDialog();
-      toggleManageVisibility();
-      boundOnce = true;
-    } catch (_) {
-      /* ignore */
-    }
+  function bindRowOpenDialogOnce() {
+    const tbody = document.getElementById("loyaltyAccountsBody");
+    const dlg = document.getElementById("accManageDialog");
+    if (!tbody || !dlg || tbody.dataset.bound === "1") return;
+    tbody.dataset.bound = "1";
+    tbody.addEventListener(
+      "click",
+      (e) => {
+        const tr = e.target.closest("tr");
+        if (!tr) return;
+        const cells = tr.querySelectorAll("td");
+        const accId = cells[0]?.textContent?.trim();
+        const userId = cells[1]?.textContent?.trim();
+        if (accId) document.getElementById("mAccId").value = accId;
+        if (userId) document.getElementById("mUserId").value = userId;
+        dlg.showModal();
+      },
+      { passive: true }
+    );
   }
-// Auto-prefill from Accounts table and open modal
-(function bindRowOpenDialog() {
-  const tbody = document.getElementById("loyaltyAccountsBody");
-  const dlg = document.getElementById("accManageDialog");
-  if (!tbody || !dlg) return;
-  tbody.addEventListener("click", (e) => {
-    const tr = e.target.closest("tr");
-    if (!tr) return;
-    const cells = tr.querySelectorAll("td");
-    const accId = cells[0]?.textContent?.trim();
-    const userId = cells[1]?.textContent?.trim();
-    if (accId) document.getElementById("mAccId").value = accId;
-    if (userId) document.getElementById("mUserId").value = userId;
-    dlg.showModal();
-  });
-})();
 
-  // Detect partial insertions/reloads
+  // ---------- init flow ----------
+  async function initWhenReady() {
+    // Wait until the Manage button exists (partial loaded)
+    await waitForElement("#accManageBtn", { timeout: 0 });
+    bindTabButtonsOnce();
+    bindDialogOnce();
+    bindRowOpenDialogOnce();
+    toggleManageVisibility();
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
-    initWhenReady(); // try immediately
-
+    initWhenReady();
     if (window.MutationObserver) {
       const root = document.getElementById("content") || document.body;
       const mo = new MutationObserver(() => {
-        if (!boundOnce || document.getElementById("accManageBtn")) {
-          initWhenReady();
-        }
+        if (document.getElementById("accManageBtn")) initWhenReady();
       });
       mo.observe(root, { childList: true, subtree: true });
     }
