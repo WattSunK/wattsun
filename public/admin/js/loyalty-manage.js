@@ -1,61 +1,38 @@
 // public/admin/js/loyalty-manage.js
-// Enhancer for Accounts -> Manage dialog. Works with injected partials.
-// - Sends cookies/CSRF with fetch
-// - Binds once, debounces clicks, and refreshes the table on success
-// - Prefills Account/User from clicked row
-
 (function () {
-  // ---------- small utils ----------
   const $ = (s, r = document) => r.querySelector(s);
 
+  // ----- utils -----
   function waitForElement(selector, { timeout = 10000, root = document } = {}) {
     return new Promise((resolve, reject) => {
       const existing = root.querySelector(selector);
       if (existing) return resolve(existing);
       const mo = new MutationObserver(() => {
         const el = root.querySelector(selector);
-        if (el) {
-          mo.disconnect();
-          resolve(el);
-        }
+        if (el) { mo.disconnect(); resolve(el); }
       });
       mo.observe(root, { childList: true, subtree: true });
-      if (timeout > 0) {
-        setTimeout(() => {
-          mo.disconnect();
-          reject(new Error(`waitForElement timeout: ${selector}`));
-        }, timeout);
-      }
+      if (timeout > 0) setTimeout(() => { mo.disconnect(); reject(new Error(`waitForElement timeout: ${selector}`)); }, timeout);
     });
   }
 
-  // Fetch wrapper: same-origin cookies + optional CSRF, readable errors
   function csrfHeaders(h = {}) {
     const meta = document.querySelector('meta[name="csrf-token"]');
-    if (meta && meta.content) {
-      h["X-CSRF-Token"] = meta.content;
-    }
+    if (meta?.content) h["X-CSRF-Token"] = meta.content;
     return h;
   }
+
   async function jfetch(url, opts = {}) {
     const res = await fetch(url, {
       credentials: "same-origin",
       ...opts,
-      headers: {
-        "Content-Type": "application/json",
-        ...(opts.headers || {}),
-        ...csrfHeaders(),
-      },
+      headers: { "Content-Type": "application/json", ...(opts.headers || {}), ...csrfHeaders() },
     });
-    const text = await res.text(); // read once
+    const text = await res.text();
     let data;
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch {
-      data = { success: false, error: { code: "HTTP_" + res.status, message: text || res.statusText } };
-    }
+    try { data = text ? JSON.parse(text) : {}; }
+    catch { data = { success: false, error: { code: "HTTP_" + res.status, message: text || res.statusText } }; }
     if (!res.ok) {
-      // normalize error shape
       if (!data || data.success !== false) {
         data = { success: false, error: { code: "HTTP_" + res.status, message: (data && data.message) || text || res.statusText } };
       }
@@ -63,7 +40,6 @@
     return data;
   }
 
-  // Detect Accounts tab visibility
   function isAccountsActive() {
     const tab = document.getElementById("loyaltyTabAccounts");
     if (tab) return getComputedStyle(tab).display !== "none";
@@ -72,33 +48,60 @@
     return false;
   }
   function toggleManageVisibility() {
-    const btn = document.getElementById("accManageBtn");
-    if (btn) btn.style.display = isAccountsActive() ? "" : "none";
+    const btn = $("#accManageBtn"); if (btn) btn.style.display = isAccountsActive() ? "" : "none";
   }
 
-  // ---------- API ----------
+  // ----- API -----
   const api = {
     updateStatus({ accountId, status, note }) {
       return jfetch(`/api/admin/loyalty/accounts/${encodeURIComponent(accountId)}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ status, note: note || "" }),
+        method: "PATCH", body: JSON.stringify({ status, note: note || "" }),
       });
     },
     extend({ userId, months, note }) {
       return jfetch(`/api/admin/loyalty/extend`, {
-        method: "POST",
-        body: JSON.stringify({ userId: Number(userId), months: Number(months), note: note || "" }),
+        method: "POST", body: JSON.stringify({ userId: Number(userId), months: Number(months), note: note || "" }),
       });
     },
     penalize({ userId, points, note }) {
       return jfetch(`/api/admin/loyalty/penalize`, {
-        method: "POST",
-        body: JSON.stringify({ userId: Number(userId), points: Number(points), note: note || "" }),
+        method: "POST", body: JSON.stringify({ userId: Number(userId), points: Number(points), note: note || "" }),
       });
     },
   };
 
-  // ---------- binders ----------
+  // ----- UI helpers -----
+  function show(resp) {
+    const out = $("#mOut"); if (!out) return;
+    out.textContent = JSON.stringify(resp, null, 2);
+  }
+
+  function toast(msg, ok = true) {
+    let t = $("#loyToast");
+    if (!t) {
+      t = document.createElement("div");
+      t.id = "loyToast";
+      t.style.cssText = "position:fixed;right:16px;bottom:16px;padding:.5rem .75rem;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.12);z-index:9999;";
+      document.body.appendChild(t);
+    }
+    t.style.background = ok ? "#e6f6ea" : "#fdecea";
+    t.style.border = ok ? "1px solid #38a16933" : "1px solid #e53e3e33";
+    t.style.color = ok ? "#22543d" : "#742a2a";
+    t.textContent = msg;
+    clearTimeout(toast._h); toast._h = setTimeout(() => (t.style.display = "none"), 2500);
+    t.style.display = "block";
+  }
+
+  function refreshTables() {
+    // preferred: call a global refresh if available
+    if (window.AdminLoyalty?.refreshActiveTab) {
+      window.AdminLoyalty.refreshActiveTab(); return;
+    }
+    // fallback: click the main Refresh button
+    $("#loyaltyRefreshBtn")?.click();
+  }
+
+  // ----- binders -----
   function bindTabButtonsOnce() {
     if (bindTabButtonsOnce._done) return;
     ["tabWithdrawalsBtn", "tabAccountsBtn", "tabLedgerBtn", "tabNotifsBtn"].forEach((id) => {
@@ -114,110 +117,78 @@
     toggleManageVisibility();
   }
 
-  function show(resp) {
-    const out = document.getElementById("mOut");
-    if (!out) return;
-    out.textContent = JSON.stringify(resp, null, 2);
-  }
-
-  function disableWhilePending(btn, fn) {
-    return async () => {
-      if (!btn || btn.disabled) return;
-      btn.disabled = true;
-      try {
-        await fn();
-      } finally {
-        btn.disabled = false;
-      }
-    };
-  }
-
-  function refreshTables() {
-    // Reuse your existing UX: click the main Refresh button
-    const ref = document.getElementById("loyaltyRefreshBtn");
-    ref && ref.click();
-  }
-
-  function bindDialogOnce() {
-    const dlg = document.getElementById("accManageDialog");
-    const btn = document.getElementById("accManageBtn");
-    if (!dlg || !btn) return;
-
-    // Open modal
-    if (!bindDialogOnce._openBound) {
-      btn.addEventListener("click", () => dlg.showModal());
-      bindDialogOnce._openBound = true;
-    }
-
-    // Overwrite handlers (prevents duplicate API calls on partial reloads)
-    const upd = document.getElementById("mUpdateStatus");
-    const ext = document.getElementById("mExtend");
-    const pen = document.getElementById("mPenalize");
-
-    if (upd) {
-      upd.onclick = disableWhilePending(upd, async () => {
-        const accountId = document.getElementById("mAccId").value.trim();
-        const status = document.getElementById("mStatus").value;
-        if (!accountId) return show({ success: false, error: { message: "Account ID required" } });
-        const resp = await api.updateStatus({ accountId, status });
-        show(resp);
-        if (resp && resp.success) refreshTables();
-      });
-    }
-
-    if (ext) {
-      ext.onclick = disableWhilePending(ext, async () => {
-        const userId = document.getElementById("mUserId").value.trim();
-        const months = document.getElementById("mExtendMonths").value;
-        const note = document.getElementById("mExtendNote").value.trim();
-        if (!userId) return show({ success: false, error: { message: "User ID required" } });
-        const resp = await api.extend({ userId, months, note });
-        show(resp);
-        if (resp && resp.success) refreshTables();
-      });
-    }
-
-    if (pen) {
-      pen.onclick = disableWhilePending(pen, async () => {
-        const userId = document.getElementById("mUserId").value.trim();
-        const points = document.getElementById("mPenaltyPoints").value;
-        const note = document.getElementById("mPenaltyNote").value.trim();
-        if (!userId) return show({ success: false, error: { message: "User ID required" } });
-        const resp = await api.penalize({ userId, points, note });
-        show(resp);
-        if (resp && resp.success) refreshTables();
-      });
-    }
-  }
-
   function bindRowOpenDialogOnce() {
     const tbody = document.getElementById("loyaltyAccountsBody");
     const dlg = document.getElementById("accManageDialog");
     if (!tbody || !dlg || tbody.dataset.bound === "1") return;
     tbody.dataset.bound = "1";
-    tbody.addEventListener(
-      "click",
-      (e) => {
-        const tr = e.target.closest("tr");
-        if (!tr) return;
-        const cells = tr.querySelectorAll("td");
-        const accId = cells[0]?.textContent?.trim();
-        const userId = cells[1]?.textContent?.trim();
-        if (accId) document.getElementById("mAccId").value = accId;
-        if (userId) document.getElementById("mUserId").value = userId;
-        dlg.showModal();
-      },
-      { passive: true }
-    );
+    tbody.addEventListener("click", (e) => {
+      const tr = e.target.closest("tr"); if (!tr) return;
+      const cells = tr.querySelectorAll("td");
+      const accId = cells[0]?.textContent?.trim();
+      const userId = cells[1]?.textContent?.trim();
+      if (accId) $("#mAccId").value = accId;
+      if (userId) $("#mUserId").value = userId;
+      dlg.showModal();
+    }, { passive: true });
   }
 
-  // ---------- init flow ----------
+  function bindApplyOnce() {
+    const dlg = $("#accManageDialog"); if (!dlg) return;
+    const btn = $("#mApplyAll"); if (!btn || btn.dataset.bound === "1") return;
+    btn.dataset.bound = "1";
+
+    btn.onclick = async () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const out = $("#mOut"); if (out) out.textContent = "";
+
+      const accountId = $("#mAccId")?.value?.trim();
+      const userId    = $("#mUserId")?.value?.trim();
+      const status    = $("#mStatus")?.value;
+      const months    = $("#mExtendMonths")?.value;
+      const extendNote= $("#mExtendNote")?.value?.trim();
+      const points    = $("#mPenaltyPoints")?.value;
+      const penaltyNote = $("#mPenaltyNote")?.value?.trim();
+
+      const results = [];
+
+      try {
+        // Run only when inputs present/valid
+        if (accountId && status) {
+          results.push(await api.updateStatus({ accountId, status, note: "" }));
+        }
+        if (userId && months && Number(months) > 0) {
+          results.push(await api.extend({ userId, months, note: extendNote }));
+        }
+        if (userId && points && Number(points) > 0) {
+          results.push(await api.penalize({ userId, points, note: penaltyNote || "Admin penalty" }));
+        }
+      } catch (e) {
+        results.push({ success: false, error: { code: "NETWORK", message: String(e?.message || e) } });
+      } finally {
+        btn.disabled = false;
+      }
+
+      // Show last response in panel
+      if (results.length) show(results[results.length - 1]);
+
+      const ok = results.every(r => r && r.success !== false);
+      if (ok) {
+        refreshTables();
+        dlg.close();
+        toast("Changes applied", true);
+      } else {
+        toast("Some actions failed — see Response", false);
+      }
+    };
+  }
+
   async function initWhenReady() {
-    // Wait until the Manage button exists (partial loaded)
     await waitForElement("#accManageBtn", { timeout: 0 });
     bindTabButtonsOnce();
-    bindDialogOnce();
     bindRowOpenDialogOnce();
+    bindApplyOnce();
     toggleManageVisibility();
   }
 
@@ -232,3 +203,4 @@
     }
   });
 })();
+// public/admin/js/loyalty-manage.js
