@@ -404,12 +404,26 @@ router.put("/programs/:code/settings", async (req, res) => {
 router.get("/user-types", async (_req, res) => {
   try {
     await ensureSchemaAndSeed();
+
+    // 1) Discover which column exists
+    const cols = await withDb(db => all(db, `PRAGMA table_info(users)`));
+    const names = cols.map(c => c.name);
+    const candidates = ["type", "role", "user_type", "userType"]; // whitelist
+    const chosen = candidates.find(n => names.includes(n));
+
+    if (!chosen) {
+      // No recognizable column -> empty list, not an error
+      return res.json({ success: true, types: [] });
+    }
+
+    // 2) Query only the existing column (safe — from whitelist above)
     const rows = await withDb(db => all(db, `
-      SELECT DISTINCT TRIM(COALESCE(type, role)) AS user_type
+      SELECT DISTINCT TRIM(${chosen}) AS user_type
       FROM users
-      WHERE COALESCE(type, role) IS NOT NULL AND TRIM(COALESCE(type, role)) <> ''
+      WHERE ${chosen} IS NOT NULL AND TRIM(${chosen}) <> ''
       ORDER BY user_type COLLATE NOCASE
     `));
+
     res.json({ success: true, types: rows.map(r => r.user_type) });
   } catch (e) {
     console.error("[loyalty/user-types][GET]", e);
