@@ -4,11 +4,18 @@
 (function () {
   const $ = (s, r=document) => r.querySelector(s);
 
+  // Robustly detect if Accounts tab is active
+  function isAccountsActive() {
+    const el = document.getElementById("filterAccounts");
+    if (!el) return false;
+    return window.getComputedStyle(el).display !== "none";
+  }
+
   // Show Manage button only when Accounts tab is active
   function toggleManageVisibility() {
     const btn = $("#accManageBtn");
-    const accTabVisible = $("#loyaltyTabAccounts")?.style.display !== "none";
-    if (btn) btn.style.display = accTabVisible ? "" : "none";
+    if (!btn) return;
+    btn.style.display = isAccountsActive() ? "" : "none";
   }
 
   // Hook into your tab buttons (ids exist in admin-loyalty.html)
@@ -17,6 +24,14 @@
       const el = document.getElementById(id);
       if (el) el.addEventListener("click", () => setTimeout(toggleManageVisibility, 0));
     });
+
+    // Also observe filterAccounts for style/class changes
+    const fa = document.getElementById("filterAccounts");
+    if (fa && window.MutationObserver) {
+      const mo = new MutationObserver(() => toggleManageVisibility());
+      mo.observe(fa, { attributes: true, attributeFilter: ["style", "class"] });
+    }
+
     // First run
     toggleManageVisibility();
   }
