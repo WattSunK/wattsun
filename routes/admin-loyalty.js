@@ -471,6 +471,7 @@ async function handleAccountStatus(req, res) {
     try {
       await enqueue("status_change", {
         userId: acct.user_id,
+        accountId: id,
         payload: { oldStatus, newStatus: status, note: req.body?.note || "" }
       });
     } catch (e) {
@@ -514,6 +515,7 @@ router.post("/penalize", async (req, res) => {
       const updatedNow = await getAccountById(acct.id);
       await enqueue("penalty", {
         userId: acct.user_id,
+        accountId: acct.id,
         payload: { points: p, note: note || "", balance: updatedNow.points_balance }
       });
     } catch (e) {
