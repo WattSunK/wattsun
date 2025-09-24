@@ -617,12 +617,15 @@ router.get("/ledger", async (req, res) => {
 
 router.get("/notifications", async (req, res) => {
   try {
-    const { status } = req.query;
+    // Normalize the incoming filter; ignore "All"/"Any"/empty
+    const raw = (req.query.status || "").toString().trim();
+    const status = raw && !/^(all|any)$/i.test(raw) ? raw : "";
+
     const params = [];
     let where = "";
     if (status) { where = "WHERE nq.status = ?"; params.push(status); }
 
-    // Enrich email from users via user_id or via account_id -> loyalty_accounts.user_id
+    // Enrich email from users via user_id or account_id
     const rows = await withDb((db) =>
       all(
         db,
@@ -632,15 +635,16 @@ router.get("/notifications", async (req, res) => {
                 nq.status,
                 nq.created_at
            FROM notifications_queue nq
-      LEFT JOIN users u               ON u.id = nq.user_id
-      LEFT JOIN loyalty_accounts a    ON a.id = nq.account_id
-      LEFT JOIN users u2              ON u2.id = a.user_id
+      LEFT JOIN users u            ON u.id = nq.user_id
+      LEFT JOIN loyalty_accounts a ON a.id = nq.account_id
+      LEFT JOIN users u2           ON u2.id = a.user_id
            ${where}
           ORDER BY nq.id DESC
           LIMIT 100`,
         params
       )
     ).catch(() => []);
+
     res.json({ success: true, notifications: rows });
   } catch (e) {
     console.error("[admin/loyalty/notifications]", e);
