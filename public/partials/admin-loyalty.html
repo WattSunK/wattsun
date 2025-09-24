@@ -68,18 +68,19 @@
     </div>
     <button type="button" id="loyaltyClearBtn" class="btn">Clear</button>
     <button type="button" id="loyaltyRefreshBtn" class="btn">Refresh</button>
+  <button type="button" id="accManageBtn" class="btn" style="display:none;">Manage</button>
   </div>
 </form>
-
+...
     <!-- Withdrawals Table -->
     <div id="loyaltyTabWithdrawals" class="loyalty-tab">
       <table class="table">
         <thead>
           <tr>
             <th>ID</th>
+            <th>Account</th>
             <th>User</th>
             <th>Points</th>
-            <th>EUR</th>
             <th>Status</th>
             <th>Requested</th>
             <th>Decided</th>
@@ -127,7 +128,7 @@
             <th>Kind</th>
             <th>Δ Points</th>
             <th>Note</th>
-            <th>Created</th>
+            <th>When</th>
           </tr>
         </thead>
         <tbody id="loyaltyLedgerBody">
@@ -167,4 +168,49 @@
 </footer>
 
   </div>
+
+  <!-- Minimal native dialog for Manage actions (status/extend/penalize) -->
+  <dialog id="accManageDialog">
+    <form method="dialog" style="min-width:420px;">
+      <header style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">
+        <strong>Manage Loyalty Account</strong>
+        <button value="close" class="btn">✕</button>
+      </header>
+
+      <div class="row" style="gap:.5rem;margin-bottom:.75rem;">
+        <label style="flex:1">Account ID <input id="mAccId" type="number" placeholder="e.g. 1"></label>
+        <label style="flex:1">User ID <input id="mUserId" type="number" placeholder="e.g. 42"></label>
+      </div>
+
+      <fieldset style="border:1px solid #eee;padding:.5rem;margin-bottom:.75rem;">
+        <legend>Status</legend>
+        <div class="row" style="gap:.5rem;">
+          <select id="mStatus">
+            <option>Active</option><option>Paused</option><option>Suspended</option><option>Closed</option>
+          </select>
+          <button type="button" id="mUpdateStatus" class="btn">Update Status</button>
+        </div>
+      </fieldset>
+
+      <fieldset style="border:1px solid #eee;padding:.5rem;margin-bottom:.75rem;">
+        <legend>Extend</legend>
+        <div class="row" style="gap:.5rem;">
+          <input id="mExtendMonths" type="number" min="1" value="1">
+          <input id="mExtendNote" placeholder="note (optional)">
+          <button type="button" id="mExtend" class="btn">Extend</button>
+        </div>
+      </fieldset>
+
+      <fieldset style="border:1px solid #eee;padding:.5rem;margin-bottom:.75rem;">
+        <legend>Penalty</legend>
+        <div class="row" style="gap:.5rem;">
+          <input id="mPenaltyPoints" type="number" min="1" value="10">
+          <input id="mPenaltyNote" placeholder="reason">
+          <button type="button" id="mPenalize" class="btn danger">Penalize</button>
+        </div>
+      </fieldset>
+
+      <pre id="mOut" style="background:#fafafa;border:1px solid #eee;padding:.5rem;max-height:160px;overflow:auto;"></pre>
+    </form>
+  </dialog>
 </section>
