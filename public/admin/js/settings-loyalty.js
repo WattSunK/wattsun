@@ -9,7 +9,7 @@
   const statusEl = document.getElementById('loyalty-settings-status');
 
   const fields = {
-    eligibleUserTypes: document.getElementById('eligibleUserTypes'),
+    eligibleUserTypesBox: document.getElementById('eligibleUserTypesBox'),
     programActive: document.getElementById('programActive'),
     digestDay: document.getElementById('digestDay'),
     referralBonus: document.getElementById('referralBonus'),
@@ -21,24 +21,45 @@
     statusEl.classList.remove('error', 'ok');
     statusEl.classList.add(ok ? 'ok' : 'error');
   }
-// Multi-select helpers
+// Build checkbox grid from /user-types
 async function loadUserTypes() {
-  const res = await fetch('/api/admin/loyalty/user-types', { credentials: 'include' });
-  const data = await res.json();
-  const sel = fields.eligibleUserTypes; // now a <select multiple>
-  if (!sel) return;
-  sel.innerHTML = '';
-  (data.types || []).forEach(t => {
-    const opt = document.createElement('option');
-    opt.value = t; opt.textContent = t;
-    sel.appendChild(opt);
-  });
+  try {
+    const res = await fetch('/api/admin/loyalty/user-types', { credentials: 'include' });
+    const data = await res.json();
+    const box = fields.eligibleUserTypesBox;
+    if (!box) return;
+
+    box.innerHTML = '';
+    (data.types || []).forEach(t => {
+      const id = 'ut_' + t.toLowerCase().replace(/\W+/g, '_');
+      const wrap = document.createElement('label');
+      wrap.className = 'item';
+      wrap.setAttribute('for', id);
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.id = id;
+      cb.value = t;
+      cb.name = 'eligibleUserTypes';
+
+      const txt = document.createElement('span');
+      txt.textContent = t;
+
+      wrap.appendChild(cb);
+      wrap.appendChild(txt);
+      box.appendChild(wrap);
+    });
+  } catch {
+    /* leave empty; form still works */
+  }
 }
-function setEligibleSelections(csv) {
-  const sel = fields.eligibleUserTypes;
-  const chosen = (csv || '').split(',').map(s => s.trim()).filter(Boolean);
-  [...sel.options].forEach(o => { o.selected = chosen.includes(o.value); });
+// Read selected values -> array for PUT
+function getEligibleSelections() {
+  const box = fields.eligibleUserTypesBox;
+  if (!box) return [];
+  return Array.from(box.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
 }
+
 function getEligibleSelections() {
   const sel = fields.eligibleUserTypes;
   return [...sel.selectedOptions].map(o => o.value);

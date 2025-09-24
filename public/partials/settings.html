@@ -51,6 +51,30 @@
 .btn--tab{position:relative; border-radius:10px;}
 .btn--tab.is-active{box-shadow:0 0 0 3px #DAA520; outline:none;}
 .btn--tab:focus-visible{box-shadow:0 0 0 3px #DAA52088;}
+/* Checkbox grid control (replaces <select multiple>) */
+.checklist {
+  border: 1px solid var(--border, #e6e6e6);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  max-height: 180px;        /* keeps it compact like other controls */
+  overflow: auto;
+}
+@media (max-width: 640px) {
+  .checklist { grid-template-columns: 1fr; }
+}
+.checklist .item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.25;
+}
+.checklist .item input[type="checkbox"] {
+  width: 16px; height: 16px; margin: 0;
+}
 
 </style>
 
@@ -212,9 +236,9 @@
 
       <!-- Program (global) -->
       <div class="form-group">
-        <label for="eligibleUserTypes"><strong>Eligible user types</strong></label>
-        <select id="eligibleUserTypes" class="input" multiple size="5" aria-describedby="eligibleHelp"></select>
-        <div id="eligibleHelp" class="help">Hold Ctrl/Cmd to select multiple.</div>
+        <label for="eligibleUserTypesBox"><strong>Eligible user types</strong></label>
+        <div id="eligibleUserTypesBox" class="checklist" aria-describedby="eligibleHelp"></div>
+        <div id="eligibleHelp" class="help">Select one or more types.</div>
 
       </div>
 
