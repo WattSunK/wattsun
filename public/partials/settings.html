@@ -38,6 +38,20 @@
   .modal-body { padding: 16px; }
   .modal .spacer { flex: 1; }
   .banner-error { background:#ffecec; color:#b10000; padding:6px 10px; border-radius:6px; font-size: 12px; }
+
+/* ---- Loyalty modal: responsive + golden ring on active tab ---- */
+#lsModal .modal { width: 100%; max-width: 720px; margin: 4rem auto; }
+@media (max-width: 640px) {
+  #lsModal .modal { max-width: 100%; margin: 2rem 8px; }
+  #lsModal .form-row { display:block; }
+  #lsModal .form-row > * { width: 100% !important; }
+}
+
+/* Golden ring on active tab button */
+.btn--tab { position: relative; border-radius: 10px; }
+.btn--tab.is-active { box-shadow: 0 0 0 3px #DAA520; outline: none; }
+.btn--tab:focus-visible { box-shadow: 0 0 0 3px #DAA52088; }
+
 </style>
 
 <!-- Settings grid -->
@@ -348,8 +362,9 @@
     </div>
 
     <div class="modal-tabs">
-      <button class="btn" id="tabProgramBtn">Program</button>
-      <button class="btn btn--ghost" id="tabAccountsBtn">Accounts</button>
+      <button class="btn btn--tab" id="tabProgramBtn">Program</button>
+      <button class="btn btn--tab btn--ghost" id="tabAccountsBtn">Accounts</button>
+
       <div class="spacer"></div>
       <!-- error surface identical to screenshot text -->
       <span id="lsError" class="banner-error" style="display:none;">Error: Admin access required.</span>
