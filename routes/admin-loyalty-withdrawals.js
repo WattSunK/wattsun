@@ -123,22 +123,68 @@ async function tableExists(db, name) {
   return !!row;
 }
 
-// Best-effort account resolver: withdrawal.account_id -> user's primary -> 0
+// Safe single-ID selector for an accounts-like table without assuming column names beyond "id" and "user_id".
+async function pickAnyAccountId(db, table, hasIsPrimary) {
+  try {
+    if (hasIsPrimary) {
+      // prefer primary if that column exists
+      const row = await q(db, `SELECT id FROM ${table} WHERE user_id=? ORDER BY is_primary DESC, id ASC LIMIT 1`, [/* user_id injected by caller */]);
+      return row?.id ?? null;
+    }
+    // fallback: just pick the first by id
+    const row = await q(db, `SELECT id FROM ${table} WHERE user_id=? ORDER BY id ASC LIMIT 1`, [/* user_id injected by caller */]);
+    return row?.id ?? null;
+  } catch { return null; }
+}
+
+// Best-effort account resolver: withdrawal.account_id -> user's primary -> any account -> 0
 async function resolveAccountId(db, w) {
   if (w && w.account_id != null) return w.account_id;
 
+  // candidates with introspection (do not reference columns that don't exist)
   const candidates = [
-    { table: "loyalty_accounts", sql: `SELECT id FROM loyalty_accounts WHERE user_id=? ORDER BY is_primary DESC, id ASC LIMIT 1` },
-    { table: "accounts",         sql: `SELECT id FROM accounts WHERE user_id=? ORDER BY id ASC LIMIT 1` },
-    { table: "account",          sql: `SELECT id FROM account WHERE user_id=? ORDER BY id ASC LIMIT 1` },
-    { table: "user_accounts",    sql: `SELECT account_id AS id FROM user_accounts WHERE user_id=? ORDER BY is_primary DESC, account_id ASC LIMIT 1` },
+    "loyalty_accounts",
+    "accounts",
+    "account",
   ];
-  for (const c of candidates) {
-    if (await tableExists(db, c.table)) {
-      const row = await q(db, c.sql, [w.user_id]);
-      if (row && row.id != null) return row.id;
+
+  for (const table of candidates) {
+    if (await tableExists(db, table)) {
+      const cols = await tableCols(db, table);
+      const hasUserId = cols.includes("user_id");
+      const hasIsPrimary = cols.includes("is_primary");
+      if (!hasUserId) continue; // can't filter by user
+
+      // try primary if available, otherwise first by id
+      try {
+        if (hasIsPrimary) {
+          const row = await q(db, `SELECT id FROM ${table} WHERE user_id=? ORDER BY is_primary DESC, id ASC LIMIT 1`, [w.user_id]);
+          if (row && row.id != null) return row.id;
+        }
+        const row2 = await q(db, `SELECT id FROM ${table} WHERE user_id=? ORDER BY id ASC LIMIT 1`, [w.user_id]);
+        if (row2 && row2.id != null) return row2.id;
+      } catch { /* ignore and continue */ }
     }
   }
+
+  // user_accounts join table variant (account_id column)
+  if (await tableExists(db, "user_accounts")) {
+    const cols = await tableCols(db, "user_accounts");
+    const hasUserId = cols.includes("user_id");
+    const hasAccountId = cols.includes("account_id");
+    const hasIsPrimary = cols.includes("is_primary");
+    if (hasUserId && hasAccountId) {
+      try {
+        if (hasIsPrimary) {
+          const row3 = await q(db, `SELECT account_id AS id FROM user_accounts WHERE user_id=? ORDER BY is_primary DESC, account_id ASC LIMIT 1`, [w.user_id]);
+          if (row3 && row3.id != null) return row3.id;
+        }
+        const row4 = await q(db, `SELECT account_id AS id FROM user_accounts WHERE user_id=? ORDER BY account_id ASC LIMIT 1`, [w.user_id]);
+        if (row4 && row4.id != null) return row4.id;
+      } catch { /* ignore */ }
+    }
+  }
+
   return 0; // final fallback: satisfy NOT NULL without being NULL
 }
 
