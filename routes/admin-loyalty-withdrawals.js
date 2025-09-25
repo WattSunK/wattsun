@@ -1,8 +1,11 @@
 /**
  * routes/admin-loyalty-withdrawals.js (compat, sanitized)
  * - Option A: decision_note / payout_ref
- * - Legacy-compatible: withdrawals(points/eur), loyalty_ledger(kind/points_delta/note), notifications_queue(kind/payload/status)
- * - Admin endpoints: list + approve/reject/mark-paid
+ * - Legacy-compatible:
+ *     withdrawals(points/eur),
+ *     loyalty_ledger(kind, points_delta, note [, account_id NOT NULL]),
+ *     notifications_queue(kind, payload, status, user_id, email)
+ * - Admin endpoints: GET list + PATCH approve/reject/mark-paid
  */
 
 const path = require("path");
@@ -112,6 +115,33 @@ async function ledgerExists(db, refId, entryType) {
   return false;
 }
 
+/* --------- Surgical inserts: account resolver for NOT NULL ---------- */
+
+// Return true if table exists
+async function tableExists(db, name) {
+  const row = await q(db, `SELECT name FROM sqlite_master WHERE type='table' AND name=?`, [name]);
+  return !!row;
+}
+
+// Best-effort account resolver: withdrawal.account_id -> user's primary -> 0
+async function resolveAccountId(db, w) {
+  if (w && w.account_id != null) return w.account_id;
+
+  const candidates = [
+    { table: "loyalty_accounts", sql: `SELECT id FROM loyalty_accounts WHERE user_id=? ORDER BY is_primary DESC, id ASC LIMIT 1` },
+    { table: "accounts",         sql: `SELECT id FROM accounts WHERE user_id=? ORDER BY id ASC LIMIT 1` },
+    { table: "account",          sql: `SELECT id FROM account WHERE user_id=? ORDER BY id ASC LIMIT 1` },
+    { table: "user_accounts",    sql: `SELECT account_id AS id FROM user_accounts WHERE user_id=? ORDER BY is_primary DESC, account_id ASC LIMIT 1` },
+  ];
+  for (const c of candidates) {
+    if (await tableExists(db, c.table)) {
+      const row = await q(db, c.sql, [w.user_id]);
+      if (row && row.id != null) return row.id;
+    }
+  }
+  return 0; // final fallback: satisfy NOT NULL without being NULL
+}
+
 async function insertLedger(db, w, refId, entryType, note) {
   const sup = await ledgerSupports(db);
   const { amountCents } = deriveAmount(w);
@@ -136,19 +166,22 @@ async function insertLedger(db, w, refId, entryType, note) {
     const kind = mapEntryTypeToKind(entryType);
     const legacyNote = `${note || entryType} (ref:${refId})`;
 
-    // avoid violating NOT NULL on account_id
+    // NOT NULL awareness for account_id
     const info = await columnInfo(db, "loyalty_ledger");
 
-    if (sup.has("kind"))         { cols.push("kind");         vals.push(kind);          ph.push("?"); }
+    if (sup.has("kind"))         { cols.push("kind");         vals.push(kind);               ph.push("?"); }
     if (sup.has("account_id")) {
       const mustNotNull = info.account_id?.notnull === 1;
-      if (!mustNotNull || (w.account_id != null)) {
-        cols.push("account_id"); vals.push(w.account_id ?? null); ph.push("?");
+      if (mustNotNull) {
+        const acctId = await resolveAccountId(db, w);
+        cols.push("account_id"); vals.push(acctId);           ph.push("?");
+      } else if (w.account_id != null) {
+        cols.push("account_id"); vals.push(w.account_id);     ph.push("?");
       }
     }
-    if (sup.has("points_delta")) { cols.push("points_delta"); vals.push(0);             ph.push("?"); }
-    if (sup.has("note"))         { cols.push("note");         vals.push(legacyNote);    ph.push("?"); }
-    if (sup.has("admin_user_id")){ cols.push("admin_user_id");vals.push(null);          ph.push("?"); }
+    if (sup.has("points_delta")) { cols.push("points_delta"); vals.push(0);                  ph.push("?"); }
+    if (sup.has("note"))         { cols.push("note");         vals.push(legacyNote);         ph.push("?"); }
+    if (sup.has("admin_user_id")){ cols.push("admin_user_id");vals.push(null);               ph.push("?"); }
 
     const sql = `INSERT INTO loyalty_ledger (${cols.join(",")}) VALUES (${ph.join(",")})`;
     return lastId(db, sql, vals);
