@@ -1,7 +1,7 @@
 // public/admin/js/admin-loyalty.js
 // Loyalty Admin Visibility — SPA-safe attach
 // Phase 1: Read-only wiring for Withdrawals + Accounts + Ledger + Notifications
-// Phase 5.4 add: Withdrawals row "Action" menu => Approve / Reject buttons
+// Phase 5.4 add: Withdrawals row "Action" popover => Approve / Reject buttons
 (function () {
   "use strict";
 
@@ -88,7 +88,7 @@
   // ---------- attach ----------
   function attach() {
     attached = true; tries=0;
-    wireTabs(); wireFilters(); wirePager(); wireGlobalSaveListeners(); wireActionMenus();
+    wireTabs(); wireFilters(); wirePager(); wireGlobalSaveListeners(); wireActionPopover();
 
     // Default to Withdrawals on load
     state.activeTab = "Withdrawals";
@@ -287,25 +287,76 @@
     }
   }
 
+  // Popover factory (shared singleton)
+  let popEl = null;
+  function ensurePopover() {
+    if (popEl) return popEl;
+    popEl = document.createElement("div");
+    popEl.id = "wd-actions-popover";
+    popEl.className = "wd-popover hidden";
+    popEl.innerHTML = `
+      <div class="wd-popcard">
+        <button type="button" class="wd-item btn-approve">Approve</button>
+        <button type="button" class="wd-item btn-reject">Reject…</button>
+      </div>
+    `;
+    Object.assign(popEl.style, {
+      position:"fixed", inset:"auto auto auto auto", zIndex: 9999
+    });
+    const style = document.createElement("style");
+    style.textContent = `
+      .wd-popover.hidden{display:none}
+      .wd-popcard{min-width:152px;background:#fff;border:1px solid #e6e6e6;border-radius:10px;
+        box-shadow:0 10px 25px rgba(0,0,0,.12);overflow:hidden}
+      .wd-item{display:block;width:100%;text-align:left;background:transparent;border:0;
+        padding:9px 12px;font:inherit;cursor:pointer}
+      .wd-item.btn-approve{color:#0f5132}
+      .wd-item.btn-approve:hover{background:#e7f5ee}
+      .wd-item.btn-reject{color:#842029}
+      .wd-item.btn-reject:hover{background:#fde7ea}
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(popEl);
+    return popEl;
+  }
+
+  function openPopoverFor(btn, id) {
+    const pop = ensurePopover();
+    pop.dataset.id = id;
+
+    // position next to the button
+    const r = btn.getBoundingClientRect();
+    const top = Math.min(window.innerHeight - 10, r.bottom + 6);
+    const left = Math.max(10, Math.min(window.innerWidth - 10 - 180, r.right - 150));
+    pop.style.top = `${top}px`;
+    pop.style.left = `${left}px`;
+    pop.classList.remove("hidden");
+
+    // Close handlers (one-shot)
+    const close = () => { pop.classList.add("hidden"); cleanup(); };
+    const onDocClick = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) close(); };
+    const onEsc = (e) => { if (e.key === "Escape") close(); };
+    const onWin = () => close();
+    function cleanup(){
+      document.removeEventListener("click", onDocClick, true);
+      document.removeEventListener("keydown", onEsc, true);
+      window.removeEventListener("resize", onWin, true);
+      window.removeEventListener("scroll", onWin, true);
+    }
+    document.addEventListener("click", onDocClick, true);
+    document.addEventListener("keydown", onEsc, true);
+    window.addEventListener("resize", onWin, true);
+    window.addEventListener("scroll", onWin, true);
+  }
+
   function actionCellHtml(id, status) {
     const disabled = status !== "Pending"; // only Pending can be actioned right now
-    if (disabled) {
-      return `<div class="muted">—</div>`;
-    }
-    // Small inline menu; approve/reject buttons are picked up by external binders
+    if (disabled) return `<div class="muted">—</div>`;
     return `
-      <div class="ws-actions relative" data-id="${esc(id)}">
+      <div class="ws-actions" data-id="${esc(id)}">
         <button type="button" class="btn-actions px-2 py-1 rounded border bg-white hover:bg-gray-50">
           Action ▾
         </button>
-        <div class="actions-menu hidden absolute right-0 mt-1 w-36 rounded-md border bg-white shadow-lg">
-          <button type="button"
-            class="w-full text-left px-3 py-2 hover:bg-green-50 btn-approve"
-            data-id="${esc(id)}">Approve</button>
-          <button type="button"
-            class="w-full text-left px-3 py-2 hover:bg-red-50 btn-reject"
-            data-id="${esc(id)}">Reject…</button>
-        </div>
       </div>
     `;
   }
@@ -320,6 +371,7 @@
     const frag = document.createDocumentFragment();
     for (const r of rows) {
       const id   = pick(r, ["id","withdrawal_id"]);
+      const acct = pick(r, ["account_id","account"], "—");
       const user = pick(r, ["email","user_email","user_id"]);
       const pts  = pick(r, ["points","requested_pts"], 0);
       const eur  = pick(r, ["eur","requested_eur"], 0);
@@ -331,6 +383,7 @@
       tr.dataset.id = id; // used by approve/reject binders
       tr.innerHTML = `
         <td>${esc(id)}</td>
+        <td>${esc(acct)}</td>
         <td>${esc(user)}</td>
         <td>${fmtInt(pts)}</td>
         <td>${fmtInt(eur)}</td>
@@ -345,40 +398,30 @@
     tbody.appendChild(frag);
   }
 
-  // ---------- Actions menu wiring ----------
-  function wireActionMenus() {
-    // Toggle menu
+  // ---------- Actions popover wiring ----------
+  function wireActionPopover() {
+    // Open popover
     on(document, "click", (e) => {
       const btn = e.target.closest(".btn-actions");
       if (!btn) return;
       const wrap = btn.closest(".ws-actions");
-      if (!wrap) return;
+      const id = wrap?.dataset?.id || btn?.dataset?.id || btn.closest("tr")?.dataset?.id;
+      if (!id) return;
       e.preventDefault();
-
-      // close all others
-      $$(".actions-menu").forEach(m => m.classList.add("hidden"));
-
-      // toggle this one
-      const menu = wrap.querySelector(".actions-menu");
-      if (menu) menu.classList.toggle("hidden");
+      openPopoverFor(btn, id);
     });
 
-    // Close on outside click
+    // Delegate clicks inside the popover to keep existing binders working
     on(document, "click", (e) => {
-      if (e.target.closest(".ws-actions")) return; // clicks inside keep open (Approve/Reject handlers will close)
-      $$(".actions-menu").forEach(m => m.classList.add("hidden"));
-    });
-
-    // Close after any menu item click (lets other binders run)
-    on(document, "click", (e) => {
-      const inMenu = e.target.closest(".actions-menu");
-      if (!inMenu) return;
-      $$(".actions-menu").forEach(m => m.classList.add("hidden"));
-    });
-
-    // Close on ESC
-    on(document, "keydown", (e) => {
-      if (e.key === "Escape") $$(".actions-menu").forEach(m => m.classList.add("hidden"));
+      const item = e.target.closest("#wd-actions-popover .btn-approve, #wd-actions-popover .btn-reject");
+      if (!item) return;
+      const pop = $("#wd-actions-popover");
+      const id = pop?.dataset?.id;
+      if (!id) return;
+      // Stamp data-id so external binders (approve/reject) can read it
+      item.dataset.id = id;
+      // Let the external binder handle the rest; just hide immediately
+      pop.classList.add("hidden");
     });
   }
 
@@ -442,7 +485,7 @@
             <td>${esc(l.id)}</td>
             <td>${esc(l.account_id)}</td>
             <td>${esc(l.kind)}</td>
-            <td>${fmtInt(l.delta_points)}</td>
+            <td>${fmtInt(l.delta_points ?? l.points_delta)}</td>
             <td>${esc(l.note ?? "—")}</td>
             <td>${esc(l.created_at)}</td>`;
           frag.appendChild(tr);
@@ -455,7 +498,6 @@
   }
 
   // ---------- NOTIFICATIONS ----------
-  // NEW: helpers for recipient + note rendering
   function renderRecipient(n) {
     const email = (n?.email || "").trim();
     if (email) return email;
@@ -529,10 +571,6 @@
 
   // ---------- global save hooks (NEW) ----------
   function wireGlobalSaveListeners() {
-    // Anywhere in the app, after a successful save:
-    //   window.dispatchEvent(new CustomEvent('loyalty:save-success'));
-    // On error:
-    //   window.dispatchEvent(new CustomEvent('loyalty:save-error', { detail:{ message:'...' } }));
     window.addEventListener("loyalty:save-success", () => {
       toast("Saved ✅", { type:"info" });
       refreshActiveTab();
