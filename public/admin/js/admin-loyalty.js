@@ -1,6 +1,7 @@
 // public/admin/js/admin-loyalty.js
 // Loyalty Admin Visibility — SPA-safe attach
 // Phase 1: Read-only wiring for Withdrawals + Accounts + Ledger + Notifications
+// Phase 5.4 add: Withdrawals row "Action" menu => Approve / Reject buttons
 (function () {
   "use strict";
 
@@ -87,7 +88,7 @@
   // ---------- attach ----------
   function attach() {
     attached = true; tries=0;
-    wireTabs(); wireFilters(); wirePager(); wireGlobalSaveListeners();
+    wireTabs(); wireFilters(); wirePager(); wireGlobalSaveListeners(); wireActionMenus();
 
     // Default to Withdrawals on load
     state.activeTab = "Withdrawals";
@@ -286,6 +287,29 @@
     }
   }
 
+  function actionCellHtml(id, status) {
+    const disabled = status !== "Pending"; // only Pending can be actioned right now
+    if (disabled) {
+      return `<div class="muted">—</div>`;
+    }
+    // Small inline menu; approve/reject buttons are picked up by external binders
+    return `
+      <div class="ws-actions relative" data-id="${esc(id)}">
+        <button type="button" class="btn-actions px-2 py-1 rounded border bg-white hover:bg-gray-50">
+          Action ▾
+        </button>
+        <div class="actions-menu hidden absolute right-0 mt-1 w-36 rounded-md border bg-white shadow-lg">
+          <button type="button"
+            class="w-full text-left px-3 py-2 hover:bg-green-50 btn-approve"
+            data-id="${esc(id)}">Approve</button>
+          <button type="button"
+            class="w-full text-left px-3 py-2 hover:bg-red-50 btn-reject"
+            data-id="${esc(id)}">Reject…</button>
+        </div>
+      </div>
+    `;
+  }
+
   function renderWithdrawalsRows(tbody, rows) {
     if (!tbody) return;
     tbody.innerHTML = "";
@@ -304,6 +328,7 @@
       const dec  = pick(r, ["decided_at"]);
       const paid = pick(r, ["paid_at"]);
       const tr = document.createElement("tr");
+      tr.dataset.id = id; // used by approve/reject binders
       tr.innerHTML = `
         <td>${esc(id)}</td>
         <td>${esc(user)}</td>
@@ -313,11 +338,48 @@
         <td>${esc(req)}</td>
         <td>${esc(dec)}</td>
         <td>${esc(paid)}</td>
-        <td><!-- actions (later) --></td>
+        <td>${actionCellHtml(id, st)}</td>
       `;
       frag.appendChild(tr);
     }
     tbody.appendChild(frag);
+  }
+
+  // ---------- Actions menu wiring ----------
+  function wireActionMenus() {
+    // Toggle menu
+    on(document, "click", (e) => {
+      const btn = e.target.closest(".btn-actions");
+      if (!btn) return;
+      const wrap = btn.closest(".ws-actions");
+      if (!wrap) return;
+      e.preventDefault();
+
+      // close all others
+      $$(".actions-menu").forEach(m => m.classList.add("hidden"));
+
+      // toggle this one
+      const menu = wrap.querySelector(".actions-menu");
+      if (menu) menu.classList.toggle("hidden");
+    });
+
+    // Close on outside click
+    on(document, "click", (e) => {
+      if (e.target.closest(".ws-actions")) return; // clicks inside keep open (Approve/Reject handlers will close)
+      $$(".actions-menu").forEach(m => m.classList.add("hidden"));
+    });
+
+    // Close after any menu item click (lets other binders run)
+    on(document, "click", (e) => {
+      const inMenu = e.target.closest(".actions-menu");
+      if (!inMenu) return;
+      $$(".actions-menu").forEach(m => m.classList.add("hidden"));
+    });
+
+    // Close on ESC
+    on(document, "keydown", (e) => {
+      if (e.key === "Escape") $$(".actions-menu").forEach(m => m.classList.add("hidden"));
+    });
   }
 
   // ---------- ACCOUNTS ----------
