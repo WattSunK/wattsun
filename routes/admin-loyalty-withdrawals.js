@@ -23,7 +23,6 @@ function tableCols(db,table){ return new Promise((res,rej)=>db.all(`PRAGMA table
 
 async function getWithdrawal(db,id){
   return q(db,`SELECT * FROM withdrawals WHERE id=?`,[id]);
-}
 
 // derive amount for ledger/notifications (prefers amount_cents if present)
 function deriveAmount(w){
@@ -76,17 +75,19 @@ async function ledgerExists(db, refId, entryType){
   }
   // Legacy shape (your DB): no entry_type/ref_id; has kind/note.
   // Heuristic dedupe: kind == mapped value AND note contains "ref:ID"
+  // Legacy shape (kind/note only): use a best-effort check, but DON'T block inserts if unsure.
   if (sup.has("kind") && sup.has("note")) {
     const kind = mapEntryTypeToKind(entryType);
-    const row = await q(db,
-      `SELECT id FROM loyalty_ledger
-       WHERE kind=? AND note LIKE ?`,
-      [kind, `%ref:${refId}%`]
-    );
-    return !!row;
+    try {
+      const row = await q(db,
+        `SELECT id FROM loyalty_ledger WHERE kind=? AND note LIKE ?`,
+        [kind, `%ref:${refId}%`]
+      );
+      return !!row;
+    } catch {
+      return false; // if any doubt, do not prevent insert
+    }
   }
-  // Fallback: cannot dedupe reliably
-  return false;
 }
 
 // Map our router entry types to your legacy 'kind'
@@ -99,20 +100,33 @@ function mapEntryTypeToKind(entryType){
   }
 }
 
-async function insertLedger(db, w, refId, entryType, note){
-  const sup = await ledgerSupports(db);
-  const { amountCents, points } = deriveAmount(w);
+// Legacy path (your DB): kind/points_delta/note/(optional admin_user_id, account_id)
+if (sup.has("kind") || sup.has("points_delta") || sup.has("note")) {
+  const cols = [];
+  const vals = [];
+  const ph   = [];
 
-  // Modern path (new table fields present)
-  if (sup.has("user_id") && sup.has("account_id") &&
-      sup.has("ref_type") && sup.has("ref_id") &&
-      sup.has("entry_type") && sup.has("amount_cents")) {
-    return lastId(db,
-      `INSERT INTO loyalty_ledger (user_id, account_id, ref_type, ref_id, entry_type, amount_cents, note)
-       VALUES (?, ?, 'WITHDRAWAL', ?, ?, ?, ?)`,
-      [w.user_id || null, w.account_id || null, refId, entryType, Math.abs(amountCents||0), note || null]
-    );
+  const kind = mapEntryTypeToKind(entryType);
+  const legacyNote = `${note || entryType} (ref:${refId})`;
+
+  // Get NOT NULL info to avoid violating constraints
+  const info = await columnInfo(db, "loyalty_ledger");
+
+  if (sup.has("kind"))         { cols.push("kind");         vals.push(kind);               ph.push("?"); }
+  // Only include account_id if we have a value OR the column is nullable
+  if (sup.has("account_id")) {
+    const mustNotNull = info.account_id?.notnull === 1;
+    if (!mustNotNull || (w.account_id != null)) {
+      cols.push("account_id"); vals.push(w.account_id ?? null); ph.push("?");
+    }
   }
+  if (sup.has("points_delta")) { cols.push("points_delta"); vals.push(0);                  ph.push("?"); }
+  if (sup.has("note"))         { cols.push("note");         vals.push(legacyNote);         ph.push("?"); }
+  if (sup.has("admin_user_id")){ cols.push("admin_user_id");vals.push(null);               ph.push("?"); } // no session id here
+
+  const sql = `INSERT INTO loyalty_ledger (${cols.join(",")}) VALUES (${ph.join(",")})`;
+  return lastId(db, sql, vals);
+}
 
   // Legacy path (your DB): kind/points_delta/note/(optional admin_user_id, account_id)
   if (sup.has("kind") || sup.has("points_delta") || sup.has("note")) {
@@ -274,6 +288,17 @@ async function handleMarkPaid(req,res){
     });
   }catch(e){ return fail(res,"SERVER_ERROR",e.message,500); } finally{ db.close(); }
 }
+
+async function columnInfo(db, table) {
+  const rows = await new Promise((resolve, reject) =>
+    db.all(`PRAGMA table_info(${table});`, (e, r) => e ? reject(e) : resolve(r || []))
+  );
+  // Map: name -> { notnull: 0|1, dflt_value, type }
+  const map = {};
+  rows.forEach(r => { map[r.name] = { notnull: r.notnull, dflt: r.dflt_value, type: r.type }; });
+  return map;
+}
+
 // --- ADMIN LIST: GET /api/admin/loyalty/withdrawals?page=&limit=&status=&q= ---
 router.get("/loyalty/withdrawals", async (req, res) => {
   const db = openDb();
