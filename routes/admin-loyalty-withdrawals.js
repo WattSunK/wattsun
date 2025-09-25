@@ -210,6 +210,53 @@ async function handleMarkPaid(req,res){
     });
   }catch(e){ return fail(res,"SERVER_ERROR",e.message,500); } finally{ db.close(); }
 }
+// --- ADMIN LIST: GET /api/admin/loyalty/withdrawals?page=&limit=&status=&q= ---
+router.get("/loyalty/withdrawals", async (req, res) => {
+  const db = openDb();
+  try {
+    const page  = Math.max(1, parseInt(req.query.page  || "1", 10));
+    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit || "10", 10)));
+    const status = (req.query.status || "").trim();
+    const q = (req.query.q || "").trim();
+
+    const where = [];
+    const params = [];
+
+    if (status && status !== "All") {
+      where.push("status = ?");
+      params.push(status);
+    }
+    if (q) {
+      // lightweight search on id or user_id
+      where.push("(CAST(id AS TEXT) LIKE ? OR CAST(user_id AS TEXT) LIKE ?)");
+      params.push(`%${q}%`, `%${q}%`);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const offset = (page - 1) * limit;
+
+    // Minimal set of columns that the grid needs; map legacy names directly
+    const sql = `
+      SELECT id, user_id, points, eur, status,
+             requested_at, decided_at, paid_at,
+             decision_note, decided_by, payout_ref
+      FROM withdrawals
+      ${whereSql}
+      ORDER BY id DESC
+      LIMIT ? OFFSET ?;
+    `;
+    const rows = await new Promise((resolve, reject) => {
+      db.all(sql, [...params, limit, offset], (err, r) => err ? reject(err) : resolve(r || []));
+    });
+
+    // Return as array; your admin-loyalty.js accepts either [] or { withdrawals: [] }
+    return res.json(rows);
+  } catch (e) {
+    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: e.message } });
+  } finally {
+    db.close();
+  }
+});
 
 /* Spec PATCH routes */
 router.patch("/loyalty/withdrawals/:id/approve", handleApprove);

@@ -271,7 +271,9 @@
     const tbody = els.wdBody || $("#wdBody");
     addLoading(tbody, true);
     try {
-      const data = await api(`/api/loyalty/withdrawals${buildQuery()}`);
+      const resp = await fetch(`/api/admin/loyalty/withdrawals${buildQuery()}`, { credentials: "include" });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
       const rows = Array.isArray(data) ? data : (data.withdrawals || []);
       state.total = null;
       renderWithdrawalsRows(tbody, rows);
