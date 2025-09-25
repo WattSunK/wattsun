@@ -566,3 +566,64 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 }
 .section { margin: 1rem 0; }
 .section-title { font-weight: 600; margin: 0 0 .25rem; }
+
+/* === Loyalty Withdrawals — Actions menu styles (Phase 5.4) === */
+.ws-actions {
+  position: relative;
+  display: inline-block;
+}
+
+.btn-actions {
+  font: inherit;
+  line-height: 1.2;
+  border: 1px solid #dcdcdc;
+  background: #fff;
+  color: #222;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.btn-actions:hover { background: #f8f8f8; border-color: #cfcfcf; }
+.btn-actions:focus { outline: none; box-shadow: 0 0 0 3px rgba(15,118,110,.25); }
+
+.actions-menu {
+  position: absolute;
+  right: 0; top: 100%;
+  margin-top: 6px;
+  min-width: 9.5rem; /* ~152px */
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0,0,0,.12);
+  z-index: 40;
+  overflow: hidden;
+}
+.actions-menu.hidden { display: none; }
+
+.actions-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 9px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.actions-menu .btn-approve { color: #0f5132; }   /* green-ish text */
+.actions-menu .btn-approve:hover { background: #e7f5ee; }
+
+.actions-menu .btn-reject { color: #842029; }    /* red-ish text */
+.actions-menu .btn-reject:hover { background: #fde7ea; }
+
+/* table hover affordance for the Actions cell */
+td:last-child .ws-actions { white-space: nowrap; }
+
+/* small toast styling used by admin-loyalty.js */
+.toast {
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+.toast--error { background:#b00020 !important; }
