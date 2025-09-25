@@ -13,6 +13,23 @@
   const debounce = (fn, ms=400) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
   const pick = (o, keys, d="—") => { for (const k of keys) if (o && o[k]!=null) return o[k]; return d; };
 
+  // NEW: toast helper for success/error feedback
+  function toast(msg, { type="info", ms=2200 } = {}) {
+    const t = document.createElement("div");
+    t.textContent = msg;
+    t.className = `toast toast--${type}`;
+    Object.assign(t.style, {
+      position:"fixed", right:"16px", bottom:"16px",
+      background: type==="error" ? "#b00020" : "#0f766e",
+      color:"#fff", padding:"10px 14px", borderRadius:"10px",
+      boxShadow:"0 6px 18px rgba(0,0,0,.18)", zIndex:9999,
+      fontSize:"14px"
+    });
+    document.body.appendChild(t);
+    setTimeout(()=> t.remove(), ms);
+  }
+
+  // API helper
   async function api(path) {
     const res = await fetch(path, { credentials: "include" });
     let data; try { data = await res.json(); } catch { data = {}; }
@@ -70,7 +87,7 @@
   // ---------- attach ----------
   function attach() {
     attached = true; tries=0;
-    wireTabs(); wireFilters(); wirePager();
+    wireTabs(); wireFilters(); wirePager(); wireGlobalSaveListeners();
 
     // Default to Withdrawals on load
     state.activeTab = "Withdrawals";
@@ -98,57 +115,56 @@
   }
 
   function showTab(name) {
-  state.activeTab = name;
-  setShown(els.tabWithdrawals, name==="Withdrawals");
-  setShown(els.tabAccounts,    name==="Accounts");
-  setShown(els.tabLedger,      name==="Ledger");
-  setShown(els.tabNotifs,      name==="Notifications");
+    state.activeTab = name;
+    setShown(els.tabWithdrawals, name==="Withdrawals");
+    setShown(els.tabAccounts,    name==="Accounts");
+    setShown(els.tabLedger,      name==="Ledger");
+    setShown(els.tabNotifs,      name==="Notifications");
 
-  // reset classes
-  [els.tabWithdrawalsBtn, els.tabAccountsBtn, els.tabLedgerBtn, els.tabNotifsBtn]
-    .forEach(btn => btn && btn.classList.remove("btn--active"));
+    // reset classes
+    [els.tabWithdrawalsBtn, els.tabAccountsBtn, els.tabLedgerBtn, els.tabNotifsBtn]
+      .forEach(btn => btn && btn.classList.remove("btn--active"));
 
-  // ghost style for inactive
-  toggleGhost(els.tabWithdrawalsBtn, name!=="Withdrawals");
-  toggleGhost(els.tabAccountsBtn,    name!=="Accounts");
-  toggleGhost(els.tabLedgerBtn,      name!=="Ledger");
-  toggleGhost(els.tabNotifsBtn,      name!=="Notifications");
+    // ghost style for inactive
+    toggleGhost(els.tabWithdrawalsBtn, name!=="Withdrawals");
+    toggleGhost(els.tabAccountsBtn,    name!=="Accounts");
+    toggleGhost(els.tabLedgerBtn,      name!=="Ledger");
+    toggleGhost(els.tabNotifsBtn,      name!=="Notifications");
 
-  // add active class for the current tab
-  const activeBtn = {
-    "Withdrawals": els.tabWithdrawalsBtn,
-    "Accounts": els.tabAccountsBtn,
-    "Ledger": els.tabLedgerBtn,
-    "Notifications": els.tabNotifsBtn,
-  }[name];
-  if (activeBtn) activeBtn.classList.add("btn--active");
+    // add active class for the current tab
+    const activeBtn = {
+      "Withdrawals": els.tabWithdrawalsBtn,
+      "Accounts": els.tabAccountsBtn,
+      "Ledger": els.tabLedgerBtn,
+      "Notifications": els.tabNotifsBtn,
+    }[name];
+    if (activeBtn) activeBtn.classList.add("btn--active");
 
-  // toggle filter groups and reset to All
-  ["filterWithdrawals","filterAccounts","filterLedger","filterNotifs"]
-    .forEach(id => { const el = document.getElementById(id); if (el) el.style.display="none"; });
+    // toggle filter groups and reset to All
+    ["filterWithdrawals","filterAccounts","filterLedger","filterNotifs"]
+      .forEach(id => { const el = document.getElementById(id); if (el) el.style.display="none"; });
 
-  if (name==="Withdrawals") {
-    $("#filterWithdrawals").style.display="";
-    const sel=document.getElementById("statusSel"); if (sel) sel.value="";
+    if (name==="Withdrawals") {
+      $("#filterWithdrawals").style.display="";
+      const sel=document.getElementById("statusSel"); if (sel) sel.value="";
+    }
+    if (name==="Accounts") {
+      $("#filterAccounts").style.display="";
+      const sel=document.getElementById("accStatusSel"); if (sel) sel.value="";
+    }
+    if (name==="Ledger") {
+      $("#filterLedger").style.display="";
+      const sel=document.getElementById("ledgerKindSel"); if (sel) sel.value="";
+    }
+    if (name==="Notifications") {
+      $("#filterNotifs").style.display="";
+      const sel=document.getElementById("notifStatusSel"); if (sel) sel.value="";
+    }
+
+    // always clear search on tab switch
+    const search = document.getElementById("loyaltySearch");
+    if (search) search.value = "";
   }
-  if (name==="Accounts") {
-    $("#filterAccounts").style.display="";
-    const sel=document.getElementById("accStatusSel"); if (sel) sel.value="";
-  }
-  if (name==="Ledger") {
-    $("#filterLedger").style.display="";
-    const sel=document.getElementById("ledgerKindSel"); if (sel) sel.value="";
-  }
-  if (name==="Notifications") {
-    $("#filterNotifs").style.display="";
-    const sel=document.getElementById("notifStatusSel"); if (sel) sel.value="";
-  }
-
-  // always clear search on tab switch
-  const search = document.getElementById("loyaltySearch");
-  if (search) search.value = "";
-}
-
 
   // ---------- filters & refresh ----------
   function wireFilters() {
@@ -375,6 +391,29 @@
   }
 
   // ---------- NOTIFICATIONS ----------
+  // NEW: helpers for recipient + note rendering
+  function renderRecipient(n) {
+    const email = (n?.email || "").trim();
+    if (email) return email;
+    const acct = n?.account_id ?? n?.accountId ?? null;
+    const user = n?.user_id ?? n?.userId ?? null;
+    if (acct) return `acct: ${acct}`;
+    if (user) return `user: ${user}`;
+    try {
+      const p = typeof n?.payload === "string" ? JSON.parse(n.payload) : (n?.payload || {});
+      if (p.accountId) return `acct: ${p.accountId}`;
+      if (p.userId)    return `user: ${p.userId}`;
+    } catch {}
+    return "—";
+  }
+  function renderNote(n) {
+    if (n?.note && String(n.note).trim()) return String(n.note).trim();
+    try {
+      const p = typeof n?.payload === "string" ? JSON.parse(n.payload) : (n?.payload || {});
+      return p?.note ? String(p.note).trim() : "";
+    } catch { return ""; }
+  }
+
   async function loadNotifications(){
     cacheEls(); const tbody=els.notificationsBody||$("#loyaltyNotificationsBody"); if (!tbody) return;
     addLoading(tbody,true);
@@ -387,10 +426,15 @@
         const frag=document.createDocumentFragment();
         for (const n of rows){
           const tr=document.createElement("tr");
+          const recipient = renderRecipient(n);
+          const note = renderNote(n);
           tr.innerHTML=`
             <td>${esc(n.id)}</td>
             <td>${esc(n.kind)}</td>
-            <td>${esc(n.email ?? "—")}</td>
+            <td>
+              ${esc(recipient)}
+              ${note ? `<div class="muted" style="font-size:.85em; line-height:1.2;">${esc(note)}</div>` : ""}
+            </td>
             <td>${esc(n.status)}</td>
             <td>${esc(n.created_at)}</td>`;
           frag.appendChild(tr);
@@ -417,6 +461,22 @@
   function setMeta(count, total){
     const meta=els.meta||$("#loyaltyMeta"); if(!meta) return;
     meta.textContent = (typeof total==="number") ? `${count} / ${total} results` : `${count} results`;
+  }
+
+  // ---------- global save hooks (NEW) ----------
+  function wireGlobalSaveListeners() {
+    // Anywhere in the app, after a successful save:
+    //   window.dispatchEvent(new CustomEvent('loyalty:save-success'));
+    // On error:
+    //   window.dispatchEvent(new CustomEvent('loyalty:save-error', { detail:{ message:'...' } }));
+    window.addEventListener("loyalty:save-success", () => {
+      toast("Saved ✅", { type:"info" });
+      refreshActiveTab();
+    });
+    window.addEventListener("loyalty:save-error", (e) => {
+      const msg = e?.detail?.message || "Save failed";
+      toast(`Error: ${msg}`, { type:"error" });
+    });
   }
 
   // ---------- kick off ----------
