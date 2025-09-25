@@ -36,17 +36,19 @@ function deriveAmount(w){
   return { amountCents, points: pts, eur };
 }
 
+// Detect available columns on loyalty_ledger / notifications_queue
 async function ledgerSupports(db){
   const cols = await tableCols(db,"loyalty_ledger");
   return {
-    hasEntryType: cols.includes("entry_type"),
-    hasRefType: cols.includes("ref_type"),
-    hasRefId: cols.includes("ref_id"),
-    hasAmountCents: cols.includes("amount_cents"),
-    hasPointsDelta: cols.includes("points_delta"),
-    hasNote: cols.includes("note"),
-    hasUserId: cols.includes("user_id"),
-    hasAccountId: cols.includes("account_id"),
+    cols,
+    has: (c)=>cols.includes(c)
+  };
+}
+async function notificationsSupports(db){
+  const cols = await tableCols(db,"notifications_queue");
+  return {
+    cols,
+    has: (c)=>cols.includes(c)
   };
 }
 
@@ -63,35 +65,79 @@ async function notificationsSupports(db){
 
 async function ledgerExists(db, refId, entryType){
   const sup = await ledgerSupports(db);
-  if(!sup.hasEntryType || !sup.hasRefId) return false;
-  const row = await q(db,
-    `SELECT id FROM loyalty_ledger WHERE ref_type='WITHDRAWAL' AND ref_id=? AND entry_type=?`,
-    [refId, entryType]
-  );
-  return !!row;
+  // Modern shape: entry_type/ref_id/ref_type
+  if (sup.has("entry_type") && sup.has("ref_id") && sup.has("ref_type")) {
+    const row = await q(db,
+      `SELECT id FROM loyalty_ledger
+       WHERE ref_type='WITHDRAWAL' AND ref_id=? AND entry_type=?`,
+      [refId, entryType]
+    );
+    return !!row;
+  }
+  // Legacy shape (your DB): no entry_type/ref_id; has kind/note.
+  // Heuristic dedupe: kind == mapped value AND note contains "ref:ID"
+  if (sup.has("kind") && sup.has("note")) {
+    const kind = mapEntryTypeToKind(entryType);
+    const row = await q(db,
+      `SELECT id FROM loyalty_ledger
+       WHERE kind=? AND note LIKE ?`,
+      [kind, `%ref:${refId}%`]
+    );
+    return !!row;
+  }
+  // Fallback: cannot dedupe reliably
+  return false;
+}
+
+// Map our router entry types to your legacy 'kind'
+function mapEntryTypeToKind(entryType){
+  switch (entryType) {
+    case "WITHDRAWAL_APPROVED": return "withdraw_approved";
+    case "WITHDRAWAL_REJECTED": return "withdraw_rejected";
+    case "WITHDRAWAL_PAID":     return "withdraw_paid";
+    default:                    return (entryType||"misc").toLowerCase();
+  }
 }
 
 async function insertLedger(db, w, refId, entryType, note){
   const sup = await ledgerSupports(db);
   const { amountCents, points } = deriveAmount(w);
-  // prefer new shape
-  if(sup.hasEntryType && sup.hasRefType && sup.hasRefId && sup.hasAmountCents){
+
+  // Modern path (new table fields present)
+  if (sup.has("user_id") && sup.has("account_id") &&
+      sup.has("ref_type") && sup.has("ref_id") &&
+      sup.has("entry_type") && sup.has("amount_cents")) {
     return lastId(db,
       `INSERT INTO loyalty_ledger (user_id, account_id, ref_type, ref_id, entry_type, amount_cents, note)
        VALUES (?, ?, 'WITHDRAWAL', ?, ?, ?, ?)`,
-      [w.user_id || null, w.account_id || null, refId, entryType, Math.abs(amountCents||0), note||null]
+      [w.user_id || null, w.account_id || null, refId, entryType, Math.abs(amountCents||0), note || null]
     );
   }
-  // fallback legacy points ledger
-  if(sup.hasPointsDelta){
-    return lastId(db,
-      `INSERT INTO loyalty_ledger (user_id, account_id, points_delta, note)
-       VALUES (?, ?, ?, ?)`,
-      [w.user_id || null, w.account_id || null, 0, note||(`${entryType}`)]
-    );
+
+  // Legacy path (your DB): kind/points_delta/note/(optional admin_user_id, account_id)
+  if (sup.has("kind") || sup.has("points_delta") || sup.has("note")) {
+    const cols = [];
+    const vals = [];
+    const ph   = [];
+
+    const kind = mapEntryTypeToKind(entryType);
+    const legacyNote = `${note || entryType} (ref:${refId})`;
+
+    if (sup.has("kind"))         { cols.push("kind");         vals.push(kind);                   ph.push("?"); }
+    if (sup.has("account_id"))   { cols.push("account_id");   vals.push(w.account_id || null);   ph.push("?"); }
+    if (sup.has("points_delta")) { cols.push("points_delta"); vals.push(0);                      ph.push("?"); }
+    if (sup.has("note"))         { cols.push("note");         vals.push(legacyNote);             ph.push("?"); }
+    if (sup.has("admin_user_id")){ cols.push("admin_user_id");vals.push(null);                   ph.push("?"); } // no session passed here
+    if (sup.has("created_at")) {
+      // rely on DEFAULT if present; do not set non-constant values on ALTER
+    }
+
+    const sql = `INSERT INTO loyalty_ledger (${cols.join(",")}) VALUES (${ph.join(",")})`;
+    return lastId(db, sql, vals);
   }
-  // minimal fallback
-  return lastId(db, `INSERT INTO loyalty_ledger (note) VALUES (?)`, [note||(`${entryType}`)]);
+
+  // Absolute fallback: create a minimal row with whatever exists
+  return lastId(db, `INSERT INTO loyalty_ledger (note) VALUES (?)`, [note || entryType]);
 }
 
 async function getUserContact(db,userId){
@@ -101,22 +147,40 @@ async function getUserContact(db,userId){
   }));
 }
 
-async function enqueueNotification(db,userId,template,toEmail,payload){
+async function enqueueNotification(db, userId, template, toEmail, payload){
   const sup = await notificationsSupports(db);
-  if(sup.hasTemplate && sup.hasPayload && sup.hasStatus){
+
+  // Modern path (template/payload_json/status)
+  if (sup.has("template") && sup.has("payload_json")) {
+    // lowercase 'queued' is fine on modern table
     return lastId(db,
       `INSERT INTO notifications_queue (user_id, channel, template, "to", payload_json, status)
        VALUES (?, 'email', ?, ?, ?, 'queued')`,
-      [userId||null, template, toEmail||null, JSON.stringify(payload||{})]
+      [userId || null, template, toEmail || null, JSON.stringify(payload || {})]
     );
   }
-  // minimal fallback: just dump payload_json and channel
-  return lastId(db,
-    `INSERT INTO notifications_queue (user_id, channel, payload_json)
-     VALUES (?, 'email', ?)`,
-    [userId||null, JSON.stringify({ template, toEmail, ...(payload||{}) })]
-  );
+
+  // Legacy path (your DB): kind/user_id/email/payload/status/account_id
+  if (sup.has("kind") && sup.has("payload")) {
+    // match your default capitalization: 'Queued'
+    return lastId(db,
+      `INSERT INTO notifications_queue (kind, user_id, email, payload, status)
+       VALUES (?, ?, ?, ?, 'Queued')`,
+      [template, userId || null, toEmail || null, JSON.stringify(payload || {})]
+    );
+  }
+
+  // Fallback: best-effort insert into whatever columns exist
+  if (sup.has("payload")) {
+    return lastId(db,
+      `INSERT INTO notifications_queue (payload) VALUES (?)`,
+      [JSON.stringify({ template, toEmail, ...(payload||{}) })]
+    );
+  }
+  // If we can’t find any compatible columns, just succeed silently
+  return Promise.resolve(-1);
 }
+
 
 function ok(res, body){ return res.json({ success:true, ...body }); }
 function fail(res, code, message, http=400){ return res.status(http).json({ success:false, error:{code,message} }); }
