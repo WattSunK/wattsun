@@ -1,7 +1,7 @@
 // public/admin/js/admin-loyalty.js
 // Loyalty Admin Visibility — SPA-safe attach
 // Phase 1: Read-only wiring for Withdrawals + Accounts + Ledger + Notifications
-// Phase 5.4 add: Withdrawals row "Action" popover => Approve / Reject buttons
+// Phase 5.4 add: Withdrawals row "Action" menu => Approve / Reject buttons (inline in cell)
 (function () {
   "use strict";
 
@@ -14,7 +14,7 @@
   const debounce = (fn, ms=400) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
   const pick = (o, keys, d="—") => { for (const k of keys) if (o && o[k]!=null) return o[k]; return d; };
 
-  // NEW: toast helper for success/error feedback
+  // small toast used by save listeners
   function toast(msg, { type="info", ms=2200 } = {}) {
     const t = document.createElement("div");
     t.textContent = msg;
@@ -23,8 +23,7 @@
       position:"fixed", right:"16px", bottom:"16px",
       background: type==="error" ? "#b00020" : "#0f766e",
       color:"#fff", padding:"10px 14px", borderRadius:"10px",
-      boxShadow:"0 6px 18px rgba(0,0,0,.18)", zIndex:9999,
-      fontSize:"14px"
+      boxShadow:"0 6px 18px rgba(0,0,0,.18)", zIndex:9999, fontSize:"14px"
     });
     document.body.appendChild(t);
     setTimeout(()=> t.remove(), ms);
@@ -44,27 +43,22 @@
 
   function cacheEls() {
     els = {
-      // tab buttons
       tabWithdrawalsBtn: $("#tabWithdrawalsBtn"),
       tabAccountsBtn:    $("#tabAccountsBtn"),
       tabLedgerBtn:      $("#tabLedgerBtn"),
       tabNotifsBtn:      $("#tabNotifsBtn"),
-      // panes
       tabWithdrawals: $("#loyaltyTabWithdrawals"),
       tabAccounts:    $("#loyaltyTabAccounts"),
       tabLedger:      $("#loyaltyTabLedger"),
       tabNotifs:      $("#loyaltyTabNotifs"),
-      // filters
       statusSel:   $("#statusSel"),
       searchInput: $("#loyaltySearch"),
       clearBtn:    $("#loyaltyClearBtn"),
       refreshBtn:  $("#loyaltyRefreshBtn"),
-      // table bodies
       wdBody:            $("#wdBody"),
       accountsBody:      $("#loyaltyAccountsBody"),
       ledgerBody:        $("#loyaltyLedgerBody"),
       notificationsBody: $("#loyaltyNotificationsBody"),
-      // meta + pager
       meta:  $("#loyaltyMeta"),
       pager: $("#loyaltyPager"),
     };
@@ -88,9 +82,8 @@
   // ---------- attach ----------
   function attach() {
     attached = true; tries=0;
-    wireTabs(); wireFilters(); wirePager(); wireGlobalSaveListeners(); wireActionPopover();
+    wireTabs(); wireFilters(); wirePager(); wireGlobalSaveListeners(); wireInlineActionsMenu();
 
-    // Default to Withdrawals on load
     state.activeTab = "Withdrawals";
     showTab("Withdrawals");
     loadWithdrawals({ resetPage:true });
@@ -98,12 +91,10 @@
     window.loyaltyAdmin = { state, refreshActiveTab, loadWithdrawals, loadAccounts, loadLedger, loadNotifications };
   }
 
-  // ---------- helpers for visibility ----------
-  function isShown(el){ return !!el && el.style.display !== "none"; }
-  function setShown(el,on){ if (el) el.style.display = on ? "" : "none"; }
-  function toggleGhost(btn, on){ btn && btn.classList.toggle("btn--ghost", !!on); }
-
   // ---------- tabs ----------
+  function toggleGhost(btn, on){ btn && btn.classList.toggle("btn--ghost", !!on); }
+  function setShown(el,on){ if (el) el.style.display = on ? "" : "none"; }
+
   function wireTabs() {
     on(document, "click", (e) => {
       const btn = e.target.closest("#tabWithdrawalsBtn, #tabAccountsBtn, #tabLedgerBtn, #tabNotifsBtn");
@@ -122,17 +113,14 @@
     setShown(els.tabLedger,      name==="Ledger");
     setShown(els.tabNotifs,      name==="Notifications");
 
-    // reset classes
     [els.tabWithdrawalsBtn, els.tabAccountsBtn, els.tabLedgerBtn, els.tabNotifsBtn]
       .forEach(btn => btn && btn.classList.remove("btn--active"));
 
-    // ghost style for inactive
     toggleGhost(els.tabWithdrawalsBtn, name!=="Withdrawals");
     toggleGhost(els.tabAccountsBtn,    name!=="Accounts");
     toggleGhost(els.tabLedgerBtn,      name!=="Ledger");
     toggleGhost(els.tabNotifsBtn,      name!=="Notifications");
 
-    // add active class for the current tab
     const activeBtn = {
       "Withdrawals": els.tabWithdrawalsBtn,
       "Accounts": els.tabAccountsBtn,
@@ -141,7 +129,6 @@
     }[name];
     if (activeBtn) activeBtn.classList.add("btn--active");
 
-    // toggle filter groups and reset to All
     ["filterWithdrawals","filterAccounts","filterLedger","filterNotifs"]
       .forEach(id => { const el = document.getElementById(id); if (el) el.style.display="none"; });
 
@@ -162,7 +149,6 @@
       const sel=document.getElementById("notifStatusSel"); if (sel) sel.value="";
     }
 
-    // always clear search on tab switch
     const search = document.getElementById("loyaltySearch");
     if (search) search.value = "";
   }
@@ -287,78 +273,18 @@
     }
   }
 
-  // Popover factory (shared singleton)
-  let popEl = null;
-  function ensurePopover() {
-    if (popEl) return popEl;
-    popEl = document.createElement("div");
-    popEl.id = "wd-actions-popover";
-    popEl.className = "wd-popover hidden";
-    popEl.innerHTML = `
-      <div class="wd-popcard">
-        <button type="button" class="wd-item btn-approve">Approve</button>
-        <button type="button" class="wd-item btn-reject">Reject…</button>
-      </div>
-    `;
-    Object.assign(popEl.style, {
-      position:"fixed", inset:"auto auto auto auto", zIndex: 9999
-    });
-    const style = document.createElement("style");
-    style.textContent = `
-      .wd-popover.hidden{display:none}
-      .wd-popcard{min-width:152px;background:#fff;border:1px solid #e6e6e6;border-radius:10px;
-        box-shadow:0 10px 25px rgba(0,0,0,.12);overflow:hidden}
-      .wd-item{display:block;width:100%;text-align:left;background:transparent;border:0;
-        padding:9px 12px;font:inherit;cursor:pointer}
-      .wd-item.btn-approve{color:#0f5132}
-      .wd-item.btn-approve:hover{background:#e7f5ee}
-      .wd-item.btn-reject{color:#842029}
-      .wd-item.btn-reject:hover{background:#fde7ea}
-    `;
-    document.head.appendChild(style);
-    document.body.appendChild(popEl);
-    return popEl;
-  }
-
-  function openPopoverFor(btn, id) {
-    const pop = ensurePopover();
-    pop.dataset.id = id;
-
-    // position next to the button
-    const r = btn.getBoundingClientRect();
-    const top = Math.min(window.innerHeight - 10, r.bottom + 6);
-    const left = Math.max(10, Math.min(window.innerWidth - 10 - 180, r.right - 150));
-    pop.style.top = `${top}px`;
-    pop.style.left = `${left}px`;
-    pop.classList.remove("hidden");
-
-    // Close handlers (one-shot)
-    const close = () => { pop.classList.add("hidden"); cleanup(); };
-    const onDocClick = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) close(); };
-    const onEsc = (e) => { if (e.key === "Escape") close(); };
-    const onWin = () => close();
-    function cleanup(){
-      document.removeEventListener("click", onDocClick, true);
-      document.removeEventListener("keydown", onEsc, true);
-      window.removeEventListener("resize", onWin, true);
-      window.removeEventListener("scroll", onWin, true);
-    }
-    document.addEventListener("click", onDocClick, true);
-    document.addEventListener("keydown", onEsc, true);
-    window.addEventListener("resize", onWin, true);
-    window.addEventListener("scroll", onWin, true);
-  }
-
+  // Actions cell: inline dropdown (kept inside table for binder scripts)
   function actionCellHtml(id, status) {
-    const disabled = status !== "Pending"; // only Pending can be actioned right now
-    if (disabled) return `<div class="muted">—</div>`;
+    const actionable = status === "Pending";
+    if (!actionable) return ""; // leave blank
     return `
-      <div class="ws-actions" data-id="${esc(id)}">
-        <button type="button" class="btn-actions px-2 py-1 rounded border bg-white hover:bg-gray-50">
-          Action ▾
-        </button>
-      </div>
-    `;
+      <div class="ws-actions relative" data-id="${esc(id)}" style="position:relative; display:inline-block;">
+        <button type="button" class="btn-actions px-2 py-1 rounded border bg-white hover:bg-gray-50">Action ▾</button>
+        <div class="actions-menu hidden absolute right-0 mt-1 w-36 rounded-md border bg-white shadow-lg" style="z-index:40;">
+          <button type="button" class="w-full text-left px-3 py-2 hover:bg-green-50 btn-approve" data-id="${esc(id)}">Approve</button>
+          <button type="button" class="w-full text-left px-3 py-2 hover:bg-red-50 btn-reject"   data-id="${esc(id)}">Reject…</button>
+        </div>
+      </div>`;
   }
 
   function renderWithdrawalsRows(tbody, rows) {
@@ -373,20 +299,18 @@
       const id   = pick(r, ["id","withdrawal_id"]);
       const acct = pick(r, ["account_id","account"], "—");
       const user = pick(r, ["email","user_email","user_id"]);
-      const pts  = pick(r, ["points","requested_pts"], 0);
-      const eur  = pick(r, ["eur","requested_eur"], 0);
+      const pts  = pick(r, ["points","requested_pts"], 0); // single Points column (no EUR here)
       const st   = pick(r, ["status"]);
       const req  = pick(r, ["requested_at","created_at"]);
       const dec  = pick(r, ["decided_at"]);
       const paid = pick(r, ["paid_at"]);
       const tr = document.createElement("tr");
-      tr.dataset.id = id; // used by approve/reject binders
+      tr.dataset.id = id;
       tr.innerHTML = `
         <td>${esc(id)}</td>
         <td>${esc(acct)}</td>
         <td>${esc(user)}</td>
         <td>${fmtInt(pts)}</td>
-        <td>${fmtInt(eur)}</td>
         <td>${esc(st)}</td>
         <td>${esc(req)}</td>
         <td>${esc(dec)}</td>
@@ -398,30 +322,36 @@
     tbody.appendChild(frag);
   }
 
-  // ---------- Actions popover wiring ----------
-  function wireActionPopover() {
-    // Open popover
+  // Inline menu open/close handlers (kept inside table)
+  function wireInlineActionsMenu() {
+    // Toggle this menu; close others
     on(document, "click", (e) => {
       const btn = e.target.closest(".btn-actions");
       if (!btn) return;
       const wrap = btn.closest(".ws-actions");
-      const id = wrap?.dataset?.id || btn?.dataset?.id || btn.closest("tr")?.dataset?.id;
-      if (!id) return;
+      if (!wrap) return;
       e.preventDefault();
-      openPopoverFor(btn, id);
+      $$(".actions-menu").forEach(m => { if (!wrap.contains(m)) m.classList.add("hidden"); });
+      const menu = wrap.querySelector(".actions-menu");
+      if (menu) menu.classList.toggle("hidden");
     });
 
-    // Delegate clicks inside the popover to keep existing binders working
+    // Close on outside click
     on(document, "click", (e) => {
-      const item = e.target.closest("#wd-actions-popover .btn-approve, #wd-actions-popover .btn-reject");
+      if (e.target.closest(".ws-actions")) return;
+      $$(".actions-menu").forEach(m => m.classList.add("hidden"));
+    });
+
+    // Close on ESC
+    on(document, "keydown", (e) => {
+      if (e.key === "Escape") $$(".actions-menu").forEach(m => m.classList.add("hidden"));
+    });
+
+    // Close after any menu item click; actual API calls handled by separate binders
+    on(document, "click", (e) => {
+      const item = e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject");
       if (!item) return;
-      const pop = $("#wd-actions-popover");
-      const id = pop?.dataset?.id;
-      if (!id) return;
-      // Stamp data-id so external binders (approve/reject) can read it
-      item.dataset.id = id;
-      // Let the external binder handle the rest; just hide immediately
-      pop.classList.add("hidden");
+      $$(".actions-menu").forEach(m => m.classList.add("hidden"));
     });
   }
 
@@ -569,7 +499,7 @@
     meta.textContent = (typeof total==="number") ? `${count} / ${total} results` : `${count} results`;
   }
 
-  // ---------- global save hooks (NEW) ----------
+  // ---------- global save hooks ----------
   function wireGlobalSaveListeners() {
     window.addEventListener("loyalty:save-success", () => {
       toast("Saved ✅", { type:"info" });
@@ -585,4 +515,3 @@
   if (document.readyState==="loading") document.addEventListener("DOMContentLoaded", tryAttach);
   else tryAttach();
 })();
-// EOF
