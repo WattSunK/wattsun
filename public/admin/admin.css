@@ -607,7 +607,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
   text-align: left;
   background: transparent;
   border: 0;
-  padding: 9px 12px;
+  padding: 9px 10px;
   font: inherit;
   cursor: pointer;
 }
