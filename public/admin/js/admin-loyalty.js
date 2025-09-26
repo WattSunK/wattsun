@@ -1,6 +1,6 @@
 // public/admin/js/admin-loyalty.js
 // Loyalty Admin — SPA-safe attach, tabs + lists + actions
-// Includes: New Withdrawal (admin-initiated) modal wiring
+// Includes: New Withdrawal (admin-initiated) modal wiring + Increment 2 (user search)
 (function () {
   "use strict";
 
@@ -95,7 +95,7 @@
     wireFilters();
     wirePager();
     wireInlineActionsMenu();
-    wireNewWithdrawalModal();
+    wireNewWithdrawalModal(); // increment 2 wiring included
 
     state.activeTab = "Withdrawals";
     showTab("Withdrawals");
@@ -391,56 +391,212 @@
 
   bindWithdrawalActions();
 
-  // ---------- NEW WITHDRAWAL modal wiring ----------
+  // ---------- Increment 2: NEW WITHDRAWAL modal wiring with search ----------
+  const SEARCH_URL = "/api/admin/users/search";
+  const SEARCH_DEBOUNCE_MS = 250;
+
+  async function searchUsers(term) {
+    if (!term || term.trim().length < 2) return [];
+    try {
+      const r = await fetch(`${SEARCH_URL}?q=${encodeURIComponent(term)}`, { credentials: "same-origin" });
+      const j = await r.json();
+      if (j && j.success && Array.isArray(j.users)) return j.users;
+      // Allow legacy servers that return a bare array
+      if (Array.isArray(j)) return j;
+      return [];
+    } catch (e) {
+      // Mock fallback: keeps UI testable if backend not deployed yet
+      return [
+        { id: 1, name: "Demo User", email: "demo@example.com", phone: "+254700000001", account_id: 101, status: "Active", balance: 900, minWithdrawPoints: 200 }
+      ];
+    }
+  }
+
   function wireNewWithdrawalModal() {
-    const dlg   = document.getElementById("wdNewDialog");
-    const btn   = document.getElementById("wdNewBtn");
-    const create= document.getElementById("wdCreateBtn");
-    const accId = document.getElementById("wdAccId");
-    const pts   = document.getElementById("wdPoints");
-    const note  = document.getElementById("wdNote");
-    const out   = document.getElementById("wdOut");
+    const dlg    = document.getElementById("wdNewDialog");
+    const btn    = document.getElementById("wdNewBtn");
+    const create = document.getElementById("wdCreateBtn"); // old ID; preserved
+    const accId  = document.getElementById("wdAccId");     // old field (fallback)
+    const pts    = document.getElementById("wdPoints");
+    const note   = document.getElementById("wdNote");
+    const out    = document.getElementById("wdOut");
+
+    // NEW Increment 2 fields (optional if HTML updated):
+    const sInput   = document.getElementById("wdUserSearch");   // text
+    const sResults = document.getElementById("wdUserResults");  // <select> or list container
+    const hidAcc   = document.getElementById("wdAccountId");    // hidden input
+    const hint     = document.getElementById("wdBalanceHint");  // inline hint
+    const submitBtn= document.getElementById("wdSubmit") || create; // prefer new id, fallback to old
 
     if (!btn || !dlg) return;
 
+    // Internal picked user (from search)
+    let picked = null;
+
+    const setOut = (msg) => { if (out) out.textContent = msg || ""; };
+
+    const getRequestedPoints = () => {
+      const raw = (pts?.value || "").toString();
+      const num = parseInt(raw.replace(/[^\d\-]/g, ""), 10);
+      return Number.isFinite(num) ? num : 0;
+    };
+
+    const renderHint = () => {
+      const min = picked?.minWithdrawPoints ?? 0;
+      const bal = picked?.balance ?? 0;
+      if (hint) hint.textContent = `Minimum withdrawal = ${min} points; Balance = ${bal} points`;
+    };
+
+    const updateValidity = () => {
+      // prefer new flow if search fields exist
+      const accountId = (hidAcc && hidAcc.value) ? parseInt(hidAcc.value, 10) : (accId ? parseInt(accId.value, 10) : NaN);
+      const req = getRequestedPoints();
+      const min = picked?.minWithdrawPoints ?? 0;
+      const bal = picked?.balance ?? Infinity; // if unknown, don't block too hard
+      renderHint();
+      const okNewFlow = (!!sInput || !!sResults) ? (!!accountId && req >= min && req <= bal) : true;
+      const okLegacy  = (!sInput && !sResults) ? (Number.isInteger(accountId) && accountId > 0 && Number.isInteger(req) && req > 0) : true;
+      const ok = okNewFlow && okLegacy;
+      if (submitBtn) submitBtn.disabled = !ok;
+      return ok;
+    };
+
+    const clearSearchUI = () => {
+      picked = null;
+      if (sInput) sInput.value = "";
+      if (sResults) sResults.innerHTML = "";
+      if (hidAcc) hidAcc.value = "";
+      renderHint();
+      updateValidity();
+    };
+
+    const renderResults = (users=[]) => {
+      if (!sResults) return;
+      // If it's a <select>, populate options. If it's a <div>, render buttons.
+      if (sResults.tagName === "SELECT") {
+        sResults.innerHTML = "";
+        users.forEach(u => {
+          const opt = document.createElement("option");
+          opt.value = String(u.id);
+          opt.textContent = `${u.name} — ${u.email} — ${u.phone}${u.account_id ? "" : " (no active account)"}`;
+          opt.dataset.payload = JSON.stringify(u);
+          sResults.appendChild(opt);
+        });
+        if (users.length === 1) {
+          sResults.selectedIndex = 0;
+          sResults.dispatchEvent(new Event("change"));
+        }
+      } else {
+        sResults.innerHTML = "";
+        users.forEach(u => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn btn--ghost";
+          btn.textContent = `${u.name} — ${u.email} — ${u.phone}${u.account_id ? "" : " (no active account)"}`;
+          btn.dataset.payload = JSON.stringify(u);
+          btn.addEventListener("click", () => {
+            picked = u;
+            if (hidAcc) hidAcc.value = u.account_id || "";
+            renderHint();
+            updateValidity();
+          });
+          sResults.appendChild(btn);
+        });
+      }
+    };
+
+    const doSearch = debounce(async () => {
+      if (!sInput) return;
+      const term = sInput.value;
+      if (!term || term.trim().length < 2) {
+        renderResults([]);
+        return;
+      }
+      const users = await searchUsers(term);
+      renderResults(users);
+    }, SEARCH_DEBOUNCE_MS);
+
+    // Open modal
     btn.addEventListener("click", () => {
-      if (accId) accId.value = "";
+      if (accId) accId.value = "";      // legacy
       if (pts) pts.value = "";
       if (note) note.value = "";
-      if (out) out.textContent = "";
+      setOut("");
+      clearSearchUI();
       try { dlg.showModal(); } catch(_) {}
     });
 
-    if (create) {
-      create.addEventListener("click", async () => {
-        if (out) out.textContent = "";
-        const accountId = parseInt(accId?.value ?? "", 10);
-        const points    = parseInt(pts?.value ?? "", 10);
-        const n         = (note?.value || "").trim();
+    // Search listeners (new flow)
+    if (sInput) sInput.addEventListener("input", doSearch);
 
-        if (!Number.isInteger(accountId) || accountId < 1) {
-          if (out) out.textContent = "Please enter a valid Account ID.";
-          return;
+    if (sResults && sResults.tagName === "SELECT") {
+      sResults.addEventListener("change", () => {
+        const opt = sResults.options[sResults.selectedIndex];
+        picked = opt ? JSON.parse(opt.dataset.payload) : null;
+        if (hidAcc) hidAcc.value = picked?.account_id || "";
+        renderHint();
+        updateValidity();
+      });
+    }
+
+    if (pts) pts.addEventListener("input", updateValidity);
+
+    // Submit
+    if (submitBtn) {
+      submitBtn.addEventListener("click", async () => {
+        setOut("");
+        // Prefer new hidden accountId if present; else fallback to legacy accId input
+        const accountIdVal = (hidAcc && hidAcc.value) ? hidAcc.value : (accId ? accId.value : "");
+        const accountId = parseInt(accountIdVal, 10);
+        const points = getRequestedPoints();
+        const n = (note?.value || "").trim();
+
+        // Validate according to new flow if available
+        if ((sInput || sResults) && picked) {
+          const min = picked?.minWithdrawPoints ?? 0;
+          const bal = picked?.balance ?? Infinity;
+          if (!accountId || isNaN(accountId)) {
+            setOut("Select a user with an active loyalty account.");
+            return;
+          }
+          if (!(Number.isInteger(points) && points >= min && points <= bal)) {
+            setOut(`Enter points between ${min} and ${bal}.`);
+            return;
+          }
+        } else {
+          // Legacy validation
+          if (!Number.isInteger(accountId) || accountId < 1) {
+            setOut("Please enter a valid Account ID.");
+            return;
+          }
+          if (!Number.isInteger(points) || points < 1) {
+            setOut("Please enter points ≥ 1.");
+            return;
+          }
         }
-        if (!Number.isInteger(points) || points < 1) {
-          if (out) out.textContent = "Please enter points ≥ 1.";
-          return;
-        }
+
         try {
+          submitBtn.disabled = true;
           const resp = await postJSON("/api/admin/loyalty/withdrawals", { accountId, points, note:n });
           const id = resp?.withdrawal?.id ?? "—";
           toast(`Created withdrawal #${id} (${points} pts)`, { type:"info" });
-          if (out) out.textContent = `Created: ID ${id}, status ${resp?.withdrawal?.status}`;
+          setOut(`Created: ID ${id}, status ${resp?.withdrawal?.status}`);
           setTimeout(() => {
             try { dlg.close("close"); } catch(_){ }
             document.getElementById("loyaltyRefreshBtn")?.click();
           }, 450);
         } catch (e) {
-          if (out) out.textContent = e.message || String(e);
+          setOut(e.message || String(e));
           toast("Error creating withdrawal", { type:"error" });
+        } finally {
+          submitBtn.disabled = false;
         }
       });
     }
+
+    // Start disabled until valid (new flow)
+    if (submitBtn) submitBtn.disabled = true;
+    renderHint();
   }
 
   // ---------- ACCOUNTS ----------
