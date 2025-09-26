@@ -18,34 +18,38 @@
   /* ---------------------------- Modal markup ---------------------------- */
 
   const modalHtml = `
-  <div id="ws-paid-modal" class="fixed inset-0 z-[1000] hidden">
-    <div class="absolute inset-0 bg-black/40 ws-paid-backdrop"></div>
-    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-xl w-[min(92vw,520px)]">
-      <div class="px-4 py-3 border-b flex items-center justify-between">
-        <h3 class="text-base font-semibold">Mark Withdrawal as Paid</h3>
-        <button type="button" class="ws-paid-close text-gray-500 hover:text-gray-800 px-2" aria-label="Close">✕</button>
-      </div>
-      <form class="ws-paid-form">
-        <div class="p-4 space-y-4">
-          <input type="hidden" name="withdrawalId" />
-          <label class="block">
-            <span class="block text-sm font-medium mb-1">Payment reference</span>
-            <input type="text" name="payoutRef" class="block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring" placeholder="e.g. TX-ABC-123" />
-          </label>
-          <label class="block">
-            <span class="block text-sm font-medium mb-1">Paid date</span>
-            <input type="datetime-local" name="paidAt" class="block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring" />
-          </label>
-          <p class="ws-paid-error text-sm text-red-600 hidden"></p>
-        </div>
-        <div class="px-4 py-3 border-t flex justify-end gap-2">
-          <button type="button" class="ws-paid-cancel px-4 py-2 rounded-md border bg-white hover:bg-gray-50">Cancel</button>
-          <button type="submit" class="ws-paid-submit px-4 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60">Mark Paid</button>
-        </div>
-      </form>
+<div id="ws-paid-modal" class="ws-modal hidden" role="dialog" aria-modal="true" aria-labelledby="ws-paid-title">
+  <div class="ws-modal-content">
+    <div class="ws-modal-header">
+      <h3 id="ws-paid-title">Mark Withdrawal as Paid</h3>
+      <button type="button" class="ws-paid-close" aria-label="Close">✕</button>
     </div>
+
+    <form class="ws-paid-form" novalidate>
+      <div class="ws-modal-body">
+        <input type="hidden" name="withdrawalId" />
+        <label>
+          <span>Payment reference</span>
+          <input type="text" name="payoutRef" placeholder="e.g. TX-ABC-123" />
+        </label>
+
+        <label>
+          <span>Paid date</span>
+          <input type="datetime-local" name="paidAt" />
+        </label>
+
+        <p class="ws-paid-error hidden" aria-live="polite"></p>
+      </div>
+
+      <div class="ws-modal-footer">
+        <button type="button" class="ws-paid-cancel ws-btn-cancel">Cancel</button>
+        <button type="submit" class="ws-paid-submit ws-btn-primary">Mark Paid</button>
+      </div>
+    </form>
   </div>
-  `.trim();
+</div>
+`.trim();
+
 
   const mount = document.createElement("div");
   mount.innerHTML = modalHtml;
