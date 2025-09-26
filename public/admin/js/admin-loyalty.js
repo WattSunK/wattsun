@@ -126,6 +126,9 @@
     setShown(els.tabAccounts,    name==="Accounts");
     setShown(els.tabLedger,      name==="Ledger");
     setShown(els.tabNotifs,      name==="Notifications");
+    // Show the "New Withdrawal" button only on Withdrawals tab
+     const newBtn = document.getElementById("wdNewBtn");
+     if (newBtn) newBtn.style.display = (name === "Withdrawals") ? "" : "none";
 
     [els.tabWithdrawalsBtn, els.tabAccountsBtn, els.tabLedgerBtn, els.tabNotifsBtn]
       .forEach(btn => btn && btn.classList.remove("btn--active"));
@@ -247,45 +250,63 @@
   }
 
   function bindWithdrawalActions(){
-    // Approve
-    on(document, "click", async (e)=>{
-      const btn = e.target.closest(".btn-approve"); if (!btn) return;
-      e.preventDefault();
-      try{
-        const id = btn.dataset.id; await postJSON(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/approve`);
-        toast(`Withdrawal #${id} approved`, {type:"info"});
-        refreshActiveTab();
-      }catch(err){ toast(err.message||"Approve failed", {type:"error"}); }
-    });
-    // Reject
-    on(document, "click", async (e)=>{
-      const btn = e.target.closest(".btn-reject"); if (!btn) return;
-      e.preventDefault();
-      try{
-        const id = btn.dataset.id; await postJSON(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/reject`);
-        toast(`Withdrawal #${id} rejected`, {type:"info"});
-        refreshActiveTab();
-      }catch(err){ toast(err.message||"Reject failed", {type:"error"}); }
-    });
-    // Mark Paid
-    on(document, "click", async (e)=>{
-      const btn = e.target.closest(".btn-mark-paid"); if (!btn) return;
-      e.preventDefault();
-      try{
-        const id = btn.dataset.id; await postJSON(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/paid`);
-        toast(`Withdrawal #${id} paid`, {type:"info"});
-        refreshActiveTab();
-      }catch(err){ toast(err.message||"Mark Paid failed", {type:"error"}); }
-    });
+  // Approve (PATCH)
+  on(document, "click", async (e)=>{
+    const btn = e.target.closest(".btn-approve"); if (!btn) return;
+    e.preventDefault();
+    try{
+      const id = btn.dataset.id;
+      const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/approve`, {
+        method: "PATCH", credentials: "include"
+      });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+      toast(`Withdrawal #${id} approved`, {type:"info"});
+      refreshActiveTab();
+    }catch(err){ toast(err.message||"Approve failed", {type:"error"}); }
+  });
 
-    // Close any menu after a menu item click (lets action run first)
-    document.addEventListener("click", (e) => {
-      const item = e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject, .actions-menu .btn-mark-paid");
-      if (!item) return;
-      setTimeout(() => { document.querySelectorAll(".actions-menu").forEach(m => m.classList.add("hidden")); }, 0);
-    });
-  }
+  // Reject (PATCH)
+  on(document, "click", async (e)=>{
+    const btn = e.target.closest(".btn-reject"); if (!btn) return;
+    e.preventDefault();
+    try{
+      const id = btn.dataset.id;
+      const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/reject`, {
+        method: "PATCH", credentials: "include"
+      });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+      toast(`Withdrawal #${id} rejected`, {type:"info"});
+      refreshActiveTab();
+    }catch(err){ toast(err.message||"Reject failed", {type:"error"}); }
+  });
 
+  // Mark Paid (PATCH to /mark-paid)
+  on(document, "click", async (e)=>{
+    const btn = e.target.closest(".btn-mark-paid"); if (!btn) return;
+    e.preventDefault();
+    try{
+      const id = btn.dataset.id;
+      const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/mark-paid`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payoutRef: "" }) // optional; modal can supply later
+      });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+      toast(`Withdrawal #${id} marked as paid`, {type:"info"});
+      refreshActiveTab();
+    }catch(err){ toast(err.message||"Mark Paid failed", {type:"error"}); }
+  });
+
+  // Close any menu after an item click (lets action run first)
+  document.addEventListener("click", (e) => {
+    const item = e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject, .actions-menu .btn-mark-paid");
+    if (!item) return;
+    setTimeout(() => { document.querySelectorAll(".actions-menu").forEach(m => m.classList.add("hidden")); }, 0);
+  });
+}
   function renderWithdrawalsRows(tbody, rows){
     if (!tbody) return; tbody.innerHTML = "";
     if (!rows?.length){ tbody.appendChild(emptyRow(9)); return; }
