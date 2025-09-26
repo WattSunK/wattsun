@@ -1,8 +1,5 @@
 /**
- * Admin — Withdrawals: Mark Paid modal + binder (Phase 5.4)
- * - Opens on .btn-mark-paid (delegated at document level)
- * - Sends PATCH /mark-paid with { payoutRef, paidAt }
- * - Emits loyalty:save-success / loyalty:save-error
+ * Admin — Withdrawals: Mark Paid modal + binder (robust, with hard refresh)
  */
 (function () {
   "use strict";
@@ -11,7 +8,7 @@
   const html = `
     <div id="paidModal" class="ws-modal hidden fixed inset-0 z-50">
       <div class="ws-backdrop absolute inset-0 bg-black/50"></div>
-      <div class="ws-dialog absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl w-[min(92vw,560px)]">
+      <div class="ws-dialog absolute left-50% top-50% -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl w-[min(92vw,560px)]">
         <div class="ws-header px-4 py-3 border-b flex items-center justify-between">
           <h3 class="text-base font-semibold">Mark Withdrawal as Paid</h3>
           <button type="button" class="ws-close px-2 py-1 text-gray-500 hover:text-gray-800" aria-label="Close">✕</button>
@@ -54,11 +51,10 @@
   const back    = modal.querySelector(".ws-backdrop");
 
   function nowLocalISO() {
-    // yyyy-MM-ddTHH:mm (no seconds) in local time for input[type=datetime-local]
     const d = new Date();
     d.setSeconds(0,0);
-    const pad = (n)=> String(n).padStart(2,"0");
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const p = (n)=> String(n).padStart(2,"0");
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
   }
 
   function show(id) {
@@ -82,7 +78,7 @@
     return null;
   }
 
-  // Open on any .btn-mark-paid
+  // Open modal on any .btn-mark-paid (delegated; capture to beat menu auto-close)
   document.addEventListener("click", (ev) => {
     const btn = ev.target.closest(".btn-mark-paid");
     if (!btn) return;
@@ -93,9 +89,24 @@
     }
     btn.dataset.id = id;
     show(id);
-  }, true); // capture to beat dropdown auto-close
+  }, true);
 
-  // Submit -> PATCH /mark-paid
+  async function patchMarkPaid(id, payload){
+    const resp = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/mark-paid`, {
+      method:"PATCH",
+      headers:{ "Content-Type":"application/json" },
+      credentials:"include",
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json().catch(()=> ({}));
+    if (!resp.ok || data?.success === false) {
+      const msg = data?.error?.message || `HTTP ${resp.status}`;
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  // Submit -> PATCH /mark-paid + hard refreshes
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const id = idInp.value.trim();
@@ -106,34 +117,39 @@
     errBox.classList.add("hidden"); errBox.textContent = "";
 
     try{
-      const resp = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/mark-paid`,{
-        method:"PATCH",
-        headers:{ "Content-Type":"application/json" },
-        credentials:"include",
-        body: JSON.stringify({ payoutRef, paidAt })
-      });
-      const data = await resp.json().catch(()=> ({}));
-      if (!resp.ok || data?.success===false){
-        const msg = data?.error?.message || `HTTP ${resp.status}`;
-        throw new Error(msg);
-      }
+      const data = await patchMarkPaid(id, { payoutRef, paidAt });
 
+      // emit global success (your admin-loyalty.js already refreshes active tab)
       window.dispatchEvent(new CustomEvent("loyalty:save-success", {
         detail: { action:"mark-paid", id, data }
       }));
 
-      // optional signals
+      // force background refreshes for safety (even if some listener is missing)
       try {
-        localStorage.setItem("loyaltyUpdatedAt", String(Date.now()));
-        window.postMessage({ type:"loyalty-updated" }, "*");
-      } catch(_) {}
+        const api = window.loyaltyAdmin || {};
+        // Always reload current list (Withdrawals)
+        api.loadWithdrawals && api.loadWithdrawals({ resetPage:false });
+
+        // Respect server hint, else refresh all three
+        const r = data?.refresh || {};
+        if (r.accounts && api.loadAccounts)      api.loadAccounts({ resetPage:false });
+        if (r.ledger   && api.loadLedger)        api.loadLedger();
+        if (r.notifications && api.loadNotifications) api.loadNotifications();
+
+        // If no hints present, refresh all anyway
+        if (!("refresh" in data)) {
+          api.loadAccounts && api.loadAccounts({ resetPage:false });
+          api.loadLedger && api.loadLedger();
+          api.loadNotifications && api.loadNotifications();
+        }
+      } catch {}
 
       hide();
     }catch(err){
       errBox.textContent = err?.message || "Unknown error";
       errBox.classList.remove("hidden");
       window.dispatchEvent(new CustomEvent("loyalty:save-error", {
-        detail: { action:"mark-paid", id, message: err?.message || "Mark Paid failed" }
+        detail: { action:"mark-paid", id: idInp.value.trim(), message: err?.message || "Mark Paid failed" }
       }));
     }finally{
       btnSub.disabled = false;
