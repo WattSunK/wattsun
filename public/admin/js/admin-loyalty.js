@@ -347,12 +347,13 @@
       if (e.key === "Escape") $$(".actions-menu").forEach(m => m.classList.add("hidden"));
     });
 
-    // Close after any menu item click; actual API calls handled by separate binders
-    on(document, "click", (e) => {
-      const item = e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject");
-      if (!item) return;
-      $$(".actions-menu").forEach(m => m.classList.add("hidden"));
-    });
+    // Close after any menu item click; delay so approve/reject binders receive the click first
+document.addEventListener("click", (e) => {
+  const item = e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject");
+  if (!item) return;
+  setTimeout(() => { document.querySelectorAll(".actions-menu").forEach(m => m.classList.add("hidden")); }, 0);
+});
+
   }
 
   // ---------- ACCOUNTS ----------

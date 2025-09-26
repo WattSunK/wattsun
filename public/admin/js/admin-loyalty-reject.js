@@ -1,18 +1,13 @@
 /**
- * Admin — Withdrawals: Reject modal + binder (Phase 5.4, Increment 2)
- * - Adds a lightweight modal (inserted at runtime) to capture a rejection reason
- * - Binds clicks on `.btn-reject` inside `#withdrawalsTable`
- * - Calls PATCH /api/admin/loyalty/withdrawals/:id/reject with { note }
- * - Emits `loyalty:save-success` / `loyalty:save-error` for your existing toasts + auto-refresh
- *
- * Zero dependencies. Safe to include alongside admin-loyalty.js and admin-loyalty-approve.js
+ * Admin — Withdrawals: Reject modal + binder (robust delegation)
+ * - Opens a modal on .btn-reject (delegated at document level)
+ * - Submits PATCH /reject with { note }
+ * - Emits loyalty:save-success / loyalty:save-error
  */
-
 (function () {
-  const table = document.querySelector("#withdrawalsTable");
-  if (!table) return;
+  "use strict";
 
-  // ---------- Modal markup ----------
+  // ---------- Modal markup (injected once) ----------
   const modalHtml = `
     <div id="rejectModal" class="ws-modal hidden fixed inset-0 z-50">
       <div class="ws-backdrop absolute inset-0 bg-black/50"></div>
@@ -42,7 +37,6 @@
     </div>
   `.trim();
 
-  // ---------- Modal injection ----------
   const container = document.createElement("div");
   container.innerHTML = modalHtml;
   document.body.appendChild(container);
@@ -63,7 +57,6 @@
     errBox.textContent = "";
     errBox.classList.add("hidden");
     modal.classList.remove("hidden");
-    // focus textarea on next frame
     setTimeout(() => inputNote.focus(), 0);
     document.addEventListener("keydown", escHandler, true);
   }
@@ -71,33 +64,45 @@
     modal.classList.add("hidden");
     document.removeEventListener("keydown", escHandler, true);
   }
-  function escHandler(e) {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      hide();
-    }
-  }
+  function escHandler(e) { if (e.key === "Escape") { e.preventDefault(); hide(); } }
 
-  // ---------- Binder: open modal on .btn-reject ----------
-  table.addEventListener("click", (ev) => {
-    const btn = ev.target.closest(".btn-reject");
-    if (!btn) return;
-    const row = btn.closest("tr");
-    const id = row?.dataset?.id;
-    if (!id) return;
-    show(id);
-  });
-
-  // ---------- Modal controls ----------
   [btnClose, btnCancel, backdrop].forEach(el => el && el.addEventListener("click", hide));
 
-  // ---------- Submit handler ----------
+  // Robust id resolver
+  function getIdFrom(el) {
+    if (!el) return null;
+    if (el.dataset && el.dataset.id) return el.dataset.id;
+    const wrap = el.closest(".ws-actions");
+    if (wrap && wrap.dataset && wrap.dataset.id) return wrap.dataset.id;
+    const tr = el.closest("tr");
+    if (tr && tr.dataset && tr.dataset.id) return tr.dataset.id;
+    return null;
+  }
+
+  // Open modal on any .btn-reject (delegated at document)
+  document.addEventListener("click", (ev) => {
+    const btn = ev.target.closest(".btn-reject");
+    if (!btn) return;
+
+    const id = getIdFrom(btn);
+    if (!id) {
+      window.dispatchEvent(new CustomEvent("loyalty:save-error", {
+        detail: { action: "reject", message: "Missing withdrawal id" }
+      }));
+      return;
+    }
+
+    // If this came from the floating dropdown, ensure data-id is present
+    btn.dataset.id = id;
+    show(id);
+  }, true); // capture to run before menu auto-close
+
+  // Submit -> PATCH /reject
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const id = inputId.value.trim();
     const note = inputNote.value.trim();
 
-    // Basic UX guard
     btnSubmit.disabled = true;
     errBox.classList.add("hidden");
     errBox.textContent = "";
@@ -110,13 +115,11 @@
         body: JSON.stringify({ note })
       });
       const data = await resp.json().catch(() => ({}));
-
-      if (!resp.ok || !data?.success) {
+      if (!resp.ok || data?.success === false) {
         const msg = data?.error?.message || `HTTP ${resp.status}`;
         throw new Error(msg);
       }
 
-      // Success: emit existing app events (toasts + refresh already wired)
       window.dispatchEvent(new CustomEvent("loyalty:save-success", {
         detail: { action: "reject", id, data }
       }));
@@ -128,7 +131,6 @@
 
       hide();
     } catch (err) {
-      // Error: show inline + emit error event for global toast
       const message = err?.message || "Unknown error";
       errBox.textContent = message;
       errBox.classList.remove("hidden");
@@ -140,5 +142,4 @@
       btnSubmit.disabled = false;
     }
   });
-
 })();
