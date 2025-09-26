@@ -1,11 +1,7 @@
 /**
  * routes/admin-loyalty-withdrawals.js (compat, sanitized)
- * - Option A: decision_note / payout_ref
- * - Legacy-compatible:
- *     withdrawals(points/eur),
- *     loyalty_ledger(kind, points_delta, note [, account_id NOT NULL]),
- *     notifications_queue(kind, payload, status, user_id, email)
- * - Admin endpoints: GET list + PATCH approve/reject/mark-paid
+ * Option A fields: decision_note / payout_ref
+ * Ledger/Notifications are backward-compatible with legacy shapes.
  */
 
 const path = require("path");
@@ -16,7 +12,9 @@ const router = express.Router();
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
 
-/* -------------------------- Core utilities -------------------------- */
+/* ------------------------------------------------------------------ */
+/* Basic DB helpers                                                    */
+/* ------------------------------------------------------------------ */
 
 function dbPath() {
   const ROOT = process.env.ROOT || process.cwd();
@@ -26,62 +24,33 @@ function openDb() { return new sqlite3.Database(dbPath()); }
 const nowISO = () => new Date().toISOString();
 const adminId = (req) => req?.session?.user?.id || 0;
 
-function q(db, sql, p = []) {
-  return new Promise((res, rej) => db.get(sql, p, (e, r) => e ? rej(e) : res(r || null)));
-}
-function all(db, sql, p = []) {
-  return new Promise((res, rej) => db.all(sql, p, (e, r) => e ? rej(e) : res(r || [])));
-}
-function run(db, sql, p = []) {
-  return new Promise((res, rej) => db.run(sql, p, function (e) { e ? rej(e) : res(true); }));
-}
-function lastId(db, sql, p = []) {
-  return new Promise((res, rej) => db.run(sql, p, function (e) { e ? rej(e) : res(this.lastID); }));
-}
-function tableCols(db, table) {
-  return new Promise((res, rej) => db.all(`PRAGMA table_info(${table});`, (e, rows) => e ? rej(e) : res(rows.map(r => r.name))));
-}
+function q(db, sql, p = []) { return new Promise((res, rej) => db.get(sql, p, (e, r) => e ? rej(e) : res(r || null))); }
+function all(db, sql, p = []) { return new Promise((res, rej) => db.all(sql, p, (e, r) => e ? rej(e) : res(r || []))); }
+function run(db, sql, p = []) { return new Promise((res, rej) => db.run(sql, p, function (e) { e ? rej(e) : res(this.changes || 0); })); }
+function lastId(db, sql, p = []) { return new Promise((res, rej) => db.run(sql, p, function (e) { e ? rej(e) : res(this.lastID); })); }
+function tableCols(db, table) { return new Promise((res, rej) => db.all(`PRAGMA table_info(${table});`, (e, r) => e ? rej(e) : res(r.map(c => c.name)))); }
 async function columnInfo(db, table) {
-  const rows = await new Promise((resolve, reject) =>
-    db.all(`PRAGMA table_info(${table});`, (e, r) => e ? reject(e) : resolve(r || []))
-  );
-  const map = {};
-  rows.forEach(r => { map[r.name] = { notnull: r.notnull, dflt: r.dflt_value, type: r.type }; });
-  return map;
+  const rows = await new Promise((resolve, reject) => db.all(`PRAGMA table_info(${table});`, (e, r) => e ? reject(e) : resolve(r || [])));
+  const map = {}; rows.forEach(r => map[r.name] = { notnull: r.notnull, dflt: r.dflt_value, type: r.type }); return map;
 }
-async function tableExists(db, name) {
-  const row = await q(db, `SELECT name FROM sqlite_master WHERE type='table' AND name=?`, [name]);
-  return !!row;
-}
+async function tableExists(db, name) { return !!(await q(db, `SELECT name FROM sqlite_master WHERE type='table' AND name=?`, [name])); }
 
-/* --------------------------- Data helpers --------------------------- */
+/* ------------------------------------------------------------------ */
+/* Domain helpers                                                      */
+/* ------------------------------------------------------------------ */
 
-async function getWithdrawal(db, id) {
-  return q(db, `SELECT * FROM withdrawals WHERE id=?`, [id]);
-}
+async function getWithdrawal(db, id) { return q(db, `SELECT * FROM withdrawals WHERE id=?`, [id]); }
 
-// derive a canonical amount for notifications; legacy tables use points/eur
 function deriveAmount(w) {
-  if ("amount_cents" in w && Number.isInteger(w.amount_cents)) {
-    return { amountCents: Math.abs(w.amount_cents), points: null, eur: null };
-  }
+  if ("amount_cents" in w && Number.isInteger(w.amount_cents)) return { amountCents: Math.abs(w.amount_cents), points: null, eur: null };
   const pts = Number.isInteger(w.points) ? Math.abs(w.points) : null;
   const eur = Number.isInteger(w.eur) ? Math.abs(w.eur) : null;
   const amountCents = (eur != null) ? eur : (pts != null ? pts : 0);
   return { amountCents, points: pts, eur };
 }
 
-// Detect available columns on loyalty_ledger / notifications_queue
-async function ledgerSupports(db) {
-  const cols = await tableCols(db, "loyalty_ledger");
-  return { cols, has: (c) => cols.includes(c) };
-}
-async function notificationsSupports(db) {
-  const cols = await tableCols(db, "notifications_queue");
-  return { cols, has: (c) => cols.includes(c) };
-}
-
-/* ----------------------- Ledger + notifications ---------------------- */
+async function ledgerSupports(db) { const cols = await tableCols(db, "loyalty_ledger"); return { cols, has: c => cols.includes(c) }; }
+async function notificationsSupports(db) { const cols = await tableCols(db, "notifications_queue"); return { cols, has: c => cols.includes(c) }; }
 
 function mapEntryTypeToKind(entryType) {
   switch (entryType) {
@@ -94,124 +63,99 @@ function mapEntryTypeToKind(entryType) {
 
 async function ledgerExists(db, refId, entryType) {
   const sup = await ledgerSupports(db);
-
-  // Modern shape
   if (sup.has("entry_type") && sup.has("ref_id") && sup.has("ref_type")) {
-    const row = await q(db,
-      `SELECT id FROM loyalty_ledger
-       WHERE ref_type='WITHDRAWAL' AND ref_id=? AND entry_type=?`,
+    return !!(await q(db,
+      `SELECT id FROM loyalty_ledger WHERE ref_type='WITHDRAWAL' AND ref_id=? AND entry_type=?`,
       [refId, entryType]
-    );
-    return !!row;
+    ));
   }
-
-  // Legacy shape: kind/note; best-effort dedupe via note “ref:ID”
   if (sup.has("kind") && sup.has("note")) {
-    const kind = mapEntryTypeToKind(entryType);
     try {
-      const row = await q(db,
-        `SELECT id FROM loyalty_ledger WHERE kind=? AND note LIKE ?`,
-        [kind, `%ref:${refId}%`]
-      );
-      return !!row;
-    } catch {
-      return false; // don't block inserts on uncertainty
-    }
+      return !!(await q(db, `SELECT id FROM loyalty_ledger WHERE kind=? AND note LIKE ?`,
+        [mapEntryTypeToKind(entryType), `%ref:${refId}%`]));
+    } catch { return false; }
   }
-
   return false;
 }
 
-/* --------- Surgical inserts: account resolver for NOT NULL ---------- */
-
+/* Resolve an account id for legacy NOT NULL account_id on ledger rows */
 async function resolveAccountId(db, w) {
   if (w && w.account_id != null) return w.account_id;
 
-  const candidates = ["loyalty_accounts", "accounts", "account"];
-  for (const table of candidates) {
-    if (await tableExists(db, table)) {
-      const cols = await tableCols(db, table);
+  const tables = ["loyalty_accounts", "accounts", "account"];
+  for (const t of tables) {
+    if (await tableExists(db, t)) {
+      const cols = await tableCols(db, t);
       if (!cols.includes("user_id")) continue;
-      const hasPrimary = cols.includes("is_primary");
-      try {
-        if (hasPrimary) {
-          const r = await q(db, `SELECT id FROM ${table} WHERE user_id=? ORDER BY is_primary DESC, id ASC LIMIT 1`, [w.user_id]);
-          if (r?.id != null) return r.id;
-        }
-        const r2 = await q(db, `SELECT id FROM ${table} WHERE user_id=? ORDER BY id ASC LIMIT 1`, [w.user_id]);
-        if (r2?.id != null) return r2.id;
-      } catch {/* ignore */}
+      const preferPrimary = cols.includes("is_primary");
+      if (preferPrimary) {
+        const r = await q(db, `SELECT id FROM ${t} WHERE user_id=? ORDER BY is_primary DESC, id ASC LIMIT 1`, [w.user_id]);
+        if (r?.id != null) return r.id;
+      }
+      const r2 = await q(db, `SELECT id FROM ${t} WHERE user_id=? ORDER BY id ASC LIMIT 1`, [w.user_id]);
+      if (r2?.id != null) return r2.id;
     }
   }
   if (await tableExists(db, "user_accounts")) {
-    const cols = await tableCols(db, "user_accounts");
-    if (cols.includes("user_id") && cols.includes("account_id")) {
-      const hasPrimary = cols.includes("is_primary");
-      try {
-        if (hasPrimary) {
-          const r3 = await q(db, `SELECT account_id AS id FROM user_accounts WHERE user_id=? ORDER BY is_primary DESC, account_id ASC LIMIT 1`, [w.user_id]);
-          if (r3?.id != null) return r3.id;
-        }
-        const r4 = await q(db, `SELECT account_id AS id FROM user_accounts WHERE user_id=? ORDER BY account_id ASC LIMIT 1`, [w.user_id]);
-        if (r4?.id != null) return r4.id;
-      } catch {/* ignore */}
-    }
+    const r3 = await q(db, `SELECT account_id AS id FROM user_accounts WHERE user_id=? ORDER BY is_primary DESC, account_id ASC LIMIT 1`, [w.user_id]);
+    if (r3?.id != null) return r3.id;
+    const r4 = await q(db, `SELECT account_id AS id FROM user_accounts WHERE user_id=? ORDER BY account_id ASC LIMIT 1`, [w.user_id]);
+    if (r4?.id != null) return r4.id;
   }
-  return 0; // last resort for NOT NULL schemas
+  return 0;
 }
 
-/* ------------------ Accounts roll-up (best-effort) ------------------ */
+/* ---------------------- Accounts roll-up (safe) --------------------- */
 
-/**
- * Find an accounts table (loyalty_accounts | accounts | account) and return {name, cols}
- */
 async function findAccountsTable(db) {
-  const names = ["loyalty_accounts", "accounts", "account"];
-  for (const name of names) {
-    if (await tableExists(db, name)) {
-      const cols = await tableCols(db, name);
-      return { name, cols };
-    }
+  for (const name of ["loyalty_accounts", "accounts", "account"]) {
+    if (await tableExists(db, name)) return { name, cols: await tableCols(db, name) };
   }
   return null;
 }
 
 /**
- * Safe roll-up for Mark Paid:
- *  - If 'paid' exists, increment by 1 (payout count).
- *  - If 'balance' exists, decrement only when there is enough balance:
- *      balance = CASE WHEN balance >= ? THEN balance - ? ELSE balance END
- * This avoids negative balances on seeded data while still bumping the payout count.
+ * Safe roll-up on Mark Paid:
+ *  - UPDATE ... WHERE id = ? OR user_id = ?      (covers both keying styles)
+ *  - paid     += 1   (if column exists)
+ *  - balance  -= pts (only if balance >= pts; avoids negative seed balances)
+ * Returns {table, changed}.
  */
-async function applyPaidRollup(db, accountId, points) {
+async function applyPaidRollup(db, accountId, userId, points) {
   const t = await findAccountsTable(db);
-  if (!t || !accountId) return;
+  if (!t) return { table: null, changed: 0 };
 
-  const sets = [];
-  const vals = [];
+  const setClauses = [];
+  const params = [];
 
-  if (t.cols.includes("paid")) {
-    sets.push(`paid = paid + 1`);
-  }
+  if (t.cols.includes("paid")) setClauses.push(`paid = paid + 1`);
   if (t.cols.includes("balance") && Number.isFinite(points) && points > 0) {
-    sets.push(`balance = CASE WHEN balance >= ? THEN balance - ? ELSE balance END`);
-    vals.push(points, points);
+    setClauses.push(`balance = CASE WHEN balance >= ? THEN balance - ? ELSE balance END`);
+    params.push(points, points);
   }
 
-  if (!sets.length) return; // nothing to update
+  if (!setClauses.length) return { table: t.name, changed: 0 };
 
-  const sql = `UPDATE ${t.name} SET ${sets.join(", ")} WHERE id = ?`;
-  vals.push(accountId);
-  await run(db, sql, vals);
+  // WHERE by id or user_id (whichever matches)
+  const whereParts = [];
+  const whereParams = [];
+  if (t.cols.includes("id"))       { whereParts.push(`id = ?`);       whereParams.push(accountId); }
+  if (t.cols.includes("user_id"))  { whereParts.push(`user_id = ?`);  whereParams.push(userId); }
+
+  if (!whereParts.length) return { table: t.name, changed: 0 };
+
+  const sql = `UPDATE ${t.name} SET ${setClauses.join(", ")} WHERE ${whereParts.join(" OR ")}`;
+  const changed = await run(db, sql, [...params, ...whereParams]);
+
+  return { table: t.name, changed };
 }
 
-/* --------------------- Insert ledger (modern/legacy) --------------------- */
+/* ---------------- Ledger insert (modern + legacy support) ----------- */
 
 async function insertLedger(db, w, refId, entryType, note) {
   const sup = await ledgerSupports(db);
   const { amountCents } = deriveAmount(w);
 
-  // Modern shape
   if (sup.has("user_id") && sup.has("account_id") &&
       sup.has("ref_type") && sup.has("ref_id") &&
       sup.has("entry_type") && sup.has("amount_cents")) {
@@ -222,45 +166,34 @@ async function insertLedger(db, w, refId, entryType, note) {
     );
   }
 
-  // Legacy shape (your DB): kind/points_delta/note/(optional account_id, admin_user_id)
-  if (sup.has("kind") || sup.has("points_delta") || sup.has("note")) {
-    const cols = [];
-    const vals = [];
-    const ph   = [];
+  // Legacy: kind/points_delta/note[/account_id/admin_user_id]
+  const cols = await tableCols(db, "loyalty_ledger");
+  const info = await columnInfo(db, "loyalty_ledger");
 
+  if (cols.length) {
+    const c = [], p = [], qmarks = [];
     const kind = mapEntryTypeToKind(entryType);
     const legacyNote = `${note || entryType} (ref:${refId})`;
 
-    // NOT NULL awareness for account_id
-    const info = await columnInfo(db, "loyalty_ledger");
-
-    if (sup.has("kind"))         { cols.push("kind");         vals.push(kind);               ph.push("?"); }
-
-    // Always try to include account_id for linking (even if column is nullable)
-    if (sup.has("account_id")) {
+    if (cols.includes("kind"))            { c.push("kind");          p.push(kind);                 qmarks.push("?"); }
+    if (cols.includes("account_id")) {
       const mustNotNull = info.account_id?.notnull === 1;
       const resolved = (w.account_id != null) ? w.account_id : await resolveAccountId(db, w);
-      if (mustNotNull || resolved != null) {
-        cols.push("account_id"); vals.push(resolved ?? 0);     ph.push("?");
-      }
+      if (mustNotNull || resolved != null) { c.push("account_id"); p.push(resolved ?? 0); qmarks.push("?"); }
     }
 
-    // Legacy delta: only WITHDRAWAL_PAID reduces balance
     let delta = 0;
     if (entryType === "WITHDRAWAL_PAID") {
       const pts = Number.isFinite(+w.points) ? Math.abs(+w.points) : 0;
       delta = -pts;
     }
+    if (cols.includes("points_delta"))    { c.push("points_delta");  p.push(delta);                qmarks.push("?"); }
+    if (cols.includes("note"))            { c.push("note");          p.push(legacyNote);           qmarks.push("?"); }
+    if (cols.includes("admin_user_id"))   { c.push("admin_user_id"); p.push(null);                 qmarks.push("?"); }
 
-    if (sup.has("points_delta")) { cols.push("points_delta"); vals.push(delta);              ph.push("?"); }
-    if (sup.has("note"))         { cols.push("note");         vals.push(legacyNote);         ph.push("?"); }
-    if (sup.has("admin_user_id")){ cols.push("admin_user_id");vals.push(null);               ph.push("?"); }
-
-    const sql = `INSERT INTO loyalty_ledger (${cols.join(",")}) VALUES (${ph.join(",")})`;
-    return lastId(db, sql, vals);
+    if (c.length) return lastId(db, `INSERT INTO loyalty_ledger (${c.join(",")}) VALUES (${qmarks.join(",")})`, p);
   }
 
-  // Absolute fallback
   return lastId(db, `INSERT INTO loyalty_ledger (note) VALUES (?)`, [note || entryType]);
 }
 
@@ -276,7 +209,6 @@ async function getUserContact(db, userId) {
 async function enqueueNotification(db, userId, template, toEmail, payload) {
   const sup = await notificationsSupports(db);
 
-  // Modern shape (template/payload_json)
   if (sup.has("template") && sup.has("payload_json")) {
     return lastId(db,
       `INSERT INTO notifications_queue (user_id, channel, template, "to", payload_json, status)
@@ -285,37 +217,39 @@ async function enqueueNotification(db, userId, template, toEmail, payload) {
     );
   }
 
-  // Legacy shape (your DB): kind/user_id/email/payload/status
   if (sup.has("kind") && sup.has("payload")) {
     const cols = ["kind", "user_id", "email", "payload", "status"];
     const vals = [template, userId || null, toEmail || null, JSON.stringify(payload || {}), "Queued"];
     const allCols = await tableCols(db, "notifications_queue");
     if (allCols.includes("account_id")) { cols.push("account_id"); vals.push(payload?.accountId || null); }
-    const ph = cols.map(()=>"?").join(",");
-    return lastId(db, `INSERT INTO notifications_queue (${cols.join(",")}) VALUES (${ph})`, vals);
+    const qms = cols.map(()=>"?").join(",");
+    return lastId(db, `INSERT INTO notifications_queue (${cols.join(",")}) VALUES (${qms})`, vals);
   }
 
-  // Fallback
   if (sup.has("payload")) {
-    return lastId(db,
-      `INSERT INTO notifications_queue (payload) VALUES (?)`,
-      [JSON.stringify({ template, toEmail, ...(payload || {}) })]
-    );
+    return lastId(db, `INSERT INTO notifications_queue (payload) VALUES (?)`,
+      [JSON.stringify({ template, toEmail, ...(payload || {}) })]);
   }
   return Promise.resolve(-1);
 }
 
-/* ------------------------------ Handlers ----------------------------- */
+/* ------------------------------------------------------------------ */
+/* HTTP helpers                                                       */
+/* ------------------------------------------------------------------ */
 
-function ok(res, body) { return res.json({ success: true, ...body }); }
-function fail(res, code, message, http = 400) { return res.status(http).json({ success: false, error: { code, message } }); }
+const ok = (res, body) => res.json({ success: true, ...body });
+const fail = (res, code, message, http = 400) => res.status(http).json({ success: false, error: { code, message } });
+
+/* ------------------------------------------------------------------ */
+/* Handlers                                                           */
+/* ------------------------------------------------------------------ */
 
 async function handleApprove(req, res) {
   const id = +req.params.id; const db = openDb(); const decidedBy = adminId(req);
   try {
     const w = await getWithdrawal(db, id); if (!w) return fail(res, "NOT_FOUND", "Withdrawal not found", 404);
+    if (["Paid","Rejected"].includes(w.status)) return fail(res,"INVALID_STATE",`Cannot approve a ${w.status} withdrawal`,409);
     if (w.status === "Approved") return ok(res, { noOp: true, withdrawal: { id: w.id, status: w.status }, message: "Already approved" });
-    if (w.status === "Rejected" || w.status === "Paid") return fail(res, "INVALID_STATE", `Cannot approve a ${w.status} withdrawal`, 409);
 
     if (w.account_id == null) w.account_id = await resolveAccountId(db, w);
 
@@ -348,11 +282,11 @@ async function handleApprove(req, res) {
 
 async function handleReject(req, res) {
   const id = +req.params.id; const db = openDb(); const decidedBy = adminId(req);
-  const note = (req.body?.note || "").toString().trim();
+  const note = (req.body?.note || "").trim();
   try {
     const w = await getWithdrawal(db, id); if (!w) return fail(res, "NOT_FOUND", "Withdrawal not found", 404);
-    if (w.status === "Rejected") return ok(res, { noOp: true, withdrawal: { id: w.id, status: w.status }, message: "Already rejected" });
     if (w.status === "Paid") return fail(res, "INVALID_STATE", "Cannot reject a Paid withdrawal", 409);
+    if (w.status === "Rejected") return ok(res, { noOp: true, withdrawal: { id: w.id, status: w.status }, message: "Already rejected" });
 
     if (w.account_id == null) w.account_id = await resolveAccountId(db, w);
 
@@ -385,7 +319,7 @@ async function handleReject(req, res) {
 
 async function handleMarkPaid(req, res) {
   const id = +req.params.id; const db = openDb();
-  const payoutRef = (req.body?.payoutRef || "").toString().trim();
+  const payoutRef = (req.body?.payoutRef || "").trim();
   const paidAt = (req.body?.paidAt || nowISO()).toString();
   try {
     const w = await getWithdrawal(db, id); if (!w) return fail(res, "NOT_FOUND", "Withdrawal not found", 404);
@@ -401,18 +335,16 @@ async function handleMarkPaid(req, res) {
     await run(db, `UPDATE withdrawals SET status='Paid', paid_at=?, payout_ref=? WHERE id=?`,
       [paidAt, payoutRef || null, id]);
 
-    // Append ledger if not present
     let appended = false;
     if (!(await ledgerExists(db, id, "WITHDRAWAL_PAID"))) {
       await insertLedger(db, w, id, "WITHDRAWAL_PAID", payoutRef ? `Paid: ${payoutRef}` : "Paid");
       appended = true;
     }
 
-    // Safe roll-up: bump paid count; reduce balance only if enough balance
+    // roll-up (update by id OR user_id)
     const pts = Number.isFinite(+w.points) ? Math.abs(+w.points) : 0;
-    if (appended && w.account_id) {
-      await applyPaidRollup(db, w.account_id, pts);
-    }
+    let accUpdate = { table: null, changed: 0 };
+    if (appended) accUpdate = await applyPaidRollup(db, w.account_id, w.user_id, pts);
 
     const user = await getUserContact(db, w.user_id);
     const { amountCents, points, eur } = deriveAmount(w);
@@ -422,18 +354,22 @@ async function handleMarkPaid(req, res) {
 
     res.setHeader("X-Loyalty-Updated", "mark-paid");
     res.setHeader("X-Loyalty-Refresh", "accounts,ledger,notifications");
+    if (accUpdate.table) res.setHeader("X-Accounts-Updated", `${accUpdate.table}:${accUpdate.changed}`);
 
     return ok(res, {
       withdrawal: { id, status: "Paid", paidAt, payoutRef: payoutRef || null },
       ledger: { appended: appended, type: "WITHDRAWAL_PAID" },
       notification: { queued: true, template: "withdrawal_paid" },
+      accountsRollup: accUpdate,
       refresh: { accounts: true, ledger: true, notifications: true },
       message: "Withdrawal marked as Paid"
     });
   } catch (e) { return fail(res, "SERVER_ERROR", e.message, 500); } finally { db.close(); }
 }
 
-/* ------------------------------ Routes ------------------------------ */
+/* ------------------------------------------------------------------ */
+/* Routes                                                             */
+/* ------------------------------------------------------------------ */
 
 router.get("/loyalty/withdrawals", async (req, res) => {
   const db = openDb();
@@ -476,7 +412,9 @@ router.patch("/loyalty/withdrawals/:id/reject", handleReject);
 router.patch("/loyalty/withdrawals/:id/mark-paid", handleMarkPaid);
 
 // Back-compat POSTs
-router.post("/loyalty/withdrawals/:id/decision", (req, res) => (req.body?.approve ? handleApprove(req, res) : handleReject(req, res)));
+router.post("/loyalty/withdrawals/:id/decision", (req, res) =>
+  (req.body?.approve ? handleApprove(req, res) : handleReject(req, res))
+);
 router.post("/loyalty/withdrawals/:id/mark-paid", handleMarkPaid);
 
 module.exports = router;
