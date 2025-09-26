@@ -357,6 +357,68 @@ async function handleMarkPaid(req, res) {
 /* Routes                                                             */
 /* ------------------------------------------------------------------ */
 
+// Admin-initiated: create a Pending withdrawal linked to loyalty_accounts.id
+router.post("/loyalty/withdrawals", async (req, res) => {
+  const db = openDb();
+  try {
+    const accountId = parseInt(req.body?.accountId, 10);
+    const points    = parseInt(req.body?.points, 10);
+    const note      = (req.body?.note || "").trim();
+
+    if (!Number.isInteger(accountId) || accountId < 1) {
+      return fail(res, "BAD_INPUT", "Valid accountId required", 400);
+    }
+    if (!Number.isInteger(points) || points < 1) {
+      return fail(res, "BAD_INPUT", "points must be integer >= 1", 400);
+    }
+
+    // 1) Load account + program
+    const acct = await q(db, `
+      SELECT a.*, p.id AS program_id
+      FROM loyalty_accounts a
+      JOIN loyalty_programs p ON p.id = a.program_id
+      WHERE a.id = ?
+    `, [accountId]);
+    if (!acct) return fail(res, "NOT_FOUND", "Account not found", 404);
+    if (String(acct.status) !== "Active") {
+      return fail(res, "ACCOUNT_INACTIVE", "Account is not Active", 400);
+    }
+
+    // 2) Program minimum
+    const minRow = await q(db, `
+      SELECT value AS minPoints
+      FROM loyalty_program_settings
+      WHERE program_id = ? AND key = 'minWithdrawPoints'
+    `, [acct.program_id]).catch(()=>null);
+    const minPoints = Number.parseInt(minRow?.minPoints ?? "100", 10);
+    if (points < minPoints) {
+      return fail(res, "BELOW_MIN", `Minimum withdrawal is ${minPoints} pts`, 400);
+    }
+
+    // 3) Balance check (fresh)
+    const fresh = await q(db, `SELECT points_balance FROM loyalty_accounts WHERE id=?`, [accountId]);
+    const balance = Number.parseInt(fresh?.points_balance ?? "0", 10);
+    if (!Number.isFinite(balance) || balance < points) {
+      return fail(res, "INSUFFICIENT_BALANCE", `Insufficient balance (${balance} pts)`, 400);
+    }
+
+    // 4) Insert Pending withdrawal
+    const newId = await lastId(db, `
+      INSERT INTO withdrawals (account_id, user_id, points, status, requested_at, note)
+      VALUES (?, ?, ?, 'Pending', datetime('now','localtime'), ?)
+    `, [accountId, acct.user_id ?? null, points, note || null]);
+
+    const row = await getWithdrawal(db, newId);
+    res.setHeader("X-Loyalty-Updated", "create-withdrawal");
+    res.setHeader("X-Loyalty-Refresh", "withdrawals");
+    return ok(res, { withdrawal: row, message: "Withdrawal created" });
+  } catch (e) {
+    return fail(res, "SERVER_ERROR", e.message || "Server error", 500);
+  } finally {
+    db.close();
+  }
+});
+
 router.get("/loyalty/withdrawals", async (req, res) => {
   const db = openDb();
   try {

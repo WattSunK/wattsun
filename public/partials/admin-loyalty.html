@@ -68,7 +68,8 @@
     </div>
     <button type="button" id="loyaltyClearBtn" class="btn">Clear</button>
     <button type="button" id="loyaltyRefreshBtn" class="btn">Refresh</button>
-  <button type="button" id="accManageBtn" class="btn" style="display:none;">Manage</button>
+    <button type="button" id="wdNewBtn" class="btn">New Withdrawal</button>
+    <button type="button" id="accManageBtn" class="btn" style="display:none;">Manage</button>
   </div>
 </form>
 
@@ -248,6 +249,37 @@
         <h4 class="section-title">Response</h4>
         <pre id="mOut" class="output"></pre>
       </div>
+    </div>
+  </form>
+</dialog>
+<!-- New Withdrawal (admin-initiated) -->
+<dialog id="wdNewDialog" class="modal">
+  <form method="dialog" class="card modal__sheet">
+    <header class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <h3 class="card-title">New Withdrawal</h3>
+      <div class="row" style="gap:.5rem;">
+        <button value="close" class="btn">Close</button>
+      </div>
+    </header>
+    <div class="card-body modal__body">
+      <div class="row row--cols">
+        <div class="group">
+          <label for="wdAccId"><strong>Account ID</strong></label>
+          <input id="wdAccId" type="number" min="1" class="input" placeholder="e.g. 12">
+        </div>
+        <div class="group">
+          <label for="wdPoints"><strong>Points</strong></label>
+          <input id="wdPoints" type="number" min="1" step="1" class="input" placeholder="e.g. 100">
+        </div>
+      </div>
+      <div class="group">
+        <label for="wdNote"><strong>Note (optional)</strong></label>
+        <input id="wdNote" class="input" placeholder="context or reference">
+      </div>
+      <div class="actions" style="margin-top:8px;">
+        <button type="button" id="wdCreateBtn" class="btn">Create</button>
+      </div>
+      <pre id="wdOut" class="output"></pre>
     </div>
   </form>
 </dialog>
