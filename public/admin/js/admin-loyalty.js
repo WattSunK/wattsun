@@ -481,25 +481,34 @@
   }
 
   function renderLedgerRows(tbody, rows){
-    if (!tbody) return; tbody.innerHTML = "";
-    if (!rows?.length){ tbody.appendChild(emptyRow(8)); return; }
-    const frag = document.createDocumentFragment();
-    for (const r of rows){
-      const tr=document.createElement("tr");
-      tr.innerHTML = `
-        <td>${esc(r.id)}</td>
-        <td>${esc(r.account_id)}</td>
-        <td>${esc(r.kind)}</td>
-        const delta = (r.points_delta ?? r.points ?? r.delta ?? 0);
-        <td>${fmtInt(delta)}</td>
-        <td>${esc(r.note ?? "")}</td>
-        <td>${esc(r.created_at ?? "")}</td>
-        <td>${esc(r.source ?? "")}</td>
-        <td>${esc(r.ref_id ?? "")}</td>`;
-      frag.appendChild(tr);
-    }
-    tbody.appendChild(frag);
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  if (!rows || !rows.length) { tbody.appendChild(emptyRow(8)); return; }
+
+  const frag = document.createDocumentFragment();
+
+  for (const r of rows){
+    // robust delta resolution (supports different API shapes)
+    const delta =
+      (r.points_delta ?? r.pointsDelta ?? r.delta ?? r.points ?? 0);
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${esc(r.id)}</td>
+      <td>${esc(r.account_id ?? r.accountId ?? "—")}</td>
+      <td>${esc(r.kind ?? "—")}</td>
+      <td>${fmtInt(delta)}</td>
+      <td>${esc(r.note ?? "")}</td>
+      <td>${esc(r.created_at ?? r.createdAt ?? "")}</td>
+      <td>${esc(r.source ?? "")}</td>
+      <td>${esc(r.ref_id ?? r.refId ?? "")}</td>
+    `;
+    frag.appendChild(tr);
   }
+
+  tbody.appendChild(frag);
+}
+
 
   // ---------- NOTIFICATIONS ----------
   async function loadNotifications({resetPage=false}={}){
