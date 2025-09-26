@@ -177,20 +177,26 @@ async function findAccountsTable(db) {
 }
 
 /**
- * For Mark Paid: balance -= points; paid += points (if those columns exist).
- * Safe to call repeatedly ONLY when we also dedupe ledger; this function is
- * executed only when a new WITHDRAWAL_PAID ledger row was appended.
+ * Safe roll-up for Mark Paid:
+ *  - If 'paid' exists, increment by 1 (payout count).
+ *  - If 'balance' exists, decrement only when there is enough balance:
+ *      balance = CASE WHEN balance >= ? THEN balance - ? ELSE balance END
+ * This avoids negative balances on seeded data while still bumping the payout count.
  */
 async function applyPaidRollup(db, accountId, points) {
   const t = await findAccountsTable(db);
-  if (!t || !accountId || !Number.isFinite(points)) return;
+  if (!t || !accountId) return;
 
   const sets = [];
   const vals = [];
 
-  // Some DBs may use slightly different names; we support the common ones
-  if (t.cols.includes("balance")) { sets.push(`balance = balance - ?`); vals.push(points); }
-  if (t.cols.includes("paid"))    { sets.push(`paid = paid + ?`);       vals.push(points); }
+  if (t.cols.includes("paid")) {
+    sets.push(`paid = paid + 1`);
+  }
+  if (t.cols.includes("balance") && Number.isFinite(points) && points > 0) {
+    sets.push(`balance = CASE WHEN balance >= ? THEN balance - ? ELSE balance END`);
+    vals.push(points, points);
+  }
 
   if (!sets.length) return; // nothing to update
 
@@ -239,11 +245,11 @@ async function insertLedger(db, w, refId, entryType, note) {
       }
     }
 
-    // >>> delta for legacy points_delta: only WITHDRAWAL_PAID reduces balance <<<
+    // Legacy delta: only WITHDRAWAL_PAID reduces balance
     let delta = 0;
     if (entryType === "WITHDRAWAL_PAID") {
       const pts = Number.isFinite(+w.points) ? Math.abs(+w.points) : 0;
-      delta = -pts; // subtract earned points when payout is made
+      delta = -pts;
     }
 
     if (sup.has("points_delta")) { cols.push("points_delta"); vals.push(delta);              ph.push("?"); }
@@ -311,7 +317,6 @@ async function handleApprove(req, res) {
     if (w.status === "Approved") return ok(res, { noOp: true, withdrawal: { id: w.id, status: w.status }, message: "Already approved" });
     if (w.status === "Rejected" || w.status === "Paid") return fail(res, "INVALID_STATE", `Cannot approve a ${w.status} withdrawal`, 409);
 
-    // Ensure ledger rows link to an account (for legacy schemas too)
     if (w.account_id == null) w.account_id = await resolveAccountId(db, w);
 
     const stamp = nowISO();
@@ -328,7 +333,6 @@ async function handleApprove(req, res) {
       withdrawalId: id, accountId: w.account_id || null, amountCents, points, eur, decidedAt: stamp
     });
 
-    // Hints for clients (non-breaking)
     res.setHeader("X-Loyalty-Updated", "approve");
     res.setHeader("X-Loyalty-Refresh", "ledger,notifications");
 
@@ -350,7 +354,6 @@ async function handleReject(req, res) {
     if (w.status === "Rejected") return ok(res, { noOp: true, withdrawal: { id: w.id, status: w.status }, message: "Already rejected" });
     if (w.status === "Paid") return fail(res, "INVALID_STATE", "Cannot reject a Paid withdrawal", 409);
 
-    // Ensure ledger rows link to an account
     if (w.account_id == null) w.account_id = await resolveAccountId(db, w);
 
     const stamp = nowISO();
@@ -393,7 +396,6 @@ async function handleMarkPaid(req, res) {
     }
     if (w.status !== "Approved") return fail(res, "INVALID_STATE", `Must be Approved to mark Paid (is ${w.status})`, 409);
 
-    // Ensure ledger rows link to an account
     if (w.account_id == null) w.account_id = await resolveAccountId(db, w);
 
     await run(db, `UPDATE withdrawals SET status='Paid', paid_at=?, payout_ref=? WHERE id=?`,
@@ -406,9 +408,9 @@ async function handleMarkPaid(req, res) {
       appended = true;
     }
 
-    // Roll-up: balance -= points; paid += points (only when ledger appended)
+    // Safe roll-up: bump paid count; reduce balance only if enough balance
     const pts = Number.isFinite(+w.points) ? Math.abs(+w.points) : 0;
-    if (appended && w.account_id && pts > 0) {
+    if (appended && w.account_id) {
       await applyPaidRollup(db, w.account_id, pts);
     }
 
@@ -418,7 +420,6 @@ async function handleMarkPaid(req, res) {
       withdrawalId: id, accountId: w.account_id || null, amountCents, points, eur, paidAt, payoutRef: payoutRef || null
     });
 
-    // Hints for UI to auto-refresh other tabs
     res.setHeader("X-Loyalty-Updated", "mark-paid");
     res.setHeader("X-Loyalty-Refresh", "accounts,ledger,notifications");
 
@@ -434,7 +435,6 @@ async function handleMarkPaid(req, res) {
 
 /* ------------------------------ Routes ------------------------------ */
 
-// Admin list (mounted under /api/admin)
 router.get("/loyalty/withdrawals", async (req, res) => {
   const db = openDb();
   try {
@@ -471,12 +471,11 @@ router.get("/loyalty/withdrawals", async (req, res) => {
   }
 });
 
-// Spec PATCH routes
 router.patch("/loyalty/withdrawals/:id/approve", handleApprove);
 router.patch("/loyalty/withdrawals/:id/reject", handleReject);
 router.patch("/loyalty/withdrawals/:id/mark-paid", handleMarkPaid);
 
-// Backward-compat POST routes
+// Back-compat POSTs
 router.post("/loyalty/withdrawals/:id/decision", (req, res) => (req.body?.approve ? handleApprove(req, res) : handleReject(req, res)));
 router.post("/loyalty/withdrawals/:id/mark-paid", handleMarkPaid);
 
