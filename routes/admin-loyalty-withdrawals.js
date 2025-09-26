@@ -82,18 +82,23 @@ async function ledgerExists(db, refId, entryType) {
 async function resolveAccountId(db, w) {
   if (w && w.account_id != null) return w.account_id;
 
-  const tables = ["loyalty_accounts", "accounts", "account"];
-  for (const t of tables) {
+  // Prefer loyalty_accounts by user
+  if (await tableExists(db, "loyalty_accounts")) {
+    const cols = await tableCols(db, "loyalty_accounts");
+    if (cols.includes("user_id")) {
+      // first row for user (program_id uniqueness ensures one row per program)
+      const r = await q(db, `SELECT id FROM loyalty_accounts WHERE user_id=? ORDER BY id ASC LIMIT 1`, [w.user_id]);
+      if (r?.id != null) return r.id;
+    }
+  }
+
+  // Fallbacks (older schemas)
+  for (const t of ["accounts", "account"]) {
     if (await tableExists(db, t)) {
       const cols = await tableCols(db, t);
       if (!cols.includes("user_id")) continue;
-      const preferPrimary = cols.includes("is_primary");
-      if (preferPrimary) {
-        const r = await q(db, `SELECT id FROM ${t} WHERE user_id=? ORDER BY is_primary DESC, id ASC LIMIT 1`, [w.user_id]);
-        if (r?.id != null) return r.id;
-      }
-      const r2 = await q(db, `SELECT id FROM ${t} WHERE user_id=? ORDER BY id ASC LIMIT 1`, [w.user_id]);
-      if (r2?.id != null) return r2.id;
+      const r = await q(db, `SELECT id FROM ${t} WHERE user_id=? ORDER BY id ASC LIMIT 1`, [w.user_id]);
+      if (r?.id != null) return r.id;
     }
   }
   if (await tableExists(db, "user_accounts")) {
@@ -105,49 +110,30 @@ async function resolveAccountId(db, w) {
   return 0;
 }
 
-/* ---------------------- Accounts roll-up (safe) --------------------- */
+/* ---------------------- Accounts roll-up (target: loyalty_accounts) --------------------- */
 
-async function findAccountsTable(db) {
-  for (const name of ["loyalty_accounts", "accounts", "account"]) {
-    if (await tableExists(db, name)) return { name, cols: await tableCols(db, name) };
-  }
-  return null;
-}
-
-/**
- * Safe roll-up on Mark Paid:
- *  - UPDATE ... WHERE id = ? OR user_id = ?      (covers both keying styles)
- *  - paid     += 1   (if column exists)
- *  - balance  -= pts (only if balance >= pts; avoids negative seed balances)
- * Returns {table, changed}.
- */
 async function applyPaidRollup(db, accountId, userId, points) {
-  const t = await findAccountsTable(db);
-  if (!t) return { table: null, changed: 0 };
+  // Hard-target the live accounts table & columns you have:
+  // loyalty_accounts: points_balance, total_paid, updated_at
+  if (!(await tableExists(db, "loyalty_accounts"))) return { table: null, changed: 0 };
 
-  const setClauses = [];
-  const params = [];
+  const pts = Number.isFinite(points) ? Math.abs(points) : 0;
 
-  if (t.cols.includes("paid")) setClauses.push(`paid = paid + 1`);
-  if (t.cols.includes("balance") && Number.isFinite(points) && points > 0) {
-    setClauses.push(`balance = CASE WHEN balance >= ? THEN balance - ? ELSE balance END`);
-    params.push(points, points);
-  }
-
-  if (!setClauses.length) return { table: t.name, changed: 0 };
-
-  // WHERE by id or user_id (whichever matches)
-  const whereParts = [];
-  const whereParams = [];
-  if (t.cols.includes("id"))       { whereParts.push(`id = ?`);       whereParams.push(accountId); }
-  if (t.cols.includes("user_id"))  { whereParts.push(`user_id = ?`);  whereParams.push(userId); }
-
-  if (!whereParts.length) return { table: t.name, changed: 0 };
-
-  const sql = `UPDATE ${t.name} SET ${setClauses.join(", ")} WHERE ${whereParts.join(" OR ")}`;
-  const changed = await run(db, sql, [...params, ...whereParams]);
-
-  return { table: t.name, changed };
+  // Update by id (=account) OR user_id (covers both access paths)
+  const sql = `
+    UPDATE loyalty_accounts
+       SET total_paid    = total_paid + 1,
+           points_balance = CASE
+                              WHEN ? > 0 AND points_balance >= ? THEN points_balance - ?
+                              WHEN ? > 0 AND points_balance <  ? THEN 0
+                              ELSE points_balance
+                            END,
+           updated_at    = datetime('now')
+     WHERE (id = ? OR user_id = ?)
+  `;
+  const params = [pts, pts, pts, pts, pts, accountId ?? -1, userId ?? -1];
+  const changed = await run(db, sql, params);
+  return { table: "loyalty_accounts", changed };
 }
 
 /* ---------------- Ledger insert (modern + legacy support) ----------- */
@@ -341,7 +327,7 @@ async function handleMarkPaid(req, res) {
       appended = true;
     }
 
-    // roll-up (update by id OR user_id)
+    // roll-up (loyalty_accounts)
     const pts = Number.isFinite(+w.points) ? Math.abs(+w.points) : 0;
     let accUpdate = { table: null, changed: 0 };
     if (appended) accUpdate = await applyPaidRollup(db, w.account_id, w.user_id, pts);
