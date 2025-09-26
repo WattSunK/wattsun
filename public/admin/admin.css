@@ -627,3 +627,98 @@ td:last-child .ws-actions { white-space: nowrap; }
   padding: 10px 14px;
 }
 .toast--error { background:#b00020 !important; }
+/* ===========================
+   Modal Styles (Mark Paid, Reject, etc.)
+   =========================== */
+.ws-modal {
+  position: fixed;
+  inset: 0; /* top:0, right:0, bottom:0, left:0 */
+  background: rgba(0,0,0,0.5); /* dark overlay */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.ws-modal.hidden {
+  display: none;
+}
+
+.ws-modal-content {
+  background: #fff;
+  border-radius: 0.75rem; /* rounded-xl */
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 500px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.ws-modal-header {
+  font-size: 1.125rem; /* text-lg */
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.5rem;
+}
+
+.ws-modal-body {
+  margin-bottom: 1.5rem;
+}
+
+.ws-modal-body label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+  color: #444;
+}
+
+.ws-modal-body input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 0.375rem; /* rounded-md */
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.ws-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.ws-modal-footer button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.ws-btn-cancel {
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  color: #333;
+}
+
+.ws-btn-cancel:hover {
+  background: #f1f1f1;
+}
+
+.ws-btn-primary {
+  background: #facc15; /* golden */
+  border: none;
+  color: #111;
+}
+
+.ws-btn-primary:hover {
+  background: #eab308; /* darker golden */
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
