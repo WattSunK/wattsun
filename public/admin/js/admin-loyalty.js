@@ -490,7 +490,8 @@
         <td>${esc(r.id)}</td>
         <td>${esc(r.account_id)}</td>
         <td>${esc(r.kind)}</td>
-        <td>${fmtInt(r.points_delta)}</td>
+        const delta = (r.points_delta ?? r.points ?? r.delta ?? 0);
+        <td>${fmtInt(delta)}</td>
         <td>${esc(r.note ?? "")}</td>
         <td>${esc(r.created_at ?? "")}</td>
         <td>${esc(r.source ?? "")}</td>
