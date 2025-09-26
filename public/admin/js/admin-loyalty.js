@@ -274,9 +274,10 @@
   }
 
   // Actions cell: inline dropdown (kept inside table for binder scripts)
-  function actionCellHtml(id, status) {
-    const actionable = status === "Pending";
-    if (!actionable) return ""; // leave blank
+
+function actionCellHtml(id, status) {
+  // Pending: Approve / Reject
+  if (status === "Pending") {
     return `
       <div class="ws-actions relative" data-id="${esc(id)}" style="position:relative; display:inline-block;">
         <button type="button" class="btn-actions px-2 py-1 rounded border bg-white hover:bg-gray-50">Action ▾</button>
@@ -286,6 +287,26 @@
         </div>
       </div>`;
   }
+  // Approved: Mark Paid
+  if (status === "Approved") {
+    return `
+      <div class="ws-actions relative" data-id="${esc(id)}" style="position:relative; display:inline-block;">
+        <button type="button" class="btn-actions px-2 py-1 rounded border bg-white hover:bg-gray-50">Action ▾</button>
+        <div class="actions-menu hidden absolute right-0 mt-1 w-36 rounded-md border bg-white shadow-lg" style="z-index:40;">
+          <button type="button" class="w-full text-left px-3 py-2 hover:bg-slate-50 btn-mark-paid" data-id="${esc(id)}">Mark Paid…</button>
+        </div>
+      </div>`;
+  }
+  // Paid/Rejected: no actions (leave blank cell)
+  return "";
+}
+
+// ——— keep the “close after menu item click” listener using a short delay ———
+document.addEventListener("click", (e) => {
+  const item = e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject, .actions-menu .btn-mark-paid");
+  if (!item) return;
+  setTimeout(() => { document.querySelectorAll(".actions-menu").forEach(m => m.classList.add("hidden")); }, 0);
+});
 
   function renderWithdrawalsRows(tbody, rows) {
     if (!tbody) return;
