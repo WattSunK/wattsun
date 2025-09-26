@@ -198,7 +198,14 @@ async function insertLedger(db, w, refId, entryType, note) {
       }
     }
 
-    if (sup.has("points_delta")) { cols.push("points_delta"); vals.push(0);                  ph.push("?"); }
+    // >>> delta for legacy points_delta: only WITHDRAWAL_PAID reduces balance <<<
+    let delta = 0;
+    if (entryType === "WITHDRAWAL_PAID") {
+      const pts = Number.isFinite(+w.points) ? Math.abs(+w.points) : 0;
+      delta = -pts; // subtract earned points when payout is made
+    }
+
+    if (sup.has("points_delta")) { cols.push("points_delta"); vals.push(delta);              ph.push("?"); }
     if (sup.has("note"))         { cols.push("note");         vals.push(legacyNote);         ph.push("?"); }
     if (sup.has("admin_user_id")){ cols.push("admin_user_id");vals.push(null);               ph.push("?"); }
 
@@ -233,7 +240,6 @@ async function enqueueNotification(db, userId, template, toEmail, payload) {
 
   // Legacy shape (your DB): kind/user_id/email/payload/status
   if (sup.has("kind") && sup.has("payload")) {
-    // include account_id if column exists to help downstream consumers
     const cols = ["kind", "user_id", "email", "payload", "status"];
     const vals = [template, userId || null, toEmail || null, JSON.stringify(payload || {}), "Queued"];
     const allCols = await tableCols(db, "notifications_queue");
@@ -292,7 +298,7 @@ async function handleApprove(req, res) {
       refresh: { ledger: true, notifications: true },
       message: "Withdrawal approved"
     });
-  } catch (e) { return fail(res, "SERVER_ERROR", e.message, 500); } finally { db.close(); }
+  } catch (e) { return fail(res, "SERVER_ERROR", e.message, 500); } finally { openDb().close?.(); db.close(); }
 }
 
 async function handleReject(req, res) {
