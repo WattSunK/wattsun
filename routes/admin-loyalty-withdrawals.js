@@ -29,6 +29,9 @@ const adminId = (req) => req?.session?.user?.id || 0;
 function q(db, sql, p = []) {
   return new Promise((res, rej) => db.get(sql, p, (e, r) => e ? rej(e) : res(r || null)));
 }
+function all(db, sql, p = []) {
+  return new Promise((res, rej) => db.all(sql, p, (e, r) => e ? rej(e) : res(r || [])));
+}
 function run(db, sql, p = []) {
   return new Promise((res, rej) => db.run(sql, p, function (e) { e ? rej(e) : res(true); }));
 }
@@ -45,6 +48,10 @@ async function columnInfo(db, table) {
   const map = {};
   rows.forEach(r => { map[r.name] = { notnull: r.notnull, dflt: r.dflt_value, type: r.type }; });
   return map;
+}
+async function tableExists(db, name) {
+  const row = await q(db, `SELECT name FROM sqlite_master WHERE type='table' AND name=?`, [name]);
+  return !!row;
 }
 
 /* --------------------------- Data helpers --------------------------- */
@@ -117,13 +124,6 @@ async function ledgerExists(db, refId, entryType) {
 
 /* --------- Surgical inserts: account resolver for NOT NULL ---------- */
 
-// Return true if table exists
-async function tableExists(db, name) {
-  const row = await q(db, `SELECT name FROM sqlite_master WHERE type='table' AND name=?`, [name]);
-  return !!row;
-}
-
-// Best-effort account resolver using whichever table exists in the host DB.
 async function resolveAccountId(db, w) {
   if (w && w.account_id != null) return w.account_id;
 
@@ -159,6 +159,47 @@ async function resolveAccountId(db, w) {
   }
   return 0; // last resort for NOT NULL schemas
 }
+
+/* ------------------ Accounts roll-up (best-effort) ------------------ */
+
+/**
+ * Find an accounts table (loyalty_accounts | accounts | account) and return {name, cols}
+ */
+async function findAccountsTable(db) {
+  const names = ["loyalty_accounts", "accounts", "account"];
+  for (const name of names) {
+    if (await tableExists(db, name)) {
+      const cols = await tableCols(db, name);
+      return { name, cols };
+    }
+  }
+  return null;
+}
+
+/**
+ * For Mark Paid: balance -= points; paid += points (if those columns exist).
+ * Safe to call repeatedly ONLY when we also dedupe ledger; this function is
+ * executed only when a new WITHDRAWAL_PAID ledger row was appended.
+ */
+async function applyPaidRollup(db, accountId, points) {
+  const t = await findAccountsTable(db);
+  if (!t || !accountId || !Number.isFinite(points)) return;
+
+  const sets = [];
+  const vals = [];
+
+  // Some DBs may use slightly different names; we support the common ones
+  if (t.cols.includes("balance")) { sets.push(`balance = balance - ?`); vals.push(points); }
+  if (t.cols.includes("paid"))    { sets.push(`paid = paid + ?`);       vals.push(points); }
+
+  if (!sets.length) return; // nothing to update
+
+  const sql = `UPDATE ${t.name} SET ${sets.join(", ")} WHERE id = ?`;
+  vals.push(accountId);
+  await run(db, sql, vals);
+}
+
+/* --------------------- Insert ledger (modern/legacy) --------------------- */
 
 async function insertLedger(db, w, refId, entryType, note) {
   const sup = await ledgerSupports(db);
@@ -298,7 +339,7 @@ async function handleApprove(req, res) {
       refresh: { ledger: true, notifications: true },
       message: "Withdrawal approved"
     });
-  } catch (e) { return fail(res, "SERVER_ERROR", e.message, 500); } finally { openDb().close?.(); db.close(); }
+  } catch (e) { return fail(res, "SERVER_ERROR", e.message, 500); } finally { db.close(); }
 }
 
 async function handleReject(req, res) {
@@ -358,8 +399,17 @@ async function handleMarkPaid(req, res) {
     await run(db, `UPDATE withdrawals SET status='Paid', paid_at=?, payout_ref=? WHERE id=?`,
       [paidAt, payoutRef || null, id]);
 
+    // Append ledger if not present
+    let appended = false;
     if (!(await ledgerExists(db, id, "WITHDRAWAL_PAID"))) {
       await insertLedger(db, w, id, "WITHDRAWAL_PAID", payoutRef ? `Paid: ${payoutRef}` : "Paid");
+      appended = true;
+    }
+
+    // Roll-up: balance -= points; paid += points (only when ledger appended)
+    const pts = Number.isFinite(+w.points) ? Math.abs(+w.points) : 0;
+    if (appended && w.account_id && pts > 0) {
+      await applyPaidRollup(db, w.account_id, pts);
     }
 
     const user = await getUserContact(db, w.user_id);
@@ -374,7 +424,7 @@ async function handleMarkPaid(req, res) {
 
     return ok(res, {
       withdrawal: { id, status: "Paid", paidAt, payoutRef: payoutRef || null },
-      ledger: { appended: true, type: "WITHDRAWAL_PAID" },
+      ledger: { appended: appended, type: "WITHDRAWAL_PAID" },
       notification: { queued: true, template: "withdrawal_paid" },
       refresh: { accounts: true, ledger: true, notifications: true },
       message: "Withdrawal marked as Paid"
@@ -411,9 +461,7 @@ router.get("/loyalty/withdrawals", async (req, res) => {
       ORDER BY id DESC
       LIMIT ? OFFSET ?;
     `;
-    const rows = await new Promise((resolve, reject) => {
-      db.all(sql, [...params, limit, offset], (err, r) => err ? reject(err) : resolve(r || []));
-    });
+    const rows = await all(db, sql, [...params, limit, offset]);
 
     return res.json(rows);
   } catch (e) {
