@@ -469,7 +469,9 @@
     addLoading(tbody,true);
     try{
       const data = await api(`/api/admin/loyalty/ledger${buildQuery()}`);
-      const rows = Array.isArray(data)?data:(data.ledger||[]);
+      const rows = Array.isArray(data)
+  ? data
+  : (data.ledger || data.rows || data.items || []);
       state.total = (typeof data.total==="number")?data.total:null;
       renderLedgerRows(tbody, rows);
       setMeta(rows.length, state.total);
