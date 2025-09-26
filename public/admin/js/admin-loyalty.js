@@ -490,9 +490,9 @@
   const frag = document.createDocumentFragment();
 
   for (const r of rows){
-    // robust delta resolution (supports different API shapes)
+    // 🔧 robust delta resolution: covers delta_points (API), points_delta (DB), etc.
     const delta =
-      (r.points_delta ?? r.pointsDelta ?? r.delta ?? r.points ?? 0);
+      (r.delta_points ?? r.points_delta ?? r.pointsDelta ?? r.delta ?? r.points ?? 0);
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -510,8 +510,6 @@
 
   tbody.appendChild(frag);
 }
-
-
   // ---------- NOTIFICATIONS ----------
   async function loadNotifications({resetPage=false}={}){
     if (resetPage) state.page=1; cacheEls();
