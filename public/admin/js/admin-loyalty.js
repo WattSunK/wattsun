@@ -497,17 +497,20 @@
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${esc(r.id)}</td>
+      <td>${esc(r.account_id ?? r.accountId ?? "—")}</td>
       <td>${esc(r.kind ?? "—")}</td>
-      <td>${esc(r.email ?? r.user_email ?? "—")}</td>
-      <td>${esc(r.status ?? "—")}</td>
+      <td>${fmtInt(delta)}</td>
+      <td>${esc(r.note ?? "")}</td>
       <td>${esc(r.created_at ?? r.createdAt ?? "")}</td>
+      <td>${esc(r.source ?? "")}</td>
+      <td>${esc(r.ref_id ?? r.refId ?? "")}</td>
     `;
     frag.appendChild(tr);
-
-      }
+  }
 
   tbody.appendChild(frag);
 }
+
   // ---------- NOTIFICATIONS ----------
   async function loadNotifications({resetPage=false}={}){
     if (resetPage) state.page=1; cacheEls();
@@ -515,53 +518,34 @@
     addLoading(tbody,true);
     try{
       const data = await api(`/api/admin/loyalty/notifications${buildQuery()}`);
-      // in the try block (after data fetch)
-      const rows = Array.isArray(data) ? data : (data.notifications || data.rows || data.items || []);
-      renderNotifRows(tbody, rows);
-
-      // in the catch block:
-      showErrorRow(tbody, err, 5); // was 7 before — Notifications has 5 columns
-
+      const rows = Array.isArray(data)?data:(data.notifications||[]);
       state.total = (typeof data.total==="number")?data.total:null;
       renderNotifRows(tbody, rows);
       setMeta(rows.length, state.total);
       updatePager();
     }catch(err){
-      showErrorRow(tbody, err, 5);
+      showErrorRow(tbody, err, 7);
       setMeta(0); state.total=null; updatePager();
     }finally{ addLoading(tbody,false); }
   }
 
   function renderNotifRows(tbody, rows){
-  if (!tbody) return;
-  tbody.innerHTML = "";
-  if (!rows || !rows.length){
-    tbody.appendChild(emptyRow(5)); // 5 columns in the Notifications table
-    return;
+    if (!tbody) return; tbody.innerHTML = "";
+    if (!rows?.length){ tbody.appendChild(emptyRow(7)); return; }
+    const frag = document.createDocumentFragment();
+    for (const n of rows){
+      const tr=document.createElement("tr");
+      tr.innerHTML = `
+        <td>${esc(n.id)}</td>
+        <td>${esc(n.user_id)}</td>
+        <td>${esc(n.kind)}</td>
+        <td>${esc(n.status)}</td>
+        <td>${esc(n.email || n.phone || "—")}</td>
+        <td>${esc(n.created_at ?? "")}</td>
+        <td>${esc(n.updated_at ?? "")}</td>`;
+      frag.appendChild(tr);
+    }
+    tbody.appendChild(frag);
   }
-
-  const frag = document.createDocumentFragment();
-
-  for (const n of rows){
-    const id      = n.id;
-    const kind    = n.kind ?? "—";
-    const email   = n.email ?? n.user_email ?? n.recipient_email ?? n.to ?? "—";
-    const status  = n.status ?? "—";
-    const created = n.created_at ?? n.createdAt ?? "";
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${esc(id)}</td>
-      <td>${esc(kind)}</td>
-      <td>${esc(email)}</td>
-      <td>${esc(status)}</td>
-      <td>${esc(created)}</td>
-    `;
-    frag.appendChild(tr);
-  }
-
-  tbody.appendChild(frag);
-}
-
 
 })();
