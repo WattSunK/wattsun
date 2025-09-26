@@ -497,16 +497,14 @@
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${esc(r.id)}</td>
-      <td>${esc(r.account_id ?? r.accountId ?? "—")}</td>
       <td>${esc(r.kind ?? "—")}</td>
-      <td>${fmtInt(delta)}</td>
-      <td>${esc(r.note ?? "")}</td>
+      <td>${esc(r.email ?? r.user_email ?? "—")}</td>
+      <td>${esc(r.status ?? "—")}</td>
       <td>${esc(r.created_at ?? r.createdAt ?? "")}</td>
-      <td>${esc(r.source ?? "")}</td>
-      <td>${esc(r.ref_id ?? r.refId ?? "")}</td>
     `;
     frag.appendChild(tr);
-  }
+
+      }
 
   tbody.appendChild(frag);
 }
