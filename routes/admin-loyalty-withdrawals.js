@@ -437,10 +437,11 @@ router.get("/loyalty/withdrawals", async (req, res) => {
     const offset = (page - 1) * limit;
 
     const sql = `
-      SELECT id, user_id, points, eur, status,
-             requested_at, decided_at, paid_at,
-             decision_note, decided_by, payout_ref
-      FROM withdrawals
+      SELECT id, account_id, user_id, points, eur, status,
+       requested_at, decided_at, paid_at,
+       decision_note, decided_by, payout_ref
+        FROM withdrawals
+
       ${whereSql}
       ORDER BY id DESC
       LIMIT ? OFFSET ?;
