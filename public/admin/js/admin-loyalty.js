@@ -237,17 +237,26 @@
   }
 
   function actionCellHtml(id, status){
-    const disabled = status!=="Pending" ? "disabled" : "";
-    return `
-      <div class="ws-actions">
-        <button class="btn btn-actions" aria-haspopup="menu">Actions ▾</button>
-        <div class="actions-menu hidden" role="menu">
-          <button class="btn btn-approve" data-id="${esc(id)}" ${disabled}>Approve</button>
-          <button class="btn btn-reject" data-id="${esc(id)}" ${disabled}>Reject</button>
-          <button class="btn btn-mark-paid" data-id="${esc(id)}" ${status==="Approved"?"":"disabled"}>Mark Paid</button>
-        </div>
-      </div>`;
+  const canApprove = status === "Pending";
+  const canReject  = status === "Pending";
+  const canPay     = status === "Approved";
+
+  // If nothing is actionable (e.g., Paid, Rejected), show a small badge instead of a menu
+  if (!canApprove && !canReject && !canPay) {
+    return `<span class="badge" style="display:inline-block;padding:2px 8px;border-radius:12px;background:#eee;color:#555;font-size:12px;">No actions</span>`;
   }
+
+  return `
+    <div class="ws-actions">
+      <button class="btn btn-actions" aria-haspopup="menu">Actions ▾</button>
+      <div class="actions-menu hidden" role="menu">
+        <button class="btn btn-approve"   data-id="${esc(id)}" ${canApprove ? "" : "disabled"}>Approve</button>
+        <button class="btn btn-reject"    data-id="${esc(id)}" ${canReject  ? "" : "disabled"}>Reject</button>
+        <button class="btn btn-mark-paid" data-id="${esc(id)}" ${canPay     ? "" : "disabled"}>Mark Paid</button>
+      </div>
+    </div>`;
+}
+
 
   function bindWithdrawalActions(){
   // Approve (PATCH)
