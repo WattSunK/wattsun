@@ -127,8 +127,8 @@
     setShown(els.tabLedger,      name==="Ledger");
     setShown(els.tabNotifs,      name==="Notifications");
     // Show the "New Withdrawal" button only on Withdrawals tab
-     const newBtn = document.getElementById("wdNewBtn");
-     if (newBtn) newBtn.style.display = (name === "Withdrawals") ? "" : "none";
+    const newBtn = document.getElementById("wdNewBtn");
+    if (newBtn) newBtn.style.display = (name === "Withdrawals") ? "" : "none";
 
     [els.tabWithdrawalsBtn, els.tabAccountsBtn, els.tabLedgerBtn, els.tabNotifsBtn]
       .forEach(btn => btn && btn.classList.remove("btn--active"));
@@ -202,10 +202,36 @@
     if (state.activeTab === "Notifications")return loadNotifications();
   }
 
+  // disable/enable the Refresh button while loading
+  function setRefreshDisabled(on){
+    cacheEls();
+    if (!els.refreshBtn) return;
+    els.refreshBtn.disabled = !!on;
+    els.refreshBtn.classList.toggle("is-loading", !!on);
+  }
+
   function wireFilters(){
-    if (els.searchInput){ on(els.searchInput, "input", debounce(()=>{ state.page=1; refreshActiveTab(); }, 300)); }
-    on(els.clearBtn,   "click", () => { if (els.searchInput) els.searchInput.value=""; [els.statusSel,els.accStatusSel,els.ledgerKindSel,els.notifStatusSel].forEach(s=>{ if (s) s.value=""; }); state.page=1; refreshActiveTab(); });
+    if (els.searchInput){
+      on(els.searchInput, "input", debounce(()=>{ state.page=1; refreshActiveTab(); }, 300));
+    }
+
+    // Clear: only reset the visible select for the active tab + search
+    on(els.clearBtn, "click", () => {
+      if (els.searchInput) els.searchInput.value = "";
+      const map = {
+        "Withdrawals": els.statusSel,
+        "Accounts": els.accStatusSel,
+        "Ledger": els.ledgerKindSel,
+        "Notifications": els.notifStatusSel
+      };
+      const sel = map[state.activeTab];
+      if (sel) sel.value = "";
+      state.page = 1;
+      refreshActiveTab();
+    });
+
     on(els.refreshBtn, "click", () => { refreshActiveTab(); });
+
     ["change"].forEach(ev => {
       on(els.statusSel, ev, ()=>{ state.page=1; loadWithdrawals(); });
       on(els.accStatusSel, ev, ()=>{ state.page=1; loadAccounts(); });
@@ -222,7 +248,7 @@
   // ---------- WITHDRAWALS ----------
   async function loadWithdrawals({resetPage=false}={}){
     if (resetPage) state.page=1; cacheEls(); const tbody = els.wdBody || $("#wdBody");
-    addLoading(tbody,true);
+    addLoading(tbody,true); setRefreshDisabled(true);
     try{
       const data = await api(`/api/admin/loyalty/withdrawals${buildQuery()}`);
       const rows = Array.isArray(data)?data:(data.withdrawals||[]);
@@ -233,89 +259,86 @@
     }catch(err){
       showErrorRow(tbody, err, 9);
       setMeta(0); state.total=null; updatePager();
-    }finally{ addLoading(tbody,false); }
+    }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
   }
 
   function actionCellHtml(id, status){
-  const canApprove = status === "Pending";
-  const canReject  = status === "Pending";
-  const canPay     = status === "Approved";
-
-  // If nothing is actionable (e.g., Paid, Rejected), show a small badge instead of a menu
-  if (!canApprove && !canReject && !canPay) {
-    return `<span class="badge" style="display:inline-block;padding:2px 8px;border-radius:12px;background:#eee;color:#555;font-size:12px;">No actions</span>`;
+    const canApprove = status === "Pending";
+    const canReject  = status === "Pending";
+    const canPay     = status === "Approved";
+    if (!canApprove && !canReject && !canPay) {
+      return `<span class="badge" style="display:inline-block;padding:2px 8px;border-radius:12px;background:#eee;color:#555;font-size:12px;">No actions</span>`;
+    }
+    return `
+      <div class="ws-actions">
+        <button class="btn btn-actions" aria-haspopup="menu">Actions ▾</button>
+        <div class="actions-menu hidden" role="menu">
+          <button class="btn btn-approve"   data-id="${esc(id)}" ${canApprove ? "" : "disabled"}>Approve</button>
+          <button class="btn btn-reject"    data-id="${esc(id)}" ${canReject  ? "" : "disabled"}>Reject</button>
+          <button class="btn btn-mark-paid" data-id="${esc(id)}" ${canPay     ? "" : "disabled"}>Mark Paid</button>
+        </div>
+      </div>`;
   }
 
-  return `
-    <div class="ws-actions">
-      <button class="btn btn-actions" aria-haspopup="menu">Actions ▾</button>
-      <div class="actions-menu hidden" role="menu">
-        <button class="btn btn-approve"   data-id="${esc(id)}" ${canApprove ? "" : "disabled"}>Approve</button>
-        <button class="btn btn-reject"    data-id="${esc(id)}" ${canReject  ? "" : "disabled"}>Reject</button>
-        <button class="btn btn-mark-paid" data-id="${esc(id)}" ${canPay     ? "" : "disabled"}>Mark Paid</button>
-      </div>
-    </div>`;
-}
-
-
   function bindWithdrawalActions(){
-  // Approve (PATCH)
-  on(document, "click", async (e)=>{
-    const btn = e.target.closest(".btn-approve"); if (!btn) return;
-    e.preventDefault();
-    try{
-      const id = btn.dataset.id;
-      const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/approve`, {
-        method: "PATCH", credentials: "include"
-      });
-      const data = await res.json().catch(()=>({}));
-      if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
-      toast(`Withdrawal #${id} approved`, {type:"info"});
-      refreshActiveTab();
-    }catch(err){ toast(err.message||"Approve failed", {type:"error"}); }
-  });
+    // Approve (PATCH)
+    on(document, "click", async (e)=>{
+      const btn = e.target.closest(".btn-approve"); if (!btn) return;
+      e.preventDefault();
+      try{
+        const id = btn.dataset.id;
+        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/approve`, {
+          method: "PATCH", credentials: "include"
+        });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+        toast(`Withdrawal #${id} approved`, {type:"info"});
+        refreshActiveTab();
+      }catch(err){ toast(err.message||"Approve failed", {type:"error"}); }
+    });
 
-  // Reject (PATCH)
-  on(document, "click", async (e)=>{
-    const btn = e.target.closest(".btn-reject"); if (!btn) return;
-    e.preventDefault();
-    try{
-      const id = btn.dataset.id;
-      const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/reject`, {
-        method: "PATCH", credentials: "include"
-      });
-      const data = await res.json().catch(()=>({}));
-      if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
-      toast(`Withdrawal #${id} rejected`, {type:"info"});
-      refreshActiveTab();
-    }catch(err){ toast(err.message||"Reject failed", {type:"error"}); }
-  });
+    // Reject (PATCH)
+    on(document, "click", async (e)=>{
+      const btn = e.target.closest(".btn-reject"); if (!btn) return;
+      e.preventDefault();
+      try{
+        const id = btn.dataset.id;
+        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/reject`, {
+          method: "PATCH", credentials: "include"
+        });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+        toast(`Withdrawal #${id} rejected`, {type:"info"});
+        refreshActiveTab();
+      }catch(err){ toast(err.message||"Reject failed", {type:"error"}); }
+    });
 
-  // Mark Paid (PATCH to /mark-paid)
-  on(document, "click", async (e)=>{
-    const btn = e.target.closest(".btn-mark-paid"); if (!btn) return;
-    e.preventDefault();
-    try{
-      const id = btn.dataset.id;
-      const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/mark-paid`, {
-        method: "PATCH", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payoutRef: "" }) // optional; modal can supply later
-      });
-      const data = await res.json().catch(()=>({}));
-      if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
-      toast(`Withdrawal #${id} marked as paid`, {type:"info"});
-      refreshActiveTab();
-    }catch(err){ toast(err.message||"Mark Paid failed", {type:"error"}); }
-  });
+    // Mark Paid (PATCH to /mark-paid)
+    on(document, "click", async (e)=>{
+      const btn = e.target.closest(".btn-mark-paid"); if (!btn) return;
+      e.preventDefault();
+      try{
+        const id = btn.dataset.id;
+        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/mark-paid`, {
+          method: "PATCH", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ payoutRef: "" })
+        });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+        toast(`Withdrawal #${id} marked as paid`, {type:"info"});
+        refreshActiveTab();
+      }catch(err){ toast(err.message||"Mark Paid failed", {type:"error"}); }
+    });
 
-  // Close any menu after an item click (lets action run first)
-  document.addEventListener("click", (e) => {
-    const item = e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject, .actions-menu .btn-mark-paid");
-    if (!item) return;
-    setTimeout(() => { document.querySelectorAll(".actions-menu").forEach(m => m.classList.add("hidden")); }, 0);
-  });
-}
+    // Close any menu after an item click
+    document.addEventListener("click", (e) => {
+      const item = e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject, .actions-menu .btn-mark-paid");
+      if (!item) return;
+      setTimeout(() => { document.querySelectorAll(".actions-menu").forEach(m => m.classList.add("hidden")); }, 0);
+    });
+  }
+
   function renderWithdrawalsRows(tbody, rows){
     if (!tbody) return; tbody.innerHTML = "";
     if (!rows?.length){ tbody.appendChild(emptyRow(9)); return; }
@@ -424,7 +447,7 @@
   async function loadAccounts({resetPage=false}={}) {
     if (resetPage) state.page=1; cacheEls();
     const tbody = els.accountsBody || $("#loyaltyAccountsBody");
-    addLoading(tbody,true);
+    addLoading(tbody,true); setRefreshDisabled(true);
     try{
       const data = await api(`/api/admin/loyalty/accounts${buildQuery()}`);
       const rows = Array.isArray(data)?data:(data.accounts||[]);
@@ -435,7 +458,7 @@
     }catch(err){
       showErrorRow(tbody, err, 11);
       setMeta(0); state.total=null; updatePager();
-    }finally{ addLoading(tbody,false); }
+    }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
   }
 
   function renderAccountsRows(tbody, rows){
@@ -466,12 +489,12 @@
   async function loadLedger({resetPage=false}={}){
     if (resetPage) state.page=1; cacheEls();
     const tbody = els.ledgerBody || $("#loyaltyLedgerBody");
-    addLoading(tbody,true);
+    addLoading(tbody,true); setRefreshDisabled(true);
     try{
       const data = await api(`/api/admin/loyalty/ledger${buildQuery()}`);
       const rows = Array.isArray(data)
-  ? data
-  : (data.ledger || data.rows || data.items || []);
+        ? data
+        : (data.ledger || data.rows || data.items || []);
       state.total = (typeof data.total==="number")?data.total:null;
       renderLedgerRows(tbody, rows);
       setMeta(rows.length, state.total);
@@ -479,43 +502,40 @@
     }catch(err){
       showErrorRow(tbody, err, 8);
       setMeta(0); state.total=null; updatePager();
-    }finally{ addLoading(tbody,false); }
+    }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
   }
 
   function renderLedgerRows(tbody, rows){
-  if (!tbody) return;
-  tbody.innerHTML = "";
-  if (!rows || !rows.length) { tbody.appendChild(emptyRow(8)); return; }
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    if (!rows || !rows.length) { tbody.appendChild(emptyRow(8)); return; }
 
-  const frag = document.createDocumentFragment();
+    const frag = document.createDocumentFragment();
 
-  for (const r of rows){
-    // 🔧 robust delta resolution: covers delta_points (API), points_delta (DB), etc.
-    const delta =
-      (r.delta_points ?? r.points_delta ?? r.pointsDelta ?? r.delta ?? r.points ?? 0);
+    for (const r of rows){
+      const delta = (r.delta_points ?? r.points_delta ?? r.pointsDelta ?? r.delta ?? r.points ?? 0);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${esc(r.id)}</td>
+        <td>${esc(r.account_id ?? r.accountId ?? "—")}</td>
+        <td>${esc(r.kind ?? "—")}</td>
+        <td>${fmtInt(delta)}</td>
+        <td>${esc(r.note ?? "")}</td>
+        <td>${esc(r.created_at ?? r.createdAt ?? "")}</td>
+        <td>${esc(r.source ?? "")}</td>
+        <td>${esc(r.ref_id ?? r.refId ?? "")}</td>
+      `;
+      frag.appendChild(tr);
+    }
 
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${esc(r.id)}</td>
-      <td>${esc(r.account_id ?? r.accountId ?? "—")}</td>
-      <td>${esc(r.kind ?? "—")}</td>
-      <td>${fmtInt(delta)}</td>
-      <td>${esc(r.note ?? "")}</td>
-      <td>${esc(r.created_at ?? r.createdAt ?? "")}</td>
-      <td>${esc(r.source ?? "")}</td>
-      <td>${esc(r.ref_id ?? r.refId ?? "")}</td>
-    `;
-    frag.appendChild(tr);
+    tbody.appendChild(frag);
   }
-
-  tbody.appendChild(frag);
-}
 
   // ---------- NOTIFICATIONS ----------
   async function loadNotifications({resetPage=false}={}){
     if (resetPage) state.page=1; cacheEls();
     const tbody = els.notificationsBody || $("#loyaltyNotificationsBody");
-    addLoading(tbody,true);
+    addLoading(tbody,true); setRefreshDisabled(true);
     try{
       const data = await api(`/api/admin/loyalty/notifications${buildQuery()}`);
       const rows = Array.isArray(data)?data:(data.notifications||[]);
@@ -526,40 +546,39 @@
     }catch(err){
       showErrorRow(tbody, err, 5);
       setMeta(0); state.total=null; updatePager();
-    }finally{ addLoading(tbody,false); }
+    }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
   }
 
-function renderNotifRows(tbody, rows){
-  if (!tbody) return; 
-  tbody.innerHTML = "";
+  function renderNotifRows(tbody, rows){
+    if (!tbody) return; 
+    tbody.innerHTML = "";
 
-  if (!rows?.length){
-    tbody.appendChild(emptyRow(5)); // ID, Kind, Email, Status, Created
-    return;
+    if (!rows?.length){
+      tbody.appendChild(emptyRow(5)); // ID, Kind, Email, Status, Created
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+
+    for (const n of rows){
+      const id      = n.id;
+      const kind    = n.kind ?? "—";
+      const email   = n.email ?? n.user_email ?? n.recipient_email ?? n.to ?? "—";
+      const status  = n.status ?? "—";
+      const created = n.created_at ?? n.createdAt ?? "";
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${esc(id)}</td>
+        <td>${esc(kind)}</td>
+        <td>${esc(email)}</td>
+        <td>${esc(status)}</td>
+        <td>${esc(created)}</td>
+      `;
+      frag.appendChild(tr);
+    }
+
+    tbody.appendChild(frag);
   }
-
-  const frag = document.createDocumentFragment();
-
-  for (const n of rows){
-    const id      = n.id;
-    const kind    = n.kind ?? "—";
-    const email   = n.email ?? n.user_email ?? n.recipient_email ?? n.to ?? "—";
-    const status  = n.status ?? "—";
-    const created = n.created_at ?? n.createdAt ?? "";
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${esc(id)}</td>
-      <td>${esc(kind)}</td>
-      <td>${esc(email)}</td>
-      <td>${esc(status)}</td>
-      <td>${esc(created)}</td>
-    `;
-    frag.appendChild(tr);
-  }
-
-  tbody.appendChild(frag);
-}
-
 
 })();
