@@ -123,69 +123,41 @@ async function tableExists(db, name) {
   return !!row;
 }
 
-// Safe single-ID selector for an accounts-like table without assuming column names beyond "id" and "user_id".
-async function pickAnyAccountId(db, table, hasIsPrimary) {
-  try {
-    if (hasIsPrimary) {
-      // prefer primary if that column exists
-      const row = await q(db, `SELECT id FROM ${table} WHERE user_id=? ORDER BY is_primary DESC, id ASC LIMIT 1`, [/* user_id injected by caller */]);
-      return row?.id ?? null;
-    }
-    // fallback: just pick the first by id
-    const row = await q(db, `SELECT id FROM ${table} WHERE user_id=? ORDER BY id ASC LIMIT 1`, [/* user_id injected by caller */]);
-    return row?.id ?? null;
-  } catch { return null; }
-}
-
-// Best-effort account resolver: withdrawal.account_id -> user's primary -> any account -> 0
+// Best-effort account resolver using whichever table exists in the host DB.
 async function resolveAccountId(db, w) {
   if (w && w.account_id != null) return w.account_id;
 
-  // candidates with introspection (do not reference columns that don't exist)
-  const candidates = [
-    "loyalty_accounts",
-    "accounts",
-    "account",
-  ];
-
+  const candidates = ["loyalty_accounts", "accounts", "account"];
   for (const table of candidates) {
     if (await tableExists(db, table)) {
       const cols = await tableCols(db, table);
-      const hasUserId = cols.includes("user_id");
-      const hasIsPrimary = cols.includes("is_primary");
-      if (!hasUserId) continue; // can't filter by user
-
-      // try primary if available, otherwise first by id
+      if (!cols.includes("user_id")) continue;
+      const hasPrimary = cols.includes("is_primary");
       try {
-        if (hasIsPrimary) {
-          const row = await q(db, `SELECT id FROM ${table} WHERE user_id=? ORDER BY is_primary DESC, id ASC LIMIT 1`, [w.user_id]);
-          if (row && row.id != null) return row.id;
+        if (hasPrimary) {
+          const r = await q(db, `SELECT id FROM ${table} WHERE user_id=? ORDER BY is_primary DESC, id ASC LIMIT 1`, [w.user_id]);
+          if (r?.id != null) return r.id;
         }
-        const row2 = await q(db, `SELECT id FROM ${table} WHERE user_id=? ORDER BY id ASC LIMIT 1`, [w.user_id]);
-        if (row2 && row2.id != null) return row2.id;
-      } catch { /* ignore and continue */ }
+        const r2 = await q(db, `SELECT id FROM ${table} WHERE user_id=? ORDER BY id ASC LIMIT 1`, [w.user_id]);
+        if (r2?.id != null) return r2.id;
+      } catch {/* ignore */}
     }
   }
-
-  // user_accounts join table variant (account_id column)
   if (await tableExists(db, "user_accounts")) {
     const cols = await tableCols(db, "user_accounts");
-    const hasUserId = cols.includes("user_id");
-    const hasAccountId = cols.includes("account_id");
-    const hasIsPrimary = cols.includes("is_primary");
-    if (hasUserId && hasAccountId) {
+    if (cols.includes("user_id") && cols.includes("account_id")) {
+      const hasPrimary = cols.includes("is_primary");
       try {
-        if (hasIsPrimary) {
-          const row3 = await q(db, `SELECT account_id AS id FROM user_accounts WHERE user_id=? ORDER BY is_primary DESC, account_id ASC LIMIT 1`, [w.user_id]);
-          if (row3 && row3.id != null) return row3.id;
+        if (hasPrimary) {
+          const r3 = await q(db, `SELECT account_id AS id FROM user_accounts WHERE user_id=? ORDER BY is_primary DESC, account_id ASC LIMIT 1`, [w.user_id]);
+          if (r3?.id != null) return r3.id;
         }
-        const row4 = await q(db, `SELECT account_id AS id FROM user_accounts WHERE user_id=? ORDER BY account_id ASC LIMIT 1`, [w.user_id]);
-        if (row4 && row4.id != null) return row4.id;
-      } catch { /* ignore */ }
+        const r4 = await q(db, `SELECT account_id AS id FROM user_accounts WHERE user_id=? ORDER BY account_id ASC LIMIT 1`, [w.user_id]);
+        if (r4?.id != null) return r4.id;
+      } catch {/* ignore */}
     }
   }
-
-  return 0; // final fallback: satisfy NOT NULL without being NULL
+  return 0; // last resort for NOT NULL schemas
 }
 
 async function insertLedger(db, w, refId, entryType, note) {
@@ -216,15 +188,16 @@ async function insertLedger(db, w, refId, entryType, note) {
     const info = await columnInfo(db, "loyalty_ledger");
 
     if (sup.has("kind"))         { cols.push("kind");         vals.push(kind);               ph.push("?"); }
+
+    // Always try to include account_id for linking (even if column is nullable)
     if (sup.has("account_id")) {
       const mustNotNull = info.account_id?.notnull === 1;
-      if (mustNotNull) {
-        const acctId = await resolveAccountId(db, w);
-        cols.push("account_id"); vals.push(acctId);           ph.push("?");
-      } else if (w.account_id != null) {
-        cols.push("account_id"); vals.push(w.account_id);     ph.push("?");
+      const resolved = (w.account_id != null) ? w.account_id : await resolveAccountId(db, w);
+      if (mustNotNull || resolved != null) {
+        cols.push("account_id"); vals.push(resolved ?? 0);     ph.push("?");
       }
     }
+
     if (sup.has("points_delta")) { cols.push("points_delta"); vals.push(0);                  ph.push("?"); }
     if (sup.has("note"))         { cols.push("note");         vals.push(legacyNote);         ph.push("?"); }
     if (sup.has("admin_user_id")){ cols.push("admin_user_id");vals.push(null);               ph.push("?"); }
@@ -260,11 +233,13 @@ async function enqueueNotification(db, userId, template, toEmail, payload) {
 
   // Legacy shape (your DB): kind/user_id/email/payload/status
   if (sup.has("kind") && sup.has("payload")) {
-    return lastId(db,
-      `INSERT INTO notifications_queue (kind, user_id, email, payload, status)
-       VALUES (?, ?, ?, ?, 'Queued')`,
-      [template, userId || null, toEmail || null, JSON.stringify(payload || {})]
-    );
+    // include account_id if column exists to help downstream consumers
+    const cols = ["kind", "user_id", "email", "payload", "status"];
+    const vals = [template, userId || null, toEmail || null, JSON.stringify(payload || {}), "Queued"];
+    const allCols = await tableCols(db, "notifications_queue");
+    if (allCols.includes("account_id")) { cols.push("account_id"); vals.push(payload?.accountId || null); }
+    const ph = cols.map(()=>"?").join(",");
+    return lastId(db, `INSERT INTO notifications_queue (${cols.join(",")}) VALUES (${ph})`, vals);
   }
 
   // Fallback
@@ -289,6 +264,9 @@ async function handleApprove(req, res) {
     if (w.status === "Approved") return ok(res, { noOp: true, withdrawal: { id: w.id, status: w.status }, message: "Already approved" });
     if (w.status === "Rejected" || w.status === "Paid") return fail(res, "INVALID_STATE", `Cannot approve a ${w.status} withdrawal`, 409);
 
+    // Ensure ledger rows link to an account (for legacy schemas too)
+    if (w.account_id == null) w.account_id = await resolveAccountId(db, w);
+
     const stamp = nowISO();
     await run(db, `UPDATE withdrawals SET status='Approved', decided_at=?, decided_by=?, decision_note=NULL WHERE id=?`,
       [stamp, decidedBy, id]);
@@ -303,10 +281,15 @@ async function handleApprove(req, res) {
       withdrawalId: id, accountId: w.account_id || null, amountCents, points, eur, decidedAt: stamp
     });
 
+    // Hints for clients (non-breaking)
+    res.setHeader("X-Loyalty-Updated", "approve");
+    res.setHeader("X-Loyalty-Refresh", "ledger,notifications");
+
     return ok(res, {
       withdrawal: { id, status: "Approved", decidedAt: stamp, decidedBy },
       ledger: { appended: true, type: "WITHDRAWAL_APPROVED" },
       notification: { queued: true, template: "withdrawal_approved" },
+      refresh: { ledger: true, notifications: true },
       message: "Withdrawal approved"
     });
   } catch (e) { return fail(res, "SERVER_ERROR", e.message, 500); } finally { db.close(); }
@@ -319,6 +302,9 @@ async function handleReject(req, res) {
     const w = await getWithdrawal(db, id); if (!w) return fail(res, "NOT_FOUND", "Withdrawal not found", 404);
     if (w.status === "Rejected") return ok(res, { noOp: true, withdrawal: { id: w.id, status: w.status }, message: "Already rejected" });
     if (w.status === "Paid") return fail(res, "INVALID_STATE", "Cannot reject a Paid withdrawal", 409);
+
+    // Ensure ledger rows link to an account
+    if (w.account_id == null) w.account_id = await resolveAccountId(db, w);
 
     const stamp = nowISO();
     await run(db, `UPDATE withdrawals SET status='Rejected', decided_at=?, decided_by=?, decision_note=? WHERE id=?`,
@@ -334,10 +320,14 @@ async function handleReject(req, res) {
       withdrawalId: id, accountId: w.account_id || null, amountCents, points, eur, decidedAt: stamp, reason: note || null
     });
 
+    res.setHeader("X-Loyalty-Updated", "reject");
+    res.setHeader("X-Loyalty-Refresh", "ledger,notifications");
+
     return ok(res, {
       withdrawal: { id, status: "Rejected", decidedAt: stamp, decidedBy, decisionNote: note || null },
       ledger: { appended: true, type: "WITHDRAWAL_REJECTED" },
       notification: { queued: true, template: "withdrawal_rejected" },
+      refresh: { ledger: true, notifications: true },
       message: "Withdrawal rejected"
     });
   } catch (e) { return fail(res, "SERVER_ERROR", e.message, 500); } finally { db.close(); }
@@ -349,8 +339,15 @@ async function handleMarkPaid(req, res) {
   const paidAt = (req.body?.paidAt || nowISO()).toString();
   try {
     const w = await getWithdrawal(db, id); if (!w) return fail(res, "NOT_FOUND", "Withdrawal not found", 404);
-    if (w.status === "Paid") return ok(res, { noOp: true, withdrawal: w, message: "Already Paid" });
+    if (w.status === "Paid") {
+      res.setHeader("X-Loyalty-Updated", "mark-paid");
+      res.setHeader("X-Loyalty-Refresh", "accounts,ledger,notifications");
+      return ok(res, { noOp: true, withdrawal: w, refresh: { accounts:true, ledger:true, notifications:true }, message: "Already Paid" });
+    }
     if (w.status !== "Approved") return fail(res, "INVALID_STATE", `Must be Approved to mark Paid (is ${w.status})`, 409);
+
+    // Ensure ledger rows link to an account
+    if (w.account_id == null) w.account_id = await resolveAccountId(db, w);
 
     await run(db, `UPDATE withdrawals SET status='Paid', paid_at=?, payout_ref=? WHERE id=?`,
       [paidAt, payoutRef || null, id]);
@@ -365,10 +362,15 @@ async function handleMarkPaid(req, res) {
       withdrawalId: id, accountId: w.account_id || null, amountCents, points, eur, paidAt, payoutRef: payoutRef || null
     });
 
+    // Hints for UI to auto-refresh other tabs
+    res.setHeader("X-Loyalty-Updated", "mark-paid");
+    res.setHeader("X-Loyalty-Refresh", "accounts,ledger,notifications");
+
     return ok(res, {
       withdrawal: { id, status: "Paid", paidAt, payoutRef: payoutRef || null },
       ledger: { appended: true, type: "WITHDRAWAL_PAID" },
       notification: { queued: true, template: "withdrawal_paid" },
+      refresh: { accounts: true, ledger: true, notifications: true },
       message: "Withdrawal marked as Paid"
     });
   } catch (e) { return fail(res, "SERVER_ERROR", e.message, 500); } finally { db.close(); }
