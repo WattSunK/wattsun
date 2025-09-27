@@ -117,6 +117,8 @@ app.use("/api", require("./routes/login"));
 app.use("/api", require("./routes/reset"));
 app.use("/api/admin/loyalty", require("./routes/admin-loyalty"));
 app.use("/api/admin", require("./routes/admin-loyalty-withdrawals"));
+app.use('/api/admin/users', require('./routes/admin-users-search'));
+
 
 
 // --- Wrap /api/orders to cache the latest list in memory ---
