@@ -2,7 +2,7 @@
 // Loyalty Admin — SPA-safe attach, tabs + lists + actions
 // Includes: Increment 2 (user search) + Increment 3 (UX & validation) +
 // - Account ID auto-fill from selection
-// - Floating Actions menu (works despite overflow/z-index)
+// - Floating Actions menu (works despite overflow/z-index) + robust auto-close
 // - Robust SPA attach on partial swaps
 (function () {
   "use strict";
@@ -306,34 +306,33 @@
   }
 
   function actionCellHtml(id, status){
-  // normalize status
-  const st = String(status || "").trim().toLowerCase();
+    // normalize status
+    const st = String(status || "").trim().toLowerCase();
 
-  const canApprove = st === "pending";
-  const canReject  = st === "pending";
-  const canPay     = st === "approved";
+    const canApprove = st === "pending";
+    const canReject  = st === "pending";
+    const canPay     = st === "approved";
 
-  // nothing to do for paid/rejected/other → show badge only
-  if (!(canApprove || canReject || canPay)) {
+    // nothing to do for paid/rejected/other → show badge only
+    if (!(canApprove || canReject || canPay)) {
+      return `
+        <span class="badge badge--muted" data-no-actions="1"
+              style="display:inline-block;padding:2px 8px;border-radius:12px;background:#eee;color:#666;font-size:12px;">
+          No actions
+        </span>`;
+    }
+
+    // actionable rows only
     return `
-      <span class="badge badge--muted" data-no-actions="1"
-            style="display:inline-block;padding:2px 8px;border-radius:12px;background:#eee;color:#666;font-size:12px;">
-        No actions
-      </span>`;
+      <div class="ws-actions" data-has-actions="1" style="position:relative;" data-id="${esc(id)}">
+        <button class="btn btn-actions" aria-haspopup="menu" data-id="${esc(id)}">Actions ▾</button>
+        <div class="actions-menu hidden" role="menu" data-id="${esc(id)}">
+          <button class="btn btn-approve"   data-id="${esc(id)}" ${canApprove ? "" : "disabled"}>Approve</button>
+          <button class="btn btn-reject"    data-id="${esc(id)}" ${canReject  ? "" : "disabled"}>Reject</button>
+          <button class="btn btn-mark-paid" data-id="${esc(id)}" ${canPay     ? "" : "disabled"}>Mark Paid</button>
+        </div>
+      </div>`;
   }
-
-  // actionable rows only
-  return `
-    <div class="ws-actions" data-has-actions="1" style="position:relative;">
-      <button class="btn btn-actions" aria-haspopup="menu" data-id="${esc(id)}">Actions ▾</button>
-      <div class="actions-menu hidden" role="menu" data-id="${esc(id)}">
-        <button class="btn btn-approve"   data-id="${esc(id)}" ${canApprove ? "" : "disabled"}>Approve</button>
-        <button class="btn btn-reject"    data-id="${esc(id)}" ${canReject  ? "" : "disabled"}>Reject</button>
-        <button class="btn btn-mark-paid" data-id="${esc(id)}" ${canPay     ? "" : "disabled"}>Mark Paid</button>
-      </div>
-    </div>`;
-}
-
 
   function renderWithdrawalsRows(tbody, rows){
     if (!tbody) return; tbody.innerHTML = "";
@@ -374,6 +373,9 @@
     openMenuEl = null;
   }
 
+  // Expose a safe closer so other modules (e.g., Reject modal) can call it
+  window.wsCloseActionsMenu = closeFloatingMenu;
+
   function openFloatingMenu(btn) {
     closeFloatingMenu();
 
@@ -407,19 +409,20 @@
   }
 
   function wireInlineActionsMenu() {
-    // Toggle floating menu
+    // Toggle floating menu (guard: don't open for rows without actions)
     on(document, "click", (e) => {
-  const btn = e.target.closest(".btn-actions");
-  if (!btn) return;
-  // don’t open for rows without actions (paid/rejected)
-  const wrap = btn.closest(".ws-actions");
-  if (!wrap || wrap.dataset.hasActions !== "1") return;
+      const btn = e.target.closest(".btn-actions");
+      if (!btn) return;
 
-  e.preventDefault();
-  e.stopPropagation();
-  openFloatingMenu(btn);
-});
-    // Close on outside click or ESC
+      const wrap = btn.closest(".ws-actions");
+      if (!wrap || wrap.dataset.hasActions !== "1") return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      openFloatingMenu(btn);
+    });
+
+    // Close the menu if user clicks outside it or presses ESC
     on(document, "click", (e) => {
       if (openMenuEl && !openMenuEl.contains(e.target) && !e.target.closest(".btn-actions")) {
         closeFloatingMenu();
@@ -427,12 +430,16 @@
     });
     on(document, "keydown", (e) => { if (e.key === "Escape") closeFloatingMenu(); });
 
-    // After clicking an action, close menu (delegated handlers below will execute)
-    on(document, "click", (e) => {
-      const action = e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject, .actions-menu .btn-mark-paid");
-      if (!action) return;
-      setTimeout(closeFloatingMenu, 0);
-    });
+    // Close immediately on any action click (capture phase too, in case other code stops propagation)
+    document.addEventListener("click", (e) => {
+      if (e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject, .actions-menu .btn-mark-paid")) {
+        closeFloatingMenu();
+      }
+    }, true);
+
+    // Also auto-close the menu on scroll/resize so it never lingers off-position
+    window.addEventListener("scroll", closeFloatingMenu, { passive: true });
+    window.addEventListener("resize", closeFloatingMenu);
 
     // Action handlers (approve / reject / mark-paid)
     on(document, "click", async (e)=>{
@@ -551,7 +558,7 @@
 
     const setSubmitEnabled = (ok) => { if (submitBtn) submitBtn.disabled = !ok; };
 
-    // NEW: keep legacy field in sync with selected account
+    // keep legacy field in sync with selected account
     const syncVisibleAccountId = () => {
       if (!accId) return;
       const val = (hidAcc && hidAcc.value) ? String(hidAcc.value) : "";
@@ -686,6 +693,9 @@
 
     // Open modal
     btn && btn.addEventListener("click", () => {
+      // Ensure actions popover is not visible under the modal
+      try { window.wsCloseActionsMenu && window.wsCloseActionsMenu(); } catch (_) {}
+
       if (accId) { accId.value = ""; accId.readOnly = false; accId.classList.remove("input--readonly"); }
       if (pts) pts.value = "";
       if (note) note.value = "";
