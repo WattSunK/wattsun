@@ -11,7 +11,10 @@ const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 
 // Resolve DB path the same way your app does (env first, fallback)
-const DB_PATH = process.env.DB_PATH_USERS || process.env.SQLITE_DB || path.join(process.cwd(), "data/dev/wattsun.dev.db");
+const DB_PATH =
+  process.env.DB_PATH_USERS ||
+  process.env.SQLITE_DB ||
+  path.join(process.cwd(), "data/dev/wattsun.dev.db");
 const db = new sqlite3.Database(DB_PATH);
 
 // ---- helpers -------------------------------------------------
@@ -20,7 +23,20 @@ function requireStaff(req, res, next) {
   const u = req?.session?.user;
   // Accept either type or role = 'Staff'
   if (!u || !/Staff/i.test(String(u.type || u.role || ""))) {
-    return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Staff only" } });
+    return res
+      .status(403)
+      .json({ success: false, error: { code: "FORBIDDEN", message: "Staff only" } });
+  }
+  next();
+}
+
+// NEW: generic auth gate for viewing your own data
+function requireAuth(req, res, next) {
+  const u = req?.session?.user;
+  if (!u) {
+    return res
+      .status(401)
+      .json({ success: false, error: { code: "UNAUTHENTICATED", message: "Login required" } });
   }
   next();
 }
@@ -43,7 +59,7 @@ function getProgramSettings(code = "STAFF") {
           code: rows[0].code,
           name: rows[0].name,
           active: !!rows[0].active,
-          // defaults (will be overridden if keys exist)
+          // defaults (overridden if keys exist)
           eligibleUserTypes: ["Staff"],
           durationMonths: 6,
           withdrawWaitDays: 90,
@@ -55,8 +71,12 @@ function getProgramSettings(code = "STAFF") {
           if (!r || !r.key) continue;
           const k = r.key;
           let v = r.value;
-          try { if (/^\s*\[|\{/.test(v)) v = JSON.parse(v); } catch (_) {}
-          if (["durationMonths","withdrawWaitDays","minWithdrawPoints","eurPerPoint","signupBonus"].includes(k)) {
+          try {
+            if (/^\s*\[|\{/.test(v)) v = JSON.parse(v);
+          } catch (_) {}
+          if (
+            ["durationMonths", "withdrawWaitDays", "minWithdrawPoints", "eurPerPoint", "signupBonus"].includes(k)
+          ) {
             const n = parseInt(v, 10);
             v = Number.isFinite(n) ? n : v;
           }
@@ -87,7 +107,10 @@ function sqlInsertAccount({ programId, userId, startDate, endDate, eligibleFrom 
   return new Promise((resolve, reject) => {
     db.run(
       `
-      INSERT INTO loyalty_accounts (program_id, user_id, status, start_date, end_date, eligible_from, points_balance, total_earned, total_penalty, total_paid)
+      INSERT INTO loyalty_accounts (
+        program_id, user_id, status, start_date, end_date, eligible_from,
+        points_balance, total_earned, total_penalty, total_paid
+      )
       VALUES (?, ?, 'Active', ?, ?, ?, 0, 0, 0, 0)
       `,
       [programId, userId, startDate, endDate, eligibleFrom],
@@ -102,7 +125,8 @@ function sqlInsertAccount({ programId, userId, startDate, endDate, eligibleFrom 
 function sqlInsertLedger(accountId, kind, delta, note, adminUserId = null) {
   return new Promise((resolve, reject) => {
     db.run(
-      `INSERT INTO loyalty_ledger (account_id, kind, points_delta, note, admin_user_id) VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO loyalty_ledger (account_id, kind, points_delta, note, admin_user_id)
+       VALUES (?, ?, ?, ?, ?)`,
       [accountId, kind, delta, note || null, adminUserId],
       function (err) {
         if (err) return reject(err);
@@ -120,7 +144,7 @@ function sqlGetAccountSnapshot(accountId) {
   });
 }
 
-// FIX: use created_at (real column) instead of ts
+// FIX: use created_at (real column) instead of non-existent ts
 function sqlGetRecentLedger(accountId, limit = 30) {
   return new Promise((resolve, reject) => {
     db.all(
@@ -138,14 +162,18 @@ function sqlGetRecentLedger(accountId, limit = 30) {
 // Read-only rank (1 = highest total_earned). No schema changes.
 async function sqlGetRankForAccount(accountId) {
   const total = await new Promise((resolve, reject) => {
-    db.get(`SELECT total_earned FROM loyalty_accounts WHERE id=?`, [accountId], (err, row) =>
-      err ? reject(err) : resolve(row ? (row.total_earned|0) : null)
+    db.get(
+      `SELECT total_earned FROM loyalty_accounts WHERE id=?`,
+      [accountId],
+      (err, row) => (err ? reject(err) : resolve(row ? row.total_earned | 0 : null))
     );
   });
   if (total == null) return null;
   return new Promise((resolve, reject) => {
     db.get(
-      `SELECT 1 + COUNT(*) AS rank FROM loyalty_accounts WHERE total_earned > ?`,
+      `SELECT 1 + COUNT(*) AS rank
+         FROM loyalty_accounts
+        WHERE total_earned > ?`,
       [total],
       (err, row) => (err ? reject(err) : resolve(row?.rank ?? null))
     );
@@ -158,25 +186,37 @@ async function sqlGetRankForAccount(accountId) {
  * POST /api/loyalty/enroll
  * Creates account if missing, credits signup bonus (+100 by default),
  * returns snapshot + program settings.
+ * (Remains Staff-only)
  */
 router.post("/enroll", requireStaff, async (req, res) => {
   const user = req.session.user;
   try {
     const program = await getProgramSettings("STAFF");
     if (!program || !program.active) {
-      return res.status(400).json({ success: false, error: { code: "PROGRAM_INACTIVE", message: "Program not active" } });
+      return res
+        .status(400)
+        .json({ success: false, error: { code: "PROGRAM_INACTIVE", message: "Program not active" } });
     }
     if (!isEligibleUser(user, program.eligibleUserTypes)) {
-      return res.status(403).json({ success: false, error: { code: "NOT_ELIGIBLE", message: "User not eligible" } });
+      return res
+        .status(403)
+        .json({ success: false, error: { code: "NOT_ELIGIBLE", message: "User not eligible" } });
     }
 
     const existing = await sqlGetAccount(program.programId, user.id);
     if (existing) {
       const [recent, rank] = await Promise.all([
         sqlGetRecentLedger(existing.id),
-        sqlGetRankForAccount(existing.id)
+        sqlGetRankForAccount(existing.id),
       ]);
-      return res.json({ success: true, account: existing, program, recent, rank, message: "Already enrolled" });
+      return res.json({
+        success: true,
+        account: existing,
+        program,
+        recent,
+        rank,
+        message: "Already enrolled",
+      });
     }
 
     // compute dates
@@ -208,25 +248,30 @@ router.post("/enroll", requireStaff, async (req, res) => {
     const [account, recent, rank] = await Promise.all([
       sqlGetAccountSnapshot(accountId),
       sqlGetRecentLedger(accountId),
-      sqlGetRankForAccount(accountId)
+      sqlGetRankForAccount(accountId),
     ]);
     return res.json({ success: true, account, program, recent, rank, message: "Enrolled" });
   } catch (err) {
     console.error("[loyalty/enroll]", err);
-    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: "Unable to enroll" } });
+    return res
+      .status(500)
+      .json({ success: false, error: { code: "SERVER_ERROR", message: "Unable to enroll" } });
   }
 });
 
 /**
  * GET /api/loyalty/me
  * Returns current account snapshot + recent ledger + program settings + rank.
+ * (NOW: any authenticated user can view their own snapshot)
  */
-router.get("/me", requireStaff, async (req, res) => {
+router.get("/me", requireAuth, async (req, res) => {
   const user = req.session.user;
   try {
     const program = await getProgramSettings("STAFF");
     if (!program) {
-      return res.status(404).json({ success: false, error: { code: "PROGRAM_NOT_FOUND", message: "Program missing" } });
+      return res
+        .status(404)
+        .json({ success: false, error: { code: "PROGRAM_NOT_FOUND", message: "Program missing" } });
     }
     const acct = await sqlGetAccount(program.programId, user.id);
     if (!acct) {
@@ -235,12 +280,14 @@ router.get("/me", requireStaff, async (req, res) => {
     }
     const [recent, rank] = await Promise.all([
       sqlGetRecentLedger(acct.id),
-      sqlGetRankForAccount(acct.id)
+      sqlGetRankForAccount(acct.id),
     ]);
     return res.json({ success: true, account: acct, program, recent, rank });
   } catch (err) {
     console.error("[loyalty/me]", err);
-    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: "Unable to load account" } });
+    return res
+      .status(500)
+      .json({ success: false, error: { code: "SERVER_ERROR", message: "Unable to load account" } });
   }
 });
 
