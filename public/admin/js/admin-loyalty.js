@@ -1147,28 +1147,54 @@ function wireManageModal(){
     : (fn,ms)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms||300); }; };
 
   const doSearch = debounceFn(async () => {
-    const term = sInput?.value || "";
-    if (!term.trim()) { if (sResults) sResults.innerHTML = ""; pickedUser = null; return; }
-    let users = [];
-    try {
-      users = await manageSearchUsers(term);
-    } catch { users = []; }
-    if (!sResults) return;
+  const term = sInput?.value || "";
+  if (!term.trim() || term.trim().length < 2) {
+    if (sResults) sResults.innerHTML = "";
+    pickedUser = null;
+    return;
+  }
+
+  // show “Loading…”
+  if (sResults) {
     sResults.innerHTML = "";
-    if (!users.length){
-      const opt = document.createElement("option");
-      opt.value = ""; opt.textContent = "No results"; opt.disabled = true; opt.selected = true;
-      sResults.appendChild(opt); return;
-    }
-    users.forEach(u => {
-      const opt = document.createElement("option");
-      const label = `${u.name || u.email || u.phone || ('User#'+u.id)}${u.account_id ? "" : " (no active account)"}`;
-      opt.value = String(u.id); opt.textContent = label; opt.dataset.payload = JSON.stringify(u);
-      sResults.appendChild(opt);
-    });
-    sResults.selectedIndex = 0;
-    sResults.dispatchEvent(new Event("change"));
-  }, 250);
+    const loading = document.createElement("option");
+    loading.value = "";
+    loading.textContent = "Loading…";
+    loading.disabled = true;
+    loading.selected = true;
+    sResults.appendChild(loading);
+  }
+
+  let users = [];
+  try {
+    users = await manageSearchUsers(term);
+  } catch (e) {
+    users = [];
+  }
+
+  sResults.innerHTML = "";
+  if (!users.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No results";
+    opt.disabled = true;
+    opt.selected = true;
+    sResults.appendChild(opt);
+    return;
+  }
+
+  users.forEach(u => {
+    const opt = document.createElement("option");
+    const label = `${u.name || u.email || u.phone || ("User#"+u.id)}${u.account_id ? "" : " (no active account)"}`;
+    opt.value = String(u.id);
+    opt.textContent = label;
+    opt.dataset.payload = JSON.stringify(u);
+    sResults.appendChild(opt);
+  });
+  sResults.selectedIndex = 0;
+  sResults.dispatchEvent(new Event("change"));
+}, 250);
+
 
   if (sInput) sInput.addEventListener("input", doSearch);
   if (sResults) sResults.addEventListener("change", () => {
