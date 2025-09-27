@@ -1,74 +1,71 @@
-
 // routes/admin-users-search.js
-// Admin Users Search (extended for loyalty program_name and balances)
-// Mount in server.js as: app.use('/api/admin/users', require('./routes/admin-users-search'));
-//
-// Requires: express, better-sqlite3 (or sqlite3 wrapper), admin auth middleware `requireAdmin`
-// Env: process.env.WATTSUN_DB pointing to dev/prod unified DB (wattsun.dev.db)
+// Admin Users Search (sqlite3 version) — no better-sqlite3 dependency
+// Mounted in server.js under /api/admin/users (already gated by requireAdmin upstream).
 
 const express = require('express');
 const path = require('path');
-const Database = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 
 const router = express.Router();
 
-// TODO: replace with your actual admin auth middleware
-function requireAdmin(req, res, next) {
-  if (req.isAdmin || (req.session && req.session.isAdmin)) return next();
-  return res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "Admin only" } });
-}
-
-// Open DB once per process
+// Resolve DB path (unified dev/prod env)
 const dbPath = process.env.WATTSUN_DB || path.join(process.cwd(), 'data', 'dev', 'wattsun.dev.db');
-const db = new Database(dbPath, { fileMustExist: true });
+const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
+  if (err) {
+    console.error('[admin-users-search] Failed to open DB at', dbPath, err);
+  } else {
+    console.log('[admin-users-search] Using DB at', dbPath);
+  }
+});
 
-// Normalize query term
 function toLikeTerm(q) {
   if (!q) return '%';
   const s = String(q).trim();
   if (!s) return '%';
+  // remove existing wildcard chars to avoid accidental wide scans
   return `%${s.replace(/[%_]/g, '')}%`;
 }
 
 /**
  * GET /api/admin/users/search?q=term
- * Returns admin search results with loyalty program fields
- * Contract: { success:true, results:[ { id, name, email, phone, account_id, program_name, minWithdrawPoints, balancePoints, status } ] }
+ * Response: { success:true, results:[ { id, name, email, phone, account_id, program_name, minWithdrawPoints, balancePoints, status } ] }
  */
-router.get('/search', requireAdmin, (req, res) => {
+router.get('/search', (req, res) => {
   try {
-    const q = toLikeTerm(req.query.q || '');
+    const like = toLikeTerm(req.query.q || '');
 
-    // Prefer Active accounts; if multiple, choose the most recent by created_at DESC
     const sql = `
       SELECT
-        u.id                         AS id,
-        COALESCE(u.name, '')         AS name,
-        COALESCE(u.email, '')        AS email,
-        COALESCE(u.phone, '')        AS phone,
-        la.id                        AS account_id,
-        lp.name                      AS program_name,
+        u.id                           AS id,
+        COALESCE(u.name, '')           AS name,
+        COALESCE(u.email, '')          AS email,
+        COALESCE(u.phone, '')          AS phone,
+        la.id                          AS account_id,
+        lp.name                        AS program_name,
         COALESCE(lp.min_withdraw_points, 0) AS minWithdrawPoints,
         COALESCE(la.balance_points, 0)      AS balancePoints,
-        COALESCE(u.status, 'Unknown') AS status
+        COALESCE(u.status, 'Unknown')  AS status
       FROM users u
       LEFT JOIN loyalty_accounts la
         ON la.user_id = u.id
        AND la.status = 'Active'
       LEFT JOIN loyalty_programs lp
         ON lp.id = la.program_id
-      WHERE (u.name  LIKE @term OR u.email LIKE @term OR u.phone LIKE @term)
+      WHERE (u.name LIKE $term OR u.email LIKE $term OR u.phone LIKE $term)
       ORDER BY u.name ASC
       LIMIT 25;
     `;
 
-    const stmt = db.prepare(sql);
-    const rows = stmt.all({ term: q });
-
-    return res.json({ success: true, results: rows });
-  } catch (err) {
-    console.error('[admin-users-search] error:', err);
-    return res.status(500).json({ success: false, error: { code: "SEARCH_FAILED", message: "Failed to search users" } });
+    db.all(sql, { $term: like }, (err, rows) => {
+      if (err) {
+        console.error('[admin-users-search] query error:', err);
+        return res.status(500).json({ success: false, error: { code: 'SEARCH_FAILED', message: 'Failed to search users' } });
+      }
+      return res.json({ success: true, results: rows || [] });
+    });
+  } catch (e) {
+    console.error('[admin-users-search] handler error:', e);
+    return res.status(500).json({ success: false, error: { code: 'SEARCH_FAILED', message: 'Failed to search users' } });
   }
 });
 
