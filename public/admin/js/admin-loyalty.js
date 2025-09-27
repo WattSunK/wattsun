@@ -1,6 +1,6 @@
 // public/admin/js/admin-loyalty.js
 // Loyalty Admin — SPA-safe attach, tabs + lists + actions
-// Increment 2 & 3 polish + fixes:
+// Increment 2 & 3 fixes:
 // - User search + inline validation in New Withdrawal
 // - Auto-fill Account ID from selected user
 // - Floating Actions menu with robust auto-close + global closer
