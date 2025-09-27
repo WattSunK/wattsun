@@ -44,7 +44,14 @@ router.get('/search', (req, res) => {
   lp.name                        AS program_name,
   COALESCE(la.points_balance,0)  AS balancePoints,
   COALESCE(u.status,'Unknown')   AS status,
-  COALESCE(lps.value_int, 0)     AS minWithdrawPoints
+  CAST(
+  COALESCE(
+    CASE WHEN TRIM(lps.value) <> '' THEN lps.value END,
+    lps.value_int,
+    0
+  ) AS INTEGER
+) AS minWithdrawPoints
+
 FROM users u
 LEFT JOIN loyalty_accounts la
   ON la.user_id = u.id
