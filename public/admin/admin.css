@@ -772,3 +772,22 @@ td:last-child .ws-actions { white-space: nowrap; }
 /* ==================================================================
    Responsive tweaks
    ================================================================== */
+
+   /* Manage modal polish */
+#accManageDialog .modal__sheet { max-width: 920px; }
+#accManageDialog .modal__body { padding-top: 8px; }
+#accManageDialog .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+#accManageDialog .row.row--cols { grid-template-columns: 1fr 1fr; }
+#accManageDialog .group label { font-weight: 600; margin-bottom: 6px; display: block; }
+#accManageDialog .input { height: 36px; }
+#accManageDialog .hint-card { border: 1px dashed #e5e7eb; border-radius: 10px; padding: 10px 12px; background: #fafafa; }
+#accManageDialog .input--readonly { background:#f3f4f6; color:#6b7280; }
+
+/* Compact meta display under search results */
+#accManageDialog .meta-row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin:6px 0 8px; }
+#accManageDialog .meta-cell { border:1px solid #eee; border-radius:10px; padding:8px 10px; background:#fff; }
+#accManageDialog .meta-label { font-size:12px; color:#6b7280; margin-bottom:4px; }
+#accManageDialog .meta-value { font-weight:600; }
+
+/* De-emphasize the legacy Account/User ID inputs */
+#accManageDialog .m-legacy-ids { display:none; } /* comment this if you prefer to keep them visible but greyed */
