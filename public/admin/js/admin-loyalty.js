@@ -1,6 +1,6 @@
 // public/admin/js/admin-loyalty.js
 // Loyalty Admin — SPA-safe attach, tabs + lists + actions
-// Includes: New Withdrawal (admin-initiated) modal wiring + Increment 2 (user search)
+// Includes: New Withdrawal (admin-initiated) modal wiring + Increment 2 (user search) + Increment 3 (UX & validation polish)
 (function () {
   "use strict";
 
@@ -95,11 +95,20 @@
     wireFilters();
     wirePager();
     wireInlineActionsMenu();
-    wireNewWithdrawalModal(); // increment 2 wiring included
+    wireNewWithdrawalModal(); // Increment 2 + 3 wiring
 
     state.activeTab = "Withdrawals";
     showTab("Withdrawals");
     loadWithdrawals({ resetPage:true });
+
+    // Optional global listeners so other tabs auto-refresh when we emit signals
+    window.addEventListener("focus", () => { try { refreshActiveTab(); } catch {} });
+    window.addEventListener("storage", (e) => {
+      if (e.key === "loyaltyUpdatedAt") { try { refreshActiveTab(); } catch {} }
+    });
+    window.addEventListener("message", (e) => {
+      if (e && e.data && e.data.type === "loyalty-updated") { try { refreshActiveTab(); } catch {} }
+    });
 
     window.loyaltyAdmin = { state, refreshActiveTab, loadWithdrawals, loadAccounts, loadLedger, loadNotifications };
   }
@@ -391,23 +400,40 @@
 
   bindWithdrawalActions();
 
-  // ---------- Increment 2: NEW WITHDRAWAL modal wiring with search ----------
+  // ---------- Increment 2 + 3: NEW WITHDRAWAL modal wiring with search & UX polish ----------
   const SEARCH_URL = "/api/admin/users/search";
   const SEARCH_DEBOUNCE_MS = 250;
 
+  // accepts multiple server shapes:
+  // - { success:true, results:[...] }
+  // - { success:true, users:[...] }   (legacy)
+  // - [ ... ]                         (bare array legacy)
   async function searchUsers(term) {
     if (!term || term.trim().length < 2) return [];
     try {
       const r = await fetch(`${SEARCH_URL}?q=${encodeURIComponent(term)}`, { credentials: "same-origin" });
       const j = await r.json();
-      if (j && j.success && Array.isArray(j.users)) return j.users;
-      // Allow legacy servers that return a bare array
-      if (Array.isArray(j)) return j;
-      return [];
+
+      const arr = Array.isArray(j) ? j : (j.results || j.users || []);
+      if (!Array.isArray(arr)) return [];
+
+      // Normalize fields we care about
+      return arr.map(u => ({
+        id: u.id,
+        name: u.name || "",
+        email: u.email || "",
+        phone: u.phone || "",
+        account_id: u.account_id ?? u.accountId ?? null,
+        status: u.status || "",
+        // Increment 3: program awareness + min/balance canonical
+        program_name: u.program_name || u.programName || "",
+        minWithdrawPoints: u.minWithdrawPoints ?? u.min_withdraw_points ?? 0,
+        balancePoints: u.balancePoints ?? u.balance_points ?? u.balance ?? 0
+      }));
     } catch (e) {
       // Mock fallback: keeps UI testable if backend not deployed yet
       return [
-        { id: 1, name: "Demo User", email: "demo@example.com", phone: "+254700000001", account_id: 101, status: "Active", balance: 900, minWithdrawPoints: 200 }
+        { id: 1, name: "Demo User", email: "demo@example.com", phone: "+254700000001", account_id: 101, status: "Active", program_name: "WattSun Rewards", balancePoints: 900, minWithdrawPoints: 200 }
       ];
     }
   }
@@ -421,12 +447,23 @@
     const note   = document.getElementById("wdNote");
     const out    = document.getElementById("wdOut");
 
-    // NEW Increment 2 fields (optional if HTML updated):
-    const sInput   = document.getElementById("wdUserSearch");   // text
-    const sResults = document.getElementById("wdUserResults");  // <select> or list container
+    // Increment 2 fields:
+    const sInput   = document.getElementById("wdUserSearch");   // <input type="text">
+    const sResults = document.getElementById("wdUserResults");  // <select> or container
     const hidAcc   = document.getElementById("wdAccountId");    // hidden input
-    const hint     = document.getElementById("wdBalanceHint");  // inline hint
-    const submitBtn= document.getElementById("wdSubmit") || create; // prefer new id, fallback to old
+
+    // Increment 3 hint block (program + min + balance) and inline error
+    const hintBlk  = document.getElementById("wdHintBlock");    // optional container
+    const hintProg = document.getElementById("wdHintProgram");
+    const hintMin  = document.getElementById("wdHintMin");
+    const hintBal  = document.getElementById("wdHintBal");
+    const inlineErr= document.getElementById("wdError");
+
+    // Fallback: legacy single-line hint (kept for backward compatibility)
+    const legacyHint = document.getElementById("wdBalanceHint");
+
+    // Preferred Submit button id; fallback to old `create`
+    const submitBtn= document.getElementById("wdSubmit") || create;
 
     if (!btn || !dlg) return;
 
@@ -435,6 +472,21 @@
 
     const setOut = (msg) => { if (out) out.textContent = msg || ""; };
 
+    const showInlineError = (msg) => {
+      if (inlineErr) {
+        inlineErr.textContent = msg || "";
+        inlineErr.style.display = msg ? "block" : "none";
+      } else {
+        // fall back to legacy output line (non-blocking)
+        setOut(msg || "");
+      }
+    };
+
+    const setSubmitEnabled = (ok) => {
+      if (!submitBtn) return;
+      submitBtn.disabled = !ok;
+    };
+
     const getRequestedPoints = () => {
       const raw = (pts?.value || "").toString();
       const num = parseInt(raw.replace(/[^\d\-]/g, ""), 10);
@@ -442,9 +494,26 @@
     };
 
     const renderHint = () => {
+      // Prefer new structured hint if present; else legacy one-liner
       const min = picked?.minWithdrawPoints ?? 0;
-      const bal = picked?.balance ?? 0;
-      if (hint) hint.textContent = `Minimum withdrawal = ${min} points; Balance = ${bal} points`;
+      const bal = picked?.balancePoints ?? picked?.balance ?? 0;
+      const prog= picked?.program_name || "";
+
+      if (hintBlk || hintProg || hintMin || hintBal) {
+        if (hintProg) hintProg.textContent = prog || "—";
+        if (hintMin)  hintMin.textContent  = String(min);
+        if (hintBal)  hintBal.textContent  = String(bal);
+      } else if (legacyHint) {
+        legacyHint.textContent = `Program: ${prog || "—"} | Minimum withdrawal = ${min} points; Balance = ${bal} points`;
+      }
+    };
+
+    const validatePoints = (val, min, bal) => {
+      const p = Number(val);
+      if (!Number.isFinite(p) || p <= 0) return { ok:false, msg:"Enter points" };
+      if (min != null && p < Number(min)) return { ok:false, msg:`Minimum is ${min} points` };
+      if (bal != null && p > Number(bal)) return { ok:false, msg:`Exceeds balance (${bal})` };
+      return { ok:true };
     };
 
     const updateValidity = () => {
@@ -452,12 +521,17 @@
       const accountId = (hidAcc && hidAcc.value) ? parseInt(hidAcc.value, 10) : (accId ? parseInt(accId.value, 10) : NaN);
       const req = getRequestedPoints();
       const min = picked?.minWithdrawPoints ?? 0;
-      const bal = picked?.balance ?? Infinity; // if unknown, don't block too hard
+      const bal = picked?.balancePoints ?? picked?.balance ?? Infinity; // if unknown, don't block too hard
       renderHint();
-      const okNewFlow = (!!sInput || !!sResults) ? (!!accountId && req >= min && req <= bal) : true;
+      const res = validatePoints(req, min, bal);
+
+      // show or clear inline error
+      showInlineError(res.ok ? "" : res.msg);
+
+      const okNewFlow = (!!sInput || !!sResults) ? (!!accountId && res.ok) : true;
       const okLegacy  = (!sInput && !sResults) ? (Number.isInteger(accountId) && accountId > 0 && Number.isInteger(req) && req > 0) : true;
       const ok = okNewFlow && okLegacy;
-      if (submitBtn) submitBtn.disabled = !ok;
+      setSubmitEnabled(ok);
       return ok;
     };
 
@@ -470,29 +544,51 @@
       updateValidity();
     };
 
+    const renderNoResults = () => {
+      if (!sResults) return;
+      if (sResults.tagName === "SELECT") {
+        sResults.innerHTML = "";
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No results found";
+        opt.disabled = true;
+        opt.selected = true;
+        sResults.appendChild(opt);
+      } else {
+        sResults.innerHTML = `<div class="muted">No results found</div>`;
+      }
+      picked = null;
+      if (hidAcc) hidAcc.value = "";
+      renderHint();
+      updateValidity();
+    };
+
     const renderResults = (users=[]) => {
       if (!sResults) return;
+      if (!users.length) {
+        renderNoResults();
+        return;
+      }
       // If it's a <select>, populate options. If it's a <div>, render buttons.
       if (sResults.tagName === "SELECT") {
         sResults.innerHTML = "";
         users.forEach(u => {
           const opt = document.createElement("option");
           opt.value = String(u.id);
-          opt.textContent = `${u.name} — ${u.email} — ${u.phone}${u.account_id ? "" : " (no active account)"}`;
+          opt.textContent = `${u.name || u.email || u.phone || ('User#'+u.id)}${u.account_id ? "" : " (no active account)"}`;
           opt.dataset.payload = JSON.stringify(u);
           sResults.appendChild(opt);
         });
-        if (users.length === 1) {
-          sResults.selectedIndex = 0;
-          sResults.dispatchEvent(new Event("change"));
-        }
+        // auto-pick first result
+        sResults.selectedIndex = 0;
+        sResults.dispatchEvent(new Event("change"));
       } else {
         sResults.innerHTML = "";
         users.forEach(u => {
           const btn = document.createElement("button");
           btn.type = "button";
           btn.className = "btn btn--ghost";
-          btn.textContent = `${u.name} — ${u.email} — ${u.phone}${u.account_id ? "" : " (no active account)"}`;
+          btn.textContent = `${u.name || u.email || u.phone || ('User#'+u.id)}${u.account_id ? "" : " (no active account)"}`;
           btn.dataset.payload = JSON.stringify(u);
           btn.addEventListener("click", () => {
             picked = u;
@@ -509,7 +605,12 @@
       if (!sInput) return;
       const term = sInput.value;
       if (!term || term.trim().length < 2) {
-        renderResults([]);
+        // don't force "No results" for too-short input; just clear
+        sResults && (sResults.innerHTML = "");
+        picked = null;
+        if (hidAcc) hidAcc.value = "";
+        renderHint();
+        updateValidity();
         return;
       }
       const users = await searchUsers(term);
@@ -522,6 +623,7 @@
       if (pts) pts.value = "";
       if (note) note.value = "";
       setOut("");
+      showInlineError("");
       clearSearchUI();
       try { dlg.showModal(); } catch(_) {}
     });
@@ -545,6 +647,8 @@
     if (submitBtn) {
       submitBtn.addEventListener("click", async () => {
         setOut("");
+        showInlineError("");
+
         // Prefer new hidden accountId if present; else fallback to legacy accId input
         const accountIdVal = (hidAcc && hidAcc.value) ? hidAcc.value : (accId ? accId.value : "");
         const accountId = parseInt(accountIdVal, 10);
@@ -554,23 +658,24 @@
         // Validate according to new flow if available
         if ((sInput || sResults) && picked) {
           const min = picked?.minWithdrawPoints ?? 0;
-          const bal = picked?.balance ?? Infinity;
+          const bal = picked?.balancePoints ?? picked?.balance ?? Infinity;
           if (!accountId || isNaN(accountId)) {
-            setOut("Select a user with an active loyalty account.");
+            showInlineError("Select a user with an active loyalty account.");
             return;
           }
-          if (!(Number.isInteger(points) && points >= min && points <= bal)) {
-            setOut(`Enter points between ${min} and ${bal}.`);
+          const res = validatePoints(points, min, bal);
+          if (!res.ok) {
+            showInlineError(res.msg);
             return;
           }
         } else {
           // Legacy validation
           if (!Number.isInteger(accountId) || accountId < 1) {
-            setOut("Please enter a valid Account ID.");
+            showInlineError("Please enter a valid Account ID.");
             return;
           }
           if (!Number.isInteger(points) || points < 1) {
-            setOut("Please enter points ≥ 1.");
+            showInlineError("Please enter points ≥ 1.");
             return;
           }
         }
@@ -580,13 +685,22 @@
           const resp = await postJSON("/api/admin/loyalty/withdrawals", { accountId, points, note:n });
           const id = resp?.withdrawal?.id ?? "—";
           toast(`Created withdrawal #${id} (${points} pts)`, { type:"info" });
-          setOut(`Created: ID ${id}, status ${resp?.withdrawal?.status}`);
-          setTimeout(() => {
-            try { dlg.close("close"); } catch(_){ }
-            document.getElementById("loyaltyRefreshBtn")?.click();
-          }, 450);
+
+          // Close modal quickly
+          try { dlg.close("close"); } catch(_){}
+
+          // Increment 3: refresh BOTH Withdrawals and Accounts immediately
+          try { loadWithdrawals(); } catch(_){}
+          try { loadAccounts({ resetPage:true }); } catch(_){}
+
+          // Cross-tab signals so other views react
+          try {
+            localStorage.setItem("loyaltyUpdatedAt", String(Date.now()));
+            window.postMessage({ type: "loyalty-updated" }, "*");
+          } catch (_) {}
+
         } catch (e) {
-          setOut(e.message || String(e));
+          showInlineError(e.message || "Failed to create withdrawal");
           toast("Error creating withdrawal", { type:"error" });
         } finally {
           submitBtn.disabled = false;
@@ -595,7 +709,7 @@
     }
 
     // Start disabled until valid (new flow)
-    if (submitBtn) submitBtn.disabled = true;
+    setSubmitEnabled(false);
     renderHint();
   }
 
