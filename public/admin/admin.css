@@ -756,3 +756,19 @@ td:last-child .ws-actions { white-space: nowrap; }
 #accManageDialog .modal__body { padding-top: 6px; }
 #accManageDialog .card-actions .btn { height: 34px; }
 #accManageDialog .input--readonly { background:#f3f4f6; color:#6b7280; }
+
+/* Manage modal polish */
+#accManageDialog .modal__sheet { max-width: 920px; }
+#accManageDialog .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+#accManageDialog .group label { font-weight: 600; margin-bottom: 6px; display: block; }
+#accManageDialog .input { height: 36px; }
+#accManageDialog .muted { color: #6b7280; }
+#accManageDialog .hint-card {
+  border: 1px dashed #e5e7eb; border-radius: 10px; padding: 10px 12px; background: #fafafa;
+}
+#accManageDialog .modal__body { padding-top: 6px; }
+#accManageDialog .card-actions .btn { height: 34px; }
+#accManageDialog .input--readonly { background:#f3f4f6; color:#6b7280; }
+/* ==================================================================
+   Responsive tweaks
+   ================================================================== */
