@@ -306,20 +306,34 @@
   }
 
   function actionCellHtml(id, status){
-    const canApprove = status === "Pending";
-    const canReject  = status === "Pending";
-    const canPay     = status === "Approved";
-    // Render menu markup; JS will lift it to a floating menu on click
+  // normalize status
+  const st = String(status || "").trim().toLowerCase();
+
+  const canApprove = st === "pending";
+  const canReject  = st === "pending";
+  const canPay     = st === "approved";
+
+  // nothing to do for paid/rejected/other → show badge only
+  if (!(canApprove || canReject || canPay)) {
     return `
-      <div class="ws-actions" style="position:relative;">
-        <button class="btn btn-actions" aria-haspopup="menu" data-id="${esc(id)}">Actions ▾</button>
-        <div class="actions-menu hidden" role="menu" data-id="${esc(id)}">
-          <button class="btn btn-approve"   data-id="${esc(id)}" ${canApprove ? "" : "disabled"}>Approve</button>
-          <button class="btn btn-reject"    data-id="${esc(id)}" ${canReject  ? "" : "disabled"}>Reject</button>
-          <button class="btn btn-mark-paid" data-id="${esc(id)}" ${canPay     ? "" : "disabled"}>Mark Paid</button>
-        </div>
-      </div>`;
+      <span class="badge badge--muted" data-no-actions="1"
+            style="display:inline-block;padding:2px 8px;border-radius:12px;background:#eee;color:#666;font-size:12px;">
+        No actions
+      </span>`;
   }
+
+  // actionable rows only
+  return `
+    <div class="ws-actions" data-has-actions="1" style="position:relative;">
+      <button class="btn btn-actions" aria-haspopup="menu" data-id="${esc(id)}">Actions ▾</button>
+      <div class="actions-menu hidden" role="menu" data-id="${esc(id)}">
+        <button class="btn btn-approve"   data-id="${esc(id)}" ${canApprove ? "" : "disabled"}>Approve</button>
+        <button class="btn btn-reject"    data-id="${esc(id)}" ${canReject  ? "" : "disabled"}>Reject</button>
+        <button class="btn btn-mark-paid" data-id="${esc(id)}" ${canPay     ? "" : "disabled"}>Mark Paid</button>
+      </div>
+    </div>`;
+}
+
 
   function renderWithdrawalsRows(tbody, rows){
     if (!tbody) return; tbody.innerHTML = "";
@@ -395,13 +409,16 @@
   function wireInlineActionsMenu() {
     // Toggle floating menu
     on(document, "click", (e) => {
-      const btn = e.target.closest(".btn-actions");
-      if (!btn) return;
-      e.preventDefault();
-      e.stopPropagation();
-      openFloatingMenu(btn);
-    });
+  const btn = e.target.closest(".btn-actions");
+  if (!btn) return;
+  // don’t open for rows without actions (paid/rejected)
+  const wrap = btn.closest(".ws-actions");
+  if (!wrap || wrap.dataset.hasActions !== "1") return;
 
+  e.preventDefault();
+  e.stopPropagation();
+  openFloatingMenu(btn);
+});
     // Close on outside click or ESC
     on(document, "click", (e) => {
       if (openMenuEl && !openMenuEl.contains(e.target) && !e.target.closest(".btn-actions")) {
