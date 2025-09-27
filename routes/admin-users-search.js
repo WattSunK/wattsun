@@ -35,26 +35,27 @@ router.get('/search', (req, res) => {
     const like = toLikeTerm(req.query.q || '');
 
     const sql = `
-      SELECT
-        u.id                           AS id,
-        COALESCE(u.name, '')           AS name,
-        COALESCE(u.email, '')          AS email,
-        COALESCE(u.phone, '')          AS phone,
-        la.id                          AS account_id,
-        lp.name                        AS program_name,
-        COALESCE(lp.min_withdraw_points, 0) AS minWithdrawPoints,
-        COALESCE(la.balance_points, 0)      AS balancePoints,
-        COALESCE(u.status, 'Unknown')  AS status
-      FROM users u
-      LEFT JOIN loyalty_accounts la
-        ON la.user_id = u.id
-       AND la.status = 'Active'
-      LEFT JOIN loyalty_programs lp
-        ON lp.id = la.program_id
-      WHERE (u.name LIKE $term OR u.email LIKE $term OR u.phone LIKE $term)
-      ORDER BY u.name ASC
-      LIMIT 25;
-    `;
+  SELECT
+    u.id                            AS id,
+    COALESCE(u.name, '')            AS name,
+    COALESCE(u.email, '')           AS email,
+    COALESCE(u.phone, '')           AS phone,
+    la.id                           AS account_id,
+    lp.name                         AS program_name,
+    /* tolerate different column names across envs */
+    COALESCE(lp.min_withdraw_points, lp.min_points, 0) AS minWithdrawPoints,
+    COALESCE(la.points_balance, la.balance_points, 0)  AS balancePoints,
+    COALESCE(u.status, 'Unknown')   AS status
+  FROM users u
+  LEFT JOIN loyalty_accounts la
+    ON la.user_id = u.id
+   AND la.status = 'Active'
+  LEFT JOIN loyalty_programs lp
+    ON lp.id = la.program_id
+  WHERE (u.name  LIKE $term OR u.email LIKE $term OR u.phone LIKE $term)
+  ORDER BY u.name ASC
+  LIMIT 25;
+`;
 
     db.all(sql, { $term: like }, (err, rows) => {
       if (err) {
