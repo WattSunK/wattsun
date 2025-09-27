@@ -749,54 +749,99 @@
       }
     };
 
-    const doSearch = debounceFn(async () => {
-  const term = sInput?.value || "";
-  if (!term.trim() || term.trim().length < 2) {
-    if (sResults) sResults.innerHTML = "";
-    pickedUser = null;
-    // reset meta/hints
-    setMeta({ user: "—", acct: "—" });
-    renderHints({ programName:"—", min:"—", start:"—", end:"—", eligible:"—" });
-    if (mCreate) mCreate.style.display = "none";
-    return;
-  }
-  // Loading…
-  sResults.innerHTML = "";
-  const loading = document.createElement("option");
-  loading.value = ""; loading.textContent = "Loading…"; loading.disabled = true; loading.selected = true;
-  sResults.appendChild(loading);
+    const doSearch = debounce(async () => {
+      if (!sInput) return;
+      const term = sInput.value;
+      if (!term || term.trim().length < 2) {
+        sResults && (sResults.innerHTML = "");
+        picked = null;
+        if (hidAcc) hidAcc.value = "";
+        syncVisibleAccountId();
+        renderHint();
+        updateValidity();
+        return;
+      }
+      const users = await searchUsers(term);
+      renderResults(users);
+    }, SEARCH_DEBOUNCE_MS);
 
-  let users = [];
-  try { users = await manageSearchUsers(term); } catch { users = []; }
+    // Open modal
+    btn && btn.addEventListener("click", () => {
+      try { window.wsCloseActionsMenu && window.wsCloseActionsMenu(); } catch (_) {}
+      if (accId) { accId.value = ""; accId.readOnly = false; accId.classList.remove("input--readonly"); }
+      if (pts) pts.value = "";
+      if (note) note.value = "";
+      setOut("");
+      showInlineError("");
+      clearSearchUI();
+      try { dlg.showModal(); } catch(_){/* safari fallback ignored */ }
+    });
 
-  sResults.innerHTML = "";
-  if (!users.length) {
-    const opt = document.createElement("option");
-    opt.value = ""; opt.textContent = "No results"; opt.disabled = true; opt.selected = true;
-    sResults.appendChild(opt);
-    return;
-  }
-  users.forEach(u => {
-    const opt = document.createElement("option");
-    const label = `${u.name || u.email || u.phone || ("User#"+u.id)}${u.account_id ? "" : " (no active account)"}`;
-    opt.value = String(u.id); opt.textContent = label; opt.dataset.payload = JSON.stringify(u);
-    sResults.appendChild(opt);
-  });
-  sResults.selectedIndex = 0;
-  sResults.dispatchEvent(new Event("change"));
-}, 220);
+    // Search listeners (new flow)
+    if (sInput) sInput.addEventListener("input", doSearch);
 
-if (sInput) {
-  sInput.addEventListener("input", doSearch);
-  sInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && sResults && sResults.options.length > 0) {
-      e.preventDefault();
-      sResults.selectedIndex = 0;
-      sResults.dispatchEvent(new Event("change"));
+    if (sResults && sResults.tagName === "SELECT") {
+      sResults.addEventListener("change", () => {
+        const opt = sResults.options[sResults.selectedIndex];
+        picked = opt ? JSON.parse(opt.dataset.payload) : null;
+        if (hidAcc) hidAcc.value = picked?.account_id || "";
+        syncVisibleAccountId();
+        renderHint();
+        updateValidity();
+      });
     }
-  });
-}
 
+    if (pts) pts.addEventListener("input", updateValidity);
+
+    // Submit
+    if (submitBtn) {
+      submitBtn.addEventListener("click", async () => {
+        setOut("");
+        showInlineError("");
+
+        const accountIdVal = (hidAcc && hidAcc.value) ? hidAcc.value : (accId ? accId.value : "");
+        const accountId = parseInt(accountIdVal, 10);
+        const points = getRequestedPoints();
+        const n = (note?.value || "").trim();
+
+        if ((sInput || sResults) && picked) {
+          const min = picked?.minWithdrawPoints ?? 0;
+          const bal = picked?.balancePoints ?? picked?.balance ?? Infinity;
+          if (!accountId || isNaN(accountId)) {
+            showInlineError("Select a user with an active loyalty account.");
+            return;
+          }
+          const res = validatePoints(points, min, bal);
+          if (!res.ok) { showInlineError(res.msg); return; }
+        } else {
+          if (!Number.isInteger(accountId) || accountId < 1) { showInlineError("Please enter a valid Account ID."); return; }
+          if (!Number.isInteger(points) || points < 1) { showInlineError("Please enter points ≥ 1."); return; }
+        }
+
+        try {
+          submitBtn.disabled = true;
+          const resp = await postJSON("/api/admin/loyalty/withdrawals", { accountId, points, note:n });
+          const id = resp?.withdrawal?.id ?? "—";
+          toast(`Created withdrawal #${id} (${points} pts)`, { type:"info" });
+
+          try { dlg.close("close"); } catch(_){}
+
+          try { loadWithdrawals(); } catch(_){}
+          try { loadAccounts({ resetPage:true }); } catch(_){}
+
+          try {
+            localStorage.setItem("loyaltyUpdatedAt", String(Date.now()));
+            window.postMessage({ type: "loyalty-updated" }, "*");
+          } catch (_) {}
+
+        } catch (e) {
+          showInlineError(e.message || "Failed to create withdrawal");
+          toast("Error creating withdrawal", { type:"error" });
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+    }
 
     setSubmitEnabled(false);
     renderHint();
@@ -1102,54 +1147,28 @@ function wireManageModal(){
     : (fn,ms)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms||300); }; };
 
   const doSearch = debounceFn(async () => {
-  const term = sInput?.value || "";
-  if (!term.trim() || term.trim().length < 2) {
-    if (sResults) sResults.innerHTML = "";
-    pickedUser = null;
-    return;
-  }
-
-  // show “Loading…”
-  if (sResults) {
+    const term = sInput?.value || "";
+    if (!term.trim()) { if (sResults) sResults.innerHTML = ""; pickedUser = null; return; }
+    let users = [];
+    try {
+      users = await manageSearchUsers(term);
+    } catch { users = []; }
+    if (!sResults) return;
     sResults.innerHTML = "";
-    const loading = document.createElement("option");
-    loading.value = "";
-    loading.textContent = "Loading…";
-    loading.disabled = true;
-    loading.selected = true;
-    sResults.appendChild(loading);
-  }
-
-  let users = [];
-  try {
-    users = await manageSearchUsers(term);
-  } catch (e) {
-    users = [];
-  }
-
-  sResults.innerHTML = "";
-  if (!users.length) {
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "No results";
-    opt.disabled = true;
-    opt.selected = true;
-    sResults.appendChild(opt);
-    return;
-  }
-
-  users.forEach(u => {
-    const opt = document.createElement("option");
-    const label = `${u.name || u.email || u.phone || ("User#"+u.id)}${u.account_id ? "" : " (no active account)"}`;
-    opt.value = String(u.id);
-    opt.textContent = label;
-    opt.dataset.payload = JSON.stringify(u);
-    sResults.appendChild(opt);
-  });
-  sResults.selectedIndex = 0;
-  sResults.dispatchEvent(new Event("change"));
-}, 250);
-
+    if (!users.length){
+      const opt = document.createElement("option");
+      opt.value = ""; opt.textContent = "No results"; opt.disabled = true; opt.selected = true;
+      sResults.appendChild(opt); return;
+    }
+    users.forEach(u => {
+      const opt = document.createElement("option");
+      const label = `${u.name || u.email || u.phone || ('User#'+u.id)}${u.account_id ? "" : " (no active account)"}`;
+      opt.value = String(u.id); opt.textContent = label; opt.dataset.payload = JSON.stringify(u);
+      sResults.appendChild(opt);
+    });
+    sResults.selectedIndex = 0;
+    sResults.dispatchEvent(new Event("change"));
+  }, 250);
 
   if (sInput) sInput.addEventListener("input", doSearch);
   if (sResults) sResults.addEventListener("change", () => {
