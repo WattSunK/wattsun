@@ -989,6 +989,32 @@
   }
 
 })();
+// put this near the top of wireManageModal()
+async function manageSearchUsers(term) {
+  const t = (term || "").trim();
+  if (t.length < 2) return [];
+  try {
+    const res = await fetch(`/api/admin/users/search?q=${encodeURIComponent(t)}`, {
+      credentials: "include"
+    });
+    const j = await res.json().catch(() => ({}));
+    const arr = Array.isArray(j) ? j : (j.results || j.users || []);
+    if (!Array.isArray(arr)) return [];
+    return arr.map(u => ({
+      id: u.id,
+      name: u.name || "",
+      email: u.email || "",
+      phone: u.phone || "",
+      account_id: u.account_id ?? u.accountId ?? null,
+      status: u.status || "",
+      program_name: u.program_name || u.programName || "",
+      balancePoints: u.balancePoints ?? u.balance_points ?? u.balance ?? 0,
+      minWithdrawPoints: u.minWithdrawPoints ?? u.min_withdraw_points ?? 0
+    }));
+  } catch {
+    return [];
+  }
+}
 
 // ---------- Manage modal: search + create (reuses existing searchUsers) ----------
 function wireManageModal(){
@@ -1125,7 +1151,7 @@ function wireManageModal(){
     if (!term.trim()) { if (sResults) sResults.innerHTML = ""; pickedUser = null; return; }
     let users = [];
     try {
-      users = await (typeof searchUsers === "function" ? searchUsers(term) : []);
+      users = await manageSearchUsers(term);
     } catch { users = []; }
     if (!sResults) return;
     sResults.innerHTML = "";
