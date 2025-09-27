@@ -1,6 +1,9 @@
 // public/admin/js/admin-loyalty.js
 // Loyalty Admin — SPA-safe attach, tabs + lists + actions
-// Includes: New Withdrawal (admin-initiated) modal wiring + Increment 2 (user search) + Increment 3 (UX & validation polish)
+// Includes: Increment 2 (user search) + Increment 3 (UX & validation) +
+// - Account ID auto-fill from selection
+// - Floating Actions menu (works despite overflow/z-index)
+// - Robust SPA attach on partial swaps
 (function () {
   "use strict";
 
@@ -76,7 +79,6 @@
   }
 
   function scheduleAttach() {
-    // microtask → next tick: ensure inner DOM finished rendering
     setTimeout(() => {
       const root = document.getElementById("loyalty-root");
       if (!root) return;
@@ -100,10 +102,9 @@
     if (!attached) scheduleAttach();
   }
 
-  // Observe for partial swaps: whenever a new #loyalty-root appears, attach again.
+  // Observe partial swaps and re-attach when #loyalty-root is injected
   const mo = new MutationObserver((muts) => {
     for (const m of muts) {
-      // If the partial is replaced, we’ll see new nodes added under body
       for (const node of m.addedNodes) {
         if (node.nodeType === 1) {
           if (node.id === "loyalty-root" || node.querySelector?.("#loyalty-root")) {
@@ -115,7 +116,6 @@
   });
   mo.observe(document.body, { childList:true, subtree:true });
 
-  // Also kick it once on initial load
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", tryAttach);
   } else {
@@ -138,7 +138,7 @@
     showTab("Withdrawals");
     loadWithdrawals({ resetPage:true });
 
-    // Optional global listeners so other tabs auto-refresh when we emit signals
+    // Auto-refresh on focus or external signals
     window.addEventListener("focus", () => { try { refreshActiveTab(); } catch {} });
     window.addEventListener("storage", (e) => {
       if (e.key === "loyaltyUpdatedAt") { try { refreshActiveTab(); } catch {} }
@@ -147,7 +147,7 @@
       if (e && e.data && e.data.type === "loyalty-updated") { try { refreshActiveTab(); } catch {} }
     });
 
-    // Debug hook (can be removed)
+    // Debug hook
     window.loyaltyAdmin = { state, refreshActiveTab, loadWithdrawals, loadAccounts, loadLedger, loadNotifications };
   }
 
@@ -174,7 +174,6 @@
     setShown(els.tabLedger,      name==="Ledger");
     setShown(els.tabNotifs,      name==="Notifications");
 
-    // Show the "New Withdrawal" button only on Withdrawals tab
     const newBtn = document.getElementById("wdNewBtn");
     if (newBtn) newBtn.style.display = (name === "Withdrawals") ? "" : "none";
 
@@ -250,7 +249,6 @@
     if (state.activeTab === "Notifications")return loadNotifications();
   }
 
-  // disable/enable the Refresh button while loading
   function setRefreshDisabled(on){
     cacheEls();
     if (!els.refreshBtn) return;
@@ -262,8 +260,6 @@
     if (els.searchInput){
       on(els.searchInput, "input", debounce(()=>{ state.page=1; refreshActiveTab(); }, 300));
     }
-
-    // Clear: only reset the visible select for the active tab + search
     on(els.clearBtn, "click", () => {
       if (els.searchInput) els.searchInput.value = "";
       const map = {
@@ -277,7 +273,6 @@
       state.page = 1;
       refreshActiveTab();
     });
-
     on(els.refreshBtn, "click", () => { refreshActiveTab(); });
 
     ["change"].forEach(ev => {
@@ -314,77 +309,16 @@
     const canApprove = status === "Pending";
     const canReject  = status === "Pending";
     const canPay     = status === "Approved";
-    if (!canApprove && !canReject && !canPay) {
-      return `<span class="badge" style="display:inline-block;padding:2px 8px;border-radius:12px;background:#eee;color:#555;font-size:12px;">No actions</span>`;
-    }
+    // Render menu markup; JS will lift it to a floating menu on click
     return `
-      <div class="ws-actions">
-        <button class="btn btn-actions" aria-haspopup="menu">Actions ▾</button>
-        <div class="actions-menu hidden" role="menu">
+      <div class="ws-actions" style="position:relative;">
+        <button class="btn btn-actions" aria-haspopup="menu" data-id="${esc(id)}">Actions ▾</button>
+        <div class="actions-menu hidden" role="menu" data-id="${esc(id)}">
           <button class="btn btn-approve"   data-id="${esc(id)}" ${canApprove ? "" : "disabled"}>Approve</button>
           <button class="btn btn-reject"    data-id="${esc(id)}" ${canReject  ? "" : "disabled"}>Reject</button>
           <button class="btn btn-mark-paid" data-id="${esc(id)}" ${canPay     ? "" : "disabled"}>Mark Paid</button>
         </div>
       </div>`;
-  }
-
-  function bindWithdrawalActions(){
-    // Approve (PATCH)
-    on(document, "click", async (e)=>{
-      const btn = e.target.closest(".btn-approve"); if (!btn) return;
-      e.preventDefault();
-      try{
-        const id = btn.dataset.id;
-        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/approve`, {
-          method: "PATCH", credentials: "include"
-        });
-        const data = await res.json().catch(()=>({}));
-        if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
-        toast(`Withdrawal #${id} approved`, {type:"info"});
-        refreshActiveTab();
-      }catch(err){ toast(err.message||"Approve failed", {type:"error"}); }
-    });
-
-    // Reject (PATCH)
-    on(document, "click", async (e)=>{
-      const btn = e.target.closest(".btn-reject"); if (!btn) return;
-      e.preventDefault();
-      try{
-        const id = btn.dataset.id;
-        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/reject`, {
-          method: "PATCH", credentials: "include"
-        });
-        const data = await res.json().catch(()=>({}));
-        if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
-        toast(`Withdrawal #${id} rejected`, {type:"info"});
-        refreshActiveTab();
-      }catch(err){ toast(err.message||"Reject failed", {type:"error"}); }
-    });
-
-    // Mark Paid (PATCH to /mark-paid)
-    on(document, "click", async (e)=>{
-      const btn = e.target.closest(".btn-mark-paid"); if (!btn) return;
-      e.preventDefault();
-      try{
-        const id = btn.dataset.id;
-        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/mark-paid`, {
-          method: "PATCH", credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ payoutRef: "" })
-        });
-        const data = await res.json().catch(()=>({}));
-        if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
-        toast(`Withdrawal #${id} marked as paid`, {type:"info"});
-        refreshActiveTab();
-      }catch(err){ toast(err.message||"Mark Paid failed", {type:"error"}); }
-    });
-
-    // Close any menu after an item click
-    document.addEventListener("click", (e) => {
-      const item = e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject, .actions-menu .btn-mark-paid");
-      if (!item) return;
-      setTimeout(() => { document.querySelectorAll(".actions-menu").forEach(m => m.classList.add("hidden")); }, 0);
-    });
   }
 
   function renderWithdrawalsRows(tbody, rows){
@@ -416,47 +350,133 @@
     tbody.appendChild(frag);
   }
 
-  // Inline actions menu (open/close)
+  // ---------- Floating Actions menu (fixes non-responsive dropdown) ----------
+  let openMenuEl = null;
+
+  function closeFloatingMenu() {
+    if (openMenuEl && openMenuEl.parentNode === document.body) {
+      openMenuEl.remove();
+    }
+    openMenuEl = null;
+  }
+
+  function openFloatingMenu(btn) {
+    closeFloatingMenu();
+
+    const cellMenu = btn.closest(".ws-actions")?.querySelector(".actions-menu");
+    if (!cellMenu) return;
+
+    const menu = cellMenu.cloneNode(true);
+    menu.classList.remove("hidden");
+    Object.assign(menu.style, {
+      position: "fixed",
+      top: "0px",
+      left: "0px",
+      zIndex: "10000",
+      background: "white",
+      border: "1px solid rgba(0,0,0,.12)",
+      borderRadius: "8px",
+      boxShadow: "0 10px 24px rgba(0,0,0,.18)",
+      padding: "8px",
+      display: "flex",
+      flexDirection: "column",
+      gap: "6px"
+    });
+
+    // position near button
+    const r = btn.getBoundingClientRect();
+    const pad = 6;
+    menu.style.top = `${r.bottom + pad}px`;
+    menu.style.left = `${Math.min(window.innerWidth - 180, r.left)}px`;
+    document.body.appendChild(menu);
+    openMenuEl = menu;
+  }
+
   function wireInlineActionsMenu() {
-    // Toggle menu; close others
+    // Toggle floating menu
     on(document, "click", (e) => {
       const btn = e.target.closest(".btn-actions");
       if (!btn) return;
-      const wrap = btn.closest(".ws-actions"); if (!wrap) return;
       e.preventDefault();
-      $$(".actions-menu").forEach(m => { if (!wrap.contains(m)) m.classList.add("hidden"); });
-      const menu = wrap.querySelector(".actions-menu");
-      if (menu) menu.classList.toggle("hidden");
+      e.stopPropagation();
+      openFloatingMenu(btn);
     });
-    // Close on outside click
+
+    // Close on outside click or ESC
     on(document, "click", (e) => {
-      if (e.target.closest(".ws-actions")) return;
-      $$(".actions-menu").forEach(m => m.classList.add("hidden"));
+      if (openMenuEl && !openMenuEl.contains(e.target) && !e.target.closest(".btn-actions")) {
+        closeFloatingMenu();
+      }
     });
-    // Close on ESC
-    on(document, "keydown", (e) => { if (e.key === "Escape") $$(".actions-menu").forEach(m => m.classList.add("hidden")); });
+    on(document, "keydown", (e) => { if (e.key === "Escape") closeFloatingMenu(); });
+
+    // After clicking an action, close menu (delegated handlers below will execute)
+    on(document, "click", (e) => {
+      const action = e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject, .actions-menu .btn-mark-paid");
+      if (!action) return;
+      setTimeout(closeFloatingMenu, 0);
+    });
+
+    // Action handlers (approve / reject / mark-paid)
+    on(document, "click", async (e)=>{
+      const btn = e.target.closest(".btn-approve"); if (!btn) return;
+      e.preventDefault();
+      try{
+        const id = btn.dataset.id;
+        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/approve`, {
+          method: "PATCH", credentials: "include"
+        });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+        toast(`Withdrawal #${id} approved`, {type:"info"});
+        refreshActiveTab();
+      }catch(err){ toast(err.message||"Approve failed", {type:"error"}); }
+    });
+
+    on(document, "click", async (e)=>{
+      const btn = e.target.closest(".btn-reject"); if (!btn) return;
+      e.preventDefault();
+      try{
+        const id = btn.dataset.id;
+        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/reject`, {
+          method: "PATCH", credentials: "include"
+        });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+        toast(`Withdrawal #${id} rejected`, {type:"info"});
+        refreshActiveTab();
+      }catch(err){ toast(err.message||"Reject failed", {type:"error"}); }
+    });
+
+    on(document, "click", async (e)=>{
+      const btn = e.target.closest(".btn-mark-paid"); if (!btn) return;
+      e.preventDefault();
+      try{
+        const id = btn.dataset.id;
+        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/mark-paid`, {
+          method: "PATCH", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ payoutRef: "" })
+        });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+        toast(`Withdrawal #${id} marked as paid`, {type:"info"});
+        refreshActiveTab();
+      }catch(err){ toast(err.message||"Mark Paid failed", {type:"error"}); }
+    });
   }
 
-  bindWithdrawalActions();
-
-  // ---------- Increment 2 + 3: NEW WITHDRAWAL modal wiring with search & UX polish ----------
+  // ---------- Increment 2 + 3: NEW WITHDRAWAL modal wiring ----------
   const SEARCH_URL = "/api/admin/users/search";
   const SEARCH_DEBOUNCE_MS = 250;
 
-  // accepts multiple server shapes:
-  // - { success:true, results:[...] }
-  // - { success:true, users:[...] }   (legacy)
-  // - [ ... ]                         (bare array legacy)
   async function searchUsers(term) {
     if (!term || term.trim().length < 2) return [];
     try {
       const r = await fetch(`${SEARCH_URL}?q=${encodeURIComponent(term)}`, { credentials: "same-origin" });
       const j = await r.json();
-
       const arr = Array.isArray(j) ? j : (j.results || j.users || []);
       if (!Array.isArray(arr)) return [];
-
-      // Normalize fields we care about
       return arr.map(u => ({
         id: u.id,
         name: u.name || "",
@@ -464,13 +484,11 @@
         phone: u.phone || "",
         account_id: u.account_id ?? u.accountId ?? null,
         status: u.status || "",
-        // Increment 3: program awareness + min/balance canonical
         program_name: u.program_name || u.programName || "",
         minWithdrawPoints: u.minWithdrawPoints ?? u.min_withdraw_points ?? 0,
         balancePoints: u.balancePoints ?? u.balance_points ?? u.balance ?? 0
       }));
-    } catch (e) {
-      // Mock fallback: keeps UI testable if backend not deployed yet
+    } catch {
       return [
         { id: 1, name: "Demo User", email: "demo@example.com", phone: "+254700000001", account_id: 101, status: "Active", program_name: "WattSun Rewards", balancePoints: 900, minWithdrawPoints: 200 }
       ];
@@ -481,32 +499,26 @@
     const dlg    = document.getElementById("wdNewDialog");
     const btn    = document.getElementById("wdNewBtn");
     const create = document.getElementById("wdCreateBtn"); // old ID; preserved
-    const accId  = document.getElementById("wdAccId");     // old field (fallback)
+    const accId  = document.getElementById("wdAccId");     // legacy visible field
     const pts    = document.getElementById("wdPoints");
     const note   = document.getElementById("wdNote");
     const out    = document.getElementById("wdOut");
 
-    // Increment 2 fields:
-    const sInput   = document.getElementById("wdUserSearch");   // <input type="text">
-    const sResults = document.getElementById("wdUserResults");  // <select> or container
-    const hidAcc   = document.getElementById("wdAccountId");    // hidden input
+    const sInput   = document.getElementById("wdUserSearch");
+    const sResults = document.getElementById("wdUserResults");
+    const hidAcc   = document.getElementById("wdAccountId");
 
-    // Increment 3 hint block (program + min + balance) and inline error
-    const hintBlk  = document.getElementById("wdHintBlock");    // optional container
+    const hintBlk  = document.getElementById("wdHintBlock");
     const hintProg = document.getElementById("wdHintProgram");
     const hintMin  = document.getElementById("wdHintMin");
     const hintBal  = document.getElementById("wdHintBal");
     const inlineErr= document.getElementById("wdError");
 
-    // Fallback: legacy single-line hint (kept for backward compatibility)
     const legacyHint = document.getElementById("wdBalanceHint");
-
-    // Preferred Submit button id; fallback to old `create`
-    const submitBtn= document.getElementById("wdSubmit") || create;
+    const submitBtn  = document.getElementById("wdSubmit") || create;
 
     if (!btn || !dlg) return;
 
-    // Internal picked user (from search)
     let picked = null;
 
     const setOut = (msg) => { if (out) out.textContent = msg || ""; };
@@ -516,14 +528,19 @@
         inlineErr.textContent = msg || "";
         inlineErr.style.display = msg ? "block" : "none";
       } else {
-        // fall back to legacy output line (non-blocking)
         setOut(msg || "");
       }
     };
 
-    const setSubmitEnabled = (ok) => {
-      if (!submitBtn) return;
-      submitBtn.disabled = !ok;
+    const setSubmitEnabled = (ok) => { if (submitBtn) submitBtn.disabled = !ok; };
+
+    // NEW: keep legacy field in sync with selected account
+    const syncVisibleAccountId = () => {
+      if (!accId) return;
+      const val = (hidAcc && hidAcc.value) ? String(hidAcc.value) : "";
+      accId.value = val;
+      accId.readOnly = !!val;
+      accId.classList.toggle("input--readonly", !!val);
     };
 
     const getRequestedPoints = () => {
@@ -533,7 +550,6 @@
     };
 
     const renderHint = () => {
-      // Prefer new structured hint if present; else legacy one-liner
       const min = picked?.minWithdrawPoints ?? 0;
       const bal = picked?.balancePoints ?? picked?.balance ?? 0;
       const prog= picked?.program_name || "";
@@ -556,15 +572,12 @@
     };
 
     const updateValidity = () => {
-      // prefer new flow if search fields exist
       const accountId = (hidAcc && hidAcc.value) ? parseInt(hidAcc.value, 10) : (accId ? parseInt(accId.value, 10) : NaN);
       const req = getRequestedPoints();
       const min = picked?.minWithdrawPoints ?? 0;
-      const bal = picked?.balancePoints ?? picked?.balance ?? Infinity; // if unknown, don't block too hard
+      const bal = picked?.balancePoints ?? picked?.balance ?? Infinity;
       renderHint();
       const res = validatePoints(req, min, bal);
-
-      // show or clear inline error
       showInlineError(res.ok ? "" : res.msg);
 
       const okNewFlow = (!!sInput || !!sResults) ? (!!accountId && res.ok) : true;
@@ -579,6 +592,7 @@
       if (sInput) sInput.value = "";
       if (sResults) sResults.innerHTML = "";
       if (hidAcc) hidAcc.value = "";
+      syncVisibleAccountId();
       renderHint();
       updateValidity();
     };
@@ -598,17 +612,14 @@
       }
       picked = null;
       if (hidAcc) hidAcc.value = "";
+      syncVisibleAccountId();
       renderHint();
       updateValidity();
     };
 
     const renderResults = (users=[]) => {
       if (!sResults) return;
-      if (!users.length) {
-        renderNoResults();
-        return;
-      }
-      // If it's a <select>, populate options. If it's a <div>, render buttons.
+      if (!users.length) { renderNoResults(); return; }
       if (sResults.tagName === "SELECT") {
         sResults.innerHTML = "";
         users.forEach(u => {
@@ -618,7 +629,6 @@
           opt.dataset.payload = JSON.stringify(u);
           sResults.appendChild(opt);
         });
-        // auto-pick first result
         sResults.selectedIndex = 0;
         sResults.dispatchEvent(new Event("change"));
       } else {
@@ -632,6 +642,7 @@
           btn.addEventListener("click", () => {
             picked = u;
             if (hidAcc) hidAcc.value = u.account_id || "";
+            syncVisibleAccountId();
             renderHint();
             updateValidity();
           });
@@ -644,10 +655,10 @@
       if (!sInput) return;
       const term = sInput.value;
       if (!term || term.trim().length < 2) {
-        // don't force "No results" for too-short input; just clear
         sResults && (sResults.innerHTML = "");
         picked = null;
         if (hidAcc) hidAcc.value = "";
+        syncVisibleAccountId();
         renderHint();
         updateValidity();
         return;
@@ -658,7 +669,7 @@
 
     // Open modal
     btn && btn.addEventListener("click", () => {
-      if (accId) accId.value = "";      // legacy
+      if (accId) { accId.value = ""; accId.readOnly = false; accId.classList.remove("input--readonly"); }
       if (pts) pts.value = "";
       if (note) note.value = "";
       setOut("");
@@ -675,6 +686,7 @@
         const opt = sResults.options[sResults.selectedIndex];
         picked = opt ? JSON.parse(opt.dataset.payload) : null;
         if (hidAcc) hidAcc.value = picked?.account_id || "";
+        syncVisibleAccountId();
         renderHint();
         updateValidity();
       });
@@ -688,13 +700,11 @@
         setOut("");
         showInlineError("");
 
-        // Prefer new hidden accountId if present; else fallback to legacy accId input
         const accountIdVal = (hidAcc && hidAcc.value) ? hidAcc.value : (accId ? accId.value : "");
         const accountId = parseInt(accountIdVal, 10);
         const points = getRequestedPoints();
         const n = (note?.value || "").trim();
 
-        // Validate according to new flow if available
         if ((sInput || sResults) && picked) {
           const min = picked?.minWithdrawPoints ?? 0;
           const bal = picked?.balancePoints ?? picked?.balance ?? Infinity;
@@ -703,20 +713,10 @@
             return;
           }
           const res = validatePoints(points, min, bal);
-          if (!res.ok) {
-            showInlineError(res.msg);
-            return;
-          }
+          if (!res.ok) { showInlineError(res.msg); return; }
         } else {
-          // Legacy validation
-          if (!Number.isInteger(accountId) || accountId < 1) {
-            showInlineError("Please enter a valid Account ID.");
-            return;
-          }
-          if (!Number.isInteger(points) || points < 1) {
-            showInlineError("Please enter points ≥ 1.");
-            return;
-          }
+          if (!Number.isInteger(accountId) || accountId < 1) { showInlineError("Please enter a valid Account ID."); return; }
+          if (!Number.isInteger(points) || points < 1) { showInlineError("Please enter points ≥ 1."); return; }
         }
 
         try {
@@ -725,14 +725,11 @@
           const id = resp?.withdrawal?.id ?? "—";
           toast(`Created withdrawal #${id} (${points} pts)`, { type:"info" });
 
-          // Close modal quickly
           try { dlg.close("close"); } catch(_){}
 
-          // Increment 3: refresh BOTH Withdrawals and Accounts immediately
           try { loadWithdrawals(); } catch(_){}
           try { loadAccounts({ resetPage:true }); } catch(_){}
 
-          // Cross-tab signals so other views react
           try {
             localStorage.setItem("loyaltyUpdatedAt", String(Date.now()));
             window.postMessage({ type: "loyalty-updated" }, "*");
@@ -747,7 +744,6 @@
       });
     }
 
-    // Start disabled until valid (new flow)
     setSubmitEnabled(false);
     renderHint();
   }
