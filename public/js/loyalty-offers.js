@@ -3,6 +3,7 @@
   const fmt = (n) => new Intl.NumberFormat().format(n);
   const toast = (msg) => {
     const t = el('toast');
+    if (!t) return;
     t.textContent = msg;
     t.style.display = 'block';
     setTimeout(() => (t.style.display = 'none'), 2500);
@@ -10,6 +11,7 @@
 
   let program = null;
   let account = null;
+  let rank = null;
 
   async function api(path, opts = {}) {
     const res = await fetch(path, {
@@ -28,6 +30,7 @@
 
   function setStatusTag(status) {
     const tag = el('statusTag');
+    if (!tag) return;
     tag.textContent = status || '—';
     tag.classList.remove('ok', 'warn', 'err');
     if (status === 'Active') tag.classList.add('ok');
@@ -35,45 +38,57 @@
     else if (status === 'Closed') tag.classList.add('err');
   }
 
+  function euro(n) {
+    const epp = (program && program.eurPerPoint) || 1;
+    return `€${fmt((n || 0) * epp)}`;
+  }
+
   function setMinInfo(minPts) {
-    el('minInfo').textContent = `Minimum withdrawal: ${fmt(minPts)} pts`;
+    const node = el('minInfo');
+    if (node) node.textContent = `Minimum withdrawal: ${fmt(minPts)} pts`;
     const input = el('withdrawPoints');
-    input.min = String(minPts);
-    if (parseInt(input.value || '0', 10) < minPts) input.value = String(minPts);
+    if (input) {
+      input.min = String(minPts);
+      if (parseInt(input.value || '0', 10) < minPts) input.value = String(minPts);
+    }
     updateEstimate();
   }
 
   function updateEstimate() {
-    const points = parseInt(el('withdrawPoints').value || '0', 10);
+    const points = parseInt((el('withdrawPoints')?.value || '0'), 10);
     const eurPerPoint = (program && program.eurPerPoint) || 1;
-    el('estimateEUR').textContent = `€${fmt(points * eurPerPoint)}`;
+    const est = el('estimateEUR');
+    if (est) est.textContent = `€${fmt(points * eurPerPoint)}`;
     const can =
       account &&
       account.status === 'Active' &&
-      account.points_balance >= points &&
+      (account.points_balance|0) >= points &&
       points >= ((program && program.minWithdrawPoints) || 100) &&
-      new Date().toISOString().slice(0, 10) >= account.eligible_from;
-    el('withdrawBtn').disabled = !can;
+      new Date().toISOString().slice(0, 10) >= (account.eligible_from || '9999-12-31');
+    const btn = el('withdrawBtn');
+    if (btn) btn.disabled = !can;
   }
 
   async function loadMe() {
     const data = await api('/api/loyalty/me');
     program = data.program || null;
     account = data.account || null;
+    rank = data.rank ?? null;
 
     const enrollBtn = el('enrollBtn');
     const withdrawCard = el('withdrawCard');
     const historyCard = el('historyCard');
 
     if (!program) {
-      // Program not configured; hide everything but message
       el('pointsBalance').textContent = '—';
       el('eurBalance').textContent = '€—';
       setStatusTag('Unavailable');
       el('dateInfo').textContent = 'Program is not available at this time.';
-      enrollBtn.style.display = 'none';
-      withdrawCard.style.display = 'none';
-      historyCard.style.display = 'none';
+      if (enrollBtn) enrollBtn.style.display = 'none';
+      if (withdrawCard) withdrawCard.style.display = 'none';
+      if (historyCard) historyCard.style.display = 'none';
+      // Clear KPIs
+      ['earnedPts','earnedEur','penaltyPts','penaltyEur','paidPts','paidEur','rankText'].forEach(id => { const n = el(id); if (n) n.textContent = '—'; });
       return;
     }
 
@@ -85,22 +100,36 @@
       el('eurBalance').textContent = '€—';
       setStatusTag('Not enrolled');
       el('dateInfo').textContent = `Join to start earning. Eligible to withdraw after ${program.withdrawWaitDays || 90} days.`;
-      enrollBtn.disabled = false;
-      withdrawCard.style.display = 'none';
-      historyCard.style.display = 'none';
+      if (enrollBtn) enrollBtn.disabled = false;
+      if (withdrawCard) withdrawCard.style.display = 'none';
+      if (historyCard) historyCard.style.display = 'none';
+      ['earnedPts','earnedEur','penaltyPts','penaltyEur','paidPts','paidEur','rankText'].forEach(id => { const n = el(id); if (n) n.textContent = '—'; });
       return;
     }
 
-    // Enrolled
-    enrollBtn.style.display = 'none';
-    const eurPerPoint = program.eurPerPoint || 1;
+    // Enrolled → render KPIs
+    if (enrollBtn) enrollBtn.style.display = 'none';
+    const epp = program.eurPerPoint || 1;
+
     el('pointsBalance').textContent = fmt(account.points_balance);
-    el('eurBalance').textContent = `€${fmt((account.points_balance || 0) * eurPerPoint)}`;
+    el('eurBalance').textContent = `€${fmt((account.points_balance || 0) * epp)}`;
+
+    el('earnedPts').textContent = fmt(account.total_earned || 0);
+    el('earnedEur').textContent = euro(account.total_earned || 0);
+
+    el('penaltyPts').textContent = fmt(account.total_penalty || 0);
+    el('penaltyEur').textContent = euro(account.total_penalty || 0);
+
+    el('paidPts').textContent = fmt(account.total_paid || 0);
+    el('paidEur').textContent = euro(account.total_paid || 0);
+
     setStatusTag(account.status);
     el('dateInfo').textContent = `Start ${account.start_date} • Eligible ${account.eligible_from} • End ${account.end_date}`;
 
-    withdrawCard.style.display = 'block';
-    historyCard.style.display = 'block';
+    el('rankText').textContent = (rank == null) ? '—' : `#${fmt(rank)}`;
+
+    if (withdrawCard) withdrawCard.style.display = 'block';
+    if (historyCard) historyCard.style.display = 'block';
     await loadWithdrawals();
     updateEstimate();
   }
@@ -108,6 +137,7 @@
   async function loadWithdrawals() {
     const data = await api('/api/loyalty/withdrawals');
     const body = el('historyBody');
+    if (!body) return;
     body.innerHTML = '';
     const rows = data.withdrawals || [];
     if (!rows.length) {
@@ -130,7 +160,7 @@
   }
 
   async function enroll() {
-    el('enrollBtn').disabled = true;
+    const btn = el('enrollBtn'); if (btn) btn.disabled = true;
     try {
       const data = await api('/api/loyalty/enroll', { method: 'POST' });
       toast(data.message || 'Enrolled');
@@ -138,35 +168,34 @@
     } catch (e) {
       toast(`Enroll failed: ${e.message}`);
     } finally {
-      el('enrollBtn').disabled = false;
+      if (btn) btn.disabled = false;
     }
   }
 
   async function doWithdraw() {
-    const points = parseInt(el('withdrawPoints').value || '0', 10);
-    el('withdrawBtn').disabled = true;
-    el('withdrawMsg').textContent = '';
+    const points = parseInt((el('withdrawPoints')?.value || '0'), 10);
+    const btn = el('withdrawBtn'); if (btn) btn.disabled = true;
+    const msg = el('withdrawMsg'); if (msg) msg.textContent = '';
     try {
       const data = await api('/api/loyalty/withdraw', { method: 'POST', body: { points } });
       toast('Withdrawal requested');
-      el('withdrawPoints').value = String(Math.max(points, (program && program.minWithdrawPoints) || 100));
+      if (el('withdrawPoints')) el('withdrawPoints').value = String(Math.max(points, (program && program.minWithdrawPoints) || 100));
       await loadMe();
-      el('withdrawMsg').textContent = `Request #${data.withdrawal.id} created for ${points} pts (€${points * ((program && program.eurPerPoint) || 1)}).`;
+      if (msg) msg.textContent = `Request #${data.withdrawal.id} created for ${points} pts (${euro(points)}).`;
     } catch (e) {
-      el('withdrawMsg').textContent = `Error: ${e.message}`;
+      if (msg) msg.textContent = `Error: ${e.message}`;
     } finally {
-      el('withdrawBtn').disabled = false;
+      if (btn) btn.disabled = false;
       updateEstimate();
     }
   }
 
-  // Events
   document.addEventListener('DOMContentLoaded', () => {
-    el('enrollBtn').addEventListener('click', enroll);
-    el('withdrawPoints').addEventListener('input', updateEstimate);
-    el('withdrawBtn').addEventListener('click', doWithdraw);
+    el('enrollBtn')?.addEventListener('click', enroll);
+    el('withdrawPoints')?.addEventListener('input', updateEstimate);
+    el('withdrawBtn')?.addEventListener('click', doWithdraw);
     loadMe().catch((e) => toast(`Load failed: ${e.message}`));
-    // Optional soft refresh on visibility change
+
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') loadMe().catch(() => {});
     });

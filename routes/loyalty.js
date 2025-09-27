@@ -55,11 +55,8 @@ function getProgramSettings(code = "STAFF") {
           if (!r || !r.key) continue;
           const k = r.key;
           let v = r.value;
-          // parse JSON if looks like array/object, else coerce to int where relevant
-          try {
-            if (/^\s*\[|\{/.test(v)) v = JSON.parse(v);
-          } catch (_) {}
-          if (["durationMonths", "withdrawWaitDays", "minWithdrawPoints", "eurPerPoint", "signupBonus"].includes(k)) {
+          try { if (/^\s*\[|\{/.test(v)) v = JSON.parse(v); } catch (_) {}
+          if (["durationMonths","withdrawWaitDays","minWithdrawPoints","eurPerPoint","signupBonus"].includes(k)) {
             const n = parseInt(v, 10);
             v = Number.isFinite(n) ? n : v;
           }
@@ -123,12 +120,34 @@ function sqlGetAccountSnapshot(accountId) {
   });
 }
 
+// FIX: use created_at (real column) instead of ts
 function sqlGetRecentLedger(accountId, limit = 30) {
   return new Promise((resolve, reject) => {
     db.all(
-      `SELECT id, ts, kind, points_delta AS delta, note FROM loyalty_ledger WHERE account_id=? ORDER BY datetime(ts) DESC LIMIT ?`,
+      `SELECT id, created_at AS ts, kind, points_delta AS delta, note
+         FROM loyalty_ledger
+        WHERE account_id=?
+        ORDER BY datetime(created_at) DESC
+        LIMIT ?`,
       [accountId, limit],
       (err, rows) => (err ? reject(err) : resolve(rows || []))
+    );
+  });
+}
+
+// Read-only rank (1 = highest total_earned). No schema changes.
+async function sqlGetRankForAccount(accountId) {
+  const total = await new Promise((resolve, reject) => {
+    db.get(`SELECT total_earned FROM loyalty_accounts WHERE id=?`, [accountId], (err, row) =>
+      err ? reject(err) : resolve(row ? (row.total_earned|0) : null)
+    );
+  });
+  if (total == null) return null;
+  return new Promise((resolve, reject) => {
+    db.get(
+      `SELECT 1 + COUNT(*) AS rank FROM loyalty_accounts WHERE total_earned > ?`,
+      [total],
+      (err, row) => (err ? reject(err) : resolve(row?.rank ?? null))
     );
   });
 }
@@ -153,9 +172,11 @@ router.post("/enroll", requireStaff, async (req, res) => {
 
     const existing = await sqlGetAccount(program.programId, user.id);
     if (existing) {
-      // already enrolled → just return current snapshot
-      const recent = await sqlGetRecentLedger(existing.id);
-      return res.json({ success: true, account: existing, program, recent, message: "Already enrolled" });
+      const [recent, rank] = await Promise.all([
+        sqlGetRecentLedger(existing.id),
+        sqlGetRankForAccount(existing.id)
+      ]);
+      return res.json({ success: true, account: existing, program, recent, rank, message: "Already enrolled" });
     }
 
     // compute dates
@@ -184,9 +205,12 @@ router.post("/enroll", requireStaff, async (req, res) => {
       await sqlInsertLedger(accountId, "enroll", bonus, "Signup bonus");
     }
 
-    const account = await sqlGetAccountSnapshot(accountId);
-    const recent = await sqlGetRecentLedger(accountId);
-    return res.json({ success: true, account, program, recent, message: "Enrolled" });
+    const [account, recent, rank] = await Promise.all([
+      sqlGetAccountSnapshot(accountId),
+      sqlGetRecentLedger(accountId),
+      sqlGetRankForAccount(accountId)
+    ]);
+    return res.json({ success: true, account, program, recent, rank, message: "Enrolled" });
   } catch (err) {
     console.error("[loyalty/enroll]", err);
     return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: "Unable to enroll" } });
@@ -195,7 +219,7 @@ router.post("/enroll", requireStaff, async (req, res) => {
 
 /**
  * GET /api/loyalty/me
- * Returns current account snapshot + recent ledger + program settings.
+ * Returns current account snapshot + recent ledger + program settings + rank.
  */
 router.get("/me", requireStaff, async (req, res) => {
   const user = req.session.user;
@@ -207,10 +231,13 @@ router.get("/me", requireStaff, async (req, res) => {
     const acct = await sqlGetAccount(program.programId, user.id);
     if (!acct) {
       // not enrolled yet — still return program config so UI can show CTA
-      return res.json({ success: true, account: null, program, recent: [] });
+      return res.json({ success: true, account: null, program, recent: [], rank: null });
     }
-    const recent = await sqlGetRecentLedger(acct.id);
-    return res.json({ success: true, account: acct, program, recent });
+    const [recent, rank] = await Promise.all([
+      sqlGetRecentLedger(acct.id),
+      sqlGetRankForAccount(acct.id)
+    ]);
+    return res.json({ success: true, account: acct, program, recent, rank });
   } catch (err) {
     console.error("[loyalty/me]", err);
     return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: "Unable to load account" } });
