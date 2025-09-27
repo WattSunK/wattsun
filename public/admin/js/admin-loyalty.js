@@ -1,11 +1,11 @@
 // public/admin/js/admin-loyalty.js
 // Loyalty Admin — SPA-safe attach, tabs + lists + actions
-// Increment 2 & 3 polish:
-// - User search in New Withdrawal modal, inline validation, program/min/balance hint
-// - Auto-fill Account ID from selected user + lock field
-// - Floating Actions menu (cloned to <body>) with robust close behavior
-// - Guard against duplicate global handlers (prevents double notifications)
-// - Pagination reliability even when API doesn’t return total
+// Increment 2 & 3 polish + fixes:
+// - User search + inline validation in New Withdrawal
+// - Auto-fill Account ID from selected user
+// - Floating Actions menu with robust auto-close + global closer
+// - Guard duplicate global handlers + per-action re-entrancy (prevents double notifications)
+// - Pagination: auto-inject pager if missing; works even without API totals
 (function () {
   "use strict";
 
@@ -54,16 +54,20 @@
     return data;
   }
 
-  // ---------- SPA-safe activation (robust to partial swaps) ----------
+  // ---------- SPA-safe activation ----------
   let attached = false;
   let currentRoot = null; // track which #loyalty-root we’re wired to
   let els = {};
 
-  // NEW: ensure global (document/window) Actions listeners are bound only once per page lifetime
+  // Global handler guard (so we don't bind document/window handlers twice)
   let actionsHandlersBound = false;
+
+  // Re-entrancy guard for action clicks (prevents duplicate requests/notifications)
+  const runningActions = new Set(); // keys like "approve:123", "reject:45"
 
   function cacheEls() {
     els = {
+      root: $("#loyalty-root"),
       tabWithdrawalsBtn: $("#tabWithdrawalsBtn"),
       tabAccountsBtn:    $("#tabAccountsBtn"),
       tabLedgerBtn:      $("#tabLedgerBtn"),
@@ -88,6 +92,28 @@
     };
   }
 
+  function ensurePager() {
+    // Create a simple pager if one doesn't exist
+    if (!els.pager) {
+      const p = document.createElement("div");
+      p.id = "loyaltyPager";
+      p.style.display = "flex";
+      p.style.gap = "8px";
+      p.style.alignItems = "center";
+      p.style.margin = "16px 0";
+      p.innerHTML = `
+        <button class="btn pager-prev" type="button">Prev</button>
+        <button class="btn pager-next" type="button">Next</button>
+        <span id="loyaltyMeta" class="muted" style="margin-left:8px;"></span>
+      `;
+      // Try to place after the active tab table; otherwise append to root
+      const anchor = els.root || document.body;
+      anchor.appendChild(p);
+      els.pager = p;
+      els.meta = $("#loyaltyMeta");
+    }
+  }
+
   function scheduleAttach() {
     setTimeout(() => {
       const root = document.getElementById("loyalty-root");
@@ -98,6 +124,7 @@
       }
       if (attached) return;
       cacheEls();
+      ensurePager();
       attach();
     }, 0);
   }
@@ -138,7 +165,7 @@
     page:1,
     limit:10,
     total:null,       // when API provides total
-    lastCount:0       // number of rows on the current page
+    lastCount:0       // count of rows in last load
   };
 
   // ---------- attach ----------
@@ -190,6 +217,7 @@
 
   function showTab(name) {
     cacheEls();
+    ensurePager();
     state.activeTab = name;
     setShown(els.tabWithdrawals, name==="Withdrawals");
     setShown(els.tabAccounts,    name==="Accounts");
@@ -252,25 +280,26 @@
 
   // Better pager logic: if no `total`, use lastCount==limit as "has next"
   function updatePager(){
+    ensurePager();
     const prev = els.pager?.querySelector(".pager-prev");
     const next = els.pager?.querySelector(".pager-next");
     const hasPrev = state.page > 1;
     const hasNext = (state.total != null)
       ? (state.page < Math.ceil(state.total / state.limit))
-      : (state.lastCount === state.limit); // unknown total → assume next exists only if this page is "full"
+      : (state.lastCount === state.limit); // unknown total → next exists if this page was full
     if (prev) prev.disabled = !hasPrev;
     if (next) next.disabled = !hasNext;
   }
 
   function wirePager(){
+    ensurePager();
     const prev = els.pager?.querySelector(".pager-prev");
     const next = els.pager?.querySelector(".pager-next");
     on(prev, "click", () => {
       if (state.page>1){ state.page--; refreshActiveTab(); }
     });
     on(next, "click", () => {
-      // if we don't know total, allow next only when last page was full
-      if (state.total == null && state.lastCount < state.limit) return;
+      if (state.total == null && state.lastCount < state.limit) return; // no more pages inferred
       state.page++; refreshActiveTab();
     });
   }
@@ -323,7 +352,8 @@
 
   // ---------- WITHDRAWALS ----------
   async function loadWithdrawals({resetPage=false}={}){
-    if (resetPage) state.page=1; cacheEls(); const tbody = els.wdBody || $("#wdBody");
+    if (resetPage) state.page=1; cacheEls(); ensurePager();
+    const tbody = els.wdBody || $("#wdBody");
     addLoading(tbody,true); setRefreshDisabled(true);
     try{
       const data = await api(`/api/admin/loyalty/withdrawals${buildQuery()}`);
@@ -397,7 +427,7 @@
     tbody.appendChild(frag);
   }
 
-  // ---------- Floating Actions menu (fixes non-responsive dropdown) ----------
+  // ---------- Floating Actions menu ----------
   let openMenuEl = null;
 
   function closeFloatingMenu() {
@@ -406,9 +436,7 @@
     }
     openMenuEl = null;
   }
-
-  // Expose a safe closer so other modules (e.g., Reject modal) can call it
-  window.wsCloseActionsMenu = closeFloatingMenu;
+  window.wsCloseActionsMenu = closeFloatingMenu; // expose
 
   function openFloatingMenu(btn) {
     closeFloatingMenu();
@@ -433,7 +461,6 @@
       gap: "6px"
     });
 
-    // position near button
     const r = btn.getBoundingClientRect();
     const pad = 6;
     menu.style.top = `${r.bottom + pad}px`;
@@ -441,6 +468,8 @@
     document.body.appendChild(menu);
     openMenuEl = menu;
   }
+
+  function actionKey(action, id){ return `${action}:${id}`; }
 
   function wireInlineActionsMenu() {
     // Toggle floating menu (guard: don't open for rows without actions)
@@ -464,23 +493,26 @@
     });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeFloatingMenu(); });
 
-    // Close immediately on any action click (capture phase too, in case other code stops propagation)
+    // Close immediately on any action click (capture phase too)
     document.addEventListener("click", (e) => {
       if (e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject, .actions-menu .btn-mark-paid")) {
         closeFloatingMenu();
       }
     }, true);
 
-    // Also auto-close the menu on scroll/resize so it never lingers off-position
+    // Also auto-close on scroll/resize
     window.addEventListener("scroll", closeFloatingMenu, { passive: true });
     window.addEventListener("resize", closeFloatingMenu);
 
-    // Action handlers (approve / reject / mark-paid)
+    // ---- Action handlers with re-entrancy guard ----
     document.addEventListener("click", async (e)=>{
       const btn = e.target.closest(".btn-approve"); if (!btn) return;
       e.preventDefault();
+      const id = btn.dataset.id;
+      const key = actionKey("approve", id);
+      if (runningActions.has(key)) return; // already running
+      runningActions.add(key);
       try{
-        const id = btn.dataset.id;
         const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/approve`, {
           method: "PATCH", credentials: "include"
         });
@@ -489,13 +521,17 @@
         toast(`Withdrawal #${id} approved`, {type:"info"});
         refreshActiveTab();
       }catch(err){ toast(err.message||"Approve failed", {type:"error"}); }
+      finally { runningActions.delete(key); }
     });
 
     document.addEventListener("click", async (e)=>{
       const btn = e.target.closest(".btn-reject"); if (!btn) return;
       e.preventDefault();
+      const id = btn.dataset.id;
+      const key = actionKey("reject", id);
+      if (runningActions.has(key)) return;
+      runningActions.add(key);
       try{
-        const id = btn.dataset.id;
         const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/reject`, {
           method: "PATCH", credentials: "include"
         });
@@ -504,13 +540,17 @@
         toast(`Withdrawal #${id} rejected`, {type:"info"});
         refreshActiveTab();
       }catch(err){ toast(err.message||"Reject failed", {type:"error"}); }
+      finally { runningActions.delete(key); }
     });
 
     document.addEventListener("click", async (e)=>{
       const btn = e.target.closest(".btn-mark-paid"); if (!btn) return;
       e.preventDefault();
+      const id = btn.dataset.id;
+      const key = actionKey("paid", id);
+      if (runningActions.has(key)) return;
+      runningActions.add(key);
       try{
-        const id = btn.dataset.id;
         const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/mark-paid`, {
           method: "PATCH", credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -521,6 +561,7 @@
         toast(`Withdrawal #${id} marked as paid`, {type:"info"});
         refreshActiveTab();
       }catch(err){ toast(err.message||"Mark Paid failed", {type:"error"}); }
+      finally { runningActions.delete(key); }
     });
   }
 
@@ -547,7 +588,6 @@
         balancePoints: u.balancePoints ?? u.balance_points ?? u.balance ?? 0
       }));
     } catch {
-      // fallback mock (dev only)
       return [
         { id: 1, name: "Demo User", email: "demo@example.com", phone: "+254700000001", account_id: 101, status: "Active", program_name: "WattSun Rewards", balancePoints: 900, minWithdrawPoints: 200 }
       ];
@@ -567,7 +607,6 @@
     const sResults = document.getElementById("wdUserResults");
     const hidAcc   = document.getElementById("wdAccountId");
 
-    const hintBlk  = document.getElementById("wdHintBlock");
     const hintProg = document.getElementById("wdHintProgram");
     const hintMin  = document.getElementById("wdHintMin");
     const hintBal  = document.getElementById("wdHintBal");
@@ -593,7 +632,6 @@
 
     const setSubmitEnabled = (ok) => { if (submitBtn) submitBtn.disabled = !ok; };
 
-    // keep legacy field in sync with selected account
     const syncVisibleAccountId = () => {
       if (!accId) return;
       const val = (hidAcc && hidAcc.value) ? String(hidAcc.value) : "";
@@ -613,11 +651,10 @@
       const bal = picked?.balancePoints ?? picked?.balance ?? 0;
       const prog= picked?.program_name || "";
 
-      if (hintBlk || hintProg || hintMin || hintBal) {
-        if (hintProg) hintProg.textContent = prog || "—";
-        if (hintMin)  hintMin.textContent  = String(min);
-        if (hintBal)  hintBal.textContent  = String(bal);
-      } else if (legacyHint) {
+      if (hintProg) hintProg.textContent = prog || "—";
+      if (hintMin)  hintMin.textContent  = String(min);
+      if (hintBal)  hintBal.textContent  = String(bal);
+      else if (legacyHint) {
         legacyHint.textContent = `Program: ${prog || "—"} | Minimum withdrawal = ${min} points; Balance = ${bal} points`;
       }
     };
@@ -728,16 +765,14 @@
 
     // Open modal
     btn && btn.addEventListener("click", () => {
-      // Ensure actions popover is not visible under the modal
       try { window.wsCloseActionsMenu && window.wsCloseActionsMenu(); } catch (_) {}
-
       if (accId) { accId.value = ""; accId.readOnly = false; accId.classList.remove("input--readonly"); }
       if (pts) pts.value = "";
       if (note) note.value = "";
       setOut("");
       showInlineError("");
       clearSearchUI();
-      try { dlg.showModal(); } catch(_) {}
+      try { dlg.showModal(); } catch(_){/* safari fallback ignored */ }
     });
 
     // Search listeners (new flow)
@@ -812,7 +847,7 @@
 
   // ---------- ACCOUNTS ----------
   async function loadAccounts({resetPage=false}={}) {
-    if (resetPage) state.page=1; cacheEls();
+    if (resetPage) state.page=1; cacheEls(); ensurePager();
     const tbody = els.accountsBody || $("#loyaltyAccountsBody");
     addLoading(tbody,true); setRefreshDisabled(true);
     try{
@@ -855,7 +890,7 @@
 
   // ---------- LEDGER ----------
   async function loadLedger({resetPage=false}={}){
-    if (resetPage) state.page=1; cacheEls();
+    if (resetPage) state.page=1; cacheEls(); ensurePager();
     const tbody = els.ledgerBody || $("#loyaltyLedgerBody");
     addLoading(tbody,true); setRefreshDisabled(true);
     try{
@@ -902,7 +937,7 @@
 
   // ---------- NOTIFICATIONS ----------
   async function loadNotifications({resetPage=false}={}){
-    if (resetPage) state.page=1; cacheEls();
+    if (resetPage) state.page=1; cacheEls(); ensurePager();
     const tbody = els.notificationsBody || $("#loyaltyNotificationsBody");
     addLoading(tbody,true); setRefreshDisabled(true);
     try{
