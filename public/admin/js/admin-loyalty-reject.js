@@ -18,32 +18,36 @@
     const css = document.createElement("style");
     css.id = "ws-reject-css";
     css.textContent = `
-      .hidden{display:none}
-      .ws-modal{position:fixed;inset:0;z-index:11000} /* higher than floating menu */
-      .ws-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45)}
-      .ws-dialog{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;
-        box-shadow:0 20px 50px rgba(0,0,0,.25);width:min(92vw,640px);overflow:hidden}
-      .ws-header,.ws-footer{display:flex;align-items:center;justify-content:space-between;gap:.5rem;border-color:#eee}
-      .ws-header{padding:12px 16px;border-bottom:1px solid #eee}
-      .ws-footer{padding:12px 16px;border-top:1px solid #eee}
-      .ws-body{padding:16px}
-      .ws-title{margin:0;font-size:16px;font-weight:600}
-      .ws-input{border:1px solid #cfd4dc;border-radius:8px;padding:10px 12px;width:100%;font:inherit;line-height:1.4}
-      .ws-input:focus{outline:2px solid #6aa2ff; outline-offset:0}
-      .ws-close{border:none;background:transparent;cursor:pointer;font-size:18px;line-height:1}
-      .ws-label{display:block;font-size:14px;font-weight:600;margin:12px 0 6px}
-      .ws-hint{color:#666; font-size:14px; margin:0 0 8px}
-      .ws-error{color:#b00020;margin-top:6px}
-      .ws-btn{border-radius:8px;padding:8px 14px;font-weight:500;cursor:pointer}
-      .ws-btn--ghost{background:#fff;border:1px solid #ccc;color:#444}
-      .ws-btn--ghost:hover{border-color:#999;color:#000}
-      .ws-btn--danger{background:#b00020;color:#fff;border:none}
-      .ws-btn--danger:hover{background:#d32f2f}
-      @media (prefers-reduced-motion:no-preference){
-        .ws-dialog{animation:ws-pop .12s ease-out}
-        @keyframes ws-pop{from{transform:translate(-50%,-48%) scale(.98);opacity:.4}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
-      }
-    `;
+  .hidden{display:none}
+  .ws-modal{position:fixed;inset:0;z-index:11000}
+  .ws-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+  .ws-dialog{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;
+    box-shadow:0 20px 50px rgba(0,0,0,.25);width:min(92vw,640px);overflow:hidden}
+  /* NEW: ensure children include padding/border in width calc */
+  .ws-dialog, .ws-dialog * { box-sizing: border-box; }  /* <-- add this */
+
+  .ws-header,.ws-footer{display:flex;align-items:center;justify-content:space-between;gap:.5rem;border-color:#eee}
+  .ws-header{padding:12px 16px;border-bottom:1px solid #eee}
+  .ws-footer{padding:12px 16px;border-top:1px solid #eee}
+  .ws-body{padding:16px}
+  .ws-title{margin:0;font-size:16px;font-weight:600}
+  .ws-input{border:1px solid #cfd4dc;border-radius:8px;padding:10px 12px;width:100%;font:inherit;line-height:1.4}
+  .ws-input:focus{outline:2px solid #6aa2ff; outline-offset:0}
+  .ws-close{border:none;background:transparent;cursor:pointer;font-size:18px;line-height:1}
+  .ws-label{display:block;font-size:14px;font-weight:600;margin:12px 0 6px}
+  .ws-hint{color:#666; font-size:14px; margin:0 0 8px}
+  .ws-error{color:#b00020;margin-top:6px}
+  .ws-btn{border-radius:8px;padding:8px 14px;font-weight:500;cursor:pointer}
+  .ws-btn--ghost{background:#fff;border:1px solid #ccc;color:#444}
+  .ws-btn--ghost:hover{border-color:#999;color:#000}
+  .ws-btn--danger{background:#b00020;color:#fff;border:none}
+  .ws-btn--danger:hover{background:#d32f2f}
+  @media (prefers-reduced-motion:no-preference){
+    .ws-dialog{animation:ws-pop .12s ease-out}
+    @keyframes ws-pop{from{transform:translate(-50%,-48%) scale(.98);opacity:.4}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+  }
+`;
+
     document.head.appendChild(css);
   }
 
