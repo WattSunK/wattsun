@@ -1,642 +1,906 @@
-/**
- * admin-loyalty.js
- *
- * Improved, self-contained admin UI module for loyalty withdrawals.
- * - Safe attach/detach lifecycle
- * - Centralized fetch with timeout + AbortController
- * - DOM-based rendering (no string innerHTML for rows)
- * - Delegated event handling and single listener cleanup
- * - Accessible actions menu (keyboard + ARIA) and modal focus trap
- *
- * Usage:
- *  - It auto-attaches if it finds #loyalty-admin-root on page load.
- *  - You can manually call: window.loyaltyAdmin.attach(rootElement) or .detach()
- *
- * Author: ChatGPT (GPT-5 Thinking mini)
- */
-
+// public/admin/js/admin-loyalty.js
+// Loyalty Admin — SPA-safe attach, tabs + lists + actions
+// Includes: Increment 2 (user search) + Increment 3 (UX & validation) +
+// - Account ID auto-fill from selection
+// - Floating Actions menu (works despite overflow/z-index)
+// - Robust SPA attach on partial swaps
 (function () {
-  'use strict';
+  "use strict";
 
-  // ------------------------------
-  // Configuration / selectors
-  // ------------------------------
-  const ROOT_SELECTOR = '#loyalty-admin-root';
-  const DEFAULT_TIMEOUT = 15_000; // ms
-  const endpoints = {
-    listWithdrawals: '/api/admin/withdrawals', // GET ?page=...&q=...
-    action: (id, action) => `/api/admin/withdrawals/${encodeURIComponent(id)}/${action}`, // POST
-    searchUsers: (q) => `/api/admin/users/search?q=${encodeURIComponent(q)}`, // GET
-  };
+  // ---------- tiny helpers ----------
+  const $  = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const on = (el, ev, fn, opts) => el && el.addEventListener(ev, fn, opts);
+  const fmtInt = (n) => (n === 0 || n ? Number(n).toLocaleString() : "—");
+  const esc = (v) => String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const debounce = (fn, ms=350) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
 
-  // ------------------------------
-  // Module state
-  // ------------------------------
-  let attached = false;
-  let currentRoot = null;
-  let mo = null; // MutationObserver
-  const _listeners = new Set(); // track added listeners for cleanup
-  const controllers = new Set(); // track AbortControllers for cleanup
-
-  // Debug hook (populated during attach)
-  const debug = {
-    lastRender: null,
-    lastFetch: null,
-  };
-
-  // ------------------------------
-  // Utility: listener tracking
-  // ------------------------------
-  function addListener(target, type, handler, opts) {
-    target.addEventListener(type, handler, opts);
-    _listeners.add({ target, type, handler, opts });
-    return handler;
-  }
-  function removeAllListeners() {
-    for (const { target, type, handler, opts } of Array.from(_listeners)) {
-      try {
-        target.removeEventListener(type, handler, opts);
-      } catch (e) {
-        // ignore
-      }
-    }
-    _listeners.clear();
+  function toast(msg, { type="info", ms=2200 } = {}) {
+    const t = document.createElement("div");
+    t.textContent = msg;
+    t.className = `toast toast--${type}`;
+    Object.assign(t.style, {
+      position:"fixed", right:"16px", bottom:"16px",
+      background: type==="error" ? "#b00020" : "#0f766e",
+      color:"#fff", padding:"10px 14px", borderRadius:"10px",
+      boxShadow:"0 6px 18px rgba(0,0,0,.18)", zIndex:9999, fontSize:"14px"
+    });
+    document.body.appendChild(t);
+    setTimeout(()=> t.remove(), ms);
   }
 
-  // ------------------------------
-  // Utility: AbortController + fetch with timeout
-  // ------------------------------
-  function makeController(timeout = DEFAULT_TIMEOUT) {
-    const c = new AbortController();
-    if (timeout > 0) {
-      const t = setTimeout(() => {
-        try { c.abort(); } catch (_) {}
-      }, timeout);
-      // ensure timer removed when controller aborts/finished
-      const cleanup = () => clearTimeout(t);
-      c.signal.addEventListener('abort', cleanup, { once: true });
-    }
-    controllers.add(c);
-    // remove from set when finished
-    const removeFromSet = () => controllers.delete(c);
-    c.signal.addEventListener('abort', removeFromSet, { once: true });
-    return c;
+  async function api(path) {
+    const res = await fetch(path, { credentials: "include" });
+    let data; try { data = await res.json(); } catch { data = {}; }
+    if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+    return data;
   }
 
-  async function fetchWithTimeout(url, opts = {}, timeout = DEFAULT_TIMEOUT) {
-    const controller = makeController(timeout);
-    const finalOpts = Object.assign({}, opts, { signal: controller.signal, credentials: 'same-origin' });
-    debug.lastFetch = { url, opts: finalOpts, ts: Date.now() };
-    try {
-      const res = await fetch(url, finalOpts);
-      return res;
-    } catch (err) {
-      if (err.name === 'AbortError') {
-        const e = new Error('Request aborted');
-        e.name = 'AbortError';
-        throw e;
-      }
-      throw err;
-    } finally {
-      controllers.delete(controller);
-    }
-  }
-
-  async function safeJsonFetch(url, opts = {}, timeout = DEFAULT_TIMEOUT) {
-    const res = await fetchWithTimeout(url, opts, timeout);
-    let data = null;
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('application/json')) {
-      try { data = await res.json(); } catch (e) { /* fallthrough */ }
-    } else {
-      // try text fallback
-      try { const text = await res.text(); data = { text }; } catch (_) {}
-    }
-    if (!res.ok) {
-      const err = new Error(`HTTP ${res.status}`);
-      err.status = res.status;
-      err.payload = data;
-      throw err;
+  async function postJSON(url, body) {
+    const res = await fetch(url, { method:"POST", headers:{"Content-Type":"application/json"}, credentials:"include", body: JSON.stringify(body||{}) });
+    let data = null; try { data = await res.json(); } catch {}
+    if (!res.ok || data?.success === false) {
+      const msg = data?.error?.message || `HTTP ${res.status}`;
+      const code = data?.error?.code || "ERROR";
+      throw new Error(`${code}: ${msg}`);
     }
     return data;
   }
 
-  // ------------------------------
-  // Helpers: DOM utilities and formatters
-  // ------------------------------
-  function el(tag, attrs = {}, children = []) {
-    const node = document.createElement(tag);
-    for (const k in attrs) {
-      if (k === 'class') node.className = attrs[k];
-      else if (k === 'style') node.style.cssText = attrs[k];
-      else if (k === 'dataset') Object.assign(node.dataset, attrs[k]);
-      else if (k.startsWith('aria-')) node.setAttribute(k, attrs[k]);
-      else if (k === 'text') node.textContent = attrs[k];
-      else node.setAttribute(k, attrs[k]);
+  // ---------- SPA-safe activation (robust to partial swaps) ----------
+  let attached = false;
+  let currentRoot = null; // track which #loyalty-root we’re wired to
+  let els = {};
+
+  function cacheEls() {
+    els = {
+      tabWithdrawalsBtn: $("#tabWithdrawalsBtn"),
+      tabAccountsBtn:    $("#tabAccountsBtn"),
+      tabLedgerBtn:      $("#tabLedgerBtn"),
+      tabNotifsBtn:      $("#tabNotifsBtn"),
+      tabWithdrawals: $("#loyaltyTabWithdrawals"),
+      tabAccounts:    $("#loyaltyTabAccounts"),
+      tabLedger:      $("#loyaltyTabLedger"),
+      tabNotifs:      $("#loyaltyTabNotifs"),
+      searchInput: $("#loyaltySearch"),
+      clearBtn:    $("#loyaltyClearBtn"),
+      refreshBtn:  $("#loyaltyRefreshBtn"),
+      statusSel:   $("#statusSel"),
+      accStatusSel: $("#accStatusSel"),
+      ledgerKindSel: $("#ledgerKindSel"),
+      notifStatusSel: $("#notifStatusSel"),
+      wdBody:            $("#wdBody"),
+      accountsBody:      $("#loyaltyAccountsBody"),
+      ledgerBody:        $("#loyaltyLedgerBody"),
+      notificationsBody: $("#loyaltyNotificationsBody"),
+      meta:  $("#loyaltyMeta"),
+      pager: $("#loyaltyPager"),
+    };
+  }
+
+  function scheduleAttach() {
+    setTimeout(() => {
+      const root = document.getElementById("loyalty-root");
+      if (!root) return;
+      if (currentRoot !== root) {
+        currentRoot = root;
+        attached = false;
+      }
+      if (attached) return;
+      cacheEls();
+      attach();
+    }, 0);
+  }
+
+  function tryAttach() {
+    const root = document.getElementById("loyalty-root");
+    if (!root) return;
+    if (currentRoot !== root) {
+      currentRoot = root;
+      attached = false;
     }
-    (Array.isArray(children) ? children : [children]).forEach((c) => {
-      if (c == null) return;
-      if (typeof c === 'string') node.appendChild(document.createTextNode(c));
-      else node.appendChild(c);
+    if (!attached) scheduleAttach();
+  }
+
+  // Observe partial swaps and re-attach when #loyalty-root is injected
+  const mo = new MutationObserver((muts) => {
+    for (const m of muts) {
+      for (const node of m.addedNodes) {
+        if (node.nodeType === 1) {
+          if (node.id === "loyalty-root" || node.querySelector?.("#loyalty-root")) {
+            tryAttach();
+          }
+        }
+      }
+    }
+  });
+  mo.observe(document.body, { childList:true, subtree:true });
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", tryAttach);
+  } else {
+    tryAttach();
+  }
+
+  // ---------- state ----------
+  const state = { activeTab:"Withdrawals", page:1, limit:10, total:null };
+
+  // ---------- attach ----------
+  function attach() {
+    attached = true;
+    wireTabs();
+    wireFilters();
+    wirePager();
+    wireInlineActionsMenu();
+    wireNewWithdrawalModal(); // Increment 2 + 3 wiring
+
+    state.activeTab = "Withdrawals";
+    showTab("Withdrawals");
+    loadWithdrawals({ resetPage:true });
+
+    // Auto-refresh on focus or external signals
+    window.addEventListener("focus", () => { try { refreshActiveTab(); } catch {} });
+    window.addEventListener("storage", (e) => {
+      if (e.key === "loyaltyUpdatedAt") { try { refreshActiveTab(); } catch {} }
     });
-    return node;
-  }
-
-  function clear(node) {
-    if (!node) return;
-    while (node.firstChild) node.removeChild(node.firstChild);
-  }
-
-  function fmtInt(n) {
-    if (n == null) return '—';
-    const v = Number(n);
-    if (Number.isNaN(v)) return String(n);
-    return v.toLocaleString();
-  }
-
-  function emptyRow(cols, text = 'No results') {
-    const tr = el('tr');
-    const td = el('td', { colspan: cols, text });
-    td.style.textAlign = 'center';
-    tr.appendChild(td);
-    return tr;
-  }
-
-  // ------------------------------
-  // Rendering: withdrawals table
-  // ------------------------------
-  function createActionCell(id, status) {
-    const st = String(status || '').toLowerCase();
-    const canApprove = st === 'pending';
-    const canReject = st === 'pending';
-    const canMarkPaid = st === 'approved';
-
-    const td = el('td');
-    // button
-    const btn = el('button', {
-      type: 'button',
-      class: 'ws-actions-trigger',
-      'aria-haspopup': 'true',
-      'aria-expanded': 'false',
-      'aria-controls': `ws-actions-menu-${id}`,
-      'data-id': id
-    }, ['Actions ▾']);
-
-    const menu = el('div', {
-      id: `ws-actions-menu-${id}`,
-      class: 'ws-actions-menu hidden',
-      role: 'menu',
-      tabindex: '-1',
-      'aria-hidden': 'true',
-      'data-id': id
+    window.addEventListener("message", (e) => {
+      if (e && e.data && e.data.type === "loyalty-updated") { try { refreshActiveTab(); } catch {} }
     });
 
-    function mkItem(text, cls, enabled = true) {
-      const b = el('button', { type: 'button', class: cls, role: 'menuitem', tabindex: '-1', 'data-id': id }, [text]);
-      if (!enabled) b.disabled = true;
-      return b;
-    }
-
-    menu.appendChild(mkItem('Approve', 'ws-action-approve', canApprove));
-    menu.appendChild(mkItem('Reject', 'ws-action-reject', canReject));
-    menu.appendChild(mkItem('Mark Paid', 'ws-action-paid', canMarkPaid));
-
-    const wrapper = el('div', { class: 'ws-actions', style: 'position:relative;display:inline-block' }, [btn, menu]);
-    td.appendChild(wrapper);
-    return td;
+    // Debug hook
+    window.loyaltyAdmin = { state, refreshActiveTab, loadWithdrawals, loadAccounts, loadLedger, loadNotifications };
   }
 
-  function renderWithdrawalsRows(tbody, rows) {
-    if (!tbody) return;
-    clear(tbody);
-    if (!rows || rows.length === 0) {
-      tbody.appendChild(emptyRow(9));
-      return;
+  // ---------- tabs ----------
+  function toggleGhost(btn, on){ btn && btn.classList.toggle("btn--ghost", !!on); }
+  function setShown(el,on){ if (el) el.style.display = on ? "" : "none"; }
+
+  function wireTabs() {
+    on(document, "click", (e) => {
+      const btn = e.target.closest("#tabWithdrawalsBtn, #tabAccountsBtn, #tabLedgerBtn, #tabNotifsBtn");
+      if (!btn) return; e.preventDefault();
+      if (btn.id==="tabWithdrawalsBtn"){ showTab("Withdrawals"); loadWithdrawals({ resetPage:true }); }
+      if (btn.id==="tabAccountsBtn")   { showTab("Accounts");      loadAccounts({ resetPage:true }); }
+      if (btn.id==="tabLedgerBtn")     { showTab("Ledger");        loadLedger({ resetPage:true }); }
+      if (btn.id==="tabNotifsBtn")     { showTab("Notifications"); loadNotifications({ resetPage:true }); }
+    });
+  }
+
+  function showTab(name) {
+    cacheEls();
+    state.activeTab = name;
+    setShown(els.tabWithdrawals, name==="Withdrawals");
+    setShown(els.tabAccounts,    name==="Accounts");
+    setShown(els.tabLedger,      name==="Ledger");
+    setShown(els.tabNotifs,      name==="Notifications");
+
+    const newBtn = document.getElementById("wdNewBtn");
+    if (newBtn) newBtn.style.display = (name === "Withdrawals") ? "" : "none";
+
+    [els.tabWithdrawalsBtn, els.tabAccountsBtn, els.tabLedgerBtn, els.tabNotifsBtn]
+      .forEach(btn => btn && btn.classList.remove("btn--active"));
+
+    toggleGhost(els.tabWithdrawalsBtn, name!=="Withdrawals");
+    toggleGhost(els.tabAccountsBtn,    name!=="Accounts");
+    toggleGhost(els.tabLedgerBtn,      name!=="Ledger");
+    toggleGhost(els.tabNotifsBtn,      name!=="Notifications");
+
+    const activeBtn = {
+      "Withdrawals": els.tabWithdrawalsBtn,
+      "Accounts": els.tabAccountsBtn,
+      "Ledger": els.tabLedgerBtn,
+      "Notifications": els.tabNotifsBtn,
+    }[name];
+    if (activeBtn) activeBtn.classList.add("btn--active");
+
+    ["filterWithdrawals","filterAccounts","filterLedger","filterNotifs"].forEach(id => {
+      const el = document.getElementById(id); if (el) el.style.display="none";
+    });
+
+    if (name==="Withdrawals") { $("#filterWithdrawals").style.display=""; const sel=$("#statusSel"); if (sel) sel.value=""; }
+    if (name==="Accounts")    { $("#filterAccounts").style.display="";  const sel=$("#accStatusSel"); if (sel) sel.value=""; }
+    if (name==="Ledger")      { $("#filterLedger").style.display="";    const sel=$("#ledgerKindSel"); if (sel) sel.value=""; }
+    if (name==="Notifications"){ $("#filterNotifs").style.display="";   const sel=$("#notifStatusSel"); if (sel) sel.value=""; }
+
+    const search = document.getElementById("loyaltySearch"); if (search) search.value = "";
+  }
+
+  function buildQuery() {
+    const p = new URLSearchParams();
+    p.set("page", String(state.page));
+    p.set("limit", String(state.limit));
+    const q = els.searchInput?.value?.trim(); if (q) p.set("q", q);
+    if (state.activeTab === "Withdrawals") {
+      const st = els.statusSel?.value?.trim(); if (st) p.set("status", st);
+    } else if (state.activeTab === "Accounts") {
+      const st = els.accStatusSel?.value?.trim(); if (st) p.set("status", st);
+    } else if (state.activeTab === "Ledger") {
+      const k = els.ledgerKindSel?.value?.trim(); if (k) p.set("kind", k);
+    } else if (state.activeTab === "Notifications") {
+      const st = els.notifStatusSel?.value?.trim(); if (st) p.set("status", st);
     }
+    return `?${p.toString()}`;
+  }
+
+  function setMeta(count, total=null) {
+    if (!els.meta) return;
+    const p = state.page, l = state.limit, s = (p-1)*l + 1, e = (p-1)*l + count;
+    els.meta.textContent = total!=null ? `${s}–${e} of ${fmtInt(total)}` : `${count} row(s)`;
+  }
+
+  function updatePager(){
+    const prev = els.pager?.querySelector(".pager-prev");
+    const next = els.pager?.querySelector(".pager-next");
+    if (prev) prev.disabled = state.page<=1;
+    if (next) next.disabled = state.total!=null ? state.page >= Math.ceil(state.total/state.limit) : false;
+  }
+
+  function wirePager(){
+    const prev = els.pager?.querySelector(".pager-prev");
+    const next = els.pager?.querySelector(".pager-next");
+    on(prev, "click", () => { if (state.page>1){ state.page--; refreshActiveTab(); } });
+    on(next, "click", () => { state.page++; refreshActiveTab(); });
+  }
+
+  function refreshActiveTab(){
+    if (state.activeTab === "Withdrawals") return loadWithdrawals();
+    if (state.activeTab === "Accounts")    return loadAccounts();
+    if (state.activeTab === "Ledger")      return loadLedger();
+    if (state.activeTab === "Notifications")return loadNotifications();
+  }
+
+  function setRefreshDisabled(on){
+    cacheEls();
+    if (!els.refreshBtn) return;
+    els.refreshBtn.disabled = !!on;
+    els.refreshBtn.classList.toggle("is-loading", !!on);
+  }
+
+  function wireFilters(){
+    if (els.searchInput){
+      on(els.searchInput, "input", debounce(()=>{ state.page=1; refreshActiveTab(); }, 300));
+    }
+    on(els.clearBtn, "click", () => {
+      if (els.searchInput) els.searchInput.value = "";
+      const map = {
+        "Withdrawals": els.statusSel,
+        "Accounts": els.accStatusSel,
+        "Ledger": els.ledgerKindSel,
+        "Notifications": els.notifStatusSel
+      };
+      const sel = map[state.activeTab];
+      if (sel) sel.value = "";
+      state.page = 1;
+      refreshActiveTab();
+    });
+    on(els.refreshBtn, "click", () => { refreshActiveTab(); });
+
+    ["change"].forEach(ev => {
+      on(els.statusSel, ev, ()=>{ state.page=1; loadWithdrawals(); });
+      on(els.accStatusSel, ev, ()=>{ state.page=1; loadAccounts(); });
+      on(els.ledgerKindSel, ev, ()=>{ state.page=1; loadLedger(); });
+      on(els.notifStatusSel, ev, ()=>{ state.page=1; loadNotifications(); });
+    });
+  }
+
+  // ---------- shared row helpers ----------
+  function addLoading(tbody, on){ if (!tbody) return; if (on){ tbody.setAttribute("aria-busy","true"); } else tbody.removeAttribute("aria-busy"); }
+  function emptyRow(cols){ const tr=document.createElement("tr"); tr.innerHTML=`<td colspan="${cols}">No data</td>`; return tr; }
+  function showErrorRow(tbody, err, cols){ if (!tbody) return; tbody.innerHTML=""; const tr=document.createElement("tr"); tr.innerHTML = `<td colspan="${cols}">${esc(err.message||String(err))}</td>`; tbody.appendChild(tr); }
+
+  // ---------- WITHDRAWALS ----------
+  async function loadWithdrawals({resetPage=false}={}){
+    if (resetPage) state.page=1; cacheEls(); const tbody = els.wdBody || $("#wdBody");
+    addLoading(tbody,true); setRefreshDisabled(true);
+    try{
+      const data = await api(`/api/admin/loyalty/withdrawals${buildQuery()}`);
+      const rows = Array.isArray(data)?data:(data.withdrawals||[]);
+      state.total = (typeof data.total==="number")?data.total:null;
+      renderWithdrawalsRows(tbody, rows);
+      setMeta(rows.length, state.total);
+      updatePager();
+    }catch(err){
+      showErrorRow(tbody, err, 9);
+      setMeta(0); state.total=null; updatePager();
+    }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
+  }
+
+  function actionCellHtml(id, status){
+  // normalize status
+  const st = String(status || "").trim().toLowerCase();
+
+  const canApprove = st === "pending";
+  const canReject  = st === "pending";
+  const canPay     = st === "approved";
+
+  // nothing to do for paid/rejected/other → show badge only
+  if (!(canApprove || canReject || canPay)) {
+    return `
+      <span class="badge badge--muted" data-no-actions="1"
+            style="display:inline-block;padding:2px 8px;border-radius:12px;background:#eee;color:#666;font-size:12px;">
+        No actions
+      </span>`;
+  }
+
+  // actionable rows only
+  return `
+    <div class="ws-actions" data-has-actions="1" style="position:relative;">
+      <button class="btn btn-actions" aria-haspopup="menu" data-id="${esc(id)}">Actions ▾</button>
+      <div class="actions-menu hidden" role="menu" data-id="${esc(id)}">
+        <button class="btn btn-approve"   data-id="${esc(id)}" ${canApprove ? "" : "disabled"}>Approve</button>
+        <button class="btn btn-reject"    data-id="${esc(id)}" ${canReject  ? "" : "disabled"}>Reject</button>
+        <button class="btn btn-mark-paid" data-id="${esc(id)}" ${canPay     ? "" : "disabled"}>Mark Paid</button>
+      </div>
+    </div>`;
+}
+
+
+  function renderWithdrawalsRows(tbody, rows){
+    if (!tbody) return; tbody.innerHTML = "";
+    if (!rows?.length){ tbody.appendChild(emptyRow(9)); return; }
     const frag = document.createDocumentFragment();
-    for (const w of rows) {
-      const id = w.id ?? w.withdrawal_id ?? w.withdrawalId ?? '—';
-      const acct = w.account ?? w.account_id ?? w.accountId ?? '—';
-      const user = w.user ?? w.user_email ?? w.email ?? (w.user_name ? `${w.user_name}` : '—');
-      const pts = w.points ?? w.requested_points ?? 0;
-      const st = w.status ?? '—';
-      const req = w.requested_at ?? w.created_at ?? w.createdAt ?? '—';
-      const dec = w.decided_at ?? w.decidedAt ?? '—';
-      const paid = w.paid_at ?? w.paidAt ?? '—';
-
-      const tr = el('tr', { dataset: { id } });
-      tr.appendChild(el('td', {}, [id]));
-      tr.appendChild(el('td', {}, [acct]));
-      tr.appendChild(el('td', {}, [user]));
-      tr.appendChild(el('td', {}, [fmtInt(pts)]));
-      tr.appendChild(el('td', {}, [st]));
-      tr.appendChild(el('td', {}, [req]));
-      tr.appendChild(el('td', {}, [dec]));
-      tr.appendChild(el('td', {}, [paid]));
-      tr.appendChild(createActionCell(id, st));
+    for (const w of rows){
+      const id   = w.id ?? w.withdrawal_id ?? w.withdrawalId ?? "—";
+      const acct = w.account_id ?? w.accountId ?? "—";
+      const user = w.user_id ?? w.userId ?? w.email ?? w.phone ?? "—";
+      const pts  = w.requested_points ?? w.points ?? 0;
+      const st   = w.status ?? "—";
+      const req  = w.requested_at ?? w.created_at ?? w.createdAt ?? "—";
+      const dec  = w.decided_at ?? w.decidedAt ?? "—";
+      const paid = w.paid_at ?? w.paidAt ?? "—";
+      const tr=document.createElement("tr"); tr.dataset.id = id;
+      tr.innerHTML = `
+        <td>${esc(id)}</td>
+        <td>${esc(acct)}</td>
+        <td>${esc(user)}</td>
+        <td>${fmtInt(pts)}</td>
+        <td>${esc(st)}</td>
+        <td>${esc(req)}</td>
+        <td>${esc(dec)}</td>
+        <td>${esc(paid)}</td>
+        <td>${actionCellHtml(id, st)}</td>`;
       frag.appendChild(tr);
     }
     tbody.appendChild(frag);
-    debug.lastRender = { type: 'withdrawals', count: rows.length, ts: Date.now() };
   }
 
-  // ------------------------------
-  // API helpers for the module
-  // ------------------------------
-  async function listWithdrawals({ page = 1, q = '' } = {}) {
-    const url = `${endpoints.listWithdrawals}?page=${encodeURIComponent(page)}&q=${encodeURIComponent(q)}`;
-    const data = await safeJsonFetch(url, { method: 'GET' }, DEFAULT_TIMEOUT);
-    return data;
+  // ---------- Floating Actions menu (fixes non-responsive dropdown) ----------
+  let openMenuEl = null;
+
+  function closeFloatingMenu() {
+    if (openMenuEl && openMenuEl.parentNode === document.body) {
+      openMenuEl.remove();
+    }
+    openMenuEl = null;
   }
 
-  async function performAction(withdrawalId, action) {
-    const url = endpoints.action(withdrawalId, action);
-    const data = await safeJsonFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }, DEFAULT_TIMEOUT);
-    return data;
+  function openFloatingMenu(btn) {
+    closeFloatingMenu();
+
+    const cellMenu = btn.closest(".ws-actions")?.querySelector(".actions-menu");
+    if (!cellMenu) return;
+
+    const menu = cellMenu.cloneNode(true);
+    menu.classList.remove("hidden");
+    Object.assign(menu.style, {
+      position: "fixed",
+      top: "0px",
+      left: "0px",
+      zIndex: "10000",
+      background: "white",
+      border: "1px solid rgba(0,0,0,.12)",
+      borderRadius: "8px",
+      boxShadow: "0 10px 24px rgba(0,0,0,.18)",
+      padding: "8px",
+      display: "flex",
+      flexDirection: "column",
+      gap: "6px"
+    });
+
+    // position near button
+    const r = btn.getBoundingClientRect();
+    const pad = 6;
+    menu.style.top = `${r.bottom + pad}px`;
+    menu.style.left = `${Math.min(window.innerWidth - 180, r.left)}px`;
+    document.body.appendChild(menu);
+    openMenuEl = menu;
   }
 
-  // ------------------------------
-  // UI Interactions: action menu handling (delegated)
-  // ------------------------------
-  function openMenu(trigger) {
-    const id = trigger.dataset.id;
-    const menu = currentRoot.querySelector(`.ws-actions-menu[data-id="${id}"]`);
-    if (!menu) return;
-    closeAllMenus();
-    menu.classList.remove('hidden');
-    menu.setAttribute('aria-hidden', 'false');
-    trigger.setAttribute('aria-expanded', 'true');
-    // focus first actionable item
-    const first = menu.querySelector('button:not([disabled])');
-    if (first) first.focus();
-    // store opener to restore focus on close
-    menu._opener = trigger;
-  }
+  function wireInlineActionsMenu() {
+    // Toggle floating menu
+    on(document, "click", (e) => {
+  const btn = e.target.closest(".btn-actions");
+  if (!btn) return;
+  // don’t open for rows without actions (paid/rejected)
+  const wrap = btn.closest(".ws-actions");
+  if (!wrap || wrap.dataset.hasActions !== "1") return;
 
-  function closeAllMenus() {
-    if (!currentRoot) return;
-    const menus = currentRoot.querySelectorAll('.ws-actions-menu');
-    menus.forEach((m) => {
-      m.classList.add('hidden');
-      m.setAttribute('aria-hidden', 'true');
-      const id = m.dataset.id;
-      const trig = currentRoot.querySelector(`.ws-actions-trigger[data-id="${id}"]`);
-      if (trig) trig.setAttribute('aria-expanded', 'false');
-      if (m._opener) {
-        try { m._opener.focus(); } catch (_) {}
-        delete m._opener;
+  e.preventDefault();
+  e.stopPropagation();
+  openFloatingMenu(btn);
+});
+    // Close on outside click or ESC
+    on(document, "click", (e) => {
+      if (openMenuEl && !openMenuEl.contains(e.target) && !e.target.closest(".btn-actions")) {
+        closeFloatingMenu();
       }
+    });
+    on(document, "keydown", (e) => { if (e.key === "Escape") closeFloatingMenu(); });
+
+    // After clicking an action, close menu (delegated handlers below will execute)
+    on(document, "click", (e) => {
+      const action = e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject, .actions-menu .btn-mark-paid");
+      if (!action) return;
+      setTimeout(closeFloatingMenu, 0);
+    });
+
+    // Action handlers (approve / reject / mark-paid)
+    on(document, "click", async (e)=>{
+      const btn = e.target.closest(".btn-approve"); if (!btn) return;
+      e.preventDefault();
+      try{
+        const id = btn.dataset.id;
+        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/approve`, {
+          method: "PATCH", credentials: "include"
+        });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+        toast(`Withdrawal #${id} approved`, {type:"info"});
+        refreshActiveTab();
+      }catch(err){ toast(err.message||"Approve failed", {type:"error"}); }
+    });
+
+    on(document, "click", async (e)=>{
+      const btn = e.target.closest(".btn-reject"); if (!btn) return;
+      e.preventDefault();
+      try{
+        const id = btn.dataset.id;
+        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/reject`, {
+          method: "PATCH", credentials: "include"
+        });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+        toast(`Withdrawal #${id} rejected`, {type:"info"});
+        refreshActiveTab();
+      }catch(err){ toast(err.message||"Reject failed", {type:"error"}); }
+    });
+
+    on(document, "click", async (e)=>{
+      const btn = e.target.closest(".btn-mark-paid"); if (!btn) return;
+      e.preventDefault();
+      try{
+        const id = btn.dataset.id;
+        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/mark-paid`, {
+          method: "PATCH", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ payoutRef: "" })
+        });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+        toast(`Withdrawal #${id} marked as paid`, {type:"info"});
+        refreshActiveTab();
+      }catch(err){ toast(err.message||"Mark Paid failed", {type:"error"}); }
     });
   }
 
-  function onDocumentClick(e) {
-    if (!currentRoot) return;
-    const trg = e.target;
-    // trigger to open/close
-    const tOpen = trg.closest('.ws-actions-trigger');
-    if (tOpen && currentRoot.contains(tOpen)) {
-      const menu = currentRoot.querySelector(`.ws-actions-menu[data-id="${tOpen.dataset.id}"]`);
-      if (menu && menu.classList.contains('hidden')) openMenu(tOpen);
-      else {
-        closeAllMenus();
+  // ---------- Increment 2 + 3: NEW WITHDRAWAL modal wiring ----------
+  const SEARCH_URL = "/api/admin/users/search";
+  const SEARCH_DEBOUNCE_MS = 250;
+
+  async function searchUsers(term) {
+    if (!term || term.trim().length < 2) return [];
+    try {
+      const r = await fetch(`${SEARCH_URL}?q=${encodeURIComponent(term)}`, { credentials: "same-origin" });
+      const j = await r.json();
+      const arr = Array.isArray(j) ? j : (j.results || j.users || []);
+      if (!Array.isArray(arr)) return [];
+      return arr.map(u => ({
+        id: u.id,
+        name: u.name || "",
+        email: u.email || "",
+        phone: u.phone || "",
+        account_id: u.account_id ?? u.accountId ?? null,
+        status: u.status || "",
+        program_name: u.program_name || u.programName || "",
+        minWithdrawPoints: u.minWithdrawPoints ?? u.min_withdraw_points ?? 0,
+        balancePoints: u.balancePoints ?? u.balance_points ?? u.balance ?? 0
+      }));
+    } catch {
+      return [
+        { id: 1, name: "Demo User", email: "demo@example.com", phone: "+254700000001", account_id: 101, status: "Active", program_name: "WattSun Rewards", balancePoints: 900, minWithdrawPoints: 200 }
+      ];
+    }
+  }
+
+  function wireNewWithdrawalModal() {
+    const dlg    = document.getElementById("wdNewDialog");
+    const btn    = document.getElementById("wdNewBtn");
+    const create = document.getElementById("wdCreateBtn"); // old ID; preserved
+    const accId  = document.getElementById("wdAccId");     // legacy visible field
+    const pts    = document.getElementById("wdPoints");
+    const note   = document.getElementById("wdNote");
+    const out    = document.getElementById("wdOut");
+
+    const sInput   = document.getElementById("wdUserSearch");
+    const sResults = document.getElementById("wdUserResults");
+    const hidAcc   = document.getElementById("wdAccountId");
+
+    const hintBlk  = document.getElementById("wdHintBlock");
+    const hintProg = document.getElementById("wdHintProgram");
+    const hintMin  = document.getElementById("wdHintMin");
+    const hintBal  = document.getElementById("wdHintBal");
+    const inlineErr= document.getElementById("wdError");
+
+    const legacyHint = document.getElementById("wdBalanceHint");
+    const submitBtn  = document.getElementById("wdSubmit") || create;
+
+    if (!btn || !dlg) return;
+
+    let picked = null;
+
+    const setOut = (msg) => { if (out) out.textContent = msg || ""; };
+
+    const showInlineError = (msg) => {
+      if (inlineErr) {
+        inlineErr.textContent = msg || "";
+        inlineErr.style.display = msg ? "block" : "none";
+      } else {
+        setOut(msg || "");
       }
-      e.preventDefault();
+    };
+
+    const setSubmitEnabled = (ok) => { if (submitBtn) submitBtn.disabled = !ok; };
+
+    // NEW: keep legacy field in sync with selected account
+    const syncVisibleAccountId = () => {
+      if (!accId) return;
+      const val = (hidAcc && hidAcc.value) ? String(hidAcc.value) : "";
+      accId.value = val;
+      accId.readOnly = !!val;
+      accId.classList.toggle("input--readonly", !!val);
+    };
+
+    const getRequestedPoints = () => {
+      const raw = (pts?.value || "").toString();
+      const num = parseInt(raw.replace(/[^\d\-]/g, ""), 10);
+      return Number.isFinite(num) ? num : 0;
+    };
+
+    const renderHint = () => {
+      const min = picked?.minWithdrawPoints ?? 0;
+      const bal = picked?.balancePoints ?? picked?.balance ?? 0;
+      const prog= picked?.program_name || "";
+
+      if (hintBlk || hintProg || hintMin || hintBal) {
+        if (hintProg) hintProg.textContent = prog || "—";
+        if (hintMin)  hintMin.textContent  = String(min);
+        if (hintBal)  hintBal.textContent  = String(bal);
+      } else if (legacyHint) {
+        legacyHint.textContent = `Program: ${prog || "—"} | Minimum withdrawal = ${min} points; Balance = ${bal} points`;
+      }
+    };
+
+    const validatePoints = (val, min, bal) => {
+      const p = Number(val);
+      if (!Number.isFinite(p) || p <= 0) return { ok:false, msg:"Enter points" };
+      if (min != null && p < Number(min)) return { ok:false, msg:`Minimum is ${min} points` };
+      if (bal != null && p > Number(bal)) return { ok:false, msg:`Exceeds balance (${bal})` };
+      return { ok:true };
+    };
+
+    const updateValidity = () => {
+      const accountId = (hidAcc && hidAcc.value) ? parseInt(hidAcc.value, 10) : (accId ? parseInt(accId.value, 10) : NaN);
+      const req = getRequestedPoints();
+      const min = picked?.minWithdrawPoints ?? 0;
+      const bal = picked?.balancePoints ?? picked?.balance ?? Infinity;
+      renderHint();
+      const res = validatePoints(req, min, bal);
+      showInlineError(res.ok ? "" : res.msg);
+
+      const okNewFlow = (!!sInput || !!sResults) ? (!!accountId && res.ok) : true;
+      const okLegacy  = (!sInput && !sResults) ? (Number.isInteger(accountId) && accountId > 0 && Number.isInteger(req) && req > 0) : true;
+      const ok = okNewFlow && okLegacy;
+      setSubmitEnabled(ok);
+      return ok;
+    };
+
+    const clearSearchUI = () => {
+      picked = null;
+      if (sInput) sInput.value = "";
+      if (sResults) sResults.innerHTML = "";
+      if (hidAcc) hidAcc.value = "";
+      syncVisibleAccountId();
+      renderHint();
+      updateValidity();
+    };
+
+    const renderNoResults = () => {
+      if (!sResults) return;
+      if (sResults.tagName === "SELECT") {
+        sResults.innerHTML = "";
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No results found";
+        opt.disabled = true;
+        opt.selected = true;
+        sResults.appendChild(opt);
+      } else {
+        sResults.innerHTML = `<div class="muted">No results found</div>`;
+      }
+      picked = null;
+      if (hidAcc) hidAcc.value = "";
+      syncVisibleAccountId();
+      renderHint();
+      updateValidity();
+    };
+
+    const renderResults = (users=[]) => {
+      if (!sResults) return;
+      if (!users.length) { renderNoResults(); return; }
+      if (sResults.tagName === "SELECT") {
+        sResults.innerHTML = "";
+        users.forEach(u => {
+          const opt = document.createElement("option");
+          opt.value = String(u.id);
+          opt.textContent = `${u.name || u.email || u.phone || ('User#'+u.id)}${u.account_id ? "" : " (no active account)"}`;
+          opt.dataset.payload = JSON.stringify(u);
+          sResults.appendChild(opt);
+        });
+        sResults.selectedIndex = 0;
+        sResults.dispatchEvent(new Event("change"));
+      } else {
+        sResults.innerHTML = "";
+        users.forEach(u => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn btn--ghost";
+          btn.textContent = `${u.name || u.email || u.phone || ('User#'+u.id)}${u.account_id ? "" : " (no active account)"}`;
+          btn.dataset.payload = JSON.stringify(u);
+          btn.addEventListener("click", () => {
+            picked = u;
+            if (hidAcc) hidAcc.value = u.account_id || "";
+            syncVisibleAccountId();
+            renderHint();
+            updateValidity();
+          });
+          sResults.appendChild(btn);
+        });
+      }
+    };
+
+    const doSearch = debounce(async () => {
+      if (!sInput) return;
+      const term = sInput.value;
+      if (!term || term.trim().length < 2) {
+        sResults && (sResults.innerHTML = "");
+        picked = null;
+        if (hidAcc) hidAcc.value = "";
+        syncVisibleAccountId();
+        renderHint();
+        updateValidity();
+        return;
+      }
+      const users = await searchUsers(term);
+      renderResults(users);
+    }, SEARCH_DEBOUNCE_MS);
+
+    // Open modal
+    btn && btn.addEventListener("click", () => {
+      if (accId) { accId.value = ""; accId.readOnly = false; accId.classList.remove("input--readonly"); }
+      if (pts) pts.value = "";
+      if (note) note.value = "";
+      setOut("");
+      showInlineError("");
+      clearSearchUI();
+      try { dlg.showModal(); } catch(_) {}
+    });
+
+    // Search listeners (new flow)
+    if (sInput) sInput.addEventListener("input", doSearch);
+
+    if (sResults && sResults.tagName === "SELECT") {
+      sResults.addEventListener("change", () => {
+        const opt = sResults.options[sResults.selectedIndex];
+        picked = opt ? JSON.parse(opt.dataset.payload) : null;
+        if (hidAcc) hidAcc.value = picked?.account_id || "";
+        syncVisibleAccountId();
+        renderHint();
+        updateValidity();
+      });
+    }
+
+    if (pts) pts.addEventListener("input", updateValidity);
+
+    // Submit
+    if (submitBtn) {
+      submitBtn.addEventListener("click", async () => {
+        setOut("");
+        showInlineError("");
+
+        const accountIdVal = (hidAcc && hidAcc.value) ? hidAcc.value : (accId ? accId.value : "");
+        const accountId = parseInt(accountIdVal, 10);
+        const points = getRequestedPoints();
+        const n = (note?.value || "").trim();
+
+        if ((sInput || sResults) && picked) {
+          const min = picked?.minWithdrawPoints ?? 0;
+          const bal = picked?.balancePoints ?? picked?.balance ?? Infinity;
+          if (!accountId || isNaN(accountId)) {
+            showInlineError("Select a user with an active loyalty account.");
+            return;
+          }
+          const res = validatePoints(points, min, bal);
+          if (!res.ok) { showInlineError(res.msg); return; }
+        } else {
+          if (!Number.isInteger(accountId) || accountId < 1) { showInlineError("Please enter a valid Account ID."); return; }
+          if (!Number.isInteger(points) || points < 1) { showInlineError("Please enter points ≥ 1."); return; }
+        }
+
+        try {
+          submitBtn.disabled = true;
+          const resp = await postJSON("/api/admin/loyalty/withdrawals", { accountId, points, note:n });
+          const id = resp?.withdrawal?.id ?? "—";
+          toast(`Created withdrawal #${id} (${points} pts)`, { type:"info" });
+
+          try { dlg.close("close"); } catch(_){}
+
+          try { loadWithdrawals(); } catch(_){}
+          try { loadAccounts({ resetPage:true }); } catch(_){}
+
+          try {
+            localStorage.setItem("loyaltyUpdatedAt", String(Date.now()));
+            window.postMessage({ type: "loyalty-updated" }, "*");
+          } catch (_) {}
+
+        } catch (e) {
+          showInlineError(e.message || "Failed to create withdrawal");
+          toast("Error creating withdrawal", { type:"error" });
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+    }
+
+    setSubmitEnabled(false);
+    renderHint();
+  }
+
+  // ---------- ACCOUNTS ----------
+  async function loadAccounts({resetPage=false}={}) {
+    if (resetPage) state.page=1; cacheEls();
+    const tbody = els.accountsBody || $("#loyaltyAccountsBody");
+    addLoading(tbody,true); setRefreshDisabled(true);
+    try{
+      const data = await api(`/api/admin/loyalty/accounts${buildQuery()}`);
+      const rows = Array.isArray(data)?data:(data.accounts||[]);
+      state.total = (typeof data.total==="number")?data.total:null;
+      const count = renderAccountsRows(tbody, rows);
+      setMeta(count, state.total);
+      updatePager();
+    }catch(err){
+      showErrorRow(tbody, err, 11);
+      setMeta(0); state.total=null; updatePager();
+    }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
+  }
+
+  function renderAccountsRows(tbody, rows){
+    if (!tbody) return 0; tbody.innerHTML = "";
+    if (!rows?.length){ tbody.appendChild(emptyRow(11)); return 0; }
+    const frag = document.createDocumentFragment();
+    for (const a of rows){
+      const tr=document.createElement("tr");
+      tr.innerHTML = `
+        <td>${esc(a.id)}</td>
+        <td>${esc(a.user_id)}</td>
+        <td>${esc(a.email ?? "—")}</td>
+        <td>${esc(a.status)}</td>
+        <td>${esc(a.start_date ?? "—")}</td>
+        <td>${esc(a.end_date   ?? "—")}</td>
+        <td>${fmtInt(a.duration_months)}</td>
+        <td>${fmtInt(a.points_balance)}</td>
+        <td>${fmtInt(a.total_earned)}</td>
+        <td>${fmtInt(a.total_penalty)}</td>
+        <td>${fmtInt(a.total_paid)}</td>`;
+      frag.appendChild(tr);
+    }
+    tbody.appendChild(frag);
+    return rows.length;
+  }
+
+  // ---------- LEDGER ----------
+  async function loadLedger({resetPage=false}={}){
+    if (resetPage) state.page=1; cacheEls();
+    const tbody = els.ledgerBody || $("#loyaltyLedgerBody");
+    addLoading(tbody,true); setRefreshDisabled(true);
+    try{
+      const data = await api(`/api/admin/loyalty/ledger${buildQuery()}`);
+      const rows = Array.isArray(data)
+        ? data
+        : (data.ledger || data.rows || data.items || []);
+      state.total = (typeof data.total==="number")?data.total:null;
+      renderLedgerRows(tbody, rows);
+      setMeta(rows.length, state.total);
+      updatePager();
+    }catch(err){
+      showErrorRow(tbody, err, 8);
+      setMeta(0); state.total=null; updatePager();
+    }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
+  }
+
+  function renderLedgerRows(tbody, rows){
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    if (!rows || !rows.length) { tbody.appendChild(emptyRow(8)); return; }
+
+    const frag = document.createDocumentFragment();
+
+    for (const r of rows){
+      const delta = (r.delta_points ?? r.points_delta ?? r.pointsDelta ?? r.delta ?? r.points ?? 0);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${esc(r.id)}</td>
+        <td>${esc(r.account_id ?? r.accountId ?? "—")}</td>
+        <td>${esc(r.kind ?? "—")}</td>
+        <td>${fmtInt(delta)}</td>
+        <td>${esc(r.note ?? "")}</td>
+        <td>${esc(r.created_at ?? r.createdAt ?? "")}</td>
+        <td>${esc(r.source ?? "")}</td>
+        <td>${esc(r.ref_id ?? r.refId ?? "")}</td>
+      `;
+      frag.appendChild(tr);
+    }
+
+    tbody.appendChild(frag);
+  }
+
+  // ---------- NOTIFICATIONS ----------
+  async function loadNotifications({resetPage=false}={}){
+    if (resetPage) state.page=1; cacheEls();
+    const tbody = els.notificationsBody || $("#loyaltyNotificationsBody");
+    addLoading(tbody,true); setRefreshDisabled(true);
+    try{
+      const data = await api(`/api/admin/loyalty/notifications${buildQuery()}`);
+      const rows = Array.isArray(data)?data:(data.notifications||[]);
+      state.total = (typeof data.total==="number")?data.total:null;
+      renderNotifRows(tbody, rows);
+      setMeta(rows.length, state.total);
+      updatePager();
+    }catch(err){
+      showErrorRow(tbody, err, 5);
+      setMeta(0); state.total=null; updatePager();
+    }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
+  }
+
+  function renderNotifRows(tbody, rows){
+    if (!tbody) return; 
+    tbody.innerHTML = "";
+
+    if (!rows?.length){
+      tbody.appendChild(emptyRow(5)); // ID, Kind, Email, Status, Created
       return;
     }
 
-    // action buttons inside menu (approve/reject/paid)
-    const actionBtn = trg.closest('.ws-action-approve, .ws-action-reject, .ws-action-paid');
-    if (actionBtn && currentRoot.contains(actionBtn)) {
-      const id = actionBtn.dataset.id;
-      if (!id) return;
-      if (actionBtn.classList.contains('ws-action-approve')) return handleAction(id, 'approve');
-      if (actionBtn.classList.contains('ws-action-reject')) return handleAction(id, 'reject');
-      if (actionBtn.classList.contains('ws-action-paid')) return handleAction(id, 'mark-paid');
+    const frag = document.createDocumentFragment();
+
+    for (const n of rows){
+      const id      = n.id;
+      const kind    = n.kind ?? "—";
+      const email   = n.email ?? n.user_email ?? n.recipient_email ?? n.to ?? "—";
+      const status  = n.status ?? "—";
+      const created = n.created_at ?? n.createdAt ?? "";
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${esc(id)}</td>
+        <td>${esc(kind)}</td>
+        <td>${esc(email)}</td>
+        <td>${esc(status)}</td>
+        <td>${esc(created)}</td>
+      `;
+      frag.appendChild(tr);
     }
 
-    // click outside menus -> close
-    if (!trg.closest('.ws-actions')) {
-      closeAllMenus();
-    }
+    tbody.appendChild(frag);
   }
-
-  // Keyboard handling for menu navigation & closing
-  function onDocumentKeydown(e) {
-    if (!currentRoot) return;
-    if (e.key === 'Escape') {
-      closeAllMenus();
-      // also close modal if present
-      const dlg = currentRoot.querySelector('.lad-modal[open]');
-      if (dlg) closeModal(dlg);
-    }
-
-    // arrow navigation inside menu
-    const activeMenu = document.activeElement?.closest?.('.ws-actions-menu');
-    if (activeMenu) {
-      const items = Array.from(activeMenu.querySelectorAll('button[role="menuitem"]:not([disabled])'));
-      if (!items.length) return;
-      const idx = items.indexOf(document.activeElement);
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const next = items[(idx + 1) % items.length];
-        next.focus();
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prev = items[(idx - 1 + items.length) % items.length];
-        prev.focus();
-      } else if (e.key === 'Home') {
-        e.preventDefault();
-        items[0].focus();
-      } else if (e.key === 'End') {
-        e.preventDefault();
-        items[items.length - 1].focus();
-      }
-    }
-  }
-
-  // ------------------------------
-  // Action handler (approve/reject/paid)
-  // ------------------------------
-  async function handleAction(id, action) {
-    // optimistic UI: disable menu items during request
-    const menu = currentRoot.querySelector(`.ws-actions-menu[data-id="${id}"]`);
-    if (!menu) return;
-    const buttons = Array.from(menu.querySelectorAll('button'));
-    buttons.forEach(b => b.disabled = true);
-
-    try {
-      await performAction(id, action);
-      // refresh list (simple: re-fetch current page)
-      await refreshActiveTab({ preserveScroll: true });
-      showToast(`Action "${action}" succeeded for ${id}`);
-    } catch (err) {
-      console.error('action failed', err);
-      showToast(`Action failed: ${err.message || 'Unknown error'}`, { error: true });
-    } finally {
-      buttons.forEach(b => b.disabled = false);
-      closeAllMenus();
-    }
-  }
-
-  // ------------------------------
-  // Toast minimal helper
-  // ------------------------------
-  function showToast(msg, { error = false, timeout = 4000 } = {}) {
-    if (!currentRoot) return;
-    let container = currentRoot.querySelector('.lad-toasts');
-    if (!container) {
-      container = el('div', { class: 'lad-toasts', style: 'position:fixed;right:12px;top:12px;z-index:9999' });
-      document.body.appendChild(container);
-    }
-    const t = el('div', { class: `lad-toast ${error ? 'err' : 'ok'}`, text: msg });
-    t.style.marginBottom = '8px';
-    t.style.padding = '8px 12px';
-    t.style.borderRadius = '6px';
-    t.style.boxShadow = '0 2px 8px rgba(0,0,0,0.12)';
-    t.style.background = error ? '#ffdddd' : '#e6ffed';
-    container.appendChild(t);
-    setTimeout(() => {
-      try { t.remove(); } catch (_) {}
-    }, timeout);
-  }
-
-  // ------------------------------
-  // Modal helpers: open, close, focus trap
-  // ------------------------------
-  function openModal(modal) {
-    if (!modal) return;
-    modal.classList.add('open');
-    modal.setAttribute('open', 'true');
-    modal.setAttribute('aria-modal', 'true');
-    // focus trap: focus first focusable within modal
-    const focusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    if (focusable) focusable.focus();
-    modal._previousActive = document.activeElement;
-    addListener(modal, 'keydown', trapModalKeys);
-  }
-
-  function closeModal(modal) {
-    if (!modal) return;
-    modal.classList.remove('open');
-    modal.removeAttribute('open');
-    modal.removeAttribute('aria-modal');
-    try { addListener; } catch (_) {}
-    if (modal._previousActive) {
-      try { modal._previousActive.focus(); } catch (_) {}
-      delete modal._previousActive;
-    }
-    // remove modal key listener explicitly
-    try {
-      modal.removeEventListener('keydown', trapModalKeys);
-    } catch (_) {}
-  }
-
-  function trapModalKeys(e) {
-    if (e.key === 'Tab') {
-      const modal = e.currentTarget;
-      const focusables = Array.from(modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
-        .filter(n => !n.disabled && n.offsetParent !== null);
-      if (!focusables.length) {
-        e.preventDefault();
-        return;
-      }
-      const idx = focusables.indexOf(document.activeElement);
-      if (e.shiftKey) {
-        if (idx === 0) {
-          focusables[focusables.length - 1].focus();
-          e.preventDefault();
-        }
-      } else {
-        if (idx === focusables.length - 1) {
-          focusables[0].focus();
-          e.preventDefault();
-        }
-      }
-    } else if (e.key === 'Escape') {
-      closeModal(e.currentTarget);
-    }
-  }
-
-  // ------------------------------
-  // Search users (with cancellation)
-  // ------------------------------
-  let userSearchController = null;
-  async function searchUsers(term) {
-    if (!term || term.trim().length < 2) return [];
-    // cancel previous
-    if (userSearchController) {
-      try { userSearchController.abort(); } catch (_) {}
-      userSearchController = null;
-    }
-    userSearchController = makeController(DEFAULT_TIMEOUT);
-    try {
-      const res = await fetchWithTimeout(endpoints.searchUsers(term), { method: 'GET', signal: userSearchController.signal }, DEFAULT_TIMEOUT);
-      const json = await res.json();
-      return Array.isArray(json) ? json : (json.results || []);
-    } catch (err) {
-      if (err.name === 'AbortError') return [];
-      console.error('searchUsers failed', err);
-      return [];
-    } finally {
-      userSearchController = null;
-    }
-  }
-
-  // ------------------------------
-  // Tab / refresh handling (basic)
-  // ------------------------------
-  let lastQuery = { page: 1, q: '' };
-
-  async function refreshActiveTab({ preserveScroll = false } = {}) {
-    if (!currentRoot) return;
-    try {
-      const tableBody = currentRoot.querySelector('.withdrawals-table tbody');
-      if (!tableBody) return;
-      const data = await listWithdrawals(lastQuery);
-      const rows = Array.isArray(data?.withdrawals) ? data.withdrawals : (data || []);
-      renderWithdrawalsRows(tableBody, rows);
-    } catch (err) {
-      console.error('refreshActiveTab', err);
-      const tableBody = currentRoot && currentRoot.querySelector('.withdrawals-table tbody');
-      if (tableBody) clear(tableBody), tableBody.appendChild(emptyRow(9, 'Failed to load'));
-    }
-  }
-
-  // ------------------------------
-  // attach / detach lifecycle
-  // ------------------------------
-  function attach(root = null) {
-    if (attached) {
-      // if already attached to same root, do nothing; if different root, detach then reattach
-      if (root && currentRoot !== root) detach();
-      else if (!root && currentRoot) return;
-    }
-
-    const resolvedRoot = root || document.querySelector(ROOT_SELECTOR);
-    if (!resolvedRoot) {
-      // nothing to attach to
-      return false;
-    }
-
-    currentRoot = resolvedRoot;
-    attached = true;
-
-    // wire delegated listeners
-    addListener(document, 'click', onDocumentClick, true);
-    addListener(document, 'keydown', onDocumentKeydown, true);
-
-    // window focus/storage/message hooks to refresh if needed
-    addListener(window, 'focus', () => { try { refreshActiveTab(); } catch (_) {} });
-    addListener(window, 'storage', (e) => { if (e.key === 'loyaltyUpdatedAt') refreshActiveTab(); });
-
-    // wire mutation observer to re-attach if root node removed/added
-    if (typeof MutationObserver !== 'undefined') {
-      mo = new MutationObserver((mutations) => {
-        // if currentRoot is removed from DOM, detach
-        if (currentRoot && !document.contains(currentRoot)) {
-          // cleanup
-          detach();
-        }
-      });
-      mo.observe(document.documentElement || document.body, { childList: true, subtree: true });
-    }
-
-    // initial render: if the page already contains a table skeleton, use it
-    try {
-      refreshActiveTab();
-    } catch (e) {
-      console.error('initial refresh failed', e);
-    }
-
-    // expose debug hook for devs
-    try { window.loyaltyAdminDebug = debug; } catch (_) {}
-
-    return true;
-  }
-
-  function detach() {
-    // abort outstanding fetches
-    for (const c of Array.from(controllers)) {
-      try { c.abort(); } catch (_) {}
-    }
-    controllers.clear();
-
-    // disconnect observer
-    try { if (mo) mo.disconnect(); } catch (_) {}
-    mo = null;
-
-    // remove listeners
-    removeAllListeners();
-
-    // close menus and modals if any
-    try { closeAllMenus(); } catch (_) {}
-    if (currentRoot) {
-      const openModals = currentRoot.querySelectorAll('.lad-modal.open');
-      openModals.forEach(m => closeModal(m));
-    }
-
-    // clear debug hook
-    try { delete window.loyaltyAdminDebug; } catch (_) {}
-
-    attached = false;
-    currentRoot = null;
-  }
-
-  // ------------------------------
-  // Auto-attach behavior on load
-  // ------------------------------
-  function tryAutoAttach() {
-    try {
-      const root = document.querySelector(ROOT_SELECTOR);
-      if (root) attach(root);
-    } catch (_) {}
-  }
-
-  // Attempt auto-attach on DOMContentLoaded or immediately if already loaded
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', tryAutoAttach, { once: true });
-  } else {
-    tryAutoAttach();
-  }
-
-  // ------------------------------
-  // Export public API
-  // ------------------------------
-  const publicAPI = {
-    attach: (r) => attach(r),
-    detach: () => detach(),
-    refresh: (opts) => refreshActiveTab(opts),
-    debug, // read-only-ish
-  };
-
-  try {
-    window.loyaltyAdmin = publicAPI;
-  } catch (e) {
-    // noop if window not present
-  }
-
-  // ------------------------------
-  // Minimal CSS injection for visible menus & toasts (optional, you can move to stylesheet)
-  // ------------------------------
-  (function injectStyles() {
-    const css = `
-/* Minimal styles for admin actions menu + toasts */
-.ws-actions-menu { position: absolute; right: 0; top: 100%; background: white; border: 1px solid #ddd; padding: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.08); z-index: 1000; min-width: 140px; border-radius: 6px; }
-.ws-actions-menu.hidden { display: none; }
-.ws-actions-menu button { display: block; width: 100%; text-align: left; padding: 6px 8px; background: transparent; border: none; cursor: pointer; }
-.ws-actions-menu button[disabled] { opacity: 0.5; cursor: not-allowed; }
-.ws-actions-trigger { padding: 6px 8px; border-radius: 6px; border: 1px solid #ccc; background: #fafafa; cursor: pointer; }
-.lad-toast.ok { background: #e6ffed; }
-.lad-toast.err { background: #ffefef; border: 1px solid #f3c2c2; }
-`;
-    try {
-      const st = document.createElement('style');
-      st.type = 'text/css';
-      st.appendChild(document.createTextNode(css));
-      document.head.appendChild(st);
-    } catch (e) {
-      // ignore
-    }
-  })();
 
 })();
