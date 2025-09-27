@@ -1,309 +1,300 @@
 <!-- public/partials/admin-loyalty.html -->
-<section class="card" id="loyalty-root" aria-labelledby="loyalty-title">
-  <header class="card-header">
-    <h2 id="loyalty-title" class="card-title">Loyalty Program</h2>
-    <div class="spacer"></div>
-    <div class="btn-group" role="group">
-      <button id="tabWithdrawalsBtn" class="btn">Withdrawals</button>
-      <button id="tabAccountsBtn" class="btn btn--ghost">Accounts</button>
-      <button id="tabLedgerBtn" class="btn btn--ghost">Ledger</button>
-      <button id="tabNotifsBtn" class="btn btn--ghost">Notifications</button>
-    </div>
-  </header>
+<section aria-labelledby="loyalty-title" class="card" id="loyalty-root">
+<header class="card-header">
+<h2 class="card-title" id="loyalty-title">Loyalty Program</h2>
+<div class="spacer"></div>
+<div class="btn-group" role="group">
+<button class="btn" id="tabWithdrawalsBtn">Withdrawals</button>
+<button class="btn btn--ghost" id="tabAccountsBtn">Accounts</button>
+<button class="btn btn--ghost" id="tabLedgerBtn">Ledger</button>
+<button class="btn btn--ghost" id="tabNotifsBtn">Notifications</button>
+</div>
+</header>
+<div class="card-body">
+<!-- Filters -->
+<form autocomplete="off" class="filters-bar" id="loyalty-filters">
+<!-- Withdrawals Filter -->
+<div class="group" id="filterWithdrawals">
+<label for="statusSel">Status</label>
+<select id="statusSel" name="status">
+<option value="">All</option>
+<option value="Pending">Pending</option>
+<option value="Approved">Approved</option>
+<option value="Rejected">Rejected</option>
+<option value="Paid">Paid</option>
+</select>
+</div>
+<!-- Accounts Filter -->
+<div class="group" id="filterAccounts" style="display:none;">
+<label for="accStatusSel">Status</label>
+<select id="accStatusSel" name="accStatus">
+<option value="">All</option>
+<option value="Active">Active</option>
+<option value="Closed">Closed</option>
+<option value="Suspended">Suspended</option>
+</select>
+</div>
+<!-- Ledger Filter -->
+<div class="group" id="filterLedger" style="display:none;">
+<label for="ledgerKindSel">Kind</label>
+<select id="ledgerKindSel" name="kind">
+<option value="">All</option>
+<option value="Earn">Earn</option>
+<option value="Penalty">Penalty</option>
+<option value="Withdraw">Withdraw</option>
+<option value="Deposit">Deposit</option>
+</select>
+</div>
+<!-- Notifications Filter -->
+<div class="group" id="filterNotifs" style="display:none;">
+<label for="notifStatusSel">Status</label>
+<select id="notifStatusSel" name="notifStatus">
+<option value="">All</option>
+<option value="Sent">Sent</option>
+<option value="Failed">Failed</option>
+<option value="Pending">Pending</option>
+</select>
+</div>
+<!-- Search + buttons (always visible, aligned right) -->
+<div class="group" style="margin-left:auto; display:flex; align-items:flex-end; gap:0.5rem;">
+<div>
+<label for="loyaltySearch">Search</label>
+<input class="input" id="loyaltySearch" name="q" placeholder="Find record…"/>
+</div>
+<button class="btn" id="loyaltyClearBtn" type="button">Clear</button>
+<button class="btn" id="loyaltyRefreshBtn" type="button">Refresh</button>
+<button class="btn" id="wdNewBtn" type="button">New Withdrawal</button>
+<button class="btn" id="accManageBtn" style="display:none;" type="button">Manage</button>
+</div>
+</form>
+<!-- Withdrawals Table -->
+<div class="loyalty-tab" id="loyaltyTabWithdrawals">
+<table class="table">
+<thead>
+<tr>
+<th>ID</th>
+<th>Account</th>
+<th>User</th>
+<th>Points</th>
+<th>Status</th>
+<th>Requested</th>
+<th>Decided</th>
+<th>Paid</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody id="wdBody">
+<tr><td class="muted" colspan="9">(No data yet)</td></tr>
+</tbody>
+</table>
+</div>
+<!-- Accounts Table -->
+<div class="loyalty-tab" id="loyaltyTabAccounts" style="display:none;">
+<table class="table">
+<thead>
+<tr>
+<th>ID</th>
+<th>User ID</th>
+<th>Email</th>
+<th>Status</th>
+<th>Start</th>
+<th>End</th>
+<th>Duration (mo)</th>
+<th>Balance</th>
+<th>Earned</th>
+<th>Penalty</th>
+<th>Paid</th>
+</tr>
+</thead>
+<tbody id="loyaltyAccountsBody">
+<tr><td class="muted" colspan="11">(No data yet)</td></tr>
+</tbody>
+</table>
+</div>
+<!-- Ledger Table -->
+<div class="loyalty-tab" id="loyaltyTabLedger" style="display:none;">
+<table class="table">
+<thead>
+<tr>
+<th>ID</th>
+<th>Account</th>
+<th>Kind</th>
+<th>Δ Points</th>
+<th>Note</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody id="loyaltyLedgerBody">
+<tr><td class="muted" colspan="6">(No data yet)</td></tr>
+</tbody>
+</table>
+</div>
+<!-- Notifications Table -->
+<div class="loyalty-tab" id="loyaltyTabNotifs" style="display:none;">
+<table class="table">
+<thead>
+<tr>
+<th>ID</th>
+<th>Kind</th>
+<th>Email</th>
+<th>Status</th>
+<th>Created</th>
+</tr>
+</thead>
+<tbody id="loyaltyNotificationsBody">
+<tr><td class="muted" colspan="5">(No data yet)</td></tr>
+</tbody>
+</table>
+</div>
+<!-- Shared Meta Bar + Pagination -->
+<footer class="table-meta" style="display:flex; align-items:center; justify-content:space-between;">
+<div class="meta" id="loyaltyMeta">0 results</div>
+<div class="pager" id="loyaltyPager">
+<button class="btn btn--small">First</button>
+<button class="btn btn--small">« Prev</button>
+<span>1</span>
+<button class="btn btn--small">Next »</button>
+<button class="btn btn--small">Last</button>
+</div>
+</footer>
+</div>
+<!-- Manage dialog (unchanged) -->
+<dialog class="modal modal--lg" id="accManageDialog">
+<form class="card modal__sheet" method="dialog">
+<header class="card-header" style="display:flex;gap:.5rem;align-items:center;justify-content:space-between;">
+<h3 class="card-title">Manage Loyalty Account</h3>
+<div class="row" style="gap:.5rem;">
+<button class="btn" id="mApplyAll" type="button">Apply Changes</button>
+<button class="btn" value="close">Close</button>
+</div>
+</header>
+<div class="card-body modal__body">
+<div class="row" style="margin-bottom:10px">
+<div class="group" style="flex:1">
+<label for="mUserSearch">Search user</label>
+<input class="input" id="mUserSearch" placeholder="Search by name, email, or phone" type="text"/>
+</div>
+<div class="group" style="flex:1">
+<label for="mUserResults">Results</label>
+<select class="input" id="mUserResults"></select>
+</div>
+</div>
+<div class="muted" id="mHintBlock" style="margin:12px 0; line-height:1.5;">
+<div><strong>Program:</strong> <span id="mHintProgram">—</span></div>
+<div>Minimum withdrawal = <span id="mHintMin">—</span> points</div>
+<div>Eligible from = <span id="mHintEligible">—</span></div>
+<div>Start = <span id="mHintStart">—</span>, End = <span id="mHintEnd">—</span></div>
+</div>
 
-  <div class="card-body">
-    <!-- Filters -->
-    <form id="loyalty-filters" class="filters-bar" autocomplete="off">
-      <!-- Withdrawals Filter -->
-      <div class="group" id="filterWithdrawals">
-        <label for="statusSel">Status</label>
-        <select id="statusSel" name="status">
-          <option value="">All</option>
-          <option value="Pending">Pending</option>
-          <option value="Approved">Approved</option>
-          <option value="Rejected">Rejected</option>
-          <option value="Paid">Paid</option>
-        </select>
-      </div>
-
-      <!-- Accounts Filter -->
-      <div class="group" id="filterAccounts" style="display:none;">
-        <label for="accStatusSel">Status</label>
-        <select id="accStatusSel" name="accStatus">
-          <option value="">All</option>
-          <option value="Active">Active</option>
-          <option value="Closed">Closed</option>
-          <option value="Suspended">Suspended</option>
-        </select>
-      </div>
-
-      <!-- Ledger Filter -->
-      <div class="group" id="filterLedger" style="display:none;">
-        <label for="ledgerKindSel">Kind</label>
-        <select id="ledgerKindSel" name="kind">
-          <option value="">All</option>
-          <option value="Earn">Earn</option>
-          <option value="Penalty">Penalty</option>
-          <option value="Withdraw">Withdraw</option>
-          <option value="Deposit">Deposit</option>
-        </select>
-      </div>
-
-      <!-- Notifications Filter -->
-      <div class="group" id="filterNotifs" style="display:none;">
-        <label for="notifStatusSel">Status</label>
-        <select id="notifStatusSel" name="notifStatus">
-          <option value="">All</option>
-          <option value="Sent">Sent</option>
-          <option value="Failed">Failed</option>
-          <option value="Pending">Pending</option>
-        </select>
-      </div>
-
-      <!-- Search + buttons (always visible, aligned right) -->
-      <div class="group" style="margin-left:auto; display:flex; align-items:flex-end; gap:0.5rem;">
-        <div>
-          <label for="loyaltySearch">Search</label>
-          <input id="loyaltySearch" name="q" class="input" placeholder="Find record…" />
-        </div>
-        <button type="button" id="loyaltyClearBtn" class="btn">Clear</button>
-        <button type="button" id="loyaltyRefreshBtn" class="btn">Refresh</button>
-        <button type="button" id="wdNewBtn" class="btn">New Withdrawal</button>
-        <button type="button" id="accManageBtn" class="btn" style="display:none;">Manage</button>
-      </div>
-    </form>
-
-    <!-- Withdrawals Table -->
-    <div id="loyaltyTabWithdrawals" class="loyalty-tab">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Account</th>
-            <th>User</th>
-            <th>Points</th>
-            <th>Status</th>
-            <th>Requested</th>
-            <th>Decided</th>
-            <th>Paid</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="wdBody">
-          <tr><td colspan="9" class="muted">(No data yet)</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Accounts Table -->
-    <div id="loyaltyTabAccounts" class="loyalty-tab" style="display:none;">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>User ID</th>
-            <th>Email</th>
-            <th>Status</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Duration (mo)</th>
-            <th>Balance</th>
-            <th>Earned</th>
-            <th>Penalty</th>
-            <th>Paid</th>
-          </tr>
-        </thead>
-        <tbody id="loyaltyAccountsBody">
-          <tr><td colspan="11" class="muted">(No data yet)</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Ledger Table -->
-    <div id="loyaltyTabLedger" class="loyalty-tab" style="display:none;">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Account</th>
-            <th>Kind</th>
-            <th>Δ Points</th>
-            <th>Note</th>
-            <th>When</th>
-          </tr>
-        </thead>
-        <tbody id="loyaltyLedgerBody">
-          <tr><td colspan="6" class="muted">(No data yet)</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Notifications Table -->
-    <div id="loyaltyTabNotifs" class="loyalty-tab" style="display:none;">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Kind</th>
-            <th>Email</th>
-            <th>Status</th>
-            <th>Created</th>
-          </tr>
-        </thead>
-        <tbody id="loyaltyNotificationsBody">
-          <tr><td colspan="5" class="muted">(No data yet)</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Shared Meta Bar + Pagination -->
-    <footer class="table-meta" style="display:flex; align-items:center; justify-content:space-between;">
-      <div id="loyaltyMeta" class="meta">0 results</div>
-      <div class="pager" id="loyaltyPager">
-        <button class="btn btn--small">First</button>
-        <button class="btn btn--small">« Prev</button>
-        <span>1</span>
-        <button class="btn btn--small">Next »</button>
-        <button class="btn btn--small">Last</button>
-      </div>
-    </footer>
-  </div>
-
-  <!-- Manage dialog (unchanged) -->
-  <dialog id="accManageDialog" class="modal modal--lg">
-    <form method="dialog" class="card modal__sheet">
-      <header class="card-header" style="display:flex;gap:.5rem;align-items:center;justify-content:space-between;">
-        <h3 class="card-title">Manage Loyalty Account</h3>
-        <div class="row" style="gap:.5rem;">
-          <button type="button" id="mApplyAll" class="btn">Apply Changes</button>
-          <button value="close" class="btn">Close</button>
-        </div>
-      </header>
-      <div class="card-body modal__body">
-        <div class="row row--cols">
-          <div class="group">
-            <label for="mAccId"><strong>Account ID</strong></label>
-            <input id="mAccId" type="number" class="input" placeholder="e.g. 1">
-          </div>
-          <div class="group">
-            <label for="mUserId"><strong>User ID</strong></label>
-            <input id="mUserId" type="number" class="input" placeholder="e.g. 42">
-          </div>
-        </div>
-
-        <div class="section">
-          <h4 class="section-title">Status</h4>
-          <div class="row row--cols">
-            <div class="group">
-              <label for="mStatus">New status</label>
-              <select id="mStatus" class="input">
-                <option value="Active">Active</option>
-                <option value="Paused">Paused</option>
-                <option value="Suspended">Suspended</option>
-                <option value="Closed">Closed</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h4 class="section-title">Extend</h4>
-          <div class="row row--cols">
-            <div class="group">
-              <label for="mExtendMonths">Months</label>
-              <input id="mExtendMonths" type="number" class="input" min="1" placeholder="e.g. 1">
-            </div>
-            <div class="group">
-              <label for="mExtendNote">Note (optional)</label>
-              <input id="mExtendNote" class="input" placeholder="reason or note">
-            </div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h4 class="section-title">Penalty</h4>
-          <div class="row row--cols">
-            <div class="group">
-              <label for="mPenaltyPoints">Points</label>
-              <input id="mPenaltyPoints" type="number" class="input" min="1" placeholder="e.g. 10">
-            </div>
-            <div class="group">
-              <label for="mPenaltyNote">Reason</label>
-              <input id="mPenaltyNote" class="input" placeholder="reason for penalty">
-            </div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h4 class="section-title">Response</h4>
-          <pre id="mOut" class="output"></pre>
-        </div>
-      </div>
-    </form>
-  </dialog>
-
-  <!-- New Withdrawal (admin-initiated) -->
-  <dialog id="wdNewDialog" class="modal">
-    <form method="dialog" class="card modal__sheet">
-      <header class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-        <h3 class="card-title">New Withdrawal</h3>
-        <div class="row" style="gap:.5rem;">
-          <button value="close" class="btn">Close</button>
-        </div>
-      </header>
-
-      <div class="card-body modal__body">
-        <!-- Increment 2: user search + results -->
-        <div class="row" style="margin-bottom:10px">
-          <div class="group" style="flex:1">
-            <label for="wdUserSearch">Search user</label>
-            <input id="wdUserSearch" type="text" class="input" placeholder="Search by name, email, or phone">
-          </div>
-          <div class="group" style="flex:1">
-            <label for="wdUserResults">Results</label>
-            <select id="wdUserResults" class="input"></select>
-          </div>
-        </div>
-
-          <!-- Program/min/balance hint -->
-        <div id="wdHintBlock" class="muted" style="margin:12px 0; line-height:1.5;">
-          <div><strong>Program:</strong> <span id="wdHintProgram">—</span></div>
-          <div>Minimum withdrawal = <span id="wdHintMin">—</span> points</div>
-          <div>Balance = <span id="wdHintBal">—</span> points</div>
-        </div>
-
-
-        <!-- Hidden accountId chosen from search -->
-        <input type="hidden" id="wdAccountId">
-
-        <!-- Legacy fallback row (kept, works if search not used) -->
-        <div class="row row--cols">
-          <div class="group">
-            <label for="wdAccId"><strong>Account ID</strong></label>
-            <input id="wdAccId" type="number" min="1" class="input" placeholder="e.g. 12">
-          </div>
-          <div class="group">
-            <label for="wdPoints"><strong>Points</strong></label>
-            <input id="wdPoints" type="number" min="1" step="1" class="input" placeholder="e.g. 100">
-          </div>
-        </div>
-
-        <!-- Inline validation error -->
-        <div id="wdError" class="form-error" style="display:none;color:#b00020;margin-top:4px"></div>
-
-        <div class="group">
-          <label for="wdNote"><strong>Note (optional)</strong></label>
-          <input id="wdNote" class="input" placeholder="context or reference">
-        </div>
-
-        <div class="actions" style="margin-top:8px;">
-          <!-- canonical id for JS; old id kept in JS as fallback -->
-          <button type="button" id="wdSubmit" class="btn" disabled>Create</button>
-        </div>
-
-        <pre id="wdOut" class="output"></pre>
-      </div>
-    </form>
-  </dialog>
-
+<div class="row row--cols">
+<div class="group">
+<label for="mAccId"><strong>Account ID</strong></label>
+<input class="input" id="mAccId" placeholder="e.g. 1" type="number"/>
+</div>
+<div class="group">
+<label for="mUserId"><strong>User ID</strong></label>
+<input class="input" id="mUserId" placeholder="e.g. 42" type="number"/>
+</div>
+</div>
+<div class="section">
+<h4 class="section-title">Status</h4>
+<div class="row row--cols">
+<div class="group">
+<label for="mStatus">New status</label>
+<select class="input" id="mStatus">
+<option value="Active">Active</option>
+<option value="Paused">Paused</option>
+<option value="Suspended">Suspended</option>
+<option value="Closed">Closed</option>
+</select>
+</div>
+</div>
+</div>
+<div class="section">
+<h4 class="section-title">Extend</h4>
+<div class="row row--cols">
+<div class="group">
+<label for="mExtendMonths">Months</label>
+<input class="input" id="mExtendMonths" min="1" placeholder="e.g. 1" type="number"/>
+</div>
+<div class="group">
+<label for="mExtendNote">Note (optional)</label>
+<input class="input" id="mExtendNote" placeholder="reason or note"/>
+</div>
+</div>
+</div>
+<div class="section">
+<h4 class="section-title">Penalty</h4>
+<div class="row row--cols">
+<div class="group">
+<label for="mPenaltyPoints">Points</label>
+<input class="input" id="mPenaltyPoints" min="1" placeholder="e.g. 10" type="number"/>
+</div>
+<div class="group">
+<label for="mPenaltyNote">Reason</label>
+<input class="input" id="mPenaltyNote" placeholder="reason for penalty"/>
+</div>
+</div>
+</div>
+<div class="section">
+<h4 class="section-title">Response</h4>
+<pre class="output" id="mOut"></pre>
+</div>
+</div>
+</form>
+</dialog>
+<!-- New Withdrawal (admin-initiated) -->
+<dialog class="modal" id="wdNewDialog">
+<form class="card modal__sheet" method="dialog">
+<header class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+<h3 class="card-title">New Withdrawal</h3>
+<div class="row" style="gap:.5rem;">
+<button class="btn" value="close">Close</button>
+</div>
+</header>
+<div class="card-body modal__body">
+<!-- Increment 2: user search + results -->
+<div class="row" style="margin-bottom:10px">
+<div class="group" style="flex:1">
+<label for="wdUserSearch">Search user</label>
+<input class="input" id="wdUserSearch" placeholder="Search by name, email, or phone" type="text"/>
+</div>
+<div class="group" style="flex:1">
+<label for="wdUserResults">Results</label>
+<select class="input" id="wdUserResults"></select>
+</div>
+</div>
+<!-- Program/min/balance hint -->
+<div class="muted" id="wdHintBlock" style="margin:12px 0; line-height:1.5;">
+<div><strong>Program:</strong> <span id="wdHintProgram">—</span></div>
+<div>Minimum withdrawal = <span id="wdHintMin">—</span> points</div>
+<div>Balance = <span id="wdHintBal">—</span> points</div>
+</div>
+<!-- Hidden accountId chosen from search -->
+<input id="wdAccountId" type="hidden"/>
+<!-- Legacy fallback row (kept, works if search not used) -->
+<div class="row row--cols">
+<div class="group">
+<label for="wdAccId"><strong>Account ID</strong></label>
+<input class="input" id="wdAccId" min="1" placeholder="e.g. 12" type="number"/>
+</div>
+<div class="group">
+<label for="wdPoints"><strong>Points</strong></label>
+<input class="input" id="wdPoints" min="1" placeholder="e.g. 100" step="1" type="number"/>
+</div>
+</div>
+<!-- Inline validation error -->
+<div class="form-error" id="wdError" style="display:none;color:#b00020;margin-top:4px"></div>
+<div class="group">
+<label for="wdNote"><strong>Note (optional)</strong></label>
+<input class="input" id="wdNote" placeholder="context or reference"/>
+</div>
+<div class="actions" style="margin-top:8px;">
+<!-- canonical id for JS; old id kept in JS as fallback -->
+<button class="btn" disabled="" id="wdSubmit" type="button">Create</button>
+</div>
+<pre class="output" id="wdOut"></pre>
+</div>
+</form>
+</dialog>
 </section>

@@ -181,7 +181,9 @@
       actionsHandlersBound = true;
     }
 
-    wireNewWithdrawalModal(); // Increment 2 + 3 wiring
+    wireNewWithdrawalModal();
+    // NEW: Manage modal → search + create
+    wireManageModal(); // Increment 2 + 3 wiring
 
     state.activeTab = "Withdrawals";
     showTab("Withdrawals");
@@ -987,3 +989,202 @@
   }
 
 })();
+
+// ---------- Manage modal: search + create (reuses existing searchUsers) ----------
+function wireManageModal(){
+  const dlg   = document.getElementById("accManageDialog");
+  const btn   = document.getElementById("accManageBtn");
+  if (!dlg) return;
+
+  // Show Manage button only on Accounts tab
+  const showManageBtn = (on) => { if (btn) btn.style.display = on ? "" : "none"; };
+  document.addEventListener("click", (e) => {
+    if (e.target?.id === "tabAccountsBtn") showManageBtn(true);
+    if (e.target?.id === "tabWithdrawalsBtn" || e.target?.id === "tabLedgerBtn" || e.target?.id === "tabNotifsBtn") showManageBtn(false);
+  });
+
+  const sInput   = document.getElementById("mUserSearch");
+  const sResults = document.getElementById("mUserResults");
+  const accId    = document.getElementById("mAccId") || document.querySelector("#accManageDialog input[placeholder*='e.g. 1']");
+  const userId   = document.getElementById("mUserId") || document.querySelector("#accManageDialog input[placeholder*='e.g. 42']");
+  const out      = document.getElementById("mOut")    || document.querySelector("#accManageDialog #accManageResponse, #accManageDialog .response");
+  const mCreate  = document.getElementById("mCreateBtn");
+
+  const hintProg = document.getElementById("mHintProgram");
+  const hintMin  = document.getElementById("mHintMin");
+  const hintElig = document.getElementById("mHintEligible");
+  const hintStart= document.getElementById("mHintStart");
+  const hintEnd  = document.getElementById("mHintEnd");
+
+  const statusSel= document.getElementById("mStatus") || document.querySelector("#accManageDialog select");
+  const extMonths= document.getElementById("mExtendMonths") || document.querySelector("#accManageDialog input[placeholder='e.g. 1']");
+  const extNote  = document.getElementById("mExtendNote")   || document.querySelector("#accManageDialog input[placeholder='reason or note']");
+  const penPts   = document.getElementById("mPenaltyPoints")|| document.querySelector("#accManageDialog input[placeholder='e.g. 10']");
+  const penNote  = document.getElementById("mPenaltyNote")  || document.querySelector("#accManageDialog input[placeholder='reason for penalty']");
+  const applyBtn = document.getElementById("mApplyAll") || document.querySelector("#accManageDialog .card-actions .btn.btn--primary, #accManageDialog .card-actions .btn");
+
+  let pickedUser = null;
+  let program    = null;
+
+  const setOut = (msg) => { if (out) out.textContent = msg || ""; };
+
+  const asDate = (d) => (d instanceof Date ? d : new Date(d));
+  const ymd = (d) => {
+    if (!d) return "—";
+    const z = asDate(d);
+    return `${z.getFullYear()}-${String(z.getMonth()+1).padStart(2,"0")}-${String(z.getDate()).padStart(2,"0")}`;
+  };
+
+  async function apiGet(url){
+    const r = await fetch(url, { credentials: "include" });
+    let j = null; try { j = await r.json(); } catch {}
+    if (!r.ok || j?.success === false) throw new Error(j?.error?.message || `HTTP ${r.status}`);
+    return j;
+  }
+  async function apiPost(url, body){
+    const r = await fetch(url, { method:"POST", credentials:"include", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body||{}) });
+    let j = null; try { j = await r.json(); } catch {}
+    if (!r.ok || j?.success === false) throw new Error(j?.error?.message || `HTTP ${r.status}`);
+    return j;
+  }
+
+  async function loadProgram(){
+    if (program) return program;
+    try { program = await apiGet("/api/admin/loyalty/program"); } catch { program = {}; }
+    return program;
+  }
+
+  function computeDatesFromProgram(){
+    const today = new Date();
+    const start = ymd(today);
+
+    const end = new Date(today);
+    const dur = parseInt(program?.durationMonths ?? 6, 10) || 6;
+    end.setMonth(end.getMonth() + dur);
+
+    const elig = new Date(today);
+    const wait = parseInt(program?.withdrawWaitDays ?? 90, 10) || 90;
+    elig.setDate(elig.getDate() + wait);
+
+    return { start, end: ymd(end), eligible: ymd(elig) };
+  }
+
+  function renderHints({ programName="—", min="—", start="—", end="—", eligible="—" }){
+    if (hintProg) hintProg.textContent = programName;
+    if (hintMin)  hintMin.textContent  = String(min);
+    if (hintStart)hintStart.textContent= start;
+    if (hintEnd)  hintEnd.textContent  = end;
+    if (hintElig) hintElig.textContent = eligible;
+  }
+
+  async function hydrateForUser(u){
+    pickedUser = u;
+    setOut("");
+
+    // Fill user_id
+    if (userId && u?.id) userId.value = String(u.id);
+
+    // Fetch user's account
+    let acct = null;
+    try {
+      const data = await apiGet(`/api/admin/loyalty/accounts?userId=${encodeURIComponent(u.id)}`);
+      const rows = Array.isArray(data) ? data : (data.accounts || []);
+      if (rows?.length) acct = rows.sort((a,b)=> (b.id||0)-(a.id||0))[0];
+    } catch {}
+
+    const prog = await loadProgram();
+    const progName = prog?.name || "—";
+    const minPts   = prog?.minWithdrawPoints ?? prog?.minWithdrawPoints;
+
+    let start, end, eligible;
+
+    if (acct){
+      if (accId) { accId.value = String(acct.id); accId.readOnly = true; accId.classList.add("input--readonly"); }
+      if (statusSel) statusSel.value = acct.status || "Active";
+      start    = acct.start_date || "—";
+      end      = acct.end_date   || "—";
+      eligible = acct.eligible_from || "—";
+      if (mCreate) mCreate.style.display = "none";
+    } else {
+      if (accId) { accId.value = ""; accId.readOnly = true; accId.classList.add("input--readonly"); }
+      const c = computeDatesFromProgram();
+      start = c.start; end = c.end; eligible = c.eligible;
+      if (mCreate) { mCreate.style.display = ""; mCreate.disabled = false; }
+    }
+
+    renderHints({ programName: progName, min: (minPts ?? "—"), start, end, eligible });
+  }
+
+  // debounced search; reuse existing searchUsers
+  const debounceFn = (typeof debounce === "function")
+    ? debounce
+    : (fn,ms)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms||300); }; };
+
+  const doSearch = debounceFn(async () => {
+    const term = sInput?.value || "";
+    if (!term.trim()) { if (sResults) sResults.innerHTML = ""; pickedUser = null; return; }
+    let users = [];
+    try {
+      users = await (typeof searchUsers === "function" ? searchUsers(term) : []);
+    } catch { users = []; }
+    if (!sResults) return;
+    sResults.innerHTML = "";
+    if (!users.length){
+      const opt = document.createElement("option");
+      opt.value = ""; opt.textContent = "No results"; opt.disabled = true; opt.selected = true;
+      sResults.appendChild(opt); return;
+    }
+    users.forEach(u => {
+      const opt = document.createElement("option");
+      const label = `${u.name || u.email || u.phone || ('User#'+u.id)}${u.account_id ? "" : " (no active account)"}`;
+      opt.value = String(u.id); opt.textContent = label; opt.dataset.payload = JSON.stringify(u);
+      sResults.appendChild(opt);
+    });
+    sResults.selectedIndex = 0;
+    sResults.dispatchEvent(new Event("change"));
+  }, 250);
+
+  if (sInput) sInput.addEventListener("input", doSearch);
+  if (sResults) sResults.addEventListener("change", () => {
+    const opt = sResults.options[sResults.selectedIndex];
+    const u = opt ? JSON.parse(opt.dataset.payload || "{}") : null;
+    if (u && u.id) hydrateForUser(u);
+  });
+
+  // Open modal
+  if (btn) btn.addEventListener("click", () => { try { dlg.showModal(); } catch{} });
+
+  const accountsBody = document.getElementById("loyaltyAccountsBody");
+  if (accountsBody && !accountsBody.dataset.wsManageDbl) {
+    accountsBody.dataset.wsManageDbl = "1";
+    accountsBody.addEventListener("dblclick", (ev) => {
+      const tr = ev.target.closest("tr"); if (!tr) return;
+      const tds = tr.querySelectorAll("td");
+      const uid = tds && tds[1] ? parseInt(tds[1].textContent.trim(), 10) : NaN;
+      if (Number.isFinite(uid)) {
+        try { dlg.showModal(); } catch{}
+        hydrateForUser({ id: uid });
+      }
+    });
+  }
+
+  // Create Active Account
+  if (mCreate) {
+    mCreate.addEventListener("click", async () => {
+      setOut("");
+      if (!pickedUser?.id) { setOut("Pick a user first."); return; }
+      try {
+        mCreate.disabled = true;
+        const res = await apiPost("/api/admin/loyalty/accounts", { userId: pickedUser.id });
+        setOut(res?.message || "Account created.");
+        try { if (typeof loadAccounts === "function") loadAccounts({ resetPage:true }); } catch {}
+        await hydrateForUser({ id: pickedUser.id });
+      } catch (e) {
+        setOut(e.message || "Create failed");
+      } finally {
+        mCreate.disabled = false;
+      }
+    });
+  }
+}
+
