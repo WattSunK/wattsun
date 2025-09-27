@@ -1,9 +1,11 @@
 // public/admin/js/admin-loyalty.js
 // Loyalty Admin — SPA-safe attach, tabs + lists + actions
-// Includes: Increment 2 (user search) + Increment 3 (UX & validation) +
-// - Account ID auto-fill from selection
-// - Floating Actions menu (works despite overflow/z-index) + robust auto-close
-// - Robust SPA attach on partial swaps
+// Increment 2 & 3 polish:
+// - User search in New Withdrawal modal, inline validation, program/min/balance hint
+// - Auto-fill Account ID from selected user + lock field
+// - Floating Actions menu (cloned to <body>) with robust close behavior
+// - Guard against duplicate global handlers (prevents double notifications)
+// - Pagination reliability even when API doesn’t return total
 (function () {
   "use strict";
 
@@ -37,7 +39,12 @@
   }
 
   async function postJSON(url, body) {
-    const res = await fetch(url, { method:"POST", headers:{"Content-Type":"application/json"}, credentials:"include", body: JSON.stringify(body||{}) });
+    const res = await fetch(url, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      credentials:"include",
+      body: JSON.stringify(body||{})
+    });
     let data = null; try { data = await res.json(); } catch {}
     if (!res.ok || data?.success === false) {
       const msg = data?.error?.message || `HTTP ${res.status}`;
@@ -51,6 +58,9 @@
   let attached = false;
   let currentRoot = null; // track which #loyalty-root we’re wired to
   let els = {};
+
+  // NEW: ensure global (document/window) Actions listeners are bound only once per page lifetime
+  let actionsHandlersBound = false;
 
   function cacheEls() {
     els = {
@@ -123,7 +133,13 @@
   }
 
   // ---------- state ----------
-  const state = { activeTab:"Withdrawals", page:1, limit:10, total:null };
+  const state = {
+    activeTab:"Withdrawals",
+    page:1,
+    limit:10,
+    total:null,       // when API provides total
+    lastCount:0       // number of rows on the current page
+  };
 
   // ---------- attach ----------
   function attach() {
@@ -131,7 +147,13 @@
     wireTabs();
     wireFilters();
     wirePager();
-    wireInlineActionsMenu();
+
+    // Bind global actions handlers once (prevents duplicate notifications)
+    if (!actionsHandlersBound) {
+      wireInlineActionsMenu();
+      actionsHandlersBound = true;
+    }
+
     wireNewWithdrawalModal(); // Increment 2 + 3 wiring
 
     state.activeTab = "Withdrawals";
@@ -228,18 +250,29 @@
     els.meta.textContent = total!=null ? `${s}–${e} of ${fmtInt(total)}` : `${count} row(s)`;
   }
 
+  // Better pager logic: if no `total`, use lastCount==limit as "has next"
   function updatePager(){
     const prev = els.pager?.querySelector(".pager-prev");
     const next = els.pager?.querySelector(".pager-next");
-    if (prev) prev.disabled = state.page<=1;
-    if (next) next.disabled = state.total!=null ? state.page >= Math.ceil(state.total/state.limit) : false;
+    const hasPrev = state.page > 1;
+    const hasNext = (state.total != null)
+      ? (state.page < Math.ceil(state.total / state.limit))
+      : (state.lastCount === state.limit); // unknown total → assume next exists only if this page is "full"
+    if (prev) prev.disabled = !hasPrev;
+    if (next) next.disabled = !hasNext;
   }
 
   function wirePager(){
     const prev = els.pager?.querySelector(".pager-prev");
     const next = els.pager?.querySelector(".pager-next");
-    on(prev, "click", () => { if (state.page>1){ state.page--; refreshActiveTab(); } });
-    on(next, "click", () => { state.page++; refreshActiveTab(); });
+    on(prev, "click", () => {
+      if (state.page>1){ state.page--; refreshActiveTab(); }
+    });
+    on(next, "click", () => {
+      // if we don't know total, allow next only when last page was full
+      if (state.total == null && state.lastCount < state.limit) return;
+      state.page++; refreshActiveTab();
+    });
   }
 
   function refreshActiveTab(){
@@ -296,12 +329,13 @@
       const data = await api(`/api/admin/loyalty/withdrawals${buildQuery()}`);
       const rows = Array.isArray(data)?data:(data.withdrawals||[]);
       state.total = (typeof data.total==="number")?data.total:null;
+      state.lastCount = rows.length;
       renderWithdrawalsRows(tbody, rows);
       setMeta(rows.length, state.total);
       updatePager();
     }catch(err){
       showErrorRow(tbody, err, 9);
-      setMeta(0); state.total=null; updatePager();
+      setMeta(0); state.total=null; state.lastCount=0; updatePager();
     }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
   }
 
@@ -410,7 +444,7 @@
 
   function wireInlineActionsMenu() {
     // Toggle floating menu (guard: don't open for rows without actions)
-    on(document, "click", (e) => {
+    document.addEventListener("click", (e) => {
       const btn = e.target.closest(".btn-actions");
       if (!btn) return;
 
@@ -423,12 +457,12 @@
     });
 
     // Close the menu if user clicks outside it or presses ESC
-    on(document, "click", (e) => {
+    document.addEventListener("click", (e) => {
       if (openMenuEl && !openMenuEl.contains(e.target) && !e.target.closest(".btn-actions")) {
         closeFloatingMenu();
       }
     });
-    on(document, "keydown", (e) => { if (e.key === "Escape") closeFloatingMenu(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeFloatingMenu(); });
 
     // Close immediately on any action click (capture phase too, in case other code stops propagation)
     document.addEventListener("click", (e) => {
@@ -442,7 +476,7 @@
     window.addEventListener("resize", closeFloatingMenu);
 
     // Action handlers (approve / reject / mark-paid)
-    on(document, "click", async (e)=>{
+    document.addEventListener("click", async (e)=>{
       const btn = e.target.closest(".btn-approve"); if (!btn) return;
       e.preventDefault();
       try{
@@ -457,7 +491,7 @@
       }catch(err){ toast(err.message||"Approve failed", {type:"error"}); }
     });
 
-    on(document, "click", async (e)=>{
+    document.addEventListener("click", async (e)=>{
       const btn = e.target.closest(".btn-reject"); if (!btn) return;
       e.preventDefault();
       try{
@@ -472,7 +506,7 @@
       }catch(err){ toast(err.message||"Reject failed", {type:"error"}); }
     });
 
-    on(document, "click", async (e)=>{
+    document.addEventListener("click", async (e)=>{
       const btn = e.target.closest(".btn-mark-paid"); if (!btn) return;
       e.preventDefault();
       try{
@@ -513,6 +547,7 @@
         balancePoints: u.balancePoints ?? u.balance_points ?? u.balance ?? 0
       }));
     } catch {
+      // fallback mock (dev only)
       return [
         { id: 1, name: "Demo User", email: "demo@example.com", phone: "+254700000001", account_id: 101, status: "Active", program_name: "WattSun Rewards", balancePoints: 900, minWithdrawPoints: 200 }
       ];
@@ -784,12 +819,13 @@
       const data = await api(`/api/admin/loyalty/accounts${buildQuery()}`);
       const rows = Array.isArray(data)?data:(data.accounts||[]);
       state.total = (typeof data.total==="number")?data.total:null;
+      state.lastCount = rows.length;
       const count = renderAccountsRows(tbody, rows);
       setMeta(count, state.total);
       updatePager();
     }catch(err){
       showErrorRow(tbody, err, 11);
-      setMeta(0); state.total=null; updatePager();
+      setMeta(0); state.total=null; state.lastCount=0; updatePager();
     }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
   }
 
@@ -828,12 +864,13 @@
         ? data
         : (data.ledger || data.rows || data.items || []);
       state.total = (typeof data.total==="number")?data.total:null;
+      state.lastCount = rows.length;
       renderLedgerRows(tbody, rows);
       setMeta(rows.length, state.total);
       updatePager();
     }catch(err){
       showErrorRow(tbody, err, 8);
-      setMeta(0); state.total=null; updatePager();
+      setMeta(0); state.total=null; state.lastCount=0; updatePager();
     }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
   }
 
@@ -872,12 +909,13 @@
       const data = await api(`/api/admin/loyalty/notifications${buildQuery()}`);
       const rows = Array.isArray(data)?data:(data.notifications||[]);
       state.total = (typeof data.total==="number")?data.total:null;
+      state.lastCount = rows.length;
       renderNotifRows(tbody, rows);
       setMeta(rows.length, state.total);
       updatePager();
     }catch(err){
       showErrorRow(tbody, err, 5);
-      setMeta(0); state.total=null; updatePager();
+      setMeta(0); state.total=null; state.lastCount=0; updatePager();
     }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
   }
 
