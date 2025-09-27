@@ -44,8 +44,9 @@
     return data;
   }
 
-  // ---------- SPA-safe activation ----------
+  // ---------- SPA-safe activation (robust to partial swaps) ----------
   let attached = false;
+  let currentRoot = null; // track which #loyalty-root we’re wired to
   let els = {};
 
   function cacheEls() {
@@ -74,15 +75,51 @@
     };
   }
 
-  const mo = new MutationObserver(() => tryAttach());
-  mo.observe(document.documentElement, { childList:true, subtree:true });
+  function scheduleAttach() {
+    // microtask → next tick: ensure inner DOM finished rendering
+    setTimeout(() => {
+      const root = document.getElementById("loyalty-root");
+      if (!root) return;
+      if (currentRoot !== root) {
+        currentRoot = root;
+        attached = false;
+      }
+      if (attached) return;
+      cacheEls();
+      attach();
+    }, 0);
+  }
 
-  function tryAttach(){
-    if (attached) return;
-    const host = document.getElementById("loyaltyPager") || document.getElementById("loyaltyTabWithdrawals");
-    if (!host) return;
-    cacheEls();
-    attach();
+  function tryAttach() {
+    const root = document.getElementById("loyalty-root");
+    if (!root) return;
+    if (currentRoot !== root) {
+      currentRoot = root;
+      attached = false;
+    }
+    if (!attached) scheduleAttach();
+  }
+
+  // Observe for partial swaps: whenever a new #loyalty-root appears, attach again.
+  const mo = new MutationObserver((muts) => {
+    for (const m of muts) {
+      // If the partial is replaced, we’ll see new nodes added under body
+      for (const node of m.addedNodes) {
+        if (node.nodeType === 1) {
+          if (node.id === "loyalty-root" || node.querySelector?.("#loyalty-root")) {
+            tryAttach();
+          }
+        }
+      }
+    }
+  });
+  mo.observe(document.body, { childList:true, subtree:true });
+
+  // Also kick it once on initial load
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", tryAttach);
+  } else {
+    tryAttach();
   }
 
   // ---------- state ----------
@@ -110,6 +147,7 @@
       if (e && e.data && e.data.type === "loyalty-updated") { try { refreshActiveTab(); } catch {} }
     });
 
+    // Debug hook (can be removed)
     window.loyaltyAdmin = { state, refreshActiveTab, loadWithdrawals, loadAccounts, loadLedger, loadNotifications };
   }
 
@@ -135,6 +173,7 @@
     setShown(els.tabAccounts,    name==="Accounts");
     setShown(els.tabLedger,      name==="Ledger");
     setShown(els.tabNotifs,      name==="Notifications");
+
     // Show the "New Withdrawal" button only on Withdrawals tab
     const newBtn = document.getElementById("wdNewBtn");
     if (newBtn) newBtn.style.display = (name === "Withdrawals") ? "" : "none";
@@ -162,7 +201,7 @@
     if (name==="Withdrawals") { $("#filterWithdrawals").style.display=""; const sel=$("#statusSel"); if (sel) sel.value=""; }
     if (name==="Accounts")    { $("#filterAccounts").style.display="";  const sel=$("#accStatusSel"); if (sel) sel.value=""; }
     if (name==="Ledger")      { $("#filterLedger").style.display="";    const sel=$("#ledgerKindSel"); if (sel) sel.value=""; }
-    if (name==="Notifications"){ $("#filterNotifs").style.display="";    const sel=$("#notifStatusSel"); if (sel) sel.value=""; }
+    if (name==="Notifications"){ $("#filterNotifs").style.display="";   const sel=$("#notifStatusSel"); if (sel) sel.value=""; }
 
     const search = document.getElementById("loyaltySearch"); if (search) search.value = "";
   }
@@ -618,7 +657,7 @@
     }, SEARCH_DEBOUNCE_MS);
 
     // Open modal
-    btn.addEventListener("click", () => {
+    btn && btn.addEventListener("click", () => {
       if (accId) accId.value = "";      // legacy
       if (pts) pts.value = "";
       if (note) note.value = "";
