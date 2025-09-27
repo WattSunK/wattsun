@@ -722,3 +722,23 @@ td:last-child .ws-actions { white-space: nowrap; }
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
+/* Danger variant for destructive actions */
+.btn.btn--danger {
+  background: #b00020;   /* red tone */
+  color: #fff;
+  border: none;
+}
+.btn.btn--danger:hover {
+  background: #d32f2f;
+}
+
+/* Optional: ghost variant for cancel */
+.btn.btn--ghost {
+  background: transparent;
+  border: 1px solid #ccc;
+  color: #444;
+}
+.btn.btn--ghost:hover {
+  border-color: #999;
+  color: #000;
+}

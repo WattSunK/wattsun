@@ -1,36 +1,65 @@
 /**
- * Admin — Withdrawals: Reject modal + binder (robust delegation)
- * - Opens a modal on .btn-reject (delegated at document level)
+ * Admin — Withdrawals: Reject modal + binder (robust, SPA-safe)
+ * - Opens a modal on .btn-reject (delegated at document level, capture phase)
  * - Submits PATCH /reject with { note }
  * - Emits loyalty:save-success / loyalty:save-error
  */
 (function () {
   "use strict";
 
+  // Prevent duplicate injection on SPA partial swaps / script re-includes
+  if (document.getElementById("rejectModal")) return;
+
+  // ---------- Minimal CSS so this works without Tailwind ----------
+  if (!document.getElementById("ws-reject-css")) {
+    const css = document.createElement("style");
+    css.id = "ws-reject-css";
+    css.textContent = `
+      .hidden{display:none}
+      .ws-modal{position:fixed;inset:0;z-index:10000}
+      .ws-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+      .ws-dialog{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;
+        box-shadow:0 20px 50px rgba(0,0,0,.25);width:min(92vw,560px);overflow:hidden}
+      .ws-header,.ws-footer{display:flex;align-items:center;justify-content:space-between;gap:.5rem;border-color:#eee}
+      .ws-header{padding:12px 16px;border-bottom:1px solid #eee}
+      .ws-footer{padding:12px 16px;border-top:1px solid #eee}
+      .ws-body{padding:16px}
+      .ws-input{border:1px solid #ccc;border-radius:8px;padding:8px 10px;width:100%}
+      .ws-close{border:none;background:transparent;cursor:pointer}
+      .ws-error{color:#b00020;margin-top:4px}
+      .ws-btn{border-radius:8px;padding:8px 14px;font-weight:500;cursor:pointer}
+      .ws-btn--ghost{background:#fff;border:1px solid #ccc;color:#444}
+      .ws-btn--ghost:hover{border-color:#999;color:#000}
+      .ws-btn--danger{background:#b00020;color:#fff;border:none}
+      .ws-btn--danger:hover{background:#d32f2f}
+    `;
+    document.head.appendChild(css);
+  }
+
   // ---------- Modal markup (injected once) ----------
   const modalHtml = `
-    <div id="rejectModal" class="ws-modal hidden fixed inset-0 z-50">
-      <div class="ws-backdrop absolute inset-0 bg-black/50"></div>
-      <div class="ws-dialog absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl w-[min(92vw,560px)]">
-        <div class="ws-header px-4 py-3 border-b flex items-center justify-between">
-          <h3 class="text-base font-semibold">Reject Withdrawal</h3>
-          <button type="button" class="ws-close px-2 py-1 text-gray-500 hover:text-gray-800" aria-label="Close">✕</button>
+    <div id="rejectModal" class="ws-modal hidden" role="dialog" aria-modal="true">
+      <div class="ws-backdrop"></div>
+      <div class="ws-dialog">
+        <div class="ws-header">
+          <h3 style="margin:0;font-size:16px;font-weight:600;">Reject Withdrawal</h3>
+          <button type="button" class="ws-close" aria-label="Close">✕</button>
         </div>
         <form class="ws-form">
-          <div class="ws-body p-4 space-y-3">
+          <div class="ws-body">
             <input type="hidden" name="withdrawalId" />
-            <div class="text-sm text-gray-600">
+            <div class="text-sm" style="color:#666;margin-bottom:8px;">
               Please enter a reason. The user will be notified.
             </div>
-            <label class="block">
-              <span class="block text-sm font-medium mb-1">Reason</span>
-              <textarea name="note" rows="4" class="ws-input block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring" placeholder="e.g. IBAN mismatch, failed KYC, etc."></textarea>
+            <label class="block" style="display:block;margin-bottom:10px;">
+              <span style="display:block;font-size:14px;font-weight:600;margin-bottom:6px;">Reason</span>
+              <textarea name="note" rows="4" class="ws-input" placeholder="e.g. IBAN mismatch, failed KYC, etc."></textarea>
             </label>
-            <div class="ws-error text-sm text-red-600 hidden"></div>
+            <div class="ws-error hidden"></div>
           </div>
-          <div class="ws-footer px-4 py-3 border-t flex justify-end gap-2">
-            <button type="button" class="ws-cancel px-4 py-2 rounded-md border bg-white hover:bg-gray-50">Cancel</button>
-            <button type="submit" class="ws-submit px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-60">Reject</button>
+          <div class="ws-footer" style="justify-content:flex-end;gap:8px;">
+            <button type="button" class="ws-cancel ws-btn ws-btn--ghost">Cancel</button>
+            <button type="submit" class="ws-submit ws-btn ws-btn--danger">Reject</button>
           </div>
         </form>
       </div>
@@ -79,10 +108,14 @@
     return null;
   }
 
-  // Open modal on any .btn-reject (delegated at document)
+  // Open modal on any .btn-reject (delegated at document, capture phase)
   document.addEventListener("click", (ev) => {
     const btn = ev.target.closest(".btn-reject");
     if (!btn) return;
+
+    // IMPORTANT: prevent other reject handlers from firing (e.g., in admin-loyalty.js)
+    ev.preventDefault();
+    ev.stopPropagation();
 
     const id = getIdFrom(btn);
     if (!id) {
@@ -92,16 +125,16 @@
       return;
     }
 
-    // If this came from the floating dropdown, ensure data-id is present
+    // If this came from a cloned floating menu, ensure data-id is present
     btn.dataset.id = id;
     show(id);
-  }, true); // capture to run before menu auto-close
+  }, true); // capture to run before bubble listeners
 
-  // Submit -> PATCH /reject
+  // Submit -> PATCH /reject with note
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const id = inputId.value.trim();
-    const note = inputNote.value.trim();
+    const id = (inputId.value || "").trim();
+    const note = (inputNote.value || "").trim();
 
     btnSubmit.disabled = true;
     errBox.classList.add("hidden");
