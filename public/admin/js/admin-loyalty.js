@@ -1048,6 +1048,25 @@ function wireManageModal(){
   const penPts   = document.getElementById("mPenaltyPoints")|| document.querySelector("#accManageDialog input[placeholder='e.g. 10']");
   const penNote  = document.getElementById("mPenaltyNote")  || document.querySelector("#accManageDialog input[placeholder='reason for penalty']");
   const applyBtn = document.getElementById("mApplyAll") || document.querySelector("#accManageDialog .card-actions .btn.btn--primary, #accManageDialog .card-actions .btn");
+  // --- Clear account-related UI (prevents stale values while hydrating) ---
+  function clearManageAccountUI() {
+    if (accId) {
+      accId.value = "";
+      accId.readOnly = true;
+      accId.classList.add("input--readonly");
+    }
+    if (statusSel) statusSel.value = "Active"; // default while we load
+    // Hide Create until we decide (no flicker)
+    if (mCreate) { mCreate.style.display = "none"; mCreate.disabled = false; }
+
+    // Reset hints to neutral
+    if (hintProg) hintProg.textContent = "—";
+    if (hintMin)  hintMin.textContent  = "—";
+    if (hintElig) hintElig.textContent = "—";
+    if (hintStart)hintStart.textContent= "—";
+    if (hintEnd)  hintEnd.textContent  = "—";
+    if (out) out.textContent = "";
+  }
 
   let pickedUser = null;
   let program    = null;
@@ -1172,10 +1191,15 @@ function wireManageModal(){
 
   if (sInput) sInput.addEventListener("input", doSearch);
   if (sResults) sResults.addEventListener("change", () => {
-    const opt = sResults.options[sResults.selectedIndex];
-    const u = opt ? JSON.parse(opt.dataset.payload || "{}") : null;
-    if (u && u.id) hydrateForUser(u);
-  });
+  const opt = sResults.options[sResults.selectedIndex];
+  const u = opt ? JSON.parse(opt.dataset.payload || "{}") : null;
+
+  // Clear first to avoid showing a previous user’s account briefly
+  clearManageAccountUI();
+
+  if (u && u.id) hydrateForUser(u);
+});
+
 
   // Open modal
   if (btn) btn.addEventListener("click", () => { try { dlg.showModal(); } catch{} });
@@ -1220,7 +1244,7 @@ function wireManageModal(){
       out.appendChild(cp);
 
       try { if (typeof loadAccounts === "function") loadAccounts({ resetPage:true }); } catch {}
-      await hydrateUser({ id: pickedUser.id }); // hides Create, fills meta/status
+      await hydrateForUser({ id: pickedUser.id }); // hides Create, fills meta/status
     } catch (e) {
       setOut(e.message || "Create failed");
     } finally {
@@ -1230,8 +1254,6 @@ function wireManageModal(){
 }
 
 }
-
-
 
 function wsToggleCreateButton(hasAccount){
   var btn = document.getElementById('mCreateBtn');
