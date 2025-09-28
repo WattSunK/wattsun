@@ -1126,11 +1126,15 @@ function wireManageModal(){
     pickedUser = u;
     setOut("");
 
-    // Fill user_id
-    if (userId && u?.id) userId.value = String(u.id);
+    // Fill user_id (read-only)
+if (userId && u?.id) {
+  userId.value = String(u.id);
+  userId.readOnly = true;
+  userId.classList.add("input--readonly");
+}
 
     // Fetch user's account
-  let acct = null;
+ let acct = null;
 try {
   const data = await apiGet(`/api/admin/loyalty/accounts?userId=${encodeURIComponent(u.id)}`);
   const rows = Array.isArray(data) ? data : (data.accounts || []);
@@ -1140,9 +1144,7 @@ try {
       a.active === true ||
       String(a.status || "").toLowerCase() === "active"
     );
-    acct = actives.sort((a,b)=> (b.id||0)-(a.id||0))[0]
-        || rows.sort((a,b)=> (b.id||0)-(a.id||0))[0]
-        || null;
+    acct = actives.sort((a,b)=> (b.id||0)-(a.id||0))[0] || null; // only active
   }
 } catch {}
 
