@@ -1132,6 +1132,8 @@ if (userId && u?.id) {
   userId.readOnly = true;
   userId.classList.add("input--readonly");
 }
+// Start with Create hidden; hydrate will decide to show it if needed
+if (mCreate) { mCreate.style.display = "none"; mCreate.disabled = false; }
 
     // Fetch user's account
  let acct = null;
@@ -1144,9 +1146,10 @@ try {
 
 const data = await apiGet(`/api/admin/loyalty/accounts?${q}`);
 
-  const rows = Array.isArray(data) ? data : (data.accounts || []);
-  // Guard: keep only this user's rows (server currently returns all)
+let rows = Array.isArray(data) ? data : (data.accounts || []);
+// Guard: keep only this user's rows (server currently returns all)
 rows = rows.filter(r => String(r.user_id ?? r.userId) === String(u.id));
+
 
   if (rows?.length) {
     const actives = rows.filter(a =>
@@ -1164,19 +1167,18 @@ rows = rows.filter(r => String(r.user_id ?? r.userId) === String(u.id));
 
     let start, end, eligible;
 
-    if (acct){
-      if (accId) { accId.value = String(acct.id); accId.readOnly = true; accId.classList.add("input--readonly"); }
-      if (statusSel) statusSel.value = acct.status || "Active";
-      start    = acct.start_date || "—";
-      end      = acct.end_date   || "—";
-      eligible = acct.eligible_from || "—";
-      if (mCreate) mCreate.style.display = "none";
-    } else {
-      if (accId) { accId.value = ""; accId.readOnly = true; accId.classList.add("input--readonly"); }
-      const c = computeDatesFromProgram();
-      start = c.start; end = c.end; eligible = c.eligible;
-      if (mCreate) { mCreate.style.display = ""; mCreate.disabled = false; }
-    }
+   if (acct) {
+  if (accId) { accId.value = String(acct.id); accId.readOnly = true; accId.classList.add("input--readonly"); }
+  if (statusSel) statusSel.value = acct.status || "Active";
+  // has active account → hide Create
+  if (mCreate) mCreate.style.display = "none";
+} else {
+  if (accId) { accId.value = ""; accId.readOnly = true; accId.classList.add("input--readonly"); }
+  if (statusSel) statusSel.value = "Active";
+  // no active account → show Create
+  if (mCreate) { mCreate.style.display = ""; mCreate.disabled = false; }
+}
+
 
     renderHints({ programName: progName, min: (minPts ?? "—"), start, end, eligible });
   }
@@ -1220,17 +1222,13 @@ rows = rows.filter(r => String(r.user_id ?? r.userId) === String(u.id));
 
   if (u && u.id) hydrateForUser(u);
 });
-
-
-  // Open modal
-  if (btn) btn.addEventListener("click", () => {
-  // fresh start on open
-  clearManageAccountUI();
+if (btn) btn.addEventListener("click", () => {
+  clearManageAccountUI();   // fresh start on open
   setOut("");
   pickedUser = null;
-
   try { dlg.showModal(); } catch {}
 });
+
 
 
   const accountsBody = document.getElementById("loyaltyAccountsBody");
@@ -1248,39 +1246,32 @@ rows = rows.filter(r => String(r.user_id ?? r.userId) === String(u.id));
   }
 
   // Create Active Account
-  if (mCreate){
+ if (mCreate){
   mCreate.addEventListener("click", async ()=>{
     setOut("");
     if (!pickedUser?.id) { setOut("Pick a user first."); return; }
     try {
       mCreate.disabled = true;
+
       const res = await apiPost("/api/admin/loyalty/accounts", { userId: pickedUser.id });
 
-      // NEW: show a short callout with a quick-link and a "copy" helper
-      const link = (res?.deepLink) || "/myaccount/offers.html?welcome=1";
-      setOut(`Account created. A confirmation email was queued.  `);
+      // Success: toast + inline message
+      toast("Active account created", { type: "info" });
+      setOut("Active account created.");
 
-      // optional quick actions
-      const a = document.createElement("a");
-      a.href = link; a.textContent = "Open Offers link"; a.target = "_blank"; a.rel="noopener";
-      out.appendChild(document.createTextNode(" "));
-      out.appendChild(a);
-
-      const cp = document.createElement("button");
-      cp.type="button"; cp.className="btn btn--small"; cp.style.marginLeft="8px";
-      cp.textContent="Copy link";
-      cp.onclick = async () => { try { await navigator.clipboard.writeText(link); toast("Link copied"); } catch{} };
-      out.appendChild(cp);
-
+      // Refresh Accounts tab and rehydrate this user (button will hide)
       try { if (typeof loadAccounts === "function") loadAccounts({ resetPage:true }); } catch {}
-      await hydrateForUser({ id: pickedUser.id }); // hides Create, fills meta/status
+      await hydrateForUser({ id: pickedUser.id });
+
     } catch (e) {
       setOut(e.message || "Create failed");
+      toast(e.message || "Create failed", { type: "error" });
     } finally {
       mCreate.disabled = false;
     }
   });
 }
+
 
 }
 
