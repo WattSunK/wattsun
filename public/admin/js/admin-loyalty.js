@@ -1136,8 +1136,18 @@ if (userId && u?.id) {
     // Fetch user's account
  let acct = null;
 try {
-  const data = await apiGet(`/api/admin/loyalty/accounts?userId=${encodeURIComponent(u.id)}`);
+  const q = new URLSearchParams({
+  userId: String(u.id),     // if backend reads camelCase
+  user_id: String(u.id),    // if backend reads snake_case
+  active: "true"            // optional: lets backend filter server-side
+}).toString();
+
+const data = await apiGet(`/api/admin/loyalty/accounts?${q}`);
+
   const rows = Array.isArray(data) ? data : (data.accounts || []);
+  // Guard: keep only this user's rows (server currently returns all)
+rows = rows.filter(r => String(r.user_id ?? r.userId) === String(u.id));
+
   if (rows?.length) {
     const actives = rows.filter(a =>
       a.is_active === true ||
