@@ -1195,22 +1195,19 @@ function wireManageModal(){
   }
 
   // Create Active Account
-  if (createBt){
-  createBt.addEventListener("click", async ()=>{
+if (mCreate){
+  mCreate.addEventListener("click", async ()=>{
     setOut("");
     if (!pickedUser?.id) { setOut("Pick a user first."); return; }
     try {
-      createBt.disabled = true;
+      mCreate.disabled = true;
       const res = await apiPost("/api/admin/loyalty/accounts", { userId: pickedUser.id });
 
-      // NEW: show a short callout with a quick-link and a "copy" helper
       const link = (res?.deepLink) || "/myaccount/offers.html?welcome=1";
-      setOut(`Account created. A confirmation email was queued.  `);
+      setOut(`Account created. A confirmation email was queued.`);
 
-      // optional quick actions
       const a = document.createElement("a");
-      a.href = link; a.textContent = "Open Offers link"; a.target = "_blank"; a.rel="noopener";
-      out.appendChild(document.createTextNode(" "));
+      a.href = link; a.textContent = " Open Offers link"; a.target = "_blank"; a.rel="noopener";
       out.appendChild(a);
 
       const cp = document.createElement("button");
@@ -1220,14 +1217,17 @@ function wireManageModal(){
       out.appendChild(cp);
 
       try { if (typeof loadAccounts === "function") loadAccounts({ resetPage:true }); } catch {}
-      await hydrateUser({ id: pickedUser.id }); // hides Create, fills meta/status
+
+      // re-hydrate so the modal reflects the newly created account
+      await hydrateForUser({ id: pickedUser.id });
     } catch (e) {
       setOut(e.message || "Create failed");
     } finally {
-      createBt.disabled = false;
+      mCreate.disabled = false;
     }
   });
 }
+
 
 }
 
