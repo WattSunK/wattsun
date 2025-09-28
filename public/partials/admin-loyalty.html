@@ -164,21 +164,14 @@
 <header class="card-header" style="display:flex;gap:.5rem;align-items:center;justify-content:space-between;">
 <h3 class="card-title">Manage Loyalty Account</h3>
 <div class="row" style="gap:.5rem;">
-  <dialog class="modal modal--lg" id="accManageDialog">
-  <form class="card modal__sheet" method="dialog">
-    <header class="card-header" style="display:flex;gap:.5rem;align-items:center;justify-content:space-between;">
-      <h3 class="card-title">Manage Loyalty Account</h3>
-      <div class="row" style="gap:.5rem;flex-wrap:wrap;">
-        <!-- NEW: shown when the selected user has no active account -->
-        <button id="mCreateBtn" type="button" class="btn btn--primary" style="display:none;">Create Active Account</button>
-        <button class="btn" id="mApplyAll" type="button">Apply Changes</button>
-        <button class="btn" value="close">Close</button>
-      </div>
-    </header>
-
 <button class="btn" id="mApplyAll" type="button">Apply Changes</button>
 <button class="btn" value="close">Close</button>
 </div>
+  <div class="row" style="gap:.5rem;flex-wrap:wrap;">
+    <button id="mCreateBtn" type="button" class="btn btn--primary" style="display:none;">Create Active Account</button>
+    <button class="btn" id="mApplyAll" type="button">Apply Changes</button>
+    <button class="btn" value="close" type="submit">Close</button>
+  </div>
 </header>
 <div class="card-body modal__body">
 <div class="row" style="margin-bottom:10px">

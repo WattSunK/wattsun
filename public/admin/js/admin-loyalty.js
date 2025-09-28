@@ -1195,7 +1195,7 @@ function wireManageModal(){
   }
 
   // Create Active Account
-if (mCreate){
+  if (mCreate){
   mCreate.addEventListener("click", async ()=>{
     setOut("");
     if (!pickedUser?.id) { setOut("Pick a user first."); return; }
@@ -1203,11 +1203,14 @@ if (mCreate){
       mCreate.disabled = true;
       const res = await apiPost("/api/admin/loyalty/accounts", { userId: pickedUser.id });
 
+      // NEW: show a short callout with a quick-link and a "copy" helper
       const link = (res?.deepLink) || "/myaccount/offers.html?welcome=1";
-      setOut(`Account created. A confirmation email was queued.`);
+      setOut(`Account created. A confirmation email was queued.  `);
 
+      // optional quick actions
       const a = document.createElement("a");
-      a.href = link; a.textContent = " Open Offers link"; a.target = "_blank"; a.rel="noopener";
+      a.href = link; a.textContent = "Open Offers link"; a.target = "_blank"; a.rel="noopener";
+      out.appendChild(document.createTextNode(" "));
       out.appendChild(a);
 
       const cp = document.createElement("button");
@@ -1217,9 +1220,7 @@ if (mCreate){
       out.appendChild(cp);
 
       try { if (typeof loadAccounts === "function") loadAccounts({ resetPage:true }); } catch {}
-
-      // re-hydrate so the modal reflects the newly created account
-      await hydrateForUser({ id: pickedUser.id });
+      await hydrateUser({ id: pickedUser.id }); // hides Create, fills meta/status
     } catch (e) {
       setOut(e.message || "Create failed");
     } finally {
@@ -1228,6 +1229,13 @@ if (mCreate){
   });
 }
 
-
 }
 
+
+
+function wsToggleCreateButton(hasAccount){
+  var btn = document.getElementById('mCreateBtn');
+  if (!btn) return;
+  if (hasAccount) { btn.style.display = 'none'; btn.disabled = false; }
+  else { btn.style.display = ''; btn.disabled = false; }
+}
