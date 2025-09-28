@@ -1134,12 +1134,21 @@ function wireManageModal(){
     try {
       const data = await apiGet(`/api/admin/loyalty/accounts?userId=${encodeURIComponent(u.id)}`);
       const rows = Array.isArray(data) ? data : (data.accounts || []);
-      if (rows?.length) acct = rows.sort((a,b)=> (b.id||0)-(a.id||0))[0];
+      let acct = null;
+      if (rows?.length) {
+        const actives = rows.filter(a =>
+          a.is_active === true ||
+          a.active === true ||
+          String(a.status || "").toLowerCase() === "active"
+        );
+        acct = actives.sort((a,b)=> (b.id||0)-(a.id||0))[0] || rows.sort((a,b)=> (b.id||0)-(a.id||0))[0] || null;
+      }
+
     } catch {}
 
     const prog = await loadProgram();
     const progName = prog?.name || "—";
-    const minPts   = prog?.minWithdrawPoints ?? prog?.minWithdrawPoints;
+    const minPts = prog?.minWithdrawPoints ?? prog?.min_withdraw_points ?? null;
 
     let start, end, eligible;
 
@@ -1202,7 +1211,15 @@ function wireManageModal(){
 
 
   // Open modal
-  if (btn) btn.addEventListener("click", () => { try { dlg.showModal(); } catch{} });
+  if (btn) btn.addEventListener("click", () => {
+  // fresh start on open
+  clearManageAccountUI();
+  setOut("");
+  pickedUser = null;
+
+  try { dlg.showModal(); } catch {}
+});
+
 
   const accountsBody = document.getElementById("loyaltyAccountsBody");
   if (accountsBody && !accountsBody.dataset.wsManageDbl) {
