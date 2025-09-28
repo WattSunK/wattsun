@@ -469,6 +469,87 @@ async function extendAccountEndDate(id, months) {
   });
 }
 
+// ---- NEW: Create account for a user without one --------------
+router.post("/accounts", async (req, res) => {
+  try {
+    await ensureSchemaAndSeed();
+    const userId = parseInt(req.body?.userId, 10);
+    if (!Number.isFinite(userId)) {
+      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"userId required" } });
+    }
+
+    // Load program + settings
+    const program = await getProgramByCode("STAFF");
+    if (!program?.programId) {
+      return res.status(400).json({ success:false, error:{ code:"PROGRAM_MISSING", message:"Loyalty program not configured" } });
+    }
+
+    // Reject if already has account
+    const existing = await getAccountByUser(program.programId, userId);
+    if (existing) {
+      return res.json({ success:true, accountId: existing.id, message:"User already has an account" });
+    }
+
+    const durationMonths   = Number(program.durationMonths ?? 6) || 6;
+    const withdrawWaitDays = Number(program.withdrawWaitDays ?? 90) || 90;
+    const signupBonus      = Number(program.signupBonus ?? 0) || 0;
+
+    // Dates
+    const start = new Date();
+    const end   = new Date(start); end.setMonth(end.getMonth() + durationMonths);
+    const elig  = new Date(start); elig.setDate(elig.getDate() + withdrawWaitDays);
+    const ymd = (d) => d.toISOString().slice(0,10);
+
+    // Create account
+    const accountId = await withDb(async (db) => {
+      const ins = await run(db, `
+        INSERT INTO loyalty_accounts
+          (program_id, user_id, status, start_date, end_date, eligible_from,
+           points_balance, total_earned, total_penalty, total_paid,
+           created_at, updated_at, duration_months)
+        VALUES
+          (?, ?, 'Active', ?, ?, ?, 0, 0, 0, 0, datetime('now','localtime'), datetime('now','localtime'), ?)`,
+        [program.programId, userId, ymd(start), ymd(end), ymd(elig), durationMonths]
+      );
+      return ins.lastID;
+    });
+
+    // Signup bonus → ledger + roll-up
+    if (signupBonus > 0) {
+      await insertLedger(accountId, "enroll", signupBonus, "Signup bonus", null, null);
+      await withDb((db) =>
+        run(db, `
+          UPDATE loyalty_accounts
+             SET points_balance = points_balance + ?,
+                 total_earned   = total_earned + ?,
+                 updated_at     = datetime('now','localtime')
+           WHERE id = ?`,
+        [signupBonus, signupBonus, accountId])
+      );
+    }
+
+    // Enqueue notification with deep link to Offers
+    const deepLink = `/myaccount/offers.html?welcome=1`;
+    try {
+      await withDb((db) =>
+        run(db, `
+          INSERT INTO notifications_queue (user_id, account_id, kind, status, created_at)
+          VALUES (?, ?, 'LOYALTY_ENROLLED', 'Queued', datetime('now','localtime'))`,
+        [userId, accountId])
+      );
+    } catch (e) {
+      console.warn("[loyalty/accounts][notify] enqueue failed:", e.message);
+    }
+
+    res.setHeader("X-Loyalty-Updated", "create-account");
+    res.setHeader("X-Loyalty-Refresh", "accounts,ledger,notifications");
+    return res.json({ success:true, accountId, message:"Account created and user notified", deepLink });
+  } catch (e) {
+    console.error("[admin/loyalty/accounts][POST]", e);
+    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to create account" } });
+  }
+});
+
 // ---- Accounts & Ledger endpoints ----------------------------
 // Accept PATCH (new) and POST (legacy) for status updates
 async function handleAccountStatus(req, res) {

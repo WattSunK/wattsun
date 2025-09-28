@@ -47,6 +47,17 @@
 
     <!-- ===== Loyalty Pane ===== -->
     <section id="paneLoyalty">
+
+      <!-- Welcome banner (shown on first landing with ?welcome=1) -->
+      <section id="loyalty-welcome" class="ws-card" style="display:none;margin-bottom:12px;">
+        <div style="display:flex;gap:12px;align-items:center;">
+          <div style="width:10px;height:10px;border-radius:9999px;background:#16a34a;"></div>
+          <div>
+            <strong>Welcome!</strong> Your loyalty account is active. Explore your balance, earned points, and withdrawals below.
+          </div>
+        </div>
+      </section>
+
       <!-- Program About -->
       <section class="ws-card" style="margin-bottom:12px;">
         <h2 style="margin:0 0 8px;">Staff Loyalty — About the Program</h2>
@@ -174,31 +185,51 @@
   <!-- scripts used elsewhere -->
   <script defer src="/js/auth.js"></script>
   <script defer src="/js/loyalty-offers.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const home = document.getElementById('wsHome');
-      const logout = document.getElementById('wsLogout');
-      if (home) home.addEventListener('click', () => location.href = '/index.html');
-      if (logout) logout.addEventListener('click', () => { try{localStorage.clear();}catch(_){} location.href='/index.html'; });
 
-      // simple tabs
-      const tabs = [
-        { btn:'tabLoyalty', pane:'paneLoyalty' },
-        { btn:'tabCoupons', pane:'paneCoupons' },
-        { btn:'tabReferrals', pane:'paneReferrals' }
-      ];
-      tabs.forEach(t => {
-        const b = document.getElementById(t.btn);
-        const p = document.getElementById(t.pane);
-        b?.addEventListener('click', () => {
-          tabs.forEach(x => {
-            document.getElementById(x.btn)?.classList.remove('active');
-            document.getElementById(x.pane).style.display = (x.pane === t.pane) ? '' : 'none';
+  <!-- Small, isolated welcome handler -->
+  <script>
+    (function(){
+      function showWelcome() {
+        var p = new URLSearchParams(window.location.search);
+        if (p.get("welcome") === "1") {
+          var card = document.getElementById("loyalty-welcome");
+          if (card) card.style.display = "";
+          // Clean the URL (no reload) so banner doesn't persist on refresh
+          p.delete("welcome");
+          var clean = window.location.pathname + (p.toString() ? "?" + p.toString() : "") + window.location.hash;
+          history.replaceState({}, "", clean);
+        }
+      }
+      // Tab wiring + basic nav
+      document.addEventListener('DOMContentLoaded', function () {
+        var home = document.getElementById('wsHome');
+        var logout = document.getElementById('wsLogout');
+        if (home) home.addEventListener('click', function(){ location.href = '/index.html'; });
+        if (logout) logout.addEventListener('click', function(){ try{localStorage.clear();}catch(_){} location.href='/index.html'; });
+
+        var tabs = [
+          { btn:'tabLoyalty', pane:'paneLoyalty' },
+          { btn:'tabCoupons', pane:'paneCoupons' },
+          { btn:'tabReferrals', pane:'paneReferrals' }
+        ];
+        tabs.forEach(function(t){
+          var b = document.getElementById(t.btn);
+          var p = document.getElementById(t.pane);
+          if (!b || !p) return;
+          b.addEventListener('click', function(){
+            tabs.forEach(function(x){
+              var bx = document.getElementById(x.btn);
+              var px = document.getElementById(x.pane);
+              if (bx) bx.classList.remove('active');
+              if (px) px.style.display = (x.pane === t.pane) ? '' : 'none';
+            });
+            b.classList.add('active');
           });
-          b.classList.add('active');
         });
+
+        showWelcome();
       });
-    });
+    })();
   </script>
   <div id="toast"></div>
 </body>

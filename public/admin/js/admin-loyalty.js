@@ -1195,22 +1195,39 @@ function wireManageModal(){
   }
 
   // Create Active Account
-  if (mCreate) {
-    mCreate.addEventListener("click", async () => {
-      setOut("");
-      if (!pickedUser?.id) { setOut("Pick a user first."); return; }
-      try {
-        mCreate.disabled = true;
-        const res = await apiPost("/api/admin/loyalty/accounts", { userId: pickedUser.id });
-        setOut(res?.message || "Account created.");
-        try { if (typeof loadAccounts === "function") loadAccounts({ resetPage:true }); } catch {}
-        await hydrateForUser({ id: pickedUser.id });
-      } catch (e) {
-        setOut(e.message || "Create failed");
-      } finally {
-        mCreate.disabled = false;
-      }
-    });
-  }
+  if (createBt){
+  createBt.addEventListener("click", async ()=>{
+    setOut("");
+    if (!pickedUser?.id) { setOut("Pick a user first."); return; }
+    try {
+      createBt.disabled = true;
+      const res = await apiPost("/api/admin/loyalty/accounts", { userId: pickedUser.id });
+
+      // NEW: show a short callout with a quick-link and a "copy" helper
+      const link = (res?.deepLink) || "/myaccount/offers.html?welcome=1";
+      setOut(`Account created. A confirmation email was queued.  `);
+
+      // optional quick actions
+      const a = document.createElement("a");
+      a.href = link; a.textContent = "Open Offers link"; a.target = "_blank"; a.rel="noopener";
+      out.appendChild(document.createTextNode(" "));
+      out.appendChild(a);
+
+      const cp = document.createElement("button");
+      cp.type="button"; cp.className="btn btn--small"; cp.style.marginLeft="8px";
+      cp.textContent="Copy link";
+      cp.onclick = async () => { try { await navigator.clipboard.writeText(link); toast("Link copied"); } catch{} };
+      out.appendChild(cp);
+
+      try { if (typeof loadAccounts === "function") loadAccounts({ resetPage:true }); } catch {}
+      await hydrateUser({ id: pickedUser.id }); // hides Create, fills meta/status
+    } catch (e) {
+      setOut(e.message || "Create failed");
+    } finally {
+      createBt.disabled = false;
+    }
+  });
+}
+
 }
 
