@@ -1135,6 +1135,9 @@ function wireManageModal(){
       accId.classList.add("input--readonly");
     }
     if (statusSel) statusSel.value = "Active"; // default while we load
+    if (extDate)  extDate.value  = "";      // ← add
+    if (eligDate) eligDate.value = "";      // ← add
+
     // Hide Create until we decide (no flicker)
     if (mCreate) { mCreate.style.display = "none"; mCreate.disabled = false; }
 
@@ -1244,12 +1247,13 @@ rows = rows.filter(r => String(r.user_id ?? r.userId) === String(u.id));
     const progName = prog?.name || "—";
     const minPts = prog?.minWithdrawPoints ?? prog?.min_withdraw_points ?? null;
 
-    let start, end, eligible;
+   let start, end, eligible;
 
-   if (acct) {
+  if (acct) {
   if (accId) { accId.value = String(acct.id); accId.readOnly = true; accId.classList.add("input--readonly"); }
   if (statusSel) statusSel.value = acct.status || "Active";
   if (extDate)   extDate.value = (acct.end_date || "").slice(0,10);
+  if (eligDate)  eligDate.value = (acct.eligible_from || "").slice(0,10);
   // has active account → hide Create
   if (mCreate) mCreate.style.display = "none";
 } else {
@@ -1260,7 +1264,18 @@ rows = rows.filter(r => String(r.user_id ?? r.userId) === String(u.id));
   // no active account → show Create
   if (mCreate) { mCreate.style.display = ""; mCreate.disabled = false; }
 }
-
+ // ---- NEW: feed the hint card with dates ----
+ if (acct) {
+   start    = (acct.start_date     || "").slice(0, 10);
+   end      = (acct.end_date       || "").slice(0, 10);
+   eligible = (acct.eligible_from  || "").slice(0, 10);
+ } else {
+   // derive defaults from Program (uses program’s duration + wait days)
+   const d = computeDatesFromProgram();
+   start = d.start;
+   end = d.end;
+   eligible = d.eligible;
+ }
 
     renderHints({ programName: progName, min: (minPts ?? "—"), start, end, eligible });
   }
@@ -1302,6 +1317,7 @@ rows = rows.filter(r => String(r.user_id ?? r.userId) === String(u.id));
   // Clear first to avoid showing a previous user’s account briefly
   clearManageAccountUI();
   if (extDate) extDate.value = "";
+  if (eligDate) eligDate.value = "";   // ← add
   if (u && u.id) hydrateForUser(u);
 });
 if (btn) btn.addEventListener("click", () => {
