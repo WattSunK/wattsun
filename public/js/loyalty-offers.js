@@ -15,6 +15,11 @@
   const show = (id) => { const n = qs(id); if (n) n.style.display = ''; };
   const hide = (id) => { const n = qs(id); if (n) n.style.display = 'none'; };
 
+  function setLoadState(text) {
+    const n = el('loadState');
+    if (n) n.textContent = text;
+  }
+
   function startLoading() {
     show('offersSkeleton');
     hide('offersError');
@@ -22,6 +27,7 @@
     hide('accountCard');
     hide('withdrawCard');
     hide('historyCard');
+    setLoadState('Loading…');
   }
 
   function showError(msg) {
@@ -29,6 +35,7 @@
     const m = qs('offersErrorMsg');
     if (m) m.textContent = msg || 'Please try again.';
     show('offersError');
+    setLoadState('Error loading data');
   }
 
   function showEmpty() {
@@ -38,6 +45,7 @@
     hide('accountCard');
     hide('withdrawCard');
     hide('historyCard');
+    setLoadState('No account yet');
   }
 
   function showAccount() {
@@ -45,6 +53,7 @@
     hide('offersError');
     hide('offersEmpty');
     show('accountCard');
+    setLoadState('Up to date');
     // withdraw/history toggled below after we render KPIs
   }
 
@@ -61,7 +70,6 @@
       body: opts.body ? JSON.stringify(opts.body) : undefined,
       credentials: 'include'
     });
-    // Try to parse JSON; tolerate empty bodies on errors
     let data = {};
     try { data = await res.json(); } catch { data = {}; }
     if (!res.ok || data.success === false) {
@@ -104,7 +112,6 @@
     const est = el('estimateEUR');
     if (est) est.textContent = `€${fmt(points * eurPerPoint)}`;
 
-    // CTA enablement rules
     const today = new Date().toISOString().slice(0, 10);
     const minPts = (program && program.minWithdrawPoints) || 100;
     const eligibleFrom = (account && account.eligible_from) || '9999-12-31';
@@ -122,7 +129,6 @@
 
   // ----- Core loaders -----
   async function loadMe() {
-    // Fetch latest account/program
     const data = await api('/api/loyalty/me');
     program = data.program || null;
     account = data.account || null;
@@ -135,7 +141,7 @@
     // 1) Program missing → error state
     if (!program) {
       showError('Program is currently unavailable.');
-      // Clear visible KPI values to be safe if user navigated back
+      // Clear visible KPI values if user navigated back
       ['pointsBalance','eurBalance','earnedPts','earnedEur','penaltyPts','penaltyEur','paidPts','paidEur','rankText','dateInfo']
         .forEach(id => { const n = el(id); if (!n) return; n.textContent = (id.includes('Eur') || id === 'eurBalance') ? '€—' : '—'; });
       if (enrollBtn) enrollBtn.style.display = 'none';
@@ -250,7 +256,7 @@
     el('withdrawPoints')?.addEventListener('input', updateEstimate);
     el('withdrawBtn')?.addEventListener('click', doWithdraw);
 
-    // First load with skeleton
+    // First load with skeleton + clear state
     startLoading();
     loadMe().catch((e) => showError(e.message));
 
@@ -260,7 +266,7 @@
       loadMe().catch((e) => showError(e.message));
     });
 
-    // Refresh on tab focus (silent; no skeleton)
+    // Refresh on tab focus (silent)
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         loadMe().catch(() => {});
