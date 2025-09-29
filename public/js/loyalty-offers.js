@@ -49,12 +49,15 @@
   }
 
   function showAccount() {
-    hide('offersSkeleton');
+    // Force-hide skeleton and force-show card (not only via helpers)
+    const sk = el('offersSkeleton');
+    if (sk) sk.style.display = 'none';
+    const card = el('accountCard');
+    if (card) card.style.display = 'block';
+
     hide('offersError');
     hide('offersEmpty');
-    show('accountCard', 'block');
     setLoadState('Up to date');
-    // withdraw/history toggled below after we render KPIs
   }
 
   // ----- State -----
@@ -129,10 +132,13 @@
 
   // ----- Core loaders -----
   async function loadMe() {
+    console.debug('[offers] loadMe() start');
     const data = await api('/api/loyalty/me');
     program = data.program || null;
     account = data.account || null;
     rank = (data.rank !== undefined) ? data.rank : null;
+
+    console.debug('[offers] api/loyalty/me data:', data);
 
     const enrollBtn = el('enrollBtn');
     const withdrawCard = el('withdrawCard');
@@ -161,33 +167,35 @@
     }
 
     // 4) Account present → render KPIs, then show account view
-    showAccount();
-    if (enrollBtn) enrollBtn.style.display = 'none';
-
     const epp = program.eurPerPoint || 1;
 
-    el('pointsBalance').textContent = fmt(account.points_balance);
-    el('eurBalance').textContent = `€${fmt((account.points_balance || 0) * epp)}`;
+    el('pointsBalance') && (el('pointsBalance').textContent = fmt(account.points_balance));
+    el('eurBalance') && (el('eurBalance').textContent = `€${fmt((account.points_balance || 0) * epp)}`);
 
-    el('earnedPts').textContent = fmt(account.total_earned || 0);
-    el('earnedEur').textContent = euro(account.total_earned || 0);
+    el('earnedPts') && (el('earnedPts').textContent = fmt(account.total_earned || 0));
+    el('earnedEur') && (el('earnedEur').textContent = euro(account.total_earned || 0));
 
-    el('penaltyPts').textContent = fmt(account.total_penalty || 0);
-    el('penaltyEur').textContent = euro(account.total_penalty || 0);
+    el('penaltyPts') && (el('penaltyPts').textContent = fmt(account.total_penalty || 0));
+    el('penaltyEur') && (el('penaltyEur').textContent = euro(account.total_penalty || 0));
 
-    el('paidPts').textContent = fmt(account.total_paid || 0);
-    el('paidEur').textContent = euro(account.total_paid || 0);
+    el('paidPts') && (el('paidPts').textContent = fmt(account.total_paid || 0));
+    el('paidEur') && (el('paidEur').textContent = euro(account.total_paid || 0));
 
     setStatusTag(account.status);
-    el('dateInfo').textContent = `Start ${account.start_date} • Eligible ${account.eligible_from} • End ${account.end_date}`;
-    el('rankText').textContent = (rank == null) ? '—' : `#${fmt(rank)}`;
+    const di = el('dateInfo');
+    if (di) di.textContent = `Start ${account.start_date} • Eligible ${account.eligible_from} • End ${account.end_date}`;
+    const rk = el('rankText');
+    if (rk) rk.textContent = (rank == null) ? '—' : `#${fmt(rank)}`;
 
-    // Reveal secondary sections
+    showAccount(); // force reveal KPI card now
+    if (enrollBtn) enrollBtn.style.display = 'none';
+
     if (withdrawCard) withdrawCard.style.display = 'block';
     if (historyCard) historyCard.style.display = 'block';
 
     await loadWithdrawals();
     updateEstimate();
+    console.debug('[offers] loadMe() done');
   }
 
   async function loadWithdrawals() {
@@ -259,7 +267,18 @@
 
     // First load with skeleton + clear state
     startLoading();
-    loadMe().catch((e) => showError(e.message));
+
+    // Failsafe: if nothing changed after 5s, flip to a visible error
+    const failsafe = setTimeout(() => {
+      const sk = el('offersSkeleton');
+      if (sk && sk.style.display !== 'none') {
+        showError('Taking longer than usual to load. Please retry.');
+      }
+    }, 5000);
+
+    loadMe()
+      .then(() => clearTimeout(failsafe))
+      .catch((e) => { clearTimeout(failsafe); showError(e.message); });
 
     // Retry from error card
     qs('offersRetry')?.addEventListener('click', () => {
