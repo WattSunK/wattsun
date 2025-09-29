@@ -678,26 +678,35 @@ router.post("/extend", async (req, res) => {
   }
 });
 // PATCH /api/admin/loyalty/accounts/:id/eligible-from
-router.patch("/loyalty/accounts/:id/eligible-from", requireAdmin, async (req, res) => {
+router.patch("/accounts/:id/eligible-from", requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const { eligible_from } = req.body; // expect 'YYYY-MM-DD'
-    if (!id || !eligible_from) {
-      return res.status(400).json({ ok: false, error: "Missing id or eligible_from" });
+    let { eligible_from } = req.body; // expect 'YYYY-MM-DD'
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"Missing id" } });
     }
-    await withDb(db => run(db,
+    if (!eligible_from || !/^\d{4}-\d{2}-\d{2}$/.test(String(eligible_from))) {
+      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"eligible_from must be YYYY-MM-DD" } });
+    }
+
+    await withDb(db => run(
+      db,
       `UPDATE loyalty_accounts
          SET eligible_from = ?, updated_at = datetime('now','localtime')
        WHERE id = ?`,
       [eligible_from, id]
     ));
-    const row = await withDb(db => get(db, `SELECT id, eligible_from FROM loyalty_accounts WHERE id=?`, [id]));
-    res.json({ ok: true, account: row });
+
+    const row = await withDb(db => get(db,
+      `SELECT id, eligible_from FROM loyalty_accounts WHERE id=?`, [id]
+    ));
+    res.json({ success:true, account: row });
   } catch (e) {
     console.error("[admin/loyalty/accounts/:id/eligible-from]", e);
-    res.status(500).json({ ok: false, error: "SERVER_ERROR" });
+    res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Failed to update eligible_from" } });
   }
 });
+
 // PATCH /api/admin/loyalty/accounts/:id/end-date
 router.patch("/accounts/:id/end-date", requireAdmin, async (req, res) => {
   try {

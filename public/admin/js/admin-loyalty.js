@@ -1054,6 +1054,7 @@ function wireManageModal(){
 
   const statusSel= document.getElementById("mStatus") || document.querySelector("#accManageDialog select");
   const extDate  = document.getElementById("mExtendDate"); // NEW: date field
+  const eligDate = document.getElementById("mEligibleFrom");
   const extNote  = document.getElementById("mExtendNote")   || document.querySelector("#accManageDialog input[placeholder='reason or note']");
   const penPts   = document.getElementById("mPenaltyPoints")|| document.querySelector("#accManageDialog input[placeholder='e.g. 10']");
   const penNote  = document.getElementById("mPenaltyNote")  || document.querySelector("#accManageDialog input[placeholder='reason for penalty']");
@@ -1089,6 +1090,23 @@ function wireManageModal(){
         const j = await r.json().catch(() => ({}));
         if (!r.ok || j?.success === false) {
           throw new Error(j?.error?.message || `HTTP ${r.status}`);
+        }
+      }
+      // PATCH eligible_from if provided
+      const elig = (eligDate && eligDate.value) ? eligDate.value.trim() : "";
+      if (elig && !/^\d{4}-\d{2}-\d{2}$/.test(elig)) {
+        return setOut && setOut("Eligible From must be YYYY-MM-DD.");
+      }
+      if (elig) {
+        const r2 = await fetch(`/api/admin/loyalty/accounts/${id}/eligible-from`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ eligible_from: elig })
+        });
+        const j2 = await r2.json().catch(() => ({}));
+        if (!r2.ok || j2?.success === false) {
+          throw new Error(j2?.error?.message || `HTTP ${r2.status}`);
         }
       }
 
@@ -1238,6 +1256,7 @@ rows = rows.filter(r => String(r.user_id ?? r.userId) === String(u.id));
   if (accId) { accId.value = ""; accId.readOnly = true; accId.classList.add("input--readonly"); }
   if (statusSel) statusSel.value = "Active";
   if (extDate)   extDate.value = ""; // nothing selected
+  if (eligDate)  eligDate.value = "";
   // no active account → show Create
   if (mCreate) { mCreate.style.display = ""; mCreate.disabled = false; }
 }
