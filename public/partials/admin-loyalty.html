@@ -158,6 +158,52 @@
 </div>
 </footer>
 </div>
+<style>
+  /* Make the dialog wider and use the available height */
+  #accManageDialog {
+    width: min(100vw, 960px);
+    padding: 0;
+  }
+  /* Form becomes a vertical flex container; the scroll lives inside .modal-body */
+  #accManageDialog form {
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+  }
+  /* Two-column responsive grid for sections */
+  #accManageDialog .modal-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;      /* 2 columns */
+    gap: 16px;
+    overflow: auto;                      /* internal scroll if content overflows */
+    padding: 12px 16px;
+  }
+  /* Optional utility: make wide sections span both columns */
+  #accManageDialog .span-2 {
+    grid-column: 1 / -1;
+  }
+  /* Normalize section spacing inside grid */
+  #accManageDialog .section { margin: 0; }
+  #accManageDialog .section .row { margin: 0; }
+  /* Sticky footer so buttons remain visible; removes need for page scroll */
+  #accManageDialog .modal-actions {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    padding: 12px 16px;
+    border-top: 1px solid #eee;
+    margin-top: 0;
+  }
+  /* Inputs expand nicely */
+  #accManageDialog .input,
+  #accManageDialog input[type="date"],
+  #accManageDialog input[type="text"],
+  #accManageDialog select,
+  #accManageDialog textarea {
+    width: 100%;
+    box-sizing: border-box;
+  }
+</style>
 <!-- Manage dialog (unchanged) -->
 <dialog class="modal modal--lg" id="accManageDialog">
 <form class="card modal__sheet" method="dialog">
