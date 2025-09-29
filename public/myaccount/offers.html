@@ -45,18 +45,6 @@
       <button class="tab" id="tabReferrals" role="tab" aria-selected="false">Referrals</button>
     </div>
 
-    <!-- ===== Loyalty Pane ===== -->
-    <section id="paneLoyalty">
-      <!-- Loading skeleton -->
-<section class="ws-card" id="offersSkeleton" style="margin-bottom:12px;">
-  <div class="muted">Loading your loyalty info…</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:8px;">
-    <div class="kpi"><div class="muted">Balance</div><div>████</div></div>
-    <div class="kpi"><div class="muted">Earned</div><div>████</div></div>
-    <div class="kpi"><div class="muted">Penalty</div><div>████</div></div>
-    <div class="kpi"><div class="muted">Paid</div><div>████</div></div>
-  </div>
-</section>
 
 <!-- Error fallback -->
 <section class="ws-card" id="offersError" style="display:none;margin-bottom:12px;">
@@ -105,7 +93,18 @@
           </div>
         </div>
       </section>
-
+          <!-- ===== Loyalty Pane ===== -->
+          <section id="paneLoyalty">
+            <!-- Loading skeleton -->
+      <section class="ws-card" id="offersSkeleton" style="margin-bottom:12px;">
+        <div class="muted">Loading your loyalty info…</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:8px;">
+          <div class="kpi"><div class="muted">Balance</div><div>████</div></div>
+          <div class="kpi"><div class="muted">Earned</div><div>████</div></div>
+          <div class="kpi"><div class="muted">Penalty</div><div>████</div></div>
+          <div class="kpi"><div class="muted">Paid</div><div>████</div></div>
+        </div>
+      </section>
       <!-- KPI Row -->
      <section class="ws-card" id="accountCard" style="margin-bottom:12px; display:none;">
         <div class="kpis">
