@@ -148,6 +148,20 @@ function normalizeEligible(val) {
   }
   return [];
 }
+// ---- minimal admin guard (only Admin users allowed) ----------
+function requireAdmin(req, res, next) {
+  const u = req.session && req.session.user;
+  if (!u) {
+    return res.status(401).json({ success:false, error:{ code:"UNAUTHORIZED" } });
+  }
+  // Accept various fields you might use to label admins
+  const type = String(u.type || u.role || "").toLowerCase();
+  const isAdmin = type === "admin" || u.isAdmin === true || u.is_admin === 1;
+  if (!isAdmin) {
+    return res.status(403).json({ success:false, error:{ code:"FORBIDDEN" } });
+  }
+  next();
+}
 
 // Merge program rowset from JOIN into a single object
 async function getProgramByCode(code = "STAFF") {
