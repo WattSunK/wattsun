@@ -1,6 +1,7 @@
 // routes/loyalty-withdrawals.js
-// Member withdrawals endpoints: request + list
-// Requires session auth and Staff eligibility. Uses ADR envelopes.
+// Customer withdrawals endpoints (request + list)
+// SECURITY: user-scoped (requireUser). Never accept accountId from client.
+// ADR-001 envelopes: { success:true, ... } / { success:false, error:{ code, message } }
 
 const express = require("express");
 const router = express.Router();
@@ -10,186 +11,151 @@ router.use(express.urlencoded({ extended: true }));
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 
-// ---- DB ------------------------------------------------------
+// ---- Auth guard ------------------------------------------------------------
+let requireUser;
+try {
+  // Prefer shared auth guard if available in your codebase
+  ({ requireUser } = require("./_auth"));
+} catch (e) {
+  // Fallback (keeps this file drop-in safe)
+  requireUser = function requireUser(req, res, next) {
+    if (!req || !req.user || !req.user.id) {
+      return res.status(401).json({ success:false, error:{ code:"UNAUTHORIZED", message:"Login required" } });
+    }
+    next();
+  };
+}
+
+// ---- DB --------------------------------------------------------------------
 const DB_PATH = process.env.DB_PATH_USERS || process.env.SQLITE_DB || path.join(process.cwd(), "data/dev/wattsun.dev.db");
 const db = new sqlite3.Database(DB_PATH);
 
-// ---- helpers -------------------------------------------------
-function requireStaff(req, res, next) {
-  const u = req?.session?.user;
-  if (!u || !/Staff/i.test(String(u.type || u.role || ""))) {
-    return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Staff only" } });
+// Small Promise helpers
+const get = (sql, params=[]) => new Promise((resolve, reject) => {
+  db.get(sql, params, (err, row) => err ? reject(err) : resolve(row || null));
+});
+const all = (sql, params=[]) => new Promise((resolve, reject) => {
+  db.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows || []));
+});
+const run = (sql, params=[]) => new Promise((resolve, reject) => {
+  db.run(sql, params, function(err) { err ? reject(err) : resolve(this); });
+});
+
+// ---- Utils -----------------------------------------------------------------
+function bad(res, code, message, status=400) {
+  return res.status(status).json({ success:false, error:{ code, message } });
+}
+
+async function findActiveAccountForUser(userId) {
+  // Prefer an active account if you track status; else latest by id
+  const row = await get(
+    `SELECT a.*
+       FROM loyalty_accounts a
+      WHERE a.user_id=?
+      ORDER BY (CASE WHEN a.status='Active' THEN 0 ELSE 1 END), a.id DESC
+      LIMIT 1`,
+    [userId]
+  );
+  return row;
+}
+
+async function liveAvailablePoints(accountId) {
+  // Compute from ledger for integrity; fallback to points_balance if ledger absent.
+  try {
+    const row = await get(`SELECT COALESCE(SUM(points_delta),0) AS net FROM loyalty_ledger WHERE account_id=?`, [accountId]);
+    return Number(row?.net || 0);
+  } catch (e) {
+    const row = await get(`SELECT COALESCE(points_balance,0) AS bal FROM loyalty_accounts WHERE id=?`, [accountId]);
+    return Number(row?.bal || 0);
   }
-  next();
 }
 
-function getProgramSettings(code = "STAFF") {
-  return new Promise((resolve, reject) => {
-    db.all(
-      `SELECT p.id as program_id, p.code, p.name, p.active, s.key, s.value
-       FROM loyalty_programs p
-       LEFT JOIN loyalty_program_settings s ON s.program_id = p.id
-       WHERE p.code = ?`,
-      [code],
-      (err, rows) => {
-        if (err) return reject(err);
-        if (!rows || rows.length === 0) return resolve(null);
-        const base = {
-          programId: rows[0].program_id,
-          code: rows[0].code,
-          name: rows[0].name,
-          active: !!rows[0].active,
-          eligibleUserTypes: ["Staff"],
-          durationMonths: 6,
-          withdrawWaitDays: 90,
-          minWithdrawPoints: 100,
-          eurPerPoint: 1,
-          signupBonus: 100,
-        };
-        for (const r of rows) {
-          if (!r || !r.key) continue;
-          let v = r.value;
-          try { if (/^\s*(\[|\{)/.test(v)) v = JSON.parse(v); } catch (_) {}
-          if (["durationMonths","withdrawWaitDays","minWithdrawPoints","eurPerPoint","signupBonus"].includes(r.key)) {
-            const n = parseInt(v, 10);
-            if (Number.isFinite(n)) v = n;
-          }
-          base[r.key] = v;
-        }
-        resolve(base);
-      }
-    );
-  });
+async function onePendingGuard(accountId) {
+  // Optional policy: allow only one Pending at a time
+  const r = await get(`SELECT COUNT(1) AS c FROM loyalty_withdrawals WHERE account_id=? AND status='Pending'`, [accountId]);
+  return Number(r?.c || 0) === 0;
 }
 
-function sqlGetAccount(programId, userId) {
-  return new Promise((resolve, reject) => {
-    db.get(`SELECT * FROM loyalty_accounts WHERE program_id=? AND user_id=?`, [programId, userId], (err, row) => err ? reject(err) : resolve(row || null));
-  });
-}
-
-function sqlInsertWithdrawal(accountId, pts, eur) {
-  return new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO loyalty_withdrawals (account_id, requested_pts, requested_eur, status, requested_at)
-       VALUES (?,?,?, 'Pending', datetime('now'))`,
-      [accountId, pts, eur],
-      function (err) { if (err) return reject(err); resolve({ id: this.lastID }); }
-    );
-  });
-}
-
-function sqlListWithdrawals(accountId, limit = 50) {
-  return new Promise((resolve, reject) => {
-    db.all(
-      `SELECT id, requested_pts, requested_eur, status, requested_at, decided_at, paid_at, payout_ref
-       FROM loyalty_withdrawals
-       WHERE account_id=?
-       ORDER BY id DESC
-       LIMIT ?`,
-      [accountId, limit],
-      (err, rows) => err ? reject(err) : resolve(rows || [])
-    );
-  });
-}
-
-// ---- routes --------------------------------------------------
+// ---- Routes ----------------------------------------------------------------
+// All endpoints in this router require a logged-in user
+router.use(requireUser);
 
 // POST /api/loyalty/withdraw
-router.post("/withdraw", requireStaff, async (req, res) => {
-  const user = req.session.user;
+// Body: { points:number, note?:string }   (accountId derived server-side)
+router.post("/withdraw", async (req, res) => {
+  const userId = req.user.id;
+  const points = Number.parseInt(req.body?.points, 10);
+  const note = (req.body?.note || "").toString().slice(0, 500);
+  const idem = (req.headers["idempotency-key"] || "").toString().slice(0, 80);
+
+  if (!Number.isFinite(points) || points <= 0) {
+    return bad(res, "INVALID_POINTS", "Points must be a positive integer");
+  }
+
   try {
-    const program = await getProgramSettings("STAFF");
-    if (!program || !program.active) {
-      return res.status(400).json({ success:false, error:{ code:"PROGRAM_INACTIVE", message:"Program not active" } });
+    const account = await findActiveAccountForUser(userId);
+    if (!account) return bad(res, "NO_ACCOUNT", "No active loyalty account");
+
+    // Optional: Idempotency by header (lightweight implementation)
+    if (idem) {
+      const dup = await get(
+        `SELECT id, status
+           FROM loyalty_withdrawals
+          WHERE account_id=? AND note LIKE ?
+          ORDER BY id DESC LIMIT 1`,
+        [account.id, `%[idem:${idem}]%`]
+      );
+      if (dup) {
+        return res.json({ success:true, withdrawal:{ id: dup.id, status: dup.status } });
+      }
     }
 
-    const acct = await sqlGetAccount(program.programId, user.id);
-    if (!acct) return res.status(400).json({ success:false, error:{ code:"NOT_ENROLLED", message:"Enroll first" } });
-    if (acct.status !== "Active") {
-      return res.status(400).json({ success:false, error:{ code:"ACCOUNT_NOT_ACTIVE", message:"Account must be Active" } });
-    }
+    // Live balance & policy
+    const available = await liveAvailablePoints(account.id);
+    if (points > available) return bad(res, "INSUFFICIENT_POINTS", "Not enough points");
 
-    const today = new Date().toISOString().slice(0,10);
-    if (today < acct.eligible_from) {
-      return res.status(400).json({ success:false, error:{ code:"NOT_ELIGIBLE_YET", message:`Withdrawals allowed from ${acct.eligible_from}` } });
-    }
+    // One-pending policy (optional; comment out if you allow multiple pending)
+    const okPending = await onePendingGuard(account.id);
+    if (!okPending) return bad(res, "PENDING_EXISTS", "You already have a pending withdrawal");
 
-    const reqPoints = parseInt((req.body && req.body.points) || "0", 10);
-    if (!Number.isFinite(reqPoints) || reqPoints <= 0) {
-      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"points must be a positive integer" } });
-    }
+    // Insert new request (requested_eur left NULL – compute elsewhere if needed)
+    const stampedNote = idem ? `${note} [idem:${idem}]` : note;
+    const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+    const insert = await run(
+      `INSERT INTO loyalty_withdrawals (account_id, requested_pts, status, requested_at, note)
+       VALUES (?, ?, 'Pending', ?, ?)`,
+      [account.id, points, now, stampedNote]
+    );
 
-    const minPts = program.minWithdrawPoints || 100;
-    if (reqPoints < minPts) {
-      return res.status(400).json({ success:false, error:{ code:"BELOW_MINIMUM", message:`Minimum withdrawal is ${minPts} points` } });
-    }
-
-    if (reqPoints > acct.points_balance) {
-      return res.status(400).json({ success:false, error:{ code:"INSUFFICIENT_POINTS", message:"Not enough points" } });
-    }
-
-    const eurPerPoint = program.eurPerPoint || 1;
-    const eur = reqPoints * eurPerPoint;
-
-    const { id: wid } = await sqlInsertWithdrawal(acct.id, reqPoints, eur);
-    const list = await sqlListWithdrawals(acct.id);
-
-    return res.json({ success:true, withdrawal: { id: wid, points: reqPoints, eur }, withdrawals: list });
+    const id = insert.lastID;
+    return res.json({ success:true, withdrawal:{ id, status: "Pending" } });
   } catch (err) {
     console.error("[loyalty/withdraw]", err);
-    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to create withdrawal" } });
+    return bad(res, "SERVER_ERROR", "Unable to request withdrawal", 500);
   }
 });
 
-// GET /api/loyalty/withdrawals
-router.get("/withdrawals", requireStaff, async (req, res) => {
-  const user = req.session.user;
+// GET /api/loyalty/withdrawals  (list my withdrawals)
+router.get("/withdrawals", async (req, res) => {
+  const userId = req.user.id;
   try {
-    // Resolve user's account; fall back gracefully if program row is missing
-    let accountId = null;
+    const account = await findActiveAccountForUser(userId);
+    if (!account) return res.json({ success:true, withdrawals: [] });
 
-    // Try via program settings (keeps parity with existing code)
-    const program = await getProgramSettings("STAFF");
-    if (program) {
-      const acct = await sqlGetAccount(program.programId, user.id);
-      if (acct) accountId = acct.id;
-    }
+    const rows = await all(
+      `SELECT id, requested_at, requested_pts, requested_eur, status, note
+         FROM loyalty_withdrawals
+        WHERE account_id=?
+        ORDER BY id DESC
+        LIMIT 200`,
+      [account.id]
+    );
 
-    // Fallback: most recent account by user (handles edge cases)
-    if (!accountId) {
-      accountId = await new Promise((resolve, reject) => {
-        db.get(
-          `SELECT id FROM loyalty_accounts WHERE user_id=? ORDER BY id DESC LIMIT 1`,
-          [user.id],
-          (err, row) => (err ? reject(err) : resolve(row ? row.id : null))
-        );
-      });
-    }
-
-    if (!accountId) return res.json({ success: true, withdrawals: [] });
-
-    // IMPORTANT: return full history (no status filter)
-    const rows = await new Promise((resolve, reject) => {
-      db.all(
-        `SELECT id, requested_pts, requested_eur, status,
-                requested_at, decided_at, paid_at, payout_ref
-           FROM loyalty_withdrawals
-          WHERE account_id=?
-          ORDER BY id DESC`,
-        [accountId],
-        (err, list) => (err ? reject(err) : resolve(list || []))
-      );
-    });
-
-    return res.json({ success: true, withdrawals: rows });
+    return res.json({ success:true, withdrawals: rows });
   } catch (err) {
     console.error("[loyalty/withdrawals]", err);
-    return res
-      .status(500)
-      .json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to load withdrawals" } });
+    return bad(res, "SERVER_ERROR", "Unable to load withdrawals", 500);
   }
 });
-
 
 module.exports = router;

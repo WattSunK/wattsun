@@ -101,8 +101,8 @@ app.use("/api/checkout", require("./routes/checkout"));
 app.use("/api/myorders", require("./routes/myorders"));
 app.use("/api/items", require("./routes/items")(db));
 app.use("/api/categories", require("./routes/categories")(db));
-app.use("/api/loyalty", require("./routes/loyalty")); // Staff-only enroll + me
-app.use("/api/loyalty", require("./routes/loyalty-withdrawals"));
+app.use("/api/loyalty", require("./routes/loyalty-withdrawals")); // Customer withdrawals
+app.use("/api/loyalty", require("./routes/loyalty"));             // Staff-only enroll + me
 
 // Gate all /api/admin/* below with one line:
 app.use("/api/admin", requireAdmin);
