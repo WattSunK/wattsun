@@ -1,236 +1,114 @@
-#!/usr/bin/env node
 /**
- * Loyalty Daily Accrual (idempotent) + resilient Ledger Audit
+ * scripts/loyalty_daily_accrual.js
  *
- * - Inserts 1 row per Active account per local day into loyalty_daily_log.
- * - Reads points from loyalty_program_settings key 'dailyAccrualPoints' (value_int or value). Fallback = 1.
- * - UNIQUE(account_id, accrual_date) prevents duplicates.
- * - On first insert, increments points_balance + total_earned in loyalty_accounts.
- * - Uses local date (Europe/Paris via SQLite 'localtime').
- * - If table `loyalty_ledger` exists, writes an audit row, with automatic column detection:
- *     account_id:     required
- *     points column:  prefers 'points' else 'amount' else 'points_delta'
- *     kind column:    prefers 'kind' else 'type' else skipped
- *     time column:    prefers 'created_at' else 'timestamp'/'ts' else skipped (rely on default)
+ * Single source of truth: write DAILY accruals to loyalty_ledger only.
+ * No direct writes to loyalty_accounts. Triggers will recompute mirrors.
+ *
+ * Idempotency: relies on unique index:
+ *   CREATE UNIQUE INDEX IF NOT EXISTS uq_ll_daily_once
+ *     ON loyalty_ledger(account_id, kind, date(created_at))
+ *     WHERE kind='daily';
+ *
+ * Running:
+ *   node scripts/loyalty_daily_accrual.js
  */
 
-const fs = require('fs');
-const path = require('path');
-require('dotenv').config();
+const path = require("path");
+const sqlite3 = require("sqlite3").verbose();
 
-const ROOT = process.cwd();
-const DB =
-  process.env.SQLITE_MAIN ||
-  process.env.SQLITE_DB   ||
-  path.join(ROOT, 'data', 'dev', 'wattsun.dev.db');
+function dbPath() {
+  const ROOT = process.env.ROOT || process.cwd();
+  // Keep using unified dev DB path unless overridden
+  return process.env.SQLITE_DB || process.env.DB_PATH_USERS || path.join(ROOT, "data/dev/wattsun.dev.db");
+}
+function openDb() { return new sqlite3.Database(dbPath()); }
 
-let Better;
-try { Better = require('better-sqlite3'); } catch { Better = null; }
-const mode = Better ? 'better' : 'sqlite3';
-
-const SQL = {
-  ensureIndex: `
-    CREATE UNIQUE INDEX IF NOT EXISTS ux_loy_daily_account_date
-    ON loyalty_daily_log(account_id, accrual_date);
-  `,
-  nowDate: `SELECT DATE('now','localtime') AS d;`,
-  dailyPoints: `
-    SELECT
-      COALESCE(value_int,
-               CASE WHEN CAST(value AS INTEGER) IS NOT NULL
-                    THEN CAST(value AS INTEGER) END) AS pts
-    FROM loyalty_program_settings
-    WHERE key='dailyAccrualPoints'
-    ORDER BY updated_at DESC
-    LIMIT 1;
-  `,
-  activeAccounts: `
-    SELECT id AS account_id, start_date, duration_months
-    FROM loyalty_accounts
-    WHERE status='Active';
-  `,
-  insertDaily: `
-    INSERT OR IGNORE INTO loyalty_daily_log (account_id, accrual_points, accrual_date)
-    VALUES (?, ?, DATE('now','localtime'));
-  `,
-  bumpAccount: `
-    UPDATE loyalty_accounts
-    SET points_balance = points_balance + ?,
-        total_earned   = total_earned   + ?,
-        updated_at     = datetime('now','localtime')
-    WHERE id = ?;
-  `,
-  hasLedger: `
-    SELECT 1 AS ok
-    FROM sqlite_master
-    WHERE type='table' AND name='loyalty_ledger'
-    LIMIT 1;
-  `,
-  ledgerCols: `
-    SELECT name
-    FROM pragma_table_info('loyalty_ledger');
-  `,
-};
-
-function pick(colNames, candidates) {
-  for (const c of candidates) if (colNames.has(c)) return c;
-  return null;
+function all(db, sql, p = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, p, (err, rows) => (err ? reject(err) : resolve(rows || [])));
+  });
+}
+function run(db, sql, p = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, p, function (err) {
+      if (err) return reject(err);
+      resolve(this.changes || 0);
+    });
+  });
 }
 
 (async function main() {
-  console.log('[loyalty_daily_accrual] DB =', DB);
+  const db = openDb();
+  const start = Date.now();
+  const todayLocal = new Date().toISOString().slice(0, 10);
 
-  if (mode === 'better') {
-    const db = new Better(DB);
-    try {
-      const accrualDate = db.prepare(SQL.nowDate).get().d;
-      console.log('[loyalty_daily_accrual] accrual_date =', accrualDate);
+  const head = (msg) => console.log(`[loyalty_daily_accrual] ${msg}`);
 
-      db.exec(SQL.ensureIndex);
+  try {
+    head(`DB = ${dbPath()}`);
+    head(`accrual_date = ${todayLocal}`);
 
-      const row = db.prepare(SQL.dailyPoints).get();
-      const dailyPoints = (row && Number.isFinite(row.pts)) ? Number(row.pts) : 1;
-      console.log('[loyalty_daily_accrual] dailyAccrualPoints =', dailyPoints);
+    // 1) Eligible accounts (status Active and within (start_date..end_date] if present)
+    const accounts = await all(
+      db,
+      `
+      SELECT id
+      FROM loyalty_accounts
+      WHERE status='Active'
+        AND (
+              -- if both dates present, restrict to window
+              (start_date IS NOT NULL AND end_date IS NOT NULL AND date('now','localtime') BETWEEN date(start_date) AND date(end_date))
+              OR
+              -- if only start_date present
+              (start_date IS NOT NULL AND end_date IS NULL AND date('now','localtime') >= date(start_date))
+              OR
+              -- if only end_date present
+              (start_date IS NULL AND end_date IS NOT NULL AND date('now','localtime') <= date(end_date))
+              OR
+              -- if none present, just Active is enough
+              (start_date IS NULL AND end_date IS NULL)
+            )
+      `
+    );
 
-      const accounts = db.prepare(SQL.activeAccounts).all();
-      console.log('[loyalty_daily_accrual] Active accounts =', accounts.length);
+    head(`eligible_accounts = ${accounts.length}`);
 
-      const insDaily = db.prepare(SQL.insertDaily);
-      const bumpAcc  = db.prepare(SQL.bumpAccount);
+    // 2) Insert-or-ignore daily rows to ledger (no account math!)
+    let inserted = 0, skipped = 0, errors = 0;
 
-      // Detect ledger schema
-      let ledgerInsert = null;
-      const hasLedger = !!db.prepare(SQL.hasLedger).get();
-      if (hasLedger) {
-        const cols = db.prepare(SQL.ledgerCols).all().map(r => r.name);
-        const set = new Set(cols);
-        const colAccount = pick(set, ['account_id']);
-        const colPoints  = pick(set, ['points','amount','points_delta']);
-        const colKind    = pick(set, ['kind','type']);
-        const colTime    = pick(set, ['created_at','timestamp','ts']);
+    for (const row of accounts) {
+      const accountId = row.id;
 
-        if (!colAccount || !colPoints) {
-          console.log('[loyalty_daily_accrual] ledger present but missing required columns (account_id/points-like). Skipping audit inserts.');
+      try {
+        // INSERT OR IGNORE avoids duplicate for same account/day via uq_ll_daily_once
+        const changes = await run(
+          db,
+          `
+          INSERT OR IGNORE INTO loyalty_ledger(account_id, kind, points_delta, note, created_at)
+          VALUES (?, 'daily', 1, NULL, datetime('now','localtime'))
+          `,
+          [accountId]
+        );
+
+        if (changes > 0) {
+          inserted += 1;
         } else {
-          // Build dynamic insert
-          const colsList = [colAccount, colPoints];
-          const valsList = ['?', '?'];
-          if (colKind) { colsList.push(colKind); valsList.push("'daily'"); }
-          if (colTime) { colsList.push(colTime); valsList.push("datetime('now','localtime')"); }
-          const sql = `INSERT INTO loyalty_ledger (${colsList.join(', ')}) VALUES (${valsList.join(', ')});`;
-          ledgerInsert = db.prepare(sql);
-          console.log('[loyalty_daily_accrual] ledger insert prepared:', sql);
+          skipped += 1; // already had a daily today (guard worked)
         }
-      } else {
-        console.log('[loyalty_daily_accrual] loyalty_ledger not found — skipping audit inserts (ok).');
+      } catch (e) {
+        errors += 1;
+        console.error(`[loyalty_daily_accrual] account ${accountId} -> ERROR: ${e.message}`);
       }
-
-      let inserted = 0;
-      const tx = db.transaction(() => {
-        for (const a of accounts) {
-          // enrollment window guard
-          const within = db.prepare(`
-            SELECT
-              DATE('now','localtime') >= DATE(?)
-              AND DATE('now','localtime') <  DATE(?, '+' || ? || ' months') AS ok
-          `).get(a.start_date, a.start_date, a.duration_months).ok;
-          if (!within) continue;
-
-          const info = insDaily.run(a.account_id, dailyPoints);
-          if (info.changes === 1) {
-            inserted++;
-            bumpAcc.run(dailyPoints, dailyPoints, a.account_id);
-            if (ledgerInsert) {
-              ledgerInsert.run(a.account_id, dailyPoints);
-            }
-          }
-        }
-      });
-      tx();
-
-      console.log('[loyalty_daily_accrual] Inserted rows =', inserted, '(idempotent)');
-      db.close();
-      process.exit(0);
-    } catch (e) {
-      console.error('[loyalty_daily_accrual] Error:', e.message);
-      try { db.close(); } catch {}
-      process.exit(1);
     }
-  } else {
-    const sqlite3 = require('sqlite3').verbose();
-    const db = new sqlite3.Database(DB);
 
-    const run = (sql, params=[]) => new Promise((res, rej) => db.run(sql, params, function(err){ if(err) rej(err); else res(this); }));
-    const all = (sql, params=[]) => new Promise((res, rej) => db.all(sql, params, (err, rows)=> err?rej(err):res(rows)));
-    const get = (sql, params=[]) => new Promise((res, rej) => db.get(sql, params, (err, row)=> err?rej(err):res(row)));
+    const ms = Date.now() - start;
+    head(`done: inserted=${inserted}, skipped=${skipped}, errors=${errors}, ms=${ms}`);
 
-    try {
-      const todayRow = await get(SQL.nowDate);
-      console.log('[loyalty_daily_accrual] accrual_date =', todayRow.d);
-
-      await run(SQL.ensureIndex);
-
-      const row = await get(SQL.dailyPoints);
-      const dailyPoints = (row && Number.isFinite(row.pts)) ? Number(row.pts) : 1;
-      console.log('[loyalty_daily_accrual] dailyAccrualPoints =', dailyPoints);
-
-      const accounts = await all(SQL.activeAccounts);
-      console.log('[loyalty_daily_accrual] Active accounts =', accounts.length);
-
-      // Detect ledger schema
-      let ledgerInsertSQL = null;
-      const hasLedger = !!(await get(SQL.hasLedger));
-      if (hasLedger) {
-        const colRows = await all(SQL.ledgerCols);
-        const set = new Set(colRows.map(r => r.name));
-        const colAccount = pick(set, ['account_id']);
-        const colPoints  = pick(set, ['points','amount','points_delta']);
-        const colKind    = pick(set, ['kind','type']);
-        const colTime    = pick(set, ['created_at','timestamp','ts']);
-
-        if (!colAccount || !colPoints) {
-          console.log('[loyalty_daily_accrual] ledger present but missing required columns (account_id/points-like). Skipping audit inserts.');
-        } else {
-          const colsList = [colAccount, colPoints];
-          const valsList = ['?', '?'];
-          if (colKind) { colsList.push(colKind); valsList.push("'daily'"); }
-          if (colTime) { colsList.push(colTime); valsList.push("datetime('now','localtime')"); }
-          ledgerInsertSQL = `INSERT INTO loyalty_ledger (${colsList.join(', ')}) VALUES (${valsList.join(', ')});`;
-          console.log('[loyalty_daily_accrual] ledger insert prepared:', ledgerInsertSQL);
-        }
-      } else {
-        console.log('[loyalty_daily_accrual] loyalty_ledger not found — skipping audit inserts (ok).');
-      }
-
-      await run('BEGIN;');
-      let inserted = 0;
-      for (const a of accounts) {
-        const okRow = await get(`
-          SELECT
-            DATE('now','localtime') >= DATE(?)
-            AND DATE('now','localtime') <  DATE(?, '+' || ? || ' months') AS ok
-        `, [a.start_date, a.start_date, a.duration_months]);
-        if (!okRow || !okRow.ok) continue;
-
-        const info = await run(SQL.insertDaily, [a.account_id, dailyPoints]);
-        if (info && info.changes === 1) {
-          inserted++;
-          await run(SQL.bumpAccount, [dailyPoints, dailyPoints, a.account_id]);
-          if (ledgerInsertSQL) {
-            await run(ledgerInsertSQL, [a.account_id, dailyPoints]);
-          }
-        }
-      }
-      await run('COMMIT;');
-
-      console.log('[loyalty_daily_accrual] Inserted rows =', inserted, '(idempotent)');
-      db.close();
-      process.exit(0);
-    } catch (e) {
-      console.error('[loyalty_daily_accrual] Error:', e.message);
-      await run('ROLLBACK;').catch(()=>{});
-      db.close();
-      process.exit(1);
-    }
+    process.exitCode = errors > 0 ? 1 : 0;
+  } catch (e) {
+    console.error(`[loyalty_daily_accrual] FATAL: ${e.message}`);
+    process.exitCode = 1;
+  } finally {
+    db.close();
   }
 })();
