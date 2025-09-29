@@ -514,19 +514,13 @@ router.post("/accounts", async (req, res) => {
       return ins.lastID;
     });
 
-    // Signup bonus → ledger + roll-up
-    if (signupBonus > 0) {
-      await insertLedger(accountId, "enroll", signupBonus, "Signup bonus", null, null);
-      await withDb((db) =>
-        run(db, `
-          UPDATE loyalty_accounts
-             SET points_balance = points_balance + ?,
-                 total_earned   = total_earned + ?,
-                 updated_at     = datetime('now','localtime')
-           WHERE id = ?`,
-        [signupBonus, signupBonus, accountId])
-      );
-    }
+
+    // Signup bonus → ledger only (triggers will recalc accounts mirror)
+if (signupBonus > 0) {
+  await insertLedger(accountId, "enroll", signupBonus, "Signup bonus", null, null);
+  // no direct UPDATE to loyalty_accounts here
+}
+
 
     // Enqueue notification with deep link to Offers
     const deepLink = `/myaccount/offers.html?welcome=1`;
