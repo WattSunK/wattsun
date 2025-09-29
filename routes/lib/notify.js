@@ -4,7 +4,7 @@
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 
-// Resolve DB path (keeps parity with the rest of the app)
+// Resolve DB path (parity with app)
 const DB_PATH =
   process.env.DB_PATH_USERS ||
   process.env.SQLITE_DB ||
@@ -40,11 +40,6 @@ async function notifCols() {
   return _notifCols;
 }
 
-async function hasCol(name) {
-  const cols = await notifCols();
-  return cols.includes(name);
-}
-
 /**
  * Compute a stable dedupe key. Prefer explicit; otherwise use the
  * most specific ID present in payload (withdrawalId, accountId, refId).
@@ -76,30 +71,18 @@ async function enqueue(kind, { userId = null, email = null, payload = {}, dedupe
 
   const key = computeDedupeKey(kind, userId, json, dedupeKey);
 
-  // If dedupe_key column exists, do a cheap existence check on it.
+  // --- Primary guard (fast path): dedupe_key unique check
   if (hasDedupe) {
     const exists = await get(
-  `
-  SELECT 1
-  FROM notifications_queue
-  WHERE kind = ?
-    AND (user_id = ? OR (user_id IS NULL AND ? IS NULL))
-    AND (
-      json_extract(payload,'$.withdrawalId') = ?
-      OR json_extract(payload,'$.accountId') = ?
-      OR json_extract(payload,'$.refId') = ?
-    )
-  LIMIT 1
-`,
-  [String(kind), userId ?? null, userId ?? null, probeId, probeId, probeId]
-);
-
+      `SELECT 1 FROM notifications_queue WHERE dedupe_key = ? LIMIT 1`,
+      [key]
+    );
     if (exists) {
       return { success: true, queued: false, noOp: true, dedupeKey: key };
     }
   } else {
-    // Fallback (rare): try a best-effort existence check using kind+user+withdrawalId/accountId
-    // This is less efficient but safe if migrations ran out of order.
+    // --- Fallback guard if migration hasn't added dedupe_key yet
+    // Best-effort probe using kind + user + (withdrawalId|accountId|refId)
     try {
       const obj = JSON.parse(json || "{}");
       const probeId = obj.withdrawalId ?? obj.accountId ?? obj.refId ?? null;
@@ -109,13 +92,15 @@ async function enqueue(kind, { userId = null, email = null, payload = {}, dedupe
           SELECT 1
           FROM notifications_queue
           WHERE kind = ?
-            AND user_id IS ?
-            AND json_extract(payload,'$.withdrawalId') = ?
-             OR json_extract(payload,'$.accountId') = ?
-             OR json_extract(payload,'$.refId') = ?
+            AND (user_id = ? OR (user_id IS NULL AND ? IS NULL))
+            AND (
+              json_extract(payload,'$.withdrawalId') = ?
+              OR json_extract(payload,'$.accountId') = ?
+              OR json_extract(payload,'$.refId') = ?
+            )
           LIMIT 1
         `,
-          [String(kind), userId ?? null, probeId, probeId, probeId]
+          [String(kind), userId ?? null, userId ?? null, probeId, probeId, probeId]
         );
         if (exists) {
           return { success: true, queued: false, noOp: true, dedupeKey: key };
@@ -126,7 +111,7 @@ async function enqueue(kind, { userId = null, email = null, payload = {}, dedupe
     }
   }
 
-  // Build insert dynamically to include dedupe_key only if present
+  // Build insert dynamically to include account_id/dedupe_key only if columns exist
   const fields = ["kind", "user_id", "email", "payload", "status"];
   const values = [String(kind), userId ?? null, email ?? null, json, "Queued"];
 
