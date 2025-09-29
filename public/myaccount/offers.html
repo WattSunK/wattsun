@@ -51,9 +51,10 @@
 <section class="ws-card" id="offersEmpty" style="display:none;margin-bottom:12px;">
   <h3 style="margin:0 0 6px;">No loyalty account yet</h3>
   <p class="muted">You’re not enrolled in a loyalty program at the moment.</p>
-  <!-- Optional: keep page minimal; enrollment may be via separate flow -->
+  <div style="margin-top:8px;">
+    <button id="enrollBtn" class="ws-btn ws-btn-yellow">Enroll</button>
+  </div>
 </section>
-
 
       <!-- Welcome banner (shown on first landing with ?welcome=1) -->
       <section id="loyalty-welcome" class="ws-card" style="display:none;margin-bottom:12px;">
@@ -141,9 +142,11 @@
           <div style="flex:1 1 260px;min-width:260px;">
             <h4 style="margin:4px 0 6px;">Actions</h4>
             <div class="muted" id="minInfo">Minimum withdrawal: — pts</div>
-            <div style="margin-top:8px;">
-              <button id="enrollBtn" class="ws-btn ws-btn-yellow">Enroll</button>
-            </div>
+           <div style="margin-top:8px;">
+          <!-- kept for layout, not used by JS -->
+          <button id="enrollBtnAccount" class="ws-btn ws-btn-yellow" style="display:none;">Enroll</button>
+        </div>
+
           </div>
         </div>
       </section>

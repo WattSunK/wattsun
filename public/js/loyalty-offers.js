@@ -198,18 +198,24 @@
       return;
     }
 
-    // account present → KPIs
-    el("pointsBalance") && (el("pointsBalance").textContent = fmt(account.points_balance || 0));
-    el("eurBalance")    && (el("eurBalance").textContent    = euro(account.points_balance || 0));
+    // account present → KPIs (tolerant mapping for backend variants)
+      const ptsBalance = (account.points_balance ?? account.balance_pts ?? 0);
+      const earned     = (account.earned_total  ?? account.total_earned  ?? 0);
+      const penalty    = (account.penalty_total ?? account.total_penalty ?? 0);
+      const paid       = (account.paid_total    ?? account.total_paid    ?? 0);
 
-    el("earnedPts") && (el("earnedPts").textContent = fmt(account.earned_total || 0));
-    el("earnedEur") && (el("earnedEur").textContent = euro(account.earned_total || 0));
+      el("pointsBalance") && (el("pointsBalance").textContent = fmt(ptsBalance));
+      el("eurBalance")    && (el("eurBalance").textContent    = euro(ptsBalance));
 
-    el("penaltyPts") && (el("penaltyPts").textContent = fmt(account.penalty_total || 0));
-    el("penaltyEur") && (el("penaltyEur").textContent = euro(account.penalty_total || 0));
+      el("earnedPts") && (el("earnedPts").textContent = fmt(earned));
+      el("earnedEur") && (el("earnedEur").textContent = euro(earned));
 
-    el("paidPts") && (el("paidPts").textContent = fmt(account.paid_total || 0));
-    el("paidEur") && (el("paidEur").textContent = euro(account.paid_total || 0));
+      el("penaltyPts") && (el("penaltyPts").textContent = fmt(penalty));
+      el("penaltyEur") && (el("penaltyEur").textContent = euro(penalty));
+
+      el("paidPts") && (el("paidPts").textContent = fmt(paid));
+      el("paidEur") && (el("paidEur").textContent = euro(paid));
+
 
     setStatusTag(account.status);
     el("dateInfo") && (el("dateInfo").textContent =
