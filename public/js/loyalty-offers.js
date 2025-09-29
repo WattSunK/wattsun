@@ -51,6 +51,13 @@
     hide('withdrawCard');
     hide('historyCard');
     setLoadState('No account yet');
+    // Explicitly unhide Enroll in empty state
+  const b = el('enrollBtn');
+  if (b) {
+    b.disabled = false;
+    b.style.display = 'inline-block';
+    b.classList.remove('hidden');
+  }
   }
 
   function showAccount() {
@@ -176,11 +183,12 @@ if (!account) {
   showEmpty();
 
   // allow enroll if button exists
-  const b = el('enrollBtn');
-  if (b) {
-    b.disabled = false;
-    b.style.display = '';
-  }
+const b = el('enrollBtn');
+if (b) {
+  b.disabled = false;
+  b.style.display = 'inline-block';   // explicit show
+  b.classList.remove('hidden');       // safety if CSS uses .hidden
+}
 
   if (withdrawCard) withdrawCard.style.display = 'none';
   if (historyCard) historyCard.style.display = 'none';
