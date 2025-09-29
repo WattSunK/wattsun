@@ -7,6 +7,7 @@
 const path = require("path");
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
+const notify = require("./lib/notify");
 
 const router = express.Router();
 router.use(express.json());
@@ -166,32 +167,6 @@ async function getUserContact(db, userId) {
   );
 }
 
-async function enqueueNotification(db, userId, template, toEmail, payload) {
-  const sup = await notificationsSupports(db);
-
-  if (sup.has("template") && sup.has("payload_json")) {
-    return lastId(db,
-      `INSERT INTO notifications_queue (user_id, channel, template, "to", payload_json, status)
-       VALUES (?, 'email', ?, ?, ?, 'queued')`,
-      [userId || null, template, toEmail || null, JSON.stringify(payload || {})]
-    );
-  }
-
-  if (sup.has("kind") && sup.has("payload")) {
-    const cols = ["kind", "user_id", "email", "payload", "status"];
-    const vals = [template, userId || null, toEmail || null, JSON.stringify(payload || {}), "Queued"];
-    const allCols = await tableCols(db, "notifications_queue");
-    if (allCols.includes("account_id")) { cols.push("account_id"); vals.push(payload?.accountId || null); }
-    const qms = cols.map(()=>"?").join(",");
-    return lastId(db, `INSERT INTO notifications_queue (${cols.join(",")}) VALUES (${qms})`, vals);
-  }
-
-  if (sup.has("payload")) {
-    return lastId(db, `INSERT INTO notifications_queue (payload) VALUES (?)`,
-      [JSON.stringify({ template, toEmail, ...(payload || {}) })]);
-  }
-  return Promise.resolve(-1);
-}
 
 /* ------------------------------------------------------------------ */
 /* HTTP helpers                                                       */
@@ -223,9 +198,18 @@ async function handleApprove(req, res) {
 
     const user = await getUserContact(db, w.user_id);
     const { amountCents, points, eur } = deriveAmount(w);
-    await enqueueNotification(db, user.id, "withdrawal_approved", user.email, {
-      withdrawalId: id, accountId: w.account_id || null, amountCents, points, eur, decidedAt: stamp
-    });
+    await notify.enqueue("withdrawal_approved", {
+  userId: user.id,
+  email: user.email,
+  payload: {
+    withdrawalId: id,
+    accountId: w.account_id || null,
+    amountCents,
+    points,
+    eur,
+    decidedAt: stamp
+  }
+});
 
     res.setHeader("X-Loyalty-Updated", "approve");
     res.setHeader("X-Loyalty-Refresh", "ledger,notifications");
@@ -260,9 +244,19 @@ async function handleReject(req, res) {
 
     const user = await getUserContact(db, w.user_id);
     const { amountCents, points, eur } = deriveAmount(w);
-    await enqueueNotification(db, user.id, "withdrawal_rejected", user.email, {
-      withdrawalId: id, accountId: w.account_id || null, amountCents, points, eur, decidedAt: stamp, reason: note || null
-    });
+   await notify.enqueue("withdrawal_rejected", {
+  userId: user.id,
+  email: user.email,
+  payload: {
+    withdrawalId: id,
+    accountId: w.account_id || null,
+    amountCents,
+    points,
+    eur,
+    decidedAt: stamp,
+    reason: note || null
+  }
+});
 
     res.setHeader("X-Loyalty-Updated", "reject");
     res.setHeader("X-Loyalty-Refresh", "ledger,notifications");
@@ -312,10 +306,19 @@ async function handleMarkPaid(req, res) {
 
     const user = await getUserContact(db, w.user_id);
     const { amountCents, points, eur } = deriveAmount(w);
-    await enqueueNotification(db, user.id, "withdrawal_paid", user.email, {
-      withdrawalId: id, accountId: w.account_id || null, amountCents, points, eur, paidAt, payoutRef: payoutRef || null
-    });
-
+    await notify.enqueue("withdrawal_paid", {
+  userId: user.id,
+  email: user.email,
+  payload: {
+    withdrawalId: id,
+    accountId: w.account_id || null,
+    amountCents,
+    points,
+    eur,
+    paidAt,
+    payoutRef: payoutRef || null
+  }
+});
     res.setHeader("X-Loyalty-Updated", "mark-paid");
     res.setHeader("X-Loyalty-Refresh", "ledger,notifications");
 
