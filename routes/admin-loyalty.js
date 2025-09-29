@@ -151,15 +151,12 @@ function normalizeEligible(val) {
 // ---- minimal admin guard (only Admin users allowed) ----------
 function requireAdmin(req, res, next) {
   const u = req.session && req.session.user;
-  if (!u) {
-    return res.status(401).json({ success:false, error:{ code:"UNAUTHORIZED" } });
-  }
-  // Accept various fields you might use to label admins
+  if (!u) return res.status(401).json({ success:false, error:{ code:"UNAUTHORIZED" } });
+
   const type = String(u.type || u.role || "").toLowerCase();
-  const isAdmin = type === "admin" || u.isAdmin === true || u.is_admin === 1;
-  if (!isAdmin) {
-    return res.status(403).json({ success:false, error:{ code:"FORBIDDEN" } });
-  }
+  const isAdmin = (type === "admin") || u.isAdmin === true || u.is_admin === 1;
+  if (!isAdmin) return res.status(403).json({ success:false, error:{ code:"FORBIDDEN" } });
+
   next();
 }
 
