@@ -279,10 +279,42 @@
     const points = parseInt((input && input.value) || "0", 10);
     const btn = el("withdrawBtn"); if (btn) btn.disabled = true;
     const msg = el("withdrawMsg"); if (msg) msg.textContent = "";
+
+    // --- OPTIMISTIC: insert a temporary row in history (7 columns) ---
+    const tbody = el("historyBody");
+    const tempId = `temp-${Date.now()}`;
+    let tempTr = null;
+    if (tbody) {
+      tempTr = document.createElement("tr");
+      tempTr.dataset.temp = "true";
+      tempTr.id = `wd-${tempId}`;
+      const now = new Date().toISOString().slice(0,19).replace("T"," ");
+      tempTr.innerHTML = `
+        <td>—</td>
+        <td>${fmt(points)} pts / ${euro(points)}</td>
+        <td>Pending</td>
+        <td>${now}</td>
+        <td></td>
+        <td></td>
+        <td class="right"></td>
+      `;
+      if (tbody.firstChild) tbody.insertBefore(tempTr, tbody.firstChild);
+      else tbody.appendChild(tempTr);
+    }
+
     try {
       const data = await api("/api/loyalty/withdraw", { method: "POST", body: { points } });
       toast("Withdrawal requested");
 
+      // --- RECONCILE optimistic row ---
+      if (tempTr && data && data.withdrawal) {
+        const tds = tempTr.querySelectorAll("td");
+        if (tds[0]) tds[0].textContent = data.withdrawal.id ?? "—";        // ID
+        if (tds[2]) tds[2].textContent = data.withdrawal.status || "Pending"; // Status
+        tempTr.dataset.temp = "false";
+      }
+
+      // keep or remove full reload; safety-first (kept)
       if (input) {
         const minPts = (program && program.minWithdrawPoints) || 100;
         input.value = String(Math.max(points, minPts));
@@ -293,6 +325,12 @@
         msg.textContent = `Request #${data.withdrawal.id} created for ${points} pts (${euro(points)}).`;
       }
     } catch (e) {
+      // --- ROLLBACK optimistic row on error ---
+      const tb = el("historyBody");
+      if (tb) {
+        const doomed = tb.querySelector('tr[data-temp="true"]');
+        if (doomed) doomed.remove();
+      }
       if (msg) msg.textContent = `Error: ${e.message}`;
     } finally {
       if (btn) btn.disabled = false;
