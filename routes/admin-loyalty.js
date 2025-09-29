@@ -698,6 +698,28 @@ router.patch("/loyalty/accounts/:id/eligible-from", requireAdmin, async (req, re
     res.status(500).json({ ok: false, error: "SERVER_ERROR" });
   }
 });
+// PATCH /api/admin/loyalty/accounts/:id/end-date
+router.patch("/accounts/:id/end-date", requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { end_date } = req.body;                         // 'YYYY-MM-DD'
+    if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(String(end_date||""))) {
+      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"end_date must be YYYY-MM-DD" } });
+    }
+    await withDb(db => run(
+      db,
+      `UPDATE loyalty_accounts
+          SET end_date = ?, updated_at = datetime('now','localtime')
+        WHERE id = ?`,
+      [end_date, id]
+    ));
+    const row = await withDb(db => get(db, `SELECT id, end_date FROM loyalty_accounts WHERE id=?`, [id]));
+    res.json({ success:true, account: row });
+  } catch (e) {
+    console.error("[admin/loyalty/accounts/:id/end-date]", e);
+    res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Failed to update end_date" } });
+  }
+});
 
 // ---- Read-only visibility (Accounts, Ledger, Notifications) --
 router.get("/accounts", async (req, res) => {

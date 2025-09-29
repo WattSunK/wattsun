@@ -988,7 +988,7 @@
     tbody.appendChild(frag);
   }
 
-})();
+
 // put this near the top of wireManageModal()
 async function manageSearchUsers(term) {
   const t = (term || "").trim();
@@ -1334,3 +1334,4 @@ function wsToggleCreateButton(hasAccount){
   if (hasAccount) { btn.style.display = 'none'; btn.disabled = false; }
   else { btn.style.display = ''; btn.disabled = false; }
 }
+})();
