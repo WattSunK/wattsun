@@ -1,7 +1,17 @@
 // public/js/loyalty-offers.js
 (() => {
+  // ---- module scaffold (global, idempotent) ----
+  const NS = (window.WS_LOYALTY_OFFERS = window.WS_LOYALTY_OFFERS || {});
+  let booted = false;
+
+  // ---- small DOM utils ----
   const el = (id) => document.getElementById(id);
+  const qs = (id) => document.getElementById(id);
   const fmt = (n) => new Intl.NumberFormat().format(n);
+
+  const show = (id, mode = 'block') => { const n = qs(id); if (n) n.style.display = mode; };
+  const hide = (id) => { const n = qs(id); if (n) n.style.display = 'none'; };
+
   const toast = (msg) => {
     const t = el('toast');
     if (!t) return;
@@ -9,11 +19,6 @@
     t.style.display = 'block';
     setTimeout(() => (t.style.display = 'none'), 2500);
   };
-
-  // Simple show/hide helpers (explicit display mode)
-  const qs = (id) => document.getElementById(id);
-  const show = (id, mode = 'block') => { const n = qs(id); if (n) n.style.display = mode; };
-  const hide = (id) => { const n = qs(id); if (n) n.style.display = 'none'; };
 
   function setLoadState(text) {
     const n = el('loadState');
@@ -49,23 +54,20 @@
   }
 
   function showAccount() {
-    // Force-hide skeleton and force-show card (not only via helpers)
-    const sk = el('offersSkeleton');
-    if (sk) sk.style.display = 'none';
-    const card = el('accountCard');
-    if (card) card.style.display = 'block';
-
+    // Force un-hide KPI card
+    const sk = el('offersSkeleton'); if (sk) sk.style.display = 'none';
+    const card = el('accountCard'); if (card) card.style.display = 'block';
     hide('offersError');
     hide('offersEmpty');
     setLoadState('Up to date');
   }
 
-  // ----- State -----
+  // ---- state ----
   let program = null;
   let account = null;
   let rank = null;
 
-  // ----- API helper -----
+  // ---- API helper ----
   async function api(path, opts = {}) {
     const res = await fetch(path, {
       method: opts.method || 'GET',
@@ -82,7 +84,7 @@
     return data;
   }
 
-  // ----- UI helpers -----
+  // ---- UI helpers ----
   function setStatusTag(status) {
     const tag = el('statusTag');
     if (!tag) return;
@@ -130,43 +132,39 @@
     if (btn) btn.disabled = !can;
   }
 
-  // ----- Core loaders -----
+  // ---- core loaders ----
   async function loadMe() {
-    console.debug('[offers] loadMe() start');
     const data = await api('/api/loyalty/me');
     program = data.program || null;
     account = data.account || null;
     rank = (data.rank !== undefined) ? data.rank : null;
 
-    console.debug('[offers] api/loyalty/me data:', data);
-
     const enrollBtn = el('enrollBtn');
     const withdrawCard = el('withdrawCard');
     const historyCard = el('historyCard');
 
-    // 1) Program missing → error state
+    // 1) Program missing → error
     if (!program) {
       showError('Program is currently unavailable.');
-      // Clear visible KPI values if user navigated back
       ['pointsBalance','eurBalance','earnedPts','earnedEur','penaltyPts','penaltyEur','paidPts','paidEur','rankText','dateInfo']
-        .forEach(id => { const n = el(id); if (!n) return; n.textContent = (id.includes('Eur') || id === 'eurBalance') ? '€—' : '—'; });
+        .forEach(id => { const n = el(id); if (n) n.textContent = (id.includes('Eur') || id === 'eurBalance') ? '€—' : '—'; });
       if (enrollBtn) enrollBtn.style.display = 'none';
       if (withdrawCard) withdrawCard.style.display = 'none';
       if (historyCard) historyCard.style.display = 'none';
       return;
     }
 
-    // 2) Program available; set withdraw minimum
+    // 2) Program ok → set min info
     setMinInfo(program.minWithdrawPoints || 100);
 
-    // 3) No account → empty state
+    // 3) No account → empty
     if (!account) {
       showEmpty();
       if (enrollBtn) { enrollBtn.disabled = false; enrollBtn.style.display = ''; }
       return;
     }
 
-    // 4) Account present → render KPIs, then show account view
+    // 4) Account present → render
     const epp = program.eurPerPoint || 1;
 
     el('pointsBalance') && (el('pointsBalance').textContent = fmt(account.points_balance));
@@ -187,15 +185,13 @@
     const rk = el('rankText');
     if (rk) rk.textContent = (rank == null) ? '—' : `#${fmt(rank)}`;
 
-    showAccount(); // force reveal KPI card now
-    if (enrollBtn) enrollBtn.style.display = 'none';
+    showAccount(); // reveal KPI card
 
     if (withdrawCard) withdrawCard.style.display = 'block';
     if (historyCard) historyCard.style.display = 'block';
 
     await loadWithdrawals();
     updateEstimate();
-    console.debug('[offers] loadMe() done');
   }
 
   async function loadWithdrawals() {
@@ -224,7 +220,7 @@
     }
   }
 
-  // ----- Actions -----
+  // ---- actions ----
   async function enroll() {
     const btn = el('enrollBtn'); if (btn) btn.disabled = true;
     try {
@@ -259,38 +255,38 @@
     }
   }
 
-  // ----- Boot -----
-  document.addEventListener('DOMContentLoaded', () => {
+  // ---- public init (idempotent) ----
+  NS.init = function init() {
+    if (booted) return;
+    // Only run if the Offers markup is present
+    if (!el('paneLoyalty')) return;
+    booted = true;
+
+    // Wire events once
     el('enrollBtn')?.addEventListener('click', enroll);
     el('withdrawPoints')?.addEventListener('input', updateEstimate);
     el('withdrawBtn')?.addEventListener('click', doWithdraw);
-
-    // First load with skeleton + clear state
-    startLoading();
-
-    // Failsafe: if nothing changed after 5s, flip to a visible error
-    const failsafe = setTimeout(() => {
-      const sk = el('offersSkeleton');
-      if (sk && sk.style.display !== 'none') {
-        showError('Taking longer than usual to load. Please retry.');
-      }
-    }, 5000);
-
-    loadMe()
-      .then(() => clearTimeout(failsafe))
-      .catch((e) => { clearTimeout(failsafe); showError(e.message); });
-
-    // Retry from error card
     qs('offersRetry')?.addEventListener('click', () => {
       startLoading();
       loadMe().catch((e) => showError(e.message));
     });
-
-    // Refresh on tab focus (silent)
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         loadMe().catch(() => {});
       }
     });
-  });
+
+    // First load
+    startLoading();
+    loadMe().catch((e) => showError(e.message));
+  };
+
+  // ---- auto-init for standalone page ----
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      if (el('paneLoyalty')) NS.init();
+    });
+  } else {
+    if (el('paneLoyalty')) NS.init();
+  }
 })();
