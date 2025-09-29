@@ -10,9 +10,9 @@
     setTimeout(() => (t.style.display = 'none'), 2500);
   };
 
-  // Simple show/hide helpers
+  // Simple show/hide helpers (explicit display mode)
   const qs = (id) => document.getElementById(id);
-  const show = (id) => { const n = qs(id); if (n) n.style.display = ''; };
+  const show = (id, mode = 'block') => { const n = qs(id); if (n) n.style.display = mode; };
   const hide = (id) => { const n = qs(id); if (n) n.style.display = 'none'; };
 
   function setLoadState(text) {
@@ -21,7 +21,7 @@
   }
 
   function startLoading() {
-    show('offersSkeleton');
+    show('offersSkeleton', 'block');
     hide('offersError');
     hide('offersEmpty');
     hide('accountCard');
@@ -34,14 +34,14 @@
     hide('offersSkeleton');
     const m = qs('offersErrorMsg');
     if (m) m.textContent = msg || 'Please try again.';
-    show('offersError');
+    show('offersError', 'block');
     setLoadState('Error loading data');
   }
 
   function showEmpty() {
     hide('offersSkeleton');
     hide('offersError');
-    show('offersEmpty');
+    show('offersEmpty', 'block');
     hide('accountCard');
     hide('withdrawCard');
     hide('historyCard');
@@ -52,7 +52,7 @@
     hide('offersSkeleton');
     hide('offersError');
     hide('offersEmpty');
-    show('accountCard');
+    show('accountCard', 'block');
     setLoadState('Up to date');
     // withdraw/history toggled below after we render KPIs
   }
@@ -182,6 +182,7 @@
     el('dateInfo').textContent = `Start ${account.start_date} • Eligible ${account.eligible_from} • End ${account.end_date}`;
     el('rankText').textContent = (rank == null) ? '—' : `#${fmt(rank)}`;
 
+    // Reveal secondary sections
     if (withdrawCard) withdrawCard.style.display = 'block';
     if (historyCard) historyCard.style.display = 'block';
 
