@@ -1043,12 +1043,63 @@ function wireManageModal(){
   const hintEnd  = document.getElementById("mHintEnd");
 
   const statusSel= document.getElementById("mStatus") || document.querySelector("#accManageDialog select");
-  const extMonths= document.getElementById("mExtendMonths") || document.querySelector("#accManageDialog input[placeholder='e.g. 1']");
+  const extDate  = document.getElementById("mExtendDate"); // NEW: date field
   const extNote  = document.getElementById("mExtendNote")   || document.querySelector("#accManageDialog input[placeholder='reason or note']");
   const penPts   = document.getElementById("mPenaltyPoints")|| document.querySelector("#accManageDialog input[placeholder='e.g. 10']");
   const penNote  = document.getElementById("mPenaltyNote")  || document.querySelector("#accManageDialog input[placeholder='reason for penalty']");
   const applyBtn = document.getElementById("mApplyAll") || document.querySelector("#accManageDialog .card-actions .btn.btn--primary, #accManageDialog .card-actions .btn");
-  // --- Clear account-related UI (prevents stale values while hydrating) ---
+  
+  if (applyBtn && !applyBtn.dataset.wsEndDateBound) {
+  applyBtn.dataset.wsEndDateBound = "1";
+  applyBtn.addEventListener("click", async () => {
+    try {
+      const idStr = (accId && accId.value) ? accId.value.trim() : "";
+      const id = parseInt(idStr, 10);
+      if (!Number.isInteger(id) || id <= 0) {
+        setOut && setOut("Pick a user with an active account first.");
+        return;
+      }
+
+      const end = (extDate && extDate.value) ? extDate.value.trim() : "";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+        // allow blank (means "no change"), but if provided it must be YYYY-MM-DD
+        if (end) return setOut && setOut("Extend Date must be YYYY-MM-DD.");
+      }
+
+      applyBtn.disabled = true;
+
+      // Only patch if a date is provided (blank → no-op)
+      if (end) {
+        const r = await fetch(`/api/admin/loyalty/accounts/${id}/end-date`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ end_date: end })
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j?.success === false) {
+          throw new Error(j?.error?.message || `HTTP ${r.status}`);
+        }
+      }
+
+      toast("Changes applied.", { type: "info" });
+      try { if (typeof loadAccounts === "function") loadAccounts({ resetPage:true }); } catch {}
+      try { if (pickedUser?.id) await hydrateForUser({ id: pickedUser.id }); } catch {}
+
+      try {
+        localStorage.setItem("loyaltyUpdatedAt", String(Date.now()));
+        window.postMessage({ type: "loyalty-updated" }, "*");
+      } catch (_) {}
+
+    } catch (e) {
+      setOut && setOut(e.message || "Apply failed.");
+      toast(e.message || "Apply failed", { type: "error" });
+    } finally {
+      applyBtn.disabled = false;
+    }
+  });
+}
+// --- Clear account-related UI (prevents stale values while hydrating) ---
   function clearManageAccountUI() {
     if (accId) {
       accId.value = "";
@@ -1170,11 +1221,13 @@ rows = rows.filter(r => String(r.user_id ?? r.userId) === String(u.id));
    if (acct) {
   if (accId) { accId.value = String(acct.id); accId.readOnly = true; accId.classList.add("input--readonly"); }
   if (statusSel) statusSel.value = acct.status || "Active";
+  if (extDate)   extDate.value = (acct.end_date || "").slice(0,10);
   // has active account → hide Create
   if (mCreate) mCreate.style.display = "none";
 } else {
   if (accId) { accId.value = ""; accId.readOnly = true; accId.classList.add("input--readonly"); }
   if (statusSel) statusSel.value = "Active";
+  if (extDate)   extDate.value = ""; // nothing selected
   // no active account → show Create
   if (mCreate) { mCreate.style.display = ""; mCreate.disabled = false; }
 }
@@ -1219,7 +1272,7 @@ rows = rows.filter(r => String(r.user_id ?? r.userId) === String(u.id));
 
   // Clear first to avoid showing a previous user’s account briefly
   clearManageAccountUI();
-
+  if (extDate) extDate.value = "";
   if (u && u.id) hydrateForUser(u);
 });
 if (btn) btn.addEventListener("click", () => {
