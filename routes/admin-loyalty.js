@@ -666,6 +666,27 @@ router.post("/extend", async (req, res) => {
     res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:e.message } });
   }
 });
+// PATCH /api/admin/loyalty/accounts/:id/eligible-from
+router.patch("/loyalty/accounts/:id/eligible-from", requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { eligible_from } = req.body; // expect 'YYYY-MM-DD'
+    if (!id || !eligible_from) {
+      return res.status(400).json({ ok: false, error: "Missing id or eligible_from" });
+    }
+    await withDb(db => run(db,
+      `UPDATE loyalty_accounts
+         SET eligible_from = ?, updated_at = datetime('now','localtime')
+       WHERE id = ?`,
+      [eligible_from, id]
+    ));
+    const row = await withDb(db => get(db, `SELECT id, eligible_from FROM loyalty_accounts WHERE id=?`, [id]));
+    res.json({ ok: true, account: row });
+  } catch (e) {
+    console.error("[admin/loyalty/accounts/:id/eligible-from]", e);
+    res.status(500).json({ ok: false, error: "SERVER_ERROR" });
+  }
+});
 
 // ---- Read-only visibility (Accounts, Ledger, Notifications) --
 router.get("/accounts", async (req, res) => {

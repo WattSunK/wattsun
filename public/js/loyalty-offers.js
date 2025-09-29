@@ -54,13 +54,15 @@
   }
 
   function showAccount() {
-    // Force un-hide KPI card
-    const sk = el('offersSkeleton'); if (sk) sk.style.display = 'none';
-    const card = el('accountCard'); if (card) card.style.display = 'block';
-    hide('offersError');
-    hide('offersEmpty');
-    setLoadState('Up to date');
-  }
+  hide('offersSkeleton');
+  hide('offersError');
+  hide('offersEmpty');
+  show('accountCard', 'block');
+
+  // extra guard: never show Enroll once account exists
+  const b = el('enrollBtn');
+  if (b) b.style.display = 'none';
+}
 
   // ---- state ----
   let program = null;
@@ -144,25 +146,46 @@
     const historyCard = el('historyCard');
 
     // 1) Program missing → error
-    if (!program) {
-      showError('Program is currently unavailable.');
-      ['pointsBalance','eurBalance','earnedPts','earnedEur','penaltyPts','penaltyEur','paidPts','paidEur','rankText','dateInfo']
-        .forEach(id => { const n = el(id); if (n) n.textContent = (id.includes('Eur') || id === 'eurBalance') ? '€—' : '—'; });
-      if (enrollBtn) enrollBtn.style.display = 'none';
-      if (withdrawCard) withdrawCard.style.display = 'none';
-      if (historyCard) historyCard.style.display = 'none';
-      return;
-    }
+    // 1) Program missing → error
+if (!program) {
+  showError('Program is currently unavailable.');
+  [
+    'pointsBalance','eurBalance','earnedPts','earnedEur',
+    'penaltyPts','penaltyEur','paidPts','paidEur',
+    'rankText','dateInfo'
+  ].forEach(id => {
+    const n = el(id);
+    if (n) n.textContent = (id.includes('Eur') || id === 'eurBalance') ? '€–' : '–';
+  });
+
+  // always hide enroll in this case
+  const b = el('enrollBtn');
+  if (b) b.style.display = 'none';
+
+  if (withdrawCard) withdrawCard.style.display = 'none';
+  if (historyCard) historyCard.style.display = 'none';
+  return;
+}
+
 
     // 2) Program ok → set min info
     setMinInfo(program.minWithdrawPoints || 100);
 
-    // 3) No account → empty
-    if (!account) {
-      showEmpty();
-      if (enrollBtn) { enrollBtn.disabled = false; enrollBtn.style.display = ''; }
-      return;
-    }
+    // 3) No account → empty state
+if (!account) {
+  showEmpty();
+
+  // allow enroll if button exists
+  const b = el('enrollBtn');
+  if (b) {
+    b.disabled = false;
+    b.style.display = '';
+  }
+
+  if (withdrawCard) withdrawCard.style.display = 'none';
+  if (historyCard) historyCard.style.display = 'none';
+  return;
+}
 
     // 4) Account present → render
     const epp = program.eurPerPoint || 1;
