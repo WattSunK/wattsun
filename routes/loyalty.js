@@ -273,15 +273,41 @@ router.get("/me", requireAuth, async (req, res) => {
         .status(404)
         .json({ success: false, error: { code: "PROGRAM_NOT_FOUND", message: "Program missing" } });
     }
+
     const acct = await sqlGetAccount(program.programId, user.id);
     if (!acct) {
       // not enrolled yet — still return program config so UI can show CTA
       return res.json({ success: true, account: null, program, recent: [], rank: null });
     }
+
+    // --- derive canonical totals from ledger; prefer these over stale columns ---
+    const sums = await new Promise((resolve, reject) => {
+      db.get(
+        `
+        SELECT
+          COALESCE(SUM(CASE WHEN points_delta > 0 THEN points_delta ELSE 0 END), 0)                                   AS earned_pts,
+          COALESCE(SUM(CASE WHEN points_delta < 0 AND kind LIKE 'penalty%' THEN -points_delta ELSE 0 END), 0)         AS penalty_pts,
+          COALESCE(SUM(CASE WHEN kind = 'withdraw_paid' THEN -points_delta ELSE 0 END), 0)                             AS paid_pts,
+          COALESCE(SUM(points_delta), 0)                                                                               AS net_balance_pts
+        FROM loyalty_ledger
+        WHERE account_id = ?
+        `,
+        [acct.id],
+        (err, row) => (err ? reject(err) : resolve(row || { earned_pts:0, penalty_pts:0, paid_pts:0, net_balance_pts:0 }))
+      );
+    });
+
+    // Overlay the derived values (read path only)
+    acct.total_earned   = sums.earned_pts;
+    acct.total_penalty  = sums.penalty_pts;
+    acct.total_paid     = sums.paid_pts;
+    acct.points_balance = sums.net_balance_pts;
+
     const [recent, rank] = await Promise.all([
       sqlGetRecentLedger(acct.id),
       sqlGetRankForAccount(acct.id),
     ]);
+
     return res.json({ success: true, account: acct, program, recent, rank });
   } catch (err) {
     console.error("[loyalty/me]", err);
@@ -290,5 +316,6 @@ router.get("/me", requireAuth, async (req, res) => {
       .json({ success: false, error: { code: "SERVER_ERROR", message: "Unable to load account" } });
   }
 });
+
 
 module.exports = router;

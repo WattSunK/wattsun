@@ -146,16 +146,50 @@ router.post("/withdraw", requireStaff, async (req, res) => {
 router.get("/withdrawals", requireStaff, async (req, res) => {
   const user = req.session.user;
   try {
+    // Resolve user's account; fall back gracefully if program row is missing
+    let accountId = null;
+
+    // Try via program settings (keeps parity with existing code)
     const program = await getProgramSettings("STAFF");
-    if (!program) return res.status(404).json({ success:false, error:{ code:"PROGRAM_NOT_FOUND", message:"Program missing" } });
-    const acct = await sqlGetAccount(program.programId, user.id);
-    if (!acct) return res.json({ success:true, withdrawals: [] });
-    const list = await sqlListWithdrawals(acct.id);
-    return res.json({ success:true, withdrawals: list });
+    if (program) {
+      const acct = await sqlGetAccount(program.programId, user.id);
+      if (acct) accountId = acct.id;
+    }
+
+    // Fallback: most recent account by user (handles edge cases)
+    if (!accountId) {
+      accountId = await new Promise((resolve, reject) => {
+        db.get(
+          `SELECT id FROM loyalty_accounts WHERE user_id=? ORDER BY id DESC LIMIT 1`,
+          [user.id],
+          (err, row) => (err ? reject(err) : resolve(row ? row.id : null))
+        );
+      });
+    }
+
+    if (!accountId) return res.json({ success: true, withdrawals: [] });
+
+    // IMPORTANT: return full history (no status filter)
+    const rows = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, requested_pts, requested_eur, status,
+                requested_at, decided_at, paid_at, payout_ref
+           FROM loyalty_withdrawals
+          WHERE account_id=?
+          ORDER BY id DESC`,
+        [accountId],
+        (err, list) => (err ? reject(err) : resolve(list || []))
+      );
+    });
+
+    return res.json({ success: true, withdrawals: rows });
   } catch (err) {
     console.error("[loyalty/withdrawals]", err);
-    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to load withdrawals" } });
+    return res
+      .status(500)
+      .json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to load withdrawals" } });
   }
 });
+
 
 module.exports = router;
