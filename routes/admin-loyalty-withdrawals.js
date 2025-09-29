@@ -68,7 +68,7 @@ async function ledgerExists(db, refId, entryType) {
       `SELECT id FROM loyalty_ledger WHERE ref_type='WITHDRAWAL' AND ref_id=? AND entry_type=?`,
       [refId, entryType]
     ));
-  }
+    }
   if (sup.has("kind") && sup.has("note")) {
     try {
       return !!(await q(db, `SELECT id FROM loyalty_ledger WHERE kind=? AND note LIKE ?`,
@@ -108,32 +108,6 @@ async function resolveAccountId(db, w) {
     if (r4?.id != null) return r4.id;
   }
   return 0;
-}
-
-/* ---------------------- Accounts roll-up (target: loyalty_accounts) --------------------- */
-
-async function applyPaidRollup(db, accountId, userId, points) {
-  // Hard-target the live accounts table & columns you have:
-  // loyalty_accounts: points_balance, total_paid, updated_at
-  if (!(await tableExists(db, "loyalty_accounts"))) return { table: null, changed: 0 };
-
-  const pts = Number.isFinite(points) ? Math.abs(points) : 0;
-
-  // Update by id (=account) OR user_id (covers both access paths)
-  const sql = `
-    UPDATE loyalty_accounts
-       SET total_paid    = total_paid + 1,
-           points_balance = CASE
-                              WHEN ? > 0 AND points_balance >= ? THEN points_balance - ?
-                              WHEN ? > 0 AND points_balance <  ? THEN 0
-                              ELSE points_balance
-                            END,
-           updated_at    = datetime('now')
-     WHERE (id = ? OR user_id = ?)
-  `;
-  const params = [pts, pts, pts, pts, pts, accountId ?? -1, userId ?? -1];
-  const changed = await run(db, sql, params);
-  return { table: "loyalty_accounts", changed };
 }
 
 /* ---------------- Ledger insert (modern + legacy support) ----------- */
@@ -311,26 +285,30 @@ async function handleMarkPaid(req, res) {
     const w = await getWithdrawal(db, id); if (!w) return fail(res, "NOT_FOUND", "Withdrawal not found", 404);
     if (w.status === "Paid") {
       res.setHeader("X-Loyalty-Updated", "mark-paid");
-      res.setHeader("X-Loyalty-Refresh", "accounts,ledger,notifications");
-      return ok(res, { noOp: true, withdrawal: w, refresh: { accounts:true, ledger:true, notifications:true }, message: "Already Paid" });
+      res.setHeader("X-Loyalty-Refresh", "ledger,notifications");
+      return ok(res, { noOp: true, withdrawal: w, refresh: { ledger:true, notifications:true }, message: "Already Paid" });
     }
     if (w.status !== "Approved") return fail(res, "INVALID_STATE", `Must be Approved to mark Paid (is ${w.status})`, 409);
 
     if (w.account_id == null) w.account_id = await resolveAccountId(db, w);
 
-    await run(db, `UPDATE withdrawals SET status='Paid', paid_at=?, payout_ref=? WHERE id=?`,
-      [paidAt, payoutRef || null, id]);
-
+    // Atomic: insert ledger + mark withdrawal paid in a single TX.
     let appended = false;
-    if (!(await ledgerExists(db, id, "WITHDRAWAL_PAID"))) {
-      await insertLedger(db, w, id, "WITHDRAWAL_PAID", payoutRef ? `Paid: ${payoutRef}` : "Paid");
-      appended = true;
-    }
+    await run(db, "BEGIN");
+    try {
+      if (!(await ledgerExists(db, id, "WITHDRAWAL_PAID"))) {
+        await insertLedger(db, w, id, "WITHDRAWAL_PAID", payoutRef ? `Paid: ${payoutRef}` : "Paid");
+        appended = true;
+      }
 
-    // roll-up (loyalty_accounts)
-    const pts = Number.isFinite(+w.points) ? Math.abs(+w.points) : 0;
-    let accUpdate = { table: null, changed: 0 };
-    if (appended) accUpdate = await applyPaidRollup(db, w.account_id, w.user_id, pts);
+      await run(db, `UPDATE withdrawals SET status='Paid', paid_at=?, payout_ref=? WHERE id=?`,
+        [paidAt, payoutRef || null, id]);
+
+      await run(db, "COMMIT");
+    } catch (txErr) {
+      await run(db, "ROLLBACK");
+      throw txErr;
+    }
 
     const user = await getUserContact(db, w.user_id);
     const { amountCents, points, eur } = deriveAmount(w);
@@ -339,15 +317,13 @@ async function handleMarkPaid(req, res) {
     });
 
     res.setHeader("X-Loyalty-Updated", "mark-paid");
-    res.setHeader("X-Loyalty-Refresh", "accounts,ledger,notifications");
-    if (accUpdate.table) res.setHeader("X-Accounts-Updated", `${accUpdate.table}:${accUpdate.changed}`);
+    res.setHeader("X-Loyalty-Refresh", "ledger,notifications");
 
     return ok(res, {
       withdrawal: { id, status: "Paid", paidAt, payoutRef: payoutRef || null },
       ledger: { appended: appended, type: "WITHDRAWAL_PAID" },
       notification: { queued: true, template: "withdrawal_paid" },
-      accountsRollup: accUpdate,
-      refresh: { accounts: true, ledger: true, notifications: true },
+      refresh: { ledger: true, notifications: true },
       message: "Withdrawal marked as Paid"
     });
   } catch (e) { return fail(res, "SERVER_ERROR", e.message, 500); } finally { db.close(); }
