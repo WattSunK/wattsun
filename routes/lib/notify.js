@@ -79,9 +79,21 @@ async function enqueue(kind, { userId = null, email = null, payload = {}, dedupe
   // If dedupe_key column exists, do a cheap existence check on it.
   if (hasDedupe) {
     const exists = await get(
-      `SELECT 1 FROM notifications_queue WHERE dedupe_key = ? LIMIT 1`,
-      [key]
-    );
+  `
+  SELECT 1
+  FROM notifications_queue
+  WHERE kind = ?
+    AND (user_id = ? OR (user_id IS NULL AND ? IS NULL))
+    AND (
+      json_extract(payload,'$.withdrawalId') = ?
+      OR json_extract(payload,'$.accountId') = ?
+      OR json_extract(payload,'$.refId') = ?
+    )
+  LIMIT 1
+`,
+  [String(kind), userId ?? null, userId ?? null, probeId, probeId, probeId]
+);
+
     if (exists) {
       return { success: true, queued: false, noOp: true, dedupeKey: key };
     }
