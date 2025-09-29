@@ -20,7 +20,7 @@
     .ws-header{background:var(--ws-card);padding:20px;border-bottom:1px solid var(--ws-border);box-shadow:var(--ws-shadow);}
     .ws-main-inner{max-width:1180px;margin:0 auto;padding:20px;}
 
-    /* ✅ header summary card – renamed & scoped */
+    /* header summary card */
     .ws-header-card{display:flex;align-items:center;gap:16px;background:var(--ws-card);border:1px solid var(--ws-border);
       border-radius:12px;box-shadow:var(--ws-shadow);padding:16px 20px;margin:0 0 18px;}
     .ws-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
@@ -43,7 +43,7 @@
         <li onclick="loadSection('addresses')">Manage Addresses</li>
         <li onclick="loadSection('payments')">Payments</li>
         <li onclick="loadSection('favorites')">Favorites</li>
-        <li onclick="loadSection('offers')">Offers</li>        
+        <li onclick="loadSection('offers')">Offers</li>
         <li onclick="loadSection('help')">Help Center</li>
       </ul>
     </aside>
@@ -51,7 +51,6 @@
     <main class="ws-main">
       <header class="ws-header">
         <div class="ws-main-inner">
-          <!-- ✅ renamed from ws-profile-card to ws-header-card -->
           <section class="ws-header-card" id="profileCard">
             <div class="ws-avatar" id="userAvatar">U</div>
             <div class="ws-user-meta">
@@ -100,19 +99,42 @@
       try{
         const res = await fetch(file, {cache:'no-cache'});
         if(!res.ok) throw new Error('Cannot GET '+file);
-        document.getElementById('content-area').innerHTML = await res.text();
 
+        const html = await res.text();
+        const container = document.getElementById('content-area');
+        container.innerHTML = html;
+
+        // Initialize per-section JS after content is in the DOM
         if (section === 'profile') {
           const mod = await import('/js/myaccount.js?ts='+Date.now());
           const fn = (mod && (mod.initMyAccountProfile || (mod.default && mod.default.initMyAccountProfile)))
                     || (typeof window.initMyAccountProfile==='function' && window.initMyAccountProfile);
           if (typeof fn === 'function') fn();
         }
+
         if (section === 'orders') {
           const mod = await import('/js/myorders.js?ts='+Date.now());
           const fn = (mod && (mod.initMyOrders || (mod.default && mod.default.initMyOrders)))
                     || (typeof window.initMyOrders==='function' && window.initMyOrders);
           if (typeof fn === 'function') fn();
+        }
+
+        if (section === 'offers') {
+          // IMPORTANT: offers.html is a partial; scripts inside it won't auto-run.
+          // Call the global initializer exposed by /js/loyalty-offers.js
+          if (window.WS_LOYALTY_OFFERS && typeof window.WS_LOYALTY_OFFERS.init === 'function') {
+            window.WS_LOYALTY_OFFERS.init();
+          } else {
+            console.warn('[userdash] WS_LOYALTY_OFFERS not ready; retrying…');
+            // small retry in case the script is still loading
+            setTimeout(() => {
+              if (window.WS_LOYALTY_OFFERS && typeof window.WS_LOYALTY_OFFERS.init === 'function') {
+                window.WS_LOYALTY_OFFERS.init();
+              } else {
+                console.error('[userdash] Offers init failed (script not loaded)');
+              }
+            }, 50);
+          }
         }
       }catch(err){
         console.error('[userdash] loadSection failed:', err);
@@ -137,6 +159,8 @@
       loadSection('orders'); // default tab
     });
   </script>
- 
+
+  <!-- Load Offers JS once at the frame level -->
+  <script src="/js/loyalty-offers.js?v=20250929"></script>
 </body>
 </html>
