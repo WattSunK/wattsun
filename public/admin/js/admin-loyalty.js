@@ -53,6 +53,16 @@
     }
     return data;
   }
+// ---- public helper surface (exported) ----
+if (!window.wsAdmin) window.wsAdmin = {};
+Object.assign(window.wsAdmin, {
+  toast,            // show snack/toast messages
+  debounce,         // debounce util for inputs
+  esc,              // HTML escaper (optional, handy in admin HTML)
+  api, postJSON,    // fetch helpers with error handling
+  refreshActiveTab, // lets outside code trigger a refresh
+  loadAccounts,     // optional: useful for admin flows to reload the Accounts tab
+});
 
   // ---------- SPA-safe activation ----------
   let attached = false;
