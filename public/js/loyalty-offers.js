@@ -8,6 +8,38 @@
     t.style.display = 'block';
     setTimeout(() => (t.style.display = 'none'), 2500);
   };
+  // Simple show/hide helpers
+  const qs = (id) => document.getElementById(id);
+  const show = (id) => { const n = qs(id); if (n) n.style.display = ''; };
+  const hide = (id) => { const n = qs(id); if (n) n.style.display = 'none'; };
+
+  function startLoading() {
+    show('offersSkeleton');
+    hide('offersError');
+    hide('offersEmpty');
+    hide('accountCard');
+    hide('withdrawCard');
+    hide('historyCard');
+  }
+
+  function showError(msg) {
+    hide('offersSkeleton');
+    qs('offersErrorMsg') && (qs('offersErrorMsg').textContent = msg || 'Please try again.');
+    show('offersError');
+  }
+
+  function showEmpty() {
+    hide('offersSkeleton');
+    show('offersEmpty');
+  }
+
+  function showAccount() {
+    hide('offersSkeleton');
+    hide('offersError');
+    hide('offersEmpty');
+    show('accountCard');
+    // withdraw/history shown conditionally later
+  }
 
   let program = null;
   let account = null;
@@ -194,7 +226,15 @@
     el('enrollBtn')?.addEventListener('click', enroll);
     el('withdrawPoints')?.addEventListener('input', updateEstimate);
     el('withdrawBtn')?.addEventListener('click', doWithdraw);
-    loadMe().catch((e) => toast(`Load failed: ${e.message}`));
+        startLoading();
+    loadMe().catch((e) => showError(e.message));
+
+
+        qs('offersRetry')?.addEventListener('click', () => {
+      startLoading();
+      loadMe().catch((e) => showError(e.message));
+    });
+
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') loadMe().catch(() => {});

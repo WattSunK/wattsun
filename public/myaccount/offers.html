@@ -47,6 +47,31 @@
 
     <!-- ===== Loyalty Pane ===== -->
     <section id="paneLoyalty">
+      <!-- Loading skeleton -->
+<section class="ws-card" id="offersSkeleton" style="margin-bottom:12px;">
+  <div class="muted">Loading your loyalty info…</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:8px;">
+    <div class="kpi"><div class="muted">Balance</div><div>████</div></div>
+    <div class="kpi"><div class="muted">Earned</div><div>████</div></div>
+    <div class="kpi"><div class="muted">Penalty</div><div>████</div></div>
+    <div class="kpi"><div class="muted">Paid</div><div>████</div></div>
+  </div>
+</section>
+
+<!-- Error fallback -->
+<section class="ws-card" id="offersError" style="display:none;margin-bottom:12px;">
+  <h3 style="margin:0 0 6px;">We couldn’t load your offers</h3>
+  <p class="muted" id="offersErrorMsg">Please try again.</p>
+  <button id="offersRetry" class="ws-btn ws-btn-outline" style="margin-top:8px;">Retry</button>
+</section>
+
+<!-- Empty state (no account) -->
+<section class="ws-card" id="offersEmpty" style="display:none;margin-bottom:12px;">
+  <h3 style="margin:0 0 6px;">No loyalty account yet</h3>
+  <p class="muted">You’re not enrolled in a loyalty program at the moment.</p>
+  <!-- Optional: keep page minimal; enrollment may be via separate flow -->
+</section>
+
 
       <!-- Welcome banner (shown on first landing with ?welcome=1) -->
       <section id="loyalty-welcome" class="ws-card" style="display:none;margin-bottom:12px;">
@@ -82,7 +107,7 @@
       </section>
 
       <!-- KPI Row -->
-      <section class="ws-card" id="accountCard" style="margin-bottom:12px;">
+     <section class="ws-card" id="accountCard" style="margin-bottom:12px; display:none;">
         <div class="kpis">
           <div class="kpi">
             <h4>Balance</h4>
