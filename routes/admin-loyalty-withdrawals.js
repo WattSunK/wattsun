@@ -183,6 +183,7 @@ async function ensureNotificationsQueue(db) {
       email TEXT,
       status TEXT NOT NULL DEFAULT 'Queued',
       payload TEXT,
+      dedupe_key TEXT,
       created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
     )
   `);
@@ -194,23 +195,21 @@ async function ensureNotificationsQueue(db) {
 // single-row de-dupe by kind+ref (withdrawal id) and email (optional)
 async function enqueueNotification(db, { userId, accountId, kind, email, payload }) {
   await ensureNotificationsQueue(db);
- const wid = payload?.withdrawalId; // from the payload you pass in every call
-const exists = await q(
-  db,
-  `SELECT 1 FROM notifications_queue
-   WHERE kind = ? AND payload LIKE ? LIMIT 1`,
-  [kind, `%\"withdrawalId\":${Number(wid)}%`]
-).catch(() => null);
+  const wid = payload?.withdrawalId ? Number(payload.withdrawalId) : null;
+  const dedupe = `${kind}:${wid ?? 'na'}:${email ?? ''}`;
 
- if (exists) return; 
-  await run(
-    db,
-    `INSERT INTO notifications_queue (user_id, account_id, kind, email, status, payload)
-     VALUES (?, ?, ?, ?, 'Queued', ?)`,
-    [userId || null, accountId || null, kind, email || null, JSON.stringify(payload || {})]
-  );
+  const json = JSON.stringify(payload || {});
+  const sql = `
+    INSERT OR IGNORE INTO notifications_queue
+      (user_id, account_id, kind, email, status, payload, dedupe_key)
+    VALUES
+      (?, ?, ?, ?, 'Queued', ?, ?)
+  `;
+  await run(db, sql, [userId || null, accountId || null, kind, email || null, json, dedupe]);
+
+  // optional visibility in logs
+  console.log('[notify] queued', { kind, wid, email, accountId });
 }
-
 // convenient: look up the user email for a given account
 async function lookupEmailByAccount(db, accountId) {
   const r = await q(
