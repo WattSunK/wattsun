@@ -103,25 +103,65 @@ async function addLedgerIfAvailable(db, opts) {
 // The view returns a union with a common shape + a "source" discriminator
 // ('customer' from loyalty_withdrawals, 'admin' from withdrawals).
 async function findWithdrawalSource(db, id) {
-  const r = await q(
-    db,
-    `SELECT source FROM v_withdrawals_unified WHERE id=?`,
-    [id]
-  );
-  return r?.source || null;
+  // Disambiguate by probing base tables directly.
+  // Prefer 'admin' if both happen to have the same numeric id.
+  const inAdmin = await q(db, `SELECT id FROM withdrawals WHERE id=?`, [id]);
+  if (inAdmin) return "admin";
+  const inCustomer = await q(db, `SELECT id FROM loyalty_withdrawals WHERE id=?`, [id]);
+  if (inCustomer) return "customer";
+  return null;
 }
 
 async function getUnifiedWithdrawal(db, id) {
-  return q(
-    db,
-    `SELECT id, account_id, user_id, points, eur, status,
-            requested_at, decided_at, paid_at,
-            decision_note, decided_by, payout_ref, source
-       FROM v_withdrawals_unified
-      WHERE id=?`,
-    [id]
-  );
+  const src = await findWithdrawalSource(db, id);
+  if (src === "admin") {
+    return q(
+      db,
+      `SELECT
+         w.id,
+         w.account_id,
+         w.user_id,
+         w.points,
+         w.eur,
+         w.status,
+         w.requested_at,
+         w.decided_at,
+         w.paid_at,
+         w.decision_note,
+         w.decided_by,
+         w.payout_ref,
+         'admin' AS source
+       FROM withdrawals w
+       WHERE w.id = ?`,
+      [id]
+    );
+  }
+  if (src === "customer") {
+    return q(
+      db,
+      `SELECT
+         lw.id,
+         lw.account_id,
+         la.user_id,
+         lw.requested_pts  AS points,
+         lw.requested_eur  AS eur,
+         lw.status,
+         lw.requested_at,
+         lw.decided_at,
+         lw.paid_at,
+         lw.decision_note,
+         lw.decided_by,
+         lw.payout_ref,
+         'customer'        AS source
+       FROM loyalty_withdrawals lw
+       LEFT JOIN loyalty_accounts la ON la.id = lw.account_id
+       WHERE lw.id = ?`,
+      [id]
+    );
+  }
+  return null;
 }
+
 
 // ---- amount helper preserved (points/eur) -----------------------------------
 function deriveAmount(w) {
