@@ -232,6 +232,67 @@ async function lookupEmailByAccount(db, accountId) {
   );
   return { email: r?.email || null, userId: r?.user_id || null };
 }
+// Resolve email/user/account for a notification using whatever we have.
+async function lookupEmailForNotification(db, { accountId, withdrawalId, source }) {
+  // 1) If we already have an accountId, try the direct join
+  if (accountId) {
+    const r = await q(
+      db,
+      `SELECT u.email, a.user_id, a.id AS account_id
+         FROM loyalty_accounts a
+         LEFT JOIN users u ON u.id = a.user_id
+        WHERE a.id = ?`,
+      [accountId]
+    ).catch(() => null);
+    if (r?.email) return { email: r.email, userId: r.user_id, accountId: r.account_id };
+  }
+
+  // 2) Try by withdrawal + source (exact base table)
+  if (withdrawalId && source === 'customer') {
+    const r = await q(
+      db,
+      `SELECT u.email, a.user_id, a.id AS account_id
+         FROM loyalty_withdrawals w
+         JOIN loyalty_accounts a ON a.id = w.account_id
+         LEFT JOIN users u ON u.id = a.user_id
+        WHERE w.id = ?`,
+      [withdrawalId]
+    ).catch(() => null);
+    if (r?.email) return { email: r.email, userId: r.user_id, accountId: r.account_id };
+  }
+  if (withdrawalId && source === 'admin') {
+    const r = await q(
+      db,
+      `SELECT u.email, a.user_id, a.id AS account_id
+         FROM withdrawals w
+         JOIN loyalty_accounts a ON a.id = w.account_id
+         LEFT JOIN users u ON u.id = a.user_id
+        WHERE w.id = ?`,
+      [withdrawalId]
+    ).catch(() => null);
+    if (r?.email) return { email: r.email, userId: r.user_id, accountId: r.account_id };
+  }
+
+  // 3) Fall back to the unified view if present
+  try {
+    const hasView = await q(db, `SELECT 1 FROM sqlite_master WHERE type='view' AND name='v_withdrawals_unified'`);
+    if (hasView && withdrawalId) {
+      const r = await q(
+        db,
+        `SELECT u.email, a.user_id, a.id AS account_id
+           FROM v_withdrawals_unified v
+           JOIN loyalty_accounts a ON a.id = v.account_id
+           LEFT JOIN users u ON u.id = a.user_id
+          WHERE v.id = ?`,
+        [withdrawalId]
+      ).catch(() => null);
+      if (r?.email) return { email: r.email, userId: r.user_id, accountId: r.account_id };
+    }
+  } catch (_) {}
+
+  // 4) Give up gracefully
+  return { email: null, userId: null, accountId: accountId || null };
+}
 
 // ---- Routes: create (admin-initiated) ---------------------------------------
 // POST /api/admin/loyalty/withdrawals
@@ -526,7 +587,11 @@ async function handleApprove(req, res) {
 
 // enqueue notification (best-effort)
 try {
-  const { email, userId } = await lookupEmailByAccount(db, row.account_id);
+  const { email, userId, accountId } = await lookupEmailForNotification(db, {
+    accountId,
+    withdrawalId: id,
+    source: src
+  });
   await enqueueNotification(db, {
     userId,
     accountId: row.account_id,
