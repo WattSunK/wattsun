@@ -218,74 +218,80 @@ router.get("/loyalty/withdrawals", async (req, res) => {
   }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
+  // Fallback UNION we can always use if the view path fails for any reason
+  const unionSql = `
+    SELECT
+      lw.id,
+      lw.account_id,
+      la.user_id,
+      lw.requested_pts      AS points,
+      lw.requested_eur      AS eur,
+      lw.status,
+      lw.requested_at,
+      lw.decided_at,
+      lw.paid_at,
+      lw.decision_note,
+      lw.decided_by,
+      lw.payout_ref,
+      'customer'            AS source
+    FROM loyalty_withdrawals lw
+    LEFT JOIN loyalty_accounts la ON la.id = lw.account_id
+
+    UNION ALL
+
+    SELECT
+      w.id,
+      w.account_id,
+      w.user_id,
+      w.points,
+      w.eur,
+      w.status,
+      w.requested_at,
+      w.decided_at,
+      w.paid_at,
+      w.decision_note,
+      w.decided_by,
+      w.payout_ref,
+      'admin'               AS source
+    FROM withdrawals
+  `;
+
   try {
     const out = await withDb(async (db) => {
-      // 1) detect if the unified view exists in THIS DB connection
+      // 1) Is the view present in THIS DB?
       const hasView = !!(await q(
         db,
         `SELECT name FROM sqlite_master WHERE type='view' AND name='v_withdrawals_unified'`
       ));
 
       if (hasView) {
-        // happy path: use the view
-        const rows = await all(
-          db,
-          `
-          SELECT id, account_id, user_id, points, eur, status,
-                 requested_at, decided_at, paid_at,
-                 decision_note, decided_by, payout_ref, source
-            FROM v_withdrawals_unified
-            ${whereSql}
-           ORDER BY id DESC
-           LIMIT ? OFFSET ?`,
-          [...args, per, offset]
-        );
-        const totRow = await q(
-          db,
-          `SELECT COUNT(*) AS n FROM v_withdrawals_unified ${whereSql}`,
-          args
-        );
-        return { rows, total: totRow?.n || 0 };
+        try {
+          // Try the view path first
+          const rows = await all(
+            db,
+            `
+            SELECT id, account_id, user_id, points, eur, status,
+                   requested_at, decided_at, paid_at,
+                   decision_note, decided_by, payout_ref, source
+              FROM v_withdrawals_unified
+              ${whereSql}
+             ORDER BY id DESC
+             LIMIT ? OFFSET ?`,
+            [...args, per, offset]
+          );
+          const totRow = await q(
+            db,
+            `SELECT COUNT(*) AS n FROM v_withdrawals_unified ${whereSql}`,
+            args
+          );
+          return { rows, total: totRow?.n || 0 };
+        } catch (viewErr) {
+          // If the view exists but is incompatible, fall back seamlessly
+          console.warn("[admin/loyalty/withdrawals][GET] view failed, using UNION fallback:", viewErr.message);
+        }
       }
 
-      // 2) fallback: UNION ALL directly (no view in this DB)
-      const unionSql = `
-        SELECT
-          lw.id,
-          lw.account_id,
-          la.user_id,
-          lw.requested_pts      AS points,
-          lw.requested_eur      AS eur,
-          lw.status,
-          lw.requested_at,
-          lw.decided_at,
-          lw.paid_at,
-          lw.decision_note,
-          lw.decided_by,
-          lw.payout_ref,
-          'customer'            AS source
-        FROM loyalty_withdrawals lw
-        LEFT JOIN loyalty_accounts la ON la.id = lw.account_id
-
-        UNION ALL
-
-        SELECT
-          w.id,
-          w.account_id,
-          w.user_id,
-          w.points,
-          w.eur,
-          w.status,
-          w.requested_at,
-          w.decided_at,
-          w.paid_at,
-          w.decision_note,
-          w.decided_by,
-          w.payout_ref,
-          'admin'               AS source
-        FROM withdrawals
-      `;
-      // wrap UNION in outer SELECT to apply filters/paging safely
+      // 2) fallback: UNION ALL directly (no/failed view)
       const rows = await all(
         db,
         `
@@ -312,12 +318,13 @@ router.get("/loyalty/withdrawals", async (req, res) => {
       withdrawals: out.rows,
     });
   } catch (e) {
-    console.error("[admin/loyalty/withdrawals][GET]", e);
+    console.error("[admin/loyalty/withdrawals][GET] fatal:", e);
     return res
       .status(500)
       .json({ success: false, error: { code: "SERVER_ERROR", message: "List failed" } });
   }
 });
+
 
 // ---- Actions: Approve / Reject / Mark-Paid (source-aware updates) -----------
 
