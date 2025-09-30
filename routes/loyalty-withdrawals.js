@@ -83,6 +83,30 @@ async function onePendingGuard(accountId) {
   const r = await get(`SELECT COUNT(1) AS c FROM loyalty_withdrawals WHERE account_id=? AND status='Pending'`, [accountId]);
   return Number(r?.c || 0) === 0;
 }
+// --- Unified feed helpers (add below the Utils above) -----------------------
+async function tableExists(name) {
+  const row = await get(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+    [name]
+  );
+  return !!row;
+}
+
+function normalizeWithdrawalRow(r, source) {
+  return {
+    id:           r.id,
+    account_id:   r.account_id,
+    points:       r.requested_pts ?? r.points ?? 0,
+    eur:          r.requested_eur ?? r.eur ?? null,
+    status:       r.status,
+    requested_at: r.requested_at ?? r.created_at ?? r.request_date ?? null,
+    decided_at:   r.decided_at ?? null,
+    paid_at:      r.paid_at ?? null,
+    payout_ref:   r.payout_ref ?? r.reference ?? null,
+    note:         r.note ?? null,
+    source
+  };
+}
 
 // ---- Routes ----------------------------------------------------------------
 // All endpoints in this router require a logged-in user
@@ -152,26 +176,58 @@ router.post("/withdraw", async (req, res) => {
       });
 
 // GET /api/loyalty/withdrawals  (list my withdrawals)
+// GET /api/loyalty/withdrawals  (list my withdrawals; unified feed)
 router.get("/withdrawals", async (req, res) => {
   const userId = req.user.id;
   try {
     const account = await findActiveAccountForUser(userId);
     if (!account) return res.json({ success:true, withdrawals: [] });
 
-    const rows = await all(
-      `SELECT id, requested_at, requested_pts, requested_eur, status, note
+    // Source A: canonical customer table
+    const aRowsRaw = await all(
+      `SELECT id, account_id, requested_pts, requested_eur, status,
+              requested_at, decided_at, paid_at, payout_ref, note
          FROM loyalty_withdrawals
         WHERE account_id=?
-        ORDER BY id DESC
-        LIMIT 200`,
+        LIMIT 500`,
       [account.id]
     );
+    const aRows = aRowsRaw.map(r => normalizeWithdrawalRow(r, "customer"));
 
-    return res.json({ success:true, withdrawals: rows });
+    // Source B: legacy admin table (optional)
+    let bRows = [];
+    if (await tableExists("withdrawals")) {
+      const bRowsRaw = await all(
+        `SELECT id, account_id,
+                points,                       -- legacy column
+                NULL AS requested_eur,
+                status,
+                created_at AS requested_at,
+                decided_at,
+                paid_at,
+                payout_ref,
+                note
+           FROM withdrawals
+          WHERE account_id=?
+          LIMIT 500`,
+        [account.id]
+      );
+      bRows = bRowsRaw.map(r => normalizeWithdrawalRow(r, "admin"));
+    }
+
+    // Merge + sort newest-first by requested_at (string-safe)
+    const withdrawals = [...aRows, ...bRows].sort((x, y) => {
+      const ax = String(x.requested_at || "").replace("T", " ");
+      const ay = String(y.requested_at || "").replace("T", " ");
+      return ay.localeCompare(ax);
+    });
+
+    return res.json({ success:true, withdrawals });
   } catch (err) {
     console.error("[loyalty/withdrawals]", err);
     return bad(res, "SERVER_ERROR", "Unable to load withdrawals", 500);
   }
 });
+
 
 module.exports = router;
