@@ -193,17 +193,19 @@ router.post("/loyalty/withdrawals", async (req, res) => {
 });
 
 // ---- Routes: list (NOW reads the unified VIEW) ------------------------------
-// GET /api/admin/loyalty/withdrawals
+// GET /api/admin/loyalty/withdrawals  — resilient: works with or without the view
 router.get("/loyalty/withdrawals", async (req, res) => {
-  // Keep existing filters if you had them; minimally wire a status/q filter.
-  const status = s(req.query?.status)?.trim();
-  const qSearch = s(req.query?.q)?.trim();
-  const page = Math.max(1, asInt(req.query?.page, 1));
-  const per = Math.min(100, Math.max(1, asInt(req.query?.per, 50)));
+  // accept both limit & per (keep old dashboards working)
+  const perIn  = req.query?.limit ?? req.query?.per;
+  const per    = Math.min(100, Math.max(1, asInt(perIn, 50)));
+  const page   = Math.max(1, asInt(req.query?.page, 1));
   const offset = (page - 1) * per;
 
+  const status  = (req.query?.status || "").toString().trim();
+  const qSearch = (req.query?.q || req.query?.search || "").toString().trim();
+
   const where = [];
-  const args = [];
+  const args  = [];
 
   if (status && status !== "All") {
     where.push(`status = ?`);
@@ -218,28 +220,88 @@ router.get("/loyalty/withdrawals", async (req, res) => {
 
   try {
     const out = await withDb(async (db) => {
+      // 1) detect if the unified view exists in THIS DB connection
+      const hasView = !!(await q(
+        db,
+        `SELECT name FROM sqlite_master WHERE type='view' AND name='v_withdrawals_unified'`
+      ));
+
+      if (hasView) {
+        // happy path: use the view
+        const rows = await all(
+          db,
+          `
+          SELECT id, account_id, user_id, points, eur, status,
+                 requested_at, decided_at, paid_at,
+                 decision_note, decided_by, payout_ref, source
+            FROM v_withdrawals_unified
+            ${whereSql}
+           ORDER BY id DESC
+           LIMIT ? OFFSET ?`,
+          [...args, per, offset]
+        );
+        const totRow = await q(
+          db,
+          `SELECT COUNT(*) AS n FROM v_withdrawals_unified ${whereSql}`,
+          args
+        );
+        return { rows, total: totRow?.n || 0 };
+      }
+
+      // 2) fallback: UNION ALL directly (no view in this DB)
+      const unionSql = `
+        SELECT
+          lw.id,
+          lw.account_id,
+          la.user_id,
+          lw.requested_pts      AS points,
+          lw.requested_eur      AS eur,
+          lw.status,
+          lw.requested_at,
+          lw.decided_at,
+          lw.paid_at,
+          lw.decision_note,
+          lw.decided_by,
+          lw.payout_ref,
+          'customer'            AS source
+        FROM loyalty_withdrawals lw
+        LEFT JOIN loyalty_accounts la ON la.id = lw.account_id
+
+        UNION ALL
+
+        SELECT
+          w.id,
+          w.account_id,
+          w.user_id,
+          w.points,
+          w.eur,
+          w.status,
+          w.requested_at,
+          w.decided_at,
+          w.paid_at,
+          w.decision_note,
+          w.decided_by,
+          w.payout_ref,
+          'admin'               AS source
+        FROM withdrawals
+      `;
+      // wrap UNION in outer SELECT to apply filters/paging safely
       const rows = await all(
         db,
         `
-        SELECT id, account_id, user_id, points, eur, status,
-               requested_at, decided_at, paid_at,
-               decision_note, decided_by, payout_ref, source
-          FROM v_withdrawals_unified
+        SELECT *
+          FROM (${unionSql}) u
           ${whereSql}
          ORDER BY id DESC
          LIMIT ? OFFSET ?`,
         [...args, per, offset]
       );
-
-      // total (approx): count from view
       const totRow = await q(
         db,
-        `SELECT COUNT(*) AS n FROM v_withdrawals_unified ${whereSql}`,
+        `SELECT COUNT(*) AS n FROM (${unionSql}) u ${whereSql}`,
         args
       );
-      const total = totRow?.n || 0;
-
-      return { rows, total };
+      return { rows, total: totRow?.n || 0 };
     });
 
     return res.json({
