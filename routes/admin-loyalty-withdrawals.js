@@ -18,6 +18,17 @@ const router = express.Router();
 const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 
+// === lightweight debug helpers (NEW) ========================================
+const LOG_NOTIFY = process.env.LOG_LEVEL !== 'silent';
+const dbg = (...a) => LOG_NOTIFY && console.log('[notify]', ...a);
+
+// Detect "source" consistently (helper available if needed elsewhere)
+function getSource(req, { inAdmin, inCustomer }) {
+  if (inCustomer) return 'customer';
+  if (inAdmin) return 'admin';
+  return (req.query?.source || req.body?.source || 'admin').toLowerCase();
+}
+
 // ---- DB wiring (unchanged default; env wins) --------------------------------
 const DB_PATH =
   process.env.DB_PATH_USERS ||
@@ -165,15 +176,14 @@ async function getUnifiedWithdrawal(db, id, sourceHint = null) {
   return null;
 }
 
-
 // ---- amount helper preserved (points/eur) -----------------------------------
 function deriveAmount(w) {
   const points = asInt(w?.points, 0);
   const eur = asInt(w?.eur, 0);
   return { points, eur };
 }
-// ---- notifications (best-effort) -------------------------------------------
-// ---- notifications (best-effort) -------------------------------------------
+
+// ---- notifications (best-effort) --------------------------------------------
 async function ensureNotificationsQueue(db) {
   // 1) Create table if missing (includes dedupe_key for fresh DBs)
   await run(db, `
@@ -220,6 +230,7 @@ async function enqueueNotification(db, { userId, accountId, kind, email, payload
   // optional visibility in logs
   console.log('[notify] queued', { kind, wid, email, accountId });
 }
+
 // convenient: look up the user email for a given account
 async function lookupEmailByAccount(db, accountId) {
   const r = await q(
@@ -232,6 +243,7 @@ async function lookupEmailByAccount(db, accountId) {
   );
   return { email: r?.email || null, userId: r?.user_id || null };
 }
+
 // Resolve email/user/account for a notification using whatever we have.
 async function lookupEmailForNotification(db, { accountId, withdrawalId, source }) {
   // 1) If we already have an accountId, try the direct join
@@ -292,6 +304,15 @@ async function lookupEmailForNotification(db, { accountId, withdrawalId, source 
 
   // 4) Give up gracefully
   return { email: null, userId: null, accountId: accountId || null };
+}
+
+// Wrapper to log lookups (NEW)
+async function lookupEmailForNotificationLogged(db, params) {
+  const { withdrawalId, accountId, source } = params || {};
+  dbg('[lookup.start]', { withdrawalId, accountId, source });
+  const res = await lookupEmailForNotification(db, params);
+  dbg('[lookup.result]', { email: res?.email || null, userId: res?.userId || null });
+  return res;
 }
 
 // ---- Routes: create (admin-initiated) ---------------------------------------
@@ -562,11 +583,12 @@ async function handleApprove(req, res) {
   const stamp = new Date().toISOString();
 
   try {
-  await withDb(async (db) => {
-    const forceSrc = (req.query?.source || req.body?.source || "").toString().toLowerCase();
-    let src = (forceSrc === "admin" || forceSrc === "customer") ? forceSrc : null;
-    if (!src) src = await findWithdrawalSource(db, id);
+    await withDb(async (db) => {
+      const forceSrc = (req.query?.source || req.body?.source || "").toString().toLowerCase();
+      let src = (forceSrc === "admin" || forceSrc === "customer") ? forceSrc : null;
+      if (!src) src = await findWithdrawalSource(db, id);
 
+      dbg('[approve.start]', { id, src, forceSrc });
       if (!src) {
         return res
           .status(404)
@@ -576,42 +598,46 @@ async function handleApprove(req, res) {
       await run(db, t.sql, t.params);
 
       // (optional) add a ledger entry when approving (points deducted)
-            const row = await getUnifiedWithdrawal(db, id, src);
+      const row = await getUnifiedWithdrawal(db, id, src);
+      dbg('[approve.row]', row);
       const { points } = deriveAmount(row);
       await addLedgerIfAvailable(db, {
-  accountId: row.account_id,
-  pointsDelta: -Math.abs(points),
-  note: `Withdrawal #${id} approved`,
-  adminUserId: decidedBy || null,
-});
+        accountId: row.account_id,
+        pointsDelta: -Math.abs(points),
+        note: `Withdrawal #${id} approved`,
+        adminUserId: decidedBy || null,
+      });
 
-// enqueue notification (best-effort)
-try {
-  const { email, userId, accountId } = await lookupEmailForNotification(db, {
-  accountId: row.account_id,
-  withdrawalId: id,
-  source: src
-});
+      // enqueue notification (best-effort, with lookup logging)
+      try {
+        const { email, userId } = await lookupEmailForNotificationLogged(db, {
+          accountId: row.account_id,
+          withdrawalId: id,
+          source: src
+        });
 
-  await enqueueNotification(db, {
-    userId,
-    accountId: row.account_id,
-    kind: 'withdrawal_approved',
-    email,
-    payload: {
-      withdrawalId: id,
-      accountId: row.account_id,
-      points: points,
-      eur: row.eur || null,
-      decidedBy: decidedBy || null,
-      decidedAt: new Date().toISOString()
-    }
-  });
-} catch (_) { /* ignore */ }
+        dbg('[enqueue.approve]', { id, email, userId });
+        await enqueueNotification(db, {
+          userId,
+          accountId: row.account_id,
+          kind: 'withdrawal_approved',
+          email,
+          payload: {
+            withdrawalId: id,
+            accountId: row.account_id,
+            points: points,
+            eur: row.eur || null,
+            decidedBy: decidedBy || null,
+            decidedAt: new Date().toISOString(),
+            source: src
+          }
+        });
+      } catch (ee) {
+        console.error('[notify.error.approve]', { id, err: ee.message });
+      }
 
-const fresh = await getUnifiedWithdrawal(db, id, src);
-return res.json({ success: true, withdrawal: fresh });
-
+      const fresh = await getUnifiedWithdrawal(db, id, src);
+      return res.json({ success: true, withdrawal: fresh });
     });
   } catch (e) {
     console.error("[admin/loyalty/withdrawals/:id/approve]", e);
@@ -629,10 +655,10 @@ async function handleReject(req, res) {
   const note = s(req.body?.note)?.slice(0, 500) || null;
 
   try {
-   await withDb(async (db) => {
-  const forceSrc = (req.query?.source || req.body?.source || "").toString().toLowerCase();
-  let src = (forceSrc === "admin" || forceSrc === "customer") ? forceSrc : null;
-  if (!src) src = await findWithdrawalSource(db, id);
+    await withDb(async (db) => {
+      const forceSrc = (req.query?.source || req.body?.source || "").toString().toLowerCase();
+      let src = (forceSrc === "admin" || forceSrc === "customer") ? forceSrc : null;
+      if (!src) src = await findWithdrawalSource(db, id);
 
       if (!src) {
         return res
@@ -661,10 +687,11 @@ async function handleMarkPaid(req, res) {
 
   try {
     await withDb(async (db) => {
-  const forceSrc = (req.query?.source || req.body?.source || "").toString().toLowerCase();
-  let src = (forceSrc === "admin" || forceSrc === "customer") ? forceSrc : null;
-  if (!src) src = await findWithdrawalSource(db, id);
+      const forceSrc = (req.query?.source || req.body?.source || "").toString().toLowerCase();
+      let src = (forceSrc === "admin" || forceSrc === "customer") ? forceSrc : null;
+      if (!src) src = await findWithdrawalSource(db, id);
 
+      dbg('[paid.start]', { id, src, forceSrc, payoutRef });
       if (!src) {
         return res
           .status(404)
@@ -673,34 +700,38 @@ async function handleMarkPaid(req, res) {
       const t = targetSqlForAction(src, "paid")(paidAt, payoutRef, id);
       await run(db, t.sql, t.params);
 
-     const fresh = await getUnifiedWithdrawal(db, id, src);
+      const fresh = await getUnifiedWithdrawal(db, id, src);
+      dbg('[paid.row]', fresh);
 
-// enqueue notification (best-effort)
-try {
-  const { email, userId, accountId } = await lookupEmailForNotification(db, {
-  accountId: fresh.account_id,
-  withdrawalId: id,
-  source: src
-});
-await enqueueNotification(db, {
-  userId,
-  accountId,
-  kind: 'withdrawal_paid',
-  email,
-  payload: {
-    withdrawalId: id,
-    accountId,
-    points: fresh.points,
-    eur: fresh.eur || null,
-    payoutRef: fresh.payout_ref || null,
-    paidAt: new Date().toISOString()
-  }
-});
+      // enqueue notification (best-effort, with lookup logging)
+      try {
+        const { email, userId, accountId } = await lookupEmailForNotificationLogged(db, {
+          accountId: fresh.account_id,
+          withdrawalId: id,
+          source: src
+        });
 
-} catch (_) { /* ignore */ }
+        dbg('[enqueue.paid]', { id, email, userId, accountId, payoutRef: fresh.payout_ref || payoutRef || null });
+        await enqueueNotification(db, {
+          userId,
+          accountId,
+          kind: 'withdrawal_paid',
+          email,
+          payload: {
+            withdrawalId: id,
+            accountId,
+            points: fresh.points,
+            eur: fresh.eur || null,
+            payoutRef: fresh.payout_ref || payoutRef || null,
+            paidAt: new Date().toISOString(),
+            source: src
+          }
+        });
+      } catch (ee) {
+        console.error('[notify.error.paid]', { id, err: ee.message });
+      }
 
-return res.json({ success: true, withdrawal: fresh });
-
+      return res.json({ success: true, withdrawal: fresh });
     });
   } catch (e) {
     console.error("[admin/loyalty/withdrawals/:id/mark-paid]", e);
