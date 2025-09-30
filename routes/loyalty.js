@@ -332,7 +332,15 @@ const sums = await new Promise((resolve, reject) => {
       sqlGetRankForAccount(acct.id),
     ]);
 
-    return res.json({ success: true, account: acct, program, recent, rank });
+    return res.json({
+  success: true,
+  // inject paid_total in the object we send, regardless of earlier mutations
+  account: { ...acct, paid_total: Number(acct.total_paid || 0) },
+  program,
+  recent,
+  rank
+});
+
   } catch (err) {
     console.error("[loyalty/me]", err);
     return res

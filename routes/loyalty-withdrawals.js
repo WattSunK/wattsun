@@ -178,9 +178,12 @@ router.post("/withdraw", async (req, res) => {
 // GET /api/loyalty/withdrawals  (list my withdrawals)
 // GET /api/loyalty/withdrawals  (list my withdrawals; unified feed)
 // GET /api/loyalty/withdrawals  (list my withdrawals; unified feed, resilient)
-router.get("/withdrawals", async (req, res) => {
-  const userId = req.user.id;
-  try {
+ router.get("/withdrawals", async (req, res) => {
+   try {
+     const userId = (req.user && req.user.id) || (req.session?.user?.id);
+     if (!userId) {
+       return bad(res, "UNAUTHENTICATED", "Login required", 401);
+     }
     const account = await findActiveAccountForUser(userId);
     if (!account) return res.json({ success: true, withdrawals: [] });
 
