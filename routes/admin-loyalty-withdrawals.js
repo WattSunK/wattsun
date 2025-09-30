@@ -439,7 +439,9 @@ async function handleApprove(req, res) {
 
   try {
     await withDb(async (db) => {
-      const src = await findWithdrawalSource(db, id);
+      let src = (forceSrc === "admin" || forceSrc === "customer") ? forceSrc : null;
+      if (!src) src = await findWithdrawalSource(db, id);
+
       if (!src) {
         return res
           .status(404)
