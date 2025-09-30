@@ -588,10 +588,11 @@ async function handleApprove(req, res) {
 // enqueue notification (best-effort)
 try {
   const { email, userId, accountId } = await lookupEmailForNotification(db, {
-    accountId,
-    withdrawalId: id,
-    source: src
-  });
+  accountId: row.account_id,
+  withdrawalId: id,
+  source: src
+});
+
   await enqueueNotification(db, {
     userId,
     accountId: row.account_id,
@@ -676,21 +677,26 @@ async function handleMarkPaid(req, res) {
 
 // enqueue notification (best-effort)
 try {
-  const { email, userId } = await lookupEmailByAccount(db, fresh.account_id);
-  await enqueueNotification(db, {
-    userId,
-    accountId: fresh.account_id,
-    kind: 'withdrawal_paid',
-    email,
-    payload: {
-      withdrawalId: id,
-      accountId: fresh.account_id,
-      points: fresh.points,
-      eur: fresh.eur || null,
-      payoutRef: fresh.payout_ref || null,
-      paidAt: new Date().toISOString()
-    }
-  });
+  const { email, userId, accountId } = await lookupEmailForNotification(db, {
+  accountId: fresh.account_id,
+  withdrawalId: id,
+  source: src
+});
+await enqueueNotification(db, {
+  userId,
+  accountId,
+  kind: 'withdrawal_paid',
+  email,
+  payload: {
+    withdrawalId: id,
+    accountId,
+    points: fresh.points,
+    eur: fresh.eur || null,
+    payoutRef: fresh.payout_ref || null,
+    paidAt: new Date().toISOString()
+  }
+});
+
 } catch (_) { /* ignore */ }
 
 return res.json({ success: true, withdrawal: fresh });
