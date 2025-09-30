@@ -118,30 +118,38 @@ router.post("/withdraw", async (req, res) => {
       }
     }
 
-    // Live balance & policy
-    const available = await liveAvailablePoints(account.id);
-    if (points > available) return bad(res, "INSUFFICIENT_POINTS", "Not enough points");
+          // Live balance & policy
+      const available = await liveAvailablePoints(account.id);
+      if (points > available) return bad(res, "INSUFFICIENT_POINTS", "Not enough points");
 
-    // One-pending policy (optional; comment out if you allow multiple pending)
-    const okPending = await onePendingGuard(account.id);
-    if (!okPending) return bad(res, "PENDING_EXISTS", "You already have a pending withdrawal");
+      // One-pending policy ...
+      const okPending = await onePendingGuard(account.id);
+      if (!okPending) return bad(res, "PENDING_EXISTS", "You already have a pending withdrawal");
 
-    // Insert new request (requested_eur left NULL – compute elsewhere if needed)
-    const stampedNote = idem ? `${note} [idem:${idem}]` : note;
-    const now = new Date().toISOString().slice(0, 19).replace("T", " ");
-    const insert = await run(
-      `INSERT INTO loyalty_withdrawals (account_id, requested_pts, status, requested_at, note)
-       VALUES (?, ?, 'Pending', ?, ?)`,
-      [account.id, points, now, stampedNote]
-    );
+      // --- compute EUR (fallback to 1 €/pt if setting missing) ---
+      const eppRow = await get(
+        `SELECT value FROM loyalty_program_settings WHERE program_id=? AND key='eurPerPoint'`,
+        [account.program_id ?? account.programId ?? null]
+      );
+      const eurPerPoint = Number.parseFloat(eppRow?.value) || 1;
+      const requestedEur = points * eurPerPoint;
 
-    const id = insert.lastID;
-    return res.json({ success:true, withdrawal:{ id, status: "Pending" } });
-  } catch (err) {
-    console.error("[loyalty/withdraw]", err);
-    return bad(res, "SERVER_ERROR", "Unable to request withdrawal", 500);
-  }
-});
+      // --- INSERT: include requested_eur (NOT NULL) and note (optional) ---
+      const stampedNote = idem ? `${note} [idem:${idem}]` : note;
+      const insert = await run(
+        `INSERT INTO loyalty_withdrawals (account_id, requested_pts, requested_eur, status, requested_at, note)
+        VALUES (?, ?, ?, 'Pending', datetime('now'), ?)`,
+        [account.id, points, requestedEur, stampedNote]
+      );
+
+      const id = insert.lastID;
+      return res.json({ success:true, withdrawal:{ id, status: "Pending" } });
+
+        } catch (err) {
+          console.error("[loyalty/withdraw]", err);
+          return bad(res, "SERVER_ERROR", "Unable to request withdrawal", 500);
+        }
+      });
 
 // GET /api/loyalty/withdrawals  (list my withdrawals)
 router.get("/withdrawals", async (req, res) => {
