@@ -1,20 +1,18 @@
 // public/js/loyalty-offers.js
-// - Keeps your baseline logic
-// - Ensures optimistic insert → reconcile with server row, then loadMe()
-// - Reads account totals with tolerant keys (points_balance/total_paid/etc.)
+// - Optimistic insert → reconcile with server row, then loadMe()
+// - Tolerant account totals mapping (paid/earned/penalty/balance)
+// - NEW: 'Paid' fallback computed as earned - penalty - balance when the API omits a paid field
+// - NEW: Note below the history table if admin-initiated payouts exist but aren't listed by the customer endpoint
 
 (() => {
-  // namespace (idempotent)
   const NS = (window.WS_LOYALTY_OFFERS = window.WS_LOYALTY_OFFERS || {});
   let booted = false;
 
-  // tiny DOM helpers
   const el   = (id) => document.getElementById(id);
   const show = (id, mode = "block") => { const n = el(id); if (n) n.style.display = mode; };
   const hide = (id) => { const n = el(id); if (n) n.style.display = "none"; };
   const fmt  = (n) => new Intl.NumberFormat().format(n);
 
-  // toast (optional)
   const toast = (msg) => {
     const t = el("toast");
     if (!t) return;
@@ -72,7 +70,6 @@
     if (b) b.style.display = "none";
   }
 
-  // API wrapper
   async function api(path, opts = {}) {
     const res = await fetch(path, {
       method: opts.method || "GET",
@@ -156,7 +153,6 @@
     }
   }
 
-  // loaders
   async function loadMe() {
     const data = await api("/api/loyalty/me");
     program = data.program || null;
@@ -197,12 +193,33 @@
       return;
     }
 
-    // KPIs with tolerant mapping
+    // --- tolerant mapping for account totals
     const ptsBalance = (account.points_balance ?? account.balance_pts ?? 0);
     const earned     = (account.earned_total  ?? account.total_earned  ?? 0);
     const penalty    = (account.penalty_total ?? account.total_penalty ?? 0);
-    const paid       = (account.paid_total    ?? account.total_paid    ?? 0);
 
+    // Paid can be named differently depending on server build; accept several aliases
+    const paidAliases = [
+      account.paid_total,
+      account.total_paid,
+      account.paid,
+      account.totalPaid,
+      account.withdraw_paid_total,
+      account.withdrawn_total
+    ];
+    let paid = 0;
+    for (const v of paidAliases) {
+      if (v !== undefined && v !== null && !Number.isNaN(Number(v))) { paid = Number(v); break; }
+    }
+
+    // Fallback: if server doesn't provide "paid", derive it from other totals (authoritative for display)
+    const computedPaid = Math.max(0, (Number(earned) || 0) - (Number(penalty) || 0) - (Number(ptsBalance) || 0));
+    if (paid <= 0 && computedPaid > 0) paid = computedPaid;
+
+    // expose totals for the history reconciliation note
+    NS._paidTotalPts = paid;
+
+    // KPIs
     el("pointsBalance") && (el("pointsBalance").textContent = fmt(ptsBalance));
     el("eurBalance")    && (el("eurBalance").textContent    = euro(ptsBalance));
 
@@ -230,6 +247,13 @@
 
   async function loadWithdrawals() {
     const tbody = el("historyBody");
+    const historyCard = el("historyCard");
+    const infoId = "historyInfoNote";
+
+    // clean previous info note
+    const prev = document.getElementById(infoId);
+    if (prev) prev.remove();
+
     if (!tbody) return;
     tbody.innerHTML = "";
 
@@ -238,27 +262,44 @@
       const rows = data.withdrawals || data.items || [];
       if (!rows.length) {
         tbody.innerHTML = `<tr><td colspan="7" class="muted">No withdrawals yet.</td></tr>`;
-        return;
-      }
-      for (const w of rows) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${w.id}</td>
-          <td>${fmt(w.points ?? w.requested_pts ?? 0)} pts / ${euro(w.points ?? w.requested_pts ?? 0)}</td>
-          <td>${w.status || ""}</td>
-          <td>${w.request_date || w.requested_at || ""}</td>
-          <td>${w.decided_at || ""}</td>
-          <td>${w.paid_at || ""}</td>
-          <td class="right">${w.payout_ref || ""}</td>
-        `;
-        tbody.appendChild(tr);
+      } else {
+        let paidInList = 0;
+        for (const w of rows) {
+          const pts = Number(w.points ?? w.requested_pts ?? 0) || 0;
+          const status = String(w.status || "").toLowerCase();
+          if (status === "paid") paidInList += Math.abs(pts);
+
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${w.id}</td>
+            <td>${fmt(pts)} pts / ${euro(pts)}</td>
+            <td>${w.status || ""}</td>
+            <td>${w.requested_at || w.request_date || ""}</td>
+            <td>${w.decided_at || ""}</td>
+            <td>${w.paid_at || ""}</td>
+            <td class="right">${w.payout_ref || ""}</td>
+          `;
+          tbody.appendChild(tr);
+        }
+
+        // If admin-triggered payouts exist but the customer endpoint didn't list them,
+        // show a tiny explanatory note so the totals vs table don't look contradictory.
+        const totalPaid = Number(NS._paidTotalPts || 0);
+        if (historyCard && totalPaid > paidInList) {
+          const note = document.createElement("div");
+          note.id = infoId;
+          note.style.marginTop = "6px";
+          note.style.fontSize = "12px";
+          note.style.color = "#666";
+          note.textContent = "Note: Some payouts may have been processed by the admin and might not appear in this list. Totals above include all payouts.";
+          historyCard.appendChild(note);
+        }
       }
     } catch (_) {
       // leave table empty on error
     }
   }
 
-  // actions
   async function enroll() {
     const btn = el("enrollBtn"); if (btn) btn.disabled = true;
     try {
@@ -278,7 +319,7 @@
     const btn = el("withdrawBtn"); if (btn) btn.disabled = true;
     const msg = el("withdrawMsg"); if (msg) msg.textContent = "";
 
-    // OPTIMISTIC row
+    // Optimistic row
     const tbody = el("historyBody");
     const tempId = `temp-${Date.now()}`;
     let tempTr = null;
@@ -304,7 +345,7 @@
       const data = await api("/api/loyalty/withdraw", { method: "POST", body: { points } });
       toast("Withdrawal requested");
 
-      // RECONCILE
+      // Reconcile optimistic row with server row
       if (tempTr && data && data.withdrawal) {
         const tds = tempTr.querySelectorAll("td");
         if (tds[0]) tds[0].textContent = data.withdrawal.id ?? "—";
@@ -325,7 +366,6 @@
         msg.textContent = `Request #${data.withdrawal.id} created for ${points} pts (${euro(points)}).`;
       }
     } catch (e) {
-      // ROLLBACK optimistic row
       const tb = el("historyBody");
       if (tb) {
         const doomed = tb.querySelector('tr[data-temp="true"]');
@@ -338,7 +378,6 @@
     }
   }
 
-  // init
   NS.init = () => {
     if (booted) return;
     if (!el("paneLoyalty")) return;
