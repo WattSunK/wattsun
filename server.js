@@ -63,7 +63,7 @@ app.use(
   session({
     secret: "wattsecret",
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
     cookie: { secure: false },
   })
 );
@@ -76,6 +76,10 @@ app.use((req, _res, next) => {
     if (!u.type && u.role) u.type = u.role;
   }
   next();
+});
+// --- Session visibility probe (temporary; safe to keep in dev) ---
+app.get("/api/_whoami", (req, res) => {
+  res.json({ ok: true, user: req.session?.user || null });
 });
 
 // === Admin gate (supports role OR type, keeps /_diag open) ===================
