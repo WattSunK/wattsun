@@ -193,7 +193,7 @@ router.post("/loyalty/withdrawals", async (req, res) => {
 });
 
 // ---- Routes: list (NOW reads the unified VIEW) ------------------------------
-// GET /api/admin/loyalty/withdrawals — resilient list
+/// GET /api/admin/loyalty/withdrawals — resilient list
 router.get("/loyalty/withdrawals", async (req, res) => {
   const perIn  = req.query?.limit ?? req.query?.per;
   const per    = Math.min(100, Math.max(1, asInt(perIn, 50)));
@@ -217,22 +217,23 @@ router.get("/loyalty/withdrawals", async (req, res) => {
   }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-  // UNION text we can always use as a fallback
-  const unionSql = `
+  // Conservative UNION that avoids referencing optional admin columns
+  // (prevents 500s if the admin 'withdrawals' table doesn't have some fields)
+  const unionSafe = `
     SELECT
       lw.id,
       lw.account_id,
       la.user_id,
-      lw.requested_pts      AS points,
-      lw.requested_eur      AS eur,
+      lw.requested_pts AS points,
+      lw.requested_eur AS eur,
       lw.status,
       lw.requested_at,
       lw.decided_at,
       lw.paid_at,
-      lw.decision_note,
-      lw.decided_by,
-      lw.payout_ref,
-      'customer'            AS source
+      NULL              AS decision_note,
+      NULL              AS decided_by,
+      NULL              AS payout_ref,
+      'customer'        AS source
     FROM loyalty_withdrawals lw
     LEFT JOIN loyalty_accounts la ON la.id = lw.account_id
     UNION ALL
@@ -246,16 +247,16 @@ router.get("/loyalty/withdrawals", async (req, res) => {
       w.requested_at,
       w.decided_at,
       w.paid_at,
-      w.decision_note,
-      w.decided_by,
-      w.payout_ref,
-      'admin'               AS source
-    FROM withdrawals
+      NULL              AS decision_note,
+      NULL              AS decided_by,
+      NULL              AS payout_ref,
+      'admin'           AS source
+    FROM withdrawals w
   `;
 
   try {
     const out = await withDb(async (db) => {
-      // Check if the view exists in this connection
+      // Prefer the view if present
       const hasView = !!(await q(
         db,
         `SELECT name FROM sqlite_master WHERE type='view' AND name='v_withdrawals_unified'`
@@ -263,7 +264,7 @@ router.get("/loyalty/withdrawals", async (req, res) => {
 
       if (hasView) {
         try {
-          // Use view for rows
+          // View path (full data)
           const rows = await all(
             db,
             `
@@ -277,7 +278,6 @@ router.get("/loyalty/withdrawals", async (req, res) => {
             [...args, per, offset]
           );
 
-          // Safe COUNT pattern (wrap in subselect)
           const totRow = await q(
             db,
             `SELECT COUNT(*) AS n
@@ -289,17 +289,17 @@ router.get("/loyalty/withdrawals", async (req, res) => {
 
           return { rows, total: totRow?.n || 0 };
         } catch (e) {
-          console.warn("[admin/withdrawals][view-path] falling back:", e.message);
-          // fall through to union fallback below
+          console.warn("[admin/withdrawals][list] view failed, using UNION fallback:", e.message);
+          // fall through to unionSafe
         }
       }
 
-      // Fallback UNION path (works even if view missing/broken)
+      // Fallback UNION (never references optional columns)
       const rows = await all(
         db,
         `
           SELECT *
-            FROM (${unionSql}) u
+            FROM (${unionSafe}) u
             ${whereSql}
            ORDER BY id DESC
            LIMIT ? OFFSET ?`,
@@ -308,7 +308,7 @@ router.get("/loyalty/withdrawals", async (req, res) => {
 
       const totRow = await q(
         db,
-        `SELECT COUNT(*) AS n FROM (${unionSql}) u ${whereSql}`,
+        `SELECT COUNT(*) AS n FROM (${unionSafe}) u ${whereSql}`,
         args
       );
 
@@ -329,6 +329,7 @@ router.get("/loyalty/withdrawals", async (req, res) => {
       .json({ success: false, error: { code: "SERVER_ERROR", message: "List failed" } });
   }
 });
+
 
 // ---- Actions: Approve / Reject / Mark-Paid (source-aware updates) -----------
 
