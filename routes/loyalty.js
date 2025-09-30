@@ -323,6 +323,9 @@ const sums = await new Promise((resolve, reject) => {
     acct.total_penalty  = sums.penalty_pts;
     acct.total_paid     = sums.paid_pts;
     acct.points_balance = sums.net_balance_pts;
+    // always provide a stable paid_total (points)
+    acct.paid_total = Number(acct.total_paid || 0);
+
 
     const [recent, rank] = await Promise.all([
       sqlGetRecentLedger(acct.id),

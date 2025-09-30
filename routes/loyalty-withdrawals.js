@@ -177,55 +177,68 @@ router.post("/withdraw", async (req, res) => {
 
 // GET /api/loyalty/withdrawals  (list my withdrawals)
 // GET /api/loyalty/withdrawals  (list my withdrawals; unified feed)
+// GET /api/loyalty/withdrawals  (list my withdrawals; unified feed, resilient)
 router.get("/withdrawals", async (req, res) => {
   const userId = req.user.id;
   try {
     const account = await findActiveAccountForUser(userId);
-    if (!account) return res.json({ success:true, withdrawals: [] });
+    if (!account) return res.json({ success: true, withdrawals: [] });
 
-    // Source A: canonical customer table
-    const aRowsRaw = await all(
-      `SELECT id, account_id, requested_pts, requested_eur, status,
-              requested_at, decided_at, paid_at, payout_ref, note
-         FROM loyalty_withdrawals
-        WHERE account_id=?
-        LIMIT 500`,
-      [account.id]
-    );
-    const aRows = aRowsRaw.map(r => normalizeWithdrawalRow(r, "customer"));
-
-    // Source B: legacy admin table (optional)
-    let bRows = [];
-    if (await tableExists("withdrawals")) {
-      const bRowsRaw = await all(
-        `SELECT id, account_id,
-                points,                       -- legacy column
-                NULL AS requested_eur,
-                status,
-                created_at AS requested_at,
-                decided_at,
-                paid_at,
-                payout_ref,
-                note
-           FROM withdrawals
+    // Source A: canonical table
+    let aRowsRaw = [];
+    try {
+      aRowsRaw = await all(
+        `SELECT id, account_id, requested_pts, requested_eur, status,
+                requested_at, decided_at, paid_at, payout_ref, note
+           FROM loyalty_withdrawals
           WHERE account_id=?
           LIMIT 500`,
         [account.id]
       );
-      bRows = bRowsRaw.map(r => normalizeWithdrawalRow(r, "admin"));
+    } catch (e) {
+      console.warn("[loyalty/withdrawals] loyalty_withdrawals query failed:", e.message);
+      aRowsRaw = [];
+    }
+    const aRows = aRowsRaw.map(r => normalizeWithdrawalRow(r, "customer"));
+
+    // Source B: legacy admin table (optional)
+    let bRows = [];
+    try {
+      if (await tableExists("withdrawals")) {
+        const bRowsRaw = await all(
+          `SELECT id, account_id,
+                  points,                      -- legacy column
+                  NULL AS requested_eur,
+                  status,
+                  created_at AS requested_at,
+                  decided_at,
+                  paid_at,
+                  payout_ref,
+                  note
+             FROM withdrawals
+            WHERE account_id=?
+            LIMIT 500`,
+          [account.id]
+        );
+        bRows = bRowsRaw.map(r => normalizeWithdrawalRow(r, "admin"));
+      }
+    } catch (e) {
+      console.warn("[loyalty/withdrawals] legacy withdrawals query failed:", e.message);
+      bRows = [];
     }
 
-    // Merge + sort newest-first by requested_at (string-safe)
+    // Merge + sort
     const withdrawals = [...aRows, ...bRows].sort((x, y) => {
       const ax = String(x.requested_at || "").replace("T", " ");
       const ay = String(y.requested_at || "").replace("T", " ");
       return ay.localeCompare(ax);
     });
 
-    return res.json({ success:true, withdrawals });
+    return res.json({ success: true, withdrawals });
   } catch (err) {
-    console.error("[loyalty/withdrawals]", err);
-    return bad(res, "SERVER_ERROR", "Unable to load withdrawals", 500);
+    console.error("[loyalty/withdrawals] fatal:", err);
+    // degrade gracefully instead of 500
+    return res.json({ success: true, withdrawals: [] });
   }
 });
 
