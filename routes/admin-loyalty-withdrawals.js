@@ -441,9 +441,10 @@ async function handleApprove(req, res) {
   const stamp = new Date().toISOString();
 
   try {
-    await withDb(async (db) => {
-      let src = (forceSrc === "admin" || forceSrc === "customer") ? forceSrc : null;
-      if (!src) src = await findWithdrawalSource(db, id);
+  await withDb(async (db) => {
+    const forceSrc = (req.query?.source || req.body?.source || "").toString().toLowerCase();
+    let src = (forceSrc === "admin" || forceSrc === "customer") ? forceSrc : null;
+    if (!src) src = await findWithdrawalSource(db, id);
 
       if (!src) {
         return res
@@ -454,7 +455,7 @@ async function handleApprove(req, res) {
       await run(db, t.sql, t.params);
 
       // (optional) add a ledger entry when approving (points deducted)
-      const row = await getUnifiedWithdrawal(db, id);
+            const row = await getUnifiedWithdrawal(db, id, src);
       const { points } = deriveAmount(row);
       await addLedgerIfAvailable(db, {
         accountId: row.account_id,
@@ -465,6 +466,7 @@ async function handleApprove(req, res) {
 
       const fresh = await getUnifiedWithdrawal(db, id, src);
       return res.json({ success: true, withdrawal: fresh });
+
     });
   } catch (e) {
     console.error("[admin/loyalty/withdrawals/:id/approve]", e);
@@ -482,8 +484,11 @@ async function handleReject(req, res) {
   const note = s(req.body?.note)?.slice(0, 500) || null;
 
   try {
-    await withDb(async (db) => {
-      const src = await findWithdrawalSource(db, id);
+   await withDb(async (db) => {
+  const forceSrc = (req.query?.source || req.body?.source || "").toString().toLowerCase();
+  let src = (forceSrc === "admin" || forceSrc === "customer") ? forceSrc : null;
+  if (!src) src = await findWithdrawalSource(db, id);
+
       if (!src) {
         return res
           .status(404)
@@ -511,7 +516,10 @@ async function handleMarkPaid(req, res) {
 
   try {
     await withDb(async (db) => {
-      const src = await findWithdrawalSource(db, id);
+  const forceSrc = (req.query?.source || req.body?.source || "").toString().toLowerCase();
+  let src = (forceSrc === "admin" || forceSrc === "customer") ? forceSrc : null;
+  if (!src) src = await findWithdrawalSource(db, id);
+
       if (!src) {
         return res
           .status(404)
