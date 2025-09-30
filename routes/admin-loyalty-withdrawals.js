@@ -172,6 +172,57 @@ function deriveAmount(w) {
   const eur = asInt(w?.eur, 0);
   return { points, eur };
 }
+// ---- notifications (best-effort) -------------------------------------------
+async function ensureNotificationsQueue(db) {
+  await run(db, `
+    CREATE TABLE IF NOT EXISTS notifications_queue (
+      id INTEGER PRIMARY KEY,
+      user_id INTEGER,
+      account_id INTEGER,
+      kind TEXT NOT NULL,
+      email TEXT,
+      status TEXT NOT NULL DEFAULT 'Queued',
+      payload TEXT,
+      created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+    )
+  `);
+  await run(db, `
+    CREATE INDEX IF NOT EXISTS ix_nq_latest ON notifications_queue(created_at DESC)
+  `);
+}
+
+// single-row de-dupe by kind+ref (withdrawal id) and email (optional)
+async function enqueueNotification(db, { userId, accountId, kind, email, payload }) {
+  await ensureNotificationsQueue(db);
+ const wid = payload?.withdrawalId; // from the payload you pass in every call
+const exists = await q(
+  db,
+  `SELECT 1 FROM notifications_queue
+   WHERE kind = ? AND payload LIKE ? LIMIT 1`,
+  [kind, `%\"withdrawalId\":${Number(wid)}%`]
+).catch(() => null);
+
+ if (exists) return; 
+  await run(
+    db,
+    `INSERT INTO notifications_queue (user_id, account_id, kind, email, status, payload)
+     VALUES (?, ?, ?, ?, 'Queued', ?)`,
+    [userId || null, accountId || null, kind, email || null, JSON.stringify(payload || {})]
+  );
+}
+
+// convenient: look up the user email for a given account
+async function lookupEmailByAccount(db, accountId) {
+  const r = await q(
+    db,
+    `SELECT u.email, a.user_id
+       FROM loyalty_accounts a
+  LEFT JOIN users u ON u.id = a.user_id
+      WHERE a.id = ?`,
+    [accountId]
+  );
+  return { email: r?.email || null, userId: r?.user_id || null };
+}
 
 // ---- Routes: create (admin-initiated) ---------------------------------------
 // POST /api/admin/loyalty/withdrawals
@@ -458,14 +509,33 @@ async function handleApprove(req, res) {
             const row = await getUnifiedWithdrawal(db, id, src);
       const { points } = deriveAmount(row);
       await addLedgerIfAvailable(db, {
-        accountId: row.account_id,
-        pointsDelta: -Math.abs(points),
-        note: `Withdrawal #${id} approved`,
-        adminUserId: decidedBy || null,
-      });
+  accountId: row.account_id,
+  pointsDelta: -Math.abs(points),
+  note: `Withdrawal #${id} approved`,
+  adminUserId: decidedBy || null,
+});
 
-      const fresh = await getUnifiedWithdrawal(db, id, src);
-      return res.json({ success: true, withdrawal: fresh });
+// enqueue notification (best-effort)
+try {
+  const { email, userId } = await lookupEmailByAccount(db, row.account_id);
+  await enqueueNotification(db, {
+    userId,
+    accountId: row.account_id,
+    kind: 'withdrawal_approved',
+    email,
+    payload: {
+      withdrawalId: id,
+      accountId: row.account_id,
+      points: points,
+      eur: row.eur || null,
+      decidedBy: decidedBy || null,
+      decidedAt: new Date().toISOString()
+    }
+  });
+} catch (_) { /* ignore */ }
+
+const fresh = await getUnifiedWithdrawal(db, id, src);
+return res.json({ success: true, withdrawal: fresh });
 
     });
   } catch (e) {
@@ -528,8 +598,29 @@ async function handleMarkPaid(req, res) {
       const t = targetSqlForAction(src, "paid")(paidAt, payoutRef, id);
       await run(db, t.sql, t.params);
 
-      const fresh = await getUnifiedWithdrawal(db, id, src);
-      return res.json({ success: true, withdrawal: fresh });
+     const fresh = await getUnifiedWithdrawal(db, id, src);
+
+// enqueue notification (best-effort)
+try {
+  const { email, userId } = await lookupEmailByAccount(db, fresh.account_id);
+  await enqueueNotification(db, {
+    userId,
+    accountId: fresh.account_id,
+    kind: 'withdrawal_paid',
+    email,
+    payload: {
+      withdrawalId: id,
+      accountId: fresh.account_id,
+      points: fresh.points,
+      eur: fresh.eur || null,
+      payoutRef: fresh.payout_ref || null,
+      paidAt: new Date().toISOString()
+    }
+  });
+} catch (_) { /* ignore */ }
+
+return res.json({ success: true, withdrawal: fresh });
+
     });
   } catch (e) {
     console.error("[admin/loyalty/withdrawals/:id/mark-paid]", e);
