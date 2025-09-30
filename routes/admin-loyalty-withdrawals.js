@@ -78,25 +78,28 @@ async function addLedgerIfAvailable(db, opts) {
   const ok = await tableExists(db, "loyalty_ledger");
   if (!ok) return;
 
-  // Minimal insert; adapt as needed to match your existing schema.
-  // We add a negative points entry on APPROVED (or on PAID depending on your policy).
-  const {
-    accountId,
-    pointsDelta, // negative number expected when recording a withdrawal
-    note, // optional
-    adminUserId, // optional
-  } = opts;
+  const colsInfo = await all(
+    db,
+    `PRAGMA table_info(loyalty_ledger)`
+  );
+  const has = (name) => colsInfo.some(c => c.name === name);
 
-  try {
-    await run(
-      db,
-      `INSERT INTO loyalty_ledger (account_id, kind, points_delta, note, admin_user_id, created_at)
-       VALUES (?, 'WITHDRAWAL', ?, ?, ?, datetime('now'))`,
-      [accountId, pointsDelta, note || null, adminUserId || null]
-    );
-  } catch (_e) {
-    // best-effort: ignore errors to avoid breaking admin flow
-  }
+  const fields = [];
+  const values = [];
+  const params = [];
+
+  // required-ish in our usage
+  if (has("account_id")) { fields.push("account_id"); values.push("?"); params.push(opts.accountId); }
+  if (has("kind"))       { fields.push("kind");       values.push("?"); params.push("WITHDRAWAL"); }
+  if (has("points_delta")) { fields.push("points_delta"); values.push("?"); params.push(opts.pointsDelta); }
+  if (has("note"))       { fields.push("note");       values.push("?"); params.push(opts.note || null); }
+  if (has("admin_user_id")) { fields.push("admin_user_id"); values.push("?"); params.push(opts.adminUserId || null); }
+  if (has("created_at")) { fields.push("created_at"); values.push("datetime('now')"); }
+
+  if (!fields.length) return; // nothing safe to insert
+
+  const sql = `INSERT INTO loyalty_ledger (${fields.join(",")}) VALUES (${values.join(",")})`;
+  try { await run(db, sql, params); } catch (_e) { /* best-effort: ignore */ }
 }
 
 // ---- view-aware helpers (NEW) -----------------------------------------------
@@ -112,8 +115,8 @@ async function findWithdrawalSource(db, id) {
   return null;
 }
 
-async function getUnifiedWithdrawal(db, id) {
-  const src = await findWithdrawalSource(db, id);
+async function getUnifiedWithdrawal(db, id, sourceHint = null) {
+  const src = sourceHint || (await findWithdrawalSource(db, id));
   if (src === "admin") {
     return q(
       db,
@@ -460,7 +463,7 @@ async function handleApprove(req, res) {
         adminUserId: decidedBy || null,
       });
 
-      const fresh = await getUnifiedWithdrawal(db, id);
+      const fresh = await getUnifiedWithdrawal(db, id, src);
       return res.json({ success: true, withdrawal: fresh });
     });
   } catch (e) {
@@ -489,7 +492,7 @@ async function handleReject(req, res) {
       const t = targetSqlForAction(src, "reject")(stamp, decidedBy, id, note);
       await run(db, t.sql, t.params);
 
-      const fresh = await getUnifiedWithdrawal(db, id);
+      const fresh = await getUnifiedWithdrawal(db, id, src);
       return res.json({ success: true, withdrawal: fresh });
     });
   } catch (e) {
@@ -517,7 +520,7 @@ async function handleMarkPaid(req, res) {
       const t = targetSqlForAction(src, "paid")(paidAt, payoutRef, id);
       await run(db, t.sql, t.params);
 
-      const fresh = await getUnifiedWithdrawal(db, id);
+      const fresh = await getUnifiedWithdrawal(db, id, src);
       return res.json({ success: true, withdrawal: fresh });
     });
   } catch (e) {
