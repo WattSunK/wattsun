@@ -193,9 +193,8 @@ router.post("/loyalty/withdrawals", async (req, res) => {
 });
 
 // ---- Routes: list (NOW reads the unified VIEW) ------------------------------
-// GET /api/admin/loyalty/withdrawals  — resilient: works with or without the view
+// GET /api/admin/loyalty/withdrawals — resilient list
 router.get("/loyalty/withdrawals", async (req, res) => {
-  // accept both limit & per (keep old dashboards working)
   const perIn  = req.query?.limit ?? req.query?.per;
   const per    = Math.min(100, Math.max(1, asInt(perIn, 50)));
   const page   = Math.max(1, asInt(req.query?.page, 1));
@@ -212,13 +211,13 @@ router.get("/loyalty/withdrawals", async (req, res) => {
     args.push(status);
   }
   if (qSearch) {
-    // match by id/account/user
+    // match by id/account/user as text (works for both sources)
     where.push(`(CAST(id AS TEXT) LIKE ? OR CAST(account_id AS TEXT) LIKE ? OR CAST(user_id AS TEXT) LIKE ?)`);
     args.push(`%${qSearch}%`, `%${qSearch}%`, `%${qSearch}%`);
   }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-  // Fallback UNION we can always use if the view path fails for any reason
+  // UNION text we can always use as a fallback
   const unionSql = `
     SELECT
       lw.id,
@@ -236,9 +235,7 @@ router.get("/loyalty/withdrawals", async (req, res) => {
       'customer'            AS source
     FROM loyalty_withdrawals lw
     LEFT JOIN loyalty_accounts la ON la.id = lw.account_id
-
     UNION ALL
-
     SELECT
       w.id,
       w.account_id,
@@ -258,7 +255,7 @@ router.get("/loyalty/withdrawals", async (req, res) => {
 
   try {
     const out = await withDb(async (db) => {
-      // 1) Is the view present in THIS DB?
+      // Check if the view exists in this connection
       const hasView = !!(await q(
         db,
         `SELECT name FROM sqlite_master WHERE type='view' AND name='v_withdrawals_unified'`
@@ -266,47 +263,55 @@ router.get("/loyalty/withdrawals", async (req, res) => {
 
       if (hasView) {
         try {
-          // Try the view path first
+          // Use view for rows
           const rows = await all(
             db,
             `
-            SELECT id, account_id, user_id, points, eur, status,
-                   requested_at, decided_at, paid_at,
-                   decision_note, decided_by, payout_ref, source
-              FROM v_withdrawals_unified
-              ${whereSql}
-             ORDER BY id DESC
-             LIMIT ? OFFSET ?`,
+              SELECT id, account_id, user_id, points, eur, status,
+                     requested_at, decided_at, paid_at,
+                     decision_note, decided_by, payout_ref, source
+                FROM v_withdrawals_unified
+                ${whereSql}
+               ORDER BY id DESC
+               LIMIT ? OFFSET ?`,
             [...args, per, offset]
           );
+
+          // Safe COUNT pattern (wrap in subselect)
           const totRow = await q(
             db,
-            `SELECT COUNT(*) AS n FROM v_withdrawals_unified ${whereSql}`,
+            `SELECT COUNT(*) AS n
+               FROM (SELECT id
+                       FROM v_withdrawals_unified
+                       ${whereSql}) t`,
             args
           );
+
           return { rows, total: totRow?.n || 0 };
-        } catch (viewErr) {
-          // If the view exists but is incompatible, fall back seamlessly
-          console.warn("[admin/loyalty/withdrawals][GET] view failed, using UNION fallback:", viewErr.message);
+        } catch (e) {
+          console.warn("[admin/withdrawals][view-path] falling back:", e.message);
+          // fall through to union fallback below
         }
       }
 
-      // 2) fallback: UNION ALL directly (no/failed view)
+      // Fallback UNION path (works even if view missing/broken)
       const rows = await all(
         db,
         `
-        SELECT *
-          FROM (${unionSql}) u
-          ${whereSql}
-         ORDER BY id DESC
-         LIMIT ? OFFSET ?`,
+          SELECT *
+            FROM (${unionSql}) u
+            ${whereSql}
+           ORDER BY id DESC
+           LIMIT ? OFFSET ?`,
         [...args, per, offset]
       );
+
       const totRow = await q(
         db,
         `SELECT COUNT(*) AS n FROM (${unionSql}) u ${whereSql}`,
         args
       );
+
       return { rows, total: totRow?.n || 0 };
     });
 
@@ -324,7 +329,6 @@ router.get("/loyalty/withdrawals", async (req, res) => {
       .json({ success: false, error: { code: "SERVER_ERROR", message: "List failed" } });
   }
 });
-
 
 // ---- Actions: Approve / Reject / Mark-Paid (source-aware updates) -----------
 
