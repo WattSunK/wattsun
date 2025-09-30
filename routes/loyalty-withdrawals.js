@@ -19,12 +19,20 @@ try {
 } catch (e) {
   // Fallback (keeps this file drop-in safe)
   requireUser = function requireUser(req, res, next) {
-    if (!req || !req.user || !req.user.id) {
-      return res.status(401).json({ success:false, error:{ code:"UNAUTHORIZED", message:"Login required" } });
+    const u = req?.session?.user;
+    if (!u || !u.id) {
+      return res
+        .status(401)
+        .json({
+          success: false,
+          error: { code: "UNAUTHENTICATED", message: "Login required" },
+        });
     }
+    req.user = u; // <-- map session user onto req.user for handlers
     next();
   };
 }
+
 
 // ---- DB --------------------------------------------------------------------
 const DB_PATH = process.env.DB_PATH_USERS || process.env.SQLITE_DB || path.join(process.cwd(), "data/dev/wattsun.dev.db");
