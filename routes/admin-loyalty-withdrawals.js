@@ -173,7 +173,9 @@ function deriveAmount(w) {
   return { points, eur };
 }
 // ---- notifications (best-effort) -------------------------------------------
+// ---- notifications (best-effort) -------------------------------------------
 async function ensureNotificationsQueue(db) {
+  // 1) Create table if missing (includes dedupe_key for fresh DBs)
   await run(db, `
     CREATE TABLE IF NOT EXISTS notifications_queue (
       id INTEGER PRIMARY KEY,
@@ -187,9 +189,17 @@ async function ensureNotificationsQueue(db) {
       created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
     )
   `);
-  await run(db, `
-    CREATE INDEX IF NOT EXISTS ix_nq_latest ON notifications_queue(created_at DESC)
-  `);
+
+  // 2) Backfill schema for existing DBs (add dedupe_key if missing)
+  const cols = await all(db, `PRAGMA table_info(notifications_queue)`);
+  const hasDedupe = cols.some(c => c.name === "dedupe_key");
+  if (!hasDedupe) {
+    try { await run(db, `ALTER TABLE notifications_queue ADD COLUMN dedupe_key TEXT`); } catch (_) {}
+  }
+
+  // 3) Indexes
+  await run(db, `CREATE INDEX IF NOT EXISTS ix_nq_latest ON notifications_queue(created_at DESC)`);
+  await run(db, `CREATE UNIQUE INDEX IF NOT EXISTS uq_nq_dedupe ON notifications_queue(dedupe_key)`);
 }
 
 // single-row de-dupe by kind+ref (withdrawal id) and email (optional)
