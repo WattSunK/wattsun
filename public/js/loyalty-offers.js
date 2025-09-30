@@ -1,4 +1,8 @@
 // public/js/loyalty-offers.js
+// - Keeps your baseline logic
+// - Ensures optimistic insert → reconcile with server row, then loadMe()
+// - Reads account totals with tolerant keys (points_balance/total_paid/etc.)
+
 (() => {
   // namespace (idempotent)
   const NS = (window.WS_LOYALTY_OFFERS = window.WS_LOYALTY_OFFERS || {});
@@ -51,7 +55,6 @@
     hide("historyCard");
     setLoadState("No account yet");
 
-    // make sure Enroll is visible & enabled
     const b = el("enrollBtn");
     if (b) {
       b.disabled = false;
@@ -65,8 +68,6 @@
     hide("offersError");
     hide("offersEmpty");
     show("accountCard", "block");
-
-    // never show Enroll when an account exists
     const b = el("enrollBtn");
     if (b) b.style.display = "none";
   }
@@ -139,7 +140,6 @@
     const btn = el("withdrawBtn");
     if (btn) btn.disabled = !can;
 
-    // why disabled (needs <small id="withdrawHint"> in HTML)
     const hint = el("withdrawHint");
     if (hint) {
       let reason = "";
@@ -169,7 +169,6 @@
     if (!program) {
       showError("Program is currently unavailable.");
 
-      // reset KPI texts safely
       ["pointsBalance","earnedPts","penaltyPts","paidPts","rankText","dateInfo"]
         .forEach((id) => { const n = el(id); if (n) n.textContent = "—"; });
       el("eurBalance") && (el("eurBalance").textContent = "€—");
@@ -198,24 +197,23 @@
       return;
     }
 
-    // account present → KPIs (tolerant mapping for backend variants)
-      const ptsBalance = (account.points_balance ?? account.balance_pts ?? 0);
-      const earned     = (account.earned_total  ?? account.total_earned  ?? 0);
-      const penalty    = (account.penalty_total ?? account.total_penalty ?? 0);
-      const paid       = (account.paid_total    ?? account.total_paid    ?? 0);
+    // KPIs with tolerant mapping
+    const ptsBalance = (account.points_balance ?? account.balance_pts ?? 0);
+    const earned     = (account.earned_total  ?? account.total_earned  ?? 0);
+    const penalty    = (account.penalty_total ?? account.total_penalty ?? 0);
+    const paid       = (account.paid_total    ?? account.total_paid    ?? 0);
 
-      el("pointsBalance") && (el("pointsBalance").textContent = fmt(ptsBalance));
-      el("eurBalance")    && (el("eurBalance").textContent    = euro(ptsBalance));
+    el("pointsBalance") && (el("pointsBalance").textContent = fmt(ptsBalance));
+    el("eurBalance")    && (el("eurBalance").textContent    = euro(ptsBalance));
 
-      el("earnedPts") && (el("earnedPts").textContent = fmt(earned));
-      el("earnedEur") && (el("earnedEur").textContent = euro(earned));
+    el("earnedPts") && (el("earnedPts").textContent = fmt(earned));
+    el("earnedEur") && (el("earnedEur").textContent = euro(earned));
 
-      el("penaltyPts") && (el("penaltyPts").textContent = fmt(penalty));
-      el("penaltyEur") && (el("penaltyEur").textContent = euro(penalty));
+    el("penaltyPts") && (el("penaltyPts").textContent = fmt(penalty));
+    el("penaltyEur") && (el("penaltyEur").textContent = euro(penalty));
 
-      el("paidPts") && (el("paidPts").textContent = fmt(paid));
-      el("paidEur") && (el("paidEur").textContent = euro(paid));
-
+    el("paidPts") && (el("paidPts").textContent = fmt(paid));
+    el("paidEur") && (el("paidEur").textContent = euro(paid));
 
     setStatusTag(account.status);
     el("dateInfo") && (el("dateInfo").textContent =
@@ -280,7 +278,7 @@
     const btn = el("withdrawBtn"); if (btn) btn.disabled = true;
     const msg = el("withdrawMsg"); if (msg) msg.textContent = "";
 
-    // --- OPTIMISTIC: insert a temporary row in history (7 columns) ---
+    // OPTIMISTIC row
     const tbody = el("historyBody");
     const tempId = `temp-${Date.now()}`;
     let tempTr = null;
@@ -306,26 +304,28 @@
       const data = await api("/api/loyalty/withdraw", { method: "POST", body: { points } });
       toast("Withdrawal requested");
 
-      // --- RECONCILE optimistic row ---
+      // RECONCILE
       if (tempTr && data && data.withdrawal) {
         const tds = tempTr.querySelectorAll("td");
-        if (tds[0]) tds[0].textContent = data.withdrawal.id ?? "—";        // ID
-        if (tds[2]) tds[2].textContent = data.withdrawal.status || "Pending"; // Status
+        if (tds[0]) tds[0].textContent = data.withdrawal.id ?? "—";
+        if (tds[2]) tds[2].textContent = data.withdrawal.status || "Pending";
         tempTr.dataset.temp = "false";
       }
 
-      // keep or remove full reload; safety-first (kept)
+      // Reset input up to min
       if (input) {
         const minPts = (program && program.minWithdrawPoints) || 100;
         input.value = String(Math.max(points, minPts));
       }
+
+      // Full reload ensures cards (Balance/Paid) are canonical
       await loadMe();
 
       if (msg && data && data.withdrawal && data.withdrawal.id) {
         msg.textContent = `Request #${data.withdrawal.id} created for ${points} pts (${euro(points)}).`;
       }
     } catch (e) {
-      // --- ROLLBACK optimistic row on error ---
+      // ROLLBACK optimistic row
       const tb = el("historyBody");
       if (tb) {
         const doomed = tb.querySelector('tr[data-temp="true"]');
@@ -341,7 +341,7 @@
   // init
   NS.init = () => {
     if (booted) return;
-    if (!el("paneLoyalty")) return; // only run on Offers page
+    if (!el("paneLoyalty")) return;
     booted = true;
 
     el("enrollBtn")?.addEventListener("click", enroll);
@@ -356,7 +356,6 @@
     loadMe().catch((e) => showError(e.message));
   };
 
-  // auto-init
   const bootIfReady = () => { if (el("paneLoyalty")) NS.init(); };
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", bootIfReady);

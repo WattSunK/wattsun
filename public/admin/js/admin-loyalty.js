@@ -6,6 +6,10 @@
 // - Floating Actions menu with robust auto-close + global closer
 // - Guard duplicate global handlers + per-action re-entrancy (prevents double notifications)
 // - Pagination: auto-inject pager if missing; works even without API totals
+// - ✅ Always pass ?source= on Approve/Reject/Mark-Paid
+// - ✅ Status column shows a tiny Customer/Admin chip
+// - ✅ After actions, also refresh Accounts & Ledger tabs
+
 (function () {
   "use strict";
 
@@ -53,16 +57,17 @@
     }
     return data;
   }
-// ---- public helper surface (exported) ----
-if (!window.wsAdmin) window.wsAdmin = {};
-Object.assign(window.wsAdmin, {
-  toast,            // show snack/toast messages
-  debounce,         // debounce util for inputs
-  esc,              // HTML escaper (optional, handy in admin HTML)
-  api, postJSON,    // fetch helpers with error handling
-  refreshActiveTab, // lets outside code trigger a refresh
-  loadAccounts,     // optional: useful for admin flows to reload the Accounts tab
-});
+
+  // ---- public helper surface (exported) ----
+  if (!window.wsAdmin) window.wsAdmin = {};
+  Object.assign(window.wsAdmin, {
+    toast,            // show snack/toast messages
+    debounce,         // debounce util for inputs
+    esc,              // HTML escaper (optional, handy in admin HTML)
+    api, postJSON,    // fetch helpers with error handling
+    refreshActiveTab, // lets outside code trigger a refresh
+    loadAccounts,     // optional: useful for admin flows to reload the Accounts tab
+  });
 
   // ---------- SPA-safe activation ----------
   let attached = false;
@@ -103,7 +108,6 @@ Object.assign(window.wsAdmin, {
   }
 
   function ensurePager() {
-    // Create a simple pager if one doesn't exist
     if (!els.pager) {
       const p = document.createElement("div");
       p.id = "loyaltyPager";
@@ -116,7 +120,6 @@ Object.assign(window.wsAdmin, {
         <button class="btn pager-next" type="button">Next</button>
         <span id="loyaltyMeta" class="muted" style="margin-left:8px;"></span>
       `;
-      // Try to place after the active tab table; otherwise append to root
       const anchor = els.root || document.body;
       anchor.appendChild(p);
       els.pager = p;
@@ -149,7 +152,6 @@ Object.assign(window.wsAdmin, {
     if (!attached) scheduleAttach();
   }
 
-  // Observe partial swaps and re-attach when #loyalty-root is injected
   const mo = new MutationObserver((muts) => {
     for (const m of muts) {
       for (const node of m.addedNodes) {
@@ -174,8 +176,8 @@ Object.assign(window.wsAdmin, {
     activeTab:"Withdrawals",
     page:1,
     limit:10,
-    total:null,       // when API provides total
-    lastCount:0       // count of rows in last load
+    total:null,
+    lastCount:0
   };
 
   // ---------- attach ----------
@@ -185,21 +187,18 @@ Object.assign(window.wsAdmin, {
     wireFilters();
     wirePager();
 
-    // Bind global actions handlers once (prevents duplicate notifications)
     if (!actionsHandlersBound) {
       wireInlineActionsMenu();
       actionsHandlersBound = true;
     }
 
     wireNewWithdrawalModal();
-    // NEW: Manage modal → search + create
-    wireManageModal(); // Increment 2 + 3 wiring
+    wireManageModal();
 
     state.activeTab = "Withdrawals";
     showTab("Withdrawals");
     loadWithdrawals({ resetPage:true });
 
-    // Auto-refresh on focus or external signals
     window.addEventListener("focus", () => { try { refreshActiveTab(); } catch {} });
     window.addEventListener("storage", (e) => {
       if (e.key === "loyaltyUpdatedAt") { try { refreshActiveTab(); } catch {} }
@@ -208,7 +207,6 @@ Object.assign(window.wsAdmin, {
       if (e && e.data && e.data.type === "loyalty-updated") { try { refreshActiveTab(); } catch {} }
     });
 
-    // Debug hook
     window.loyaltyAdmin = { state, refreshActiveTab, loadWithdrawals, loadAccounts, loadLedger, loadNotifications };
   }
 
@@ -290,7 +288,6 @@ Object.assign(window.wsAdmin, {
     els.meta.textContent = total!=null ? `${s}–${e} of ${fmtInt(total)}` : `${count} row(s)`;
   }
 
-  // Better pager logic: if no `total`, use lastCount==limit as "has next"
   function updatePager(){
     ensurePager();
     const prev = els.pager?.querySelector(".pager-prev");
@@ -298,7 +295,7 @@ Object.assign(window.wsAdmin, {
     const hasPrev = state.page > 1;
     const hasNext = (state.total != null)
       ? (state.page < Math.ceil(state.total / state.limit))
-      : (state.lastCount === state.limit); // unknown total → next exists if this page was full
+      : (state.lastCount === state.limit);
     if (prev) prev.disabled = !hasPrev;
     if (next) next.disabled = !hasNext;
   }
@@ -311,7 +308,7 @@ Object.assign(window.wsAdmin, {
       if (state.page>1){ state.page--; refreshActiveTab(); }
     });
     on(next, "click", () => {
-      if (state.total == null && state.lastCount < state.limit) return; // no more pages inferred
+      if (state.total == null && state.lastCount < state.limit) return;
       state.page++; refreshActiveTab();
     });
   }
@@ -357,11 +354,6 @@ Object.assign(window.wsAdmin, {
     });
   }
 
-  // ---------- shared row helpers ----------
-  function addLoading(tbody, on){ if (!tbody) return; if (on){ tbody.setAttribute("aria-busy","true"); } else tbody.removeAttribute("aria-busy"); }
-  function emptyRow(cols){ const tr=document.createElement("tr"); tr.innerHTML=`<td colspan="${cols}">No data</td>`; return tr; }
-  function showErrorRow(tbody, err, cols){ if (!tbody) return; tbody.innerHTML=""; const tr=document.createElement("tr"); tr.innerHTML = `<td colspan="${cols}">${esc(err.message||String(err))}</td>`; tbody.appendChild(tr); }
-
   // ---------- WITHDRAWALS ----------
   async function loadWithdrawals({resetPage=false}={}){
     if (resetPage) state.page=1; cacheEls(); ensurePager();
@@ -381,15 +373,12 @@ Object.assign(window.wsAdmin, {
     }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
   }
 
-  function actionCellHtml(id, status){
-    // normalize status
+  function actionCellHtml(id, status, source){
     const st = String(status || "").trim().toLowerCase();
-
     const canApprove = st === "pending";
     const canReject  = st === "pending";
     const canPay     = st === "approved";
 
-    // nothing to do for paid/rejected/other → show badge only
     if (!(canApprove || canReject || canPay)) {
       return `
         <span class="badge badge--muted" data-no-actions="1"
@@ -398,14 +387,14 @@ Object.assign(window.wsAdmin, {
         </span>`;
     }
 
-    // actionable rows only
+    const src = esc(source || "customer");
     return `
-      <div class="ws-actions" data-has-actions="1" style="position:relative;" data-id="${esc(id)}">
-        <button class="btn btn-actions" aria-haspopup="menu" data-id="${esc(id)}">Actions ▾</button>
+      <div class="ws-actions" data-has-actions="1" style="position:relative;" data-id="${esc(id)}" data-source="${src}">
+        <button class="btn btn-actions" aria-haspopup="menu" data-id="${esc(id)}" data-source="${src}">Actions ▾</button>
         <div class="actions-menu hidden" role="menu" data-id="${esc(id)}">
-          <button class="btn btn-approve"   data-id="${esc(id)}" ${canApprove ? "" : "disabled"}>Approve</button>
-          <button class="btn btn-reject"    data-id="${esc(id)}" ${canReject  ? "" : "disabled"}>Reject</button>
-          <button class="btn btn-mark-paid" data-id="${esc(id)}" ${canPay     ? "" : "disabled"}>Mark Paid</button>
+          <button class="btn btn-approve"   data-id="${esc(id)}" data-source="${src}" ${canApprove ? "" : "disabled"}>Approve</button>
+          <button class="btn btn-reject"    data-id="${esc(id)}" data-source="${src}" ${canReject  ? "" : "disabled"}>Reject</button>
+          <button class="btn btn-mark-paid" data-id="${esc(id)}" data-source="${src}" ${canPay     ? "" : "disabled"}>Mark Paid</button>
         </div>
       </div>`;
   }
@@ -423,21 +412,27 @@ Object.assign(window.wsAdmin, {
       const req  = w.requested_at ?? w.created_at ?? w.createdAt ?? "—";
       const dec  = w.decided_at ?? w.decidedAt ?? "—";
       const paid = w.paid_at ?? w.paidAt ?? "—";
+      const src  = (w.source === "admin") ? "Admin" : "Customer";
       const tr=document.createElement("tr"); tr.dataset.id = id;
       tr.innerHTML = `
         <td>${esc(id)}</td>
         <td>${esc(acct)}</td>
         <td>${esc(user)}</td>
         <td>${fmtInt(pts)}</td>
-        <td>${esc(st)}</td>
+        <td>${esc(st)} <span class="badge badge--muted" title="Source" style="margin-left:6px;">${src}</span></td>
         <td>${esc(req)}</td>
         <td>${esc(dec)}</td>
         <td>${esc(paid)}</td>
-        <td>${actionCellHtml(id, st)}</td>`;
+        <td>${actionCellHtml(id, st, w.source)}</td>`;
       frag.appendChild(tr);
     }
     tbody.appendChild(frag);
   }
+
+  // ---------- shared row helpers ----------
+  function addLoading(tbody, on){ if (!tbody) return; if (on){ tbody.setAttribute("aria-busy","true"); } else tbody.removeAttribute("aria-busy"); }
+  function emptyRow(cols){ const tr=document.createElement("tr"); tr.innerHTML=`<td colspan="${cols}">No data</td>`; return tr; }
+  function showErrorRow(tbody, err, cols){ if (!tbody) return; tbody.innerHTML=""; const tr=document.createElement("tr"); tr.innerHTML = `<td colspan="${cols}">${esc(err.message||String(err))}</td>`; tbody.appendChild(tr); }
 
   // ---------- Floating Actions menu ----------
   let openMenuEl = null;
@@ -448,14 +443,12 @@ Object.assign(window.wsAdmin, {
     }
     openMenuEl = null;
   }
-  window.wsCloseActionsMenu = closeFloatingMenu; // expose
+  window.wsCloseActionsMenu = closeFloatingMenu;
 
   function openFloatingMenu(btn) {
     closeFloatingMenu();
-
     const cellMenu = btn.closest(".ws-actions")?.querySelector(".actions-menu");
     if (!cellMenu) return;
-
     const menu = cellMenu.cloneNode(true);
     menu.classList.remove("hidden");
     Object.assign(menu.style, {
@@ -472,11 +465,14 @@ Object.assign(window.wsAdmin, {
       flexDirection: "column",
       gap: "6px"
     });
-
     const r = btn.getBoundingClientRect();
     const pad = 6;
     menu.style.top = `${r.bottom + pad}px`;
     menu.style.left = `${Math.min(window.innerWidth - 180, r.left)}px`;
+    // copy data-source onto the cloned buttons
+    menu.querySelectorAll("button").forEach(b => {
+      if (!b.dataset.source) b.dataset.source = btn.dataset.source || "customer";
+    });
     document.body.appendChild(menu);
     openMenuEl = menu;
   }
@@ -484,54 +480,56 @@ Object.assign(window.wsAdmin, {
   function actionKey(action, id){ return `${action}:${id}`; }
 
   function wireInlineActionsMenu() {
-    // Toggle floating menu (guard: don't open for rows without actions)
+    // --- helpers: action URLs with source ---
+    function buildWithdrawalActionUrl(rowOrId, action, src) {
+      const id = typeof rowOrId === 'object' ? rowOrId.id : rowOrId;
+      const source = encodeURIComponent(src || (rowOrId?.source) || 'customer');
+      return `/api/admin/loyalty/withdrawals/${id}/${action}?source=${source}`;
+    }
+
+    // Toggle floating menu
     document.addEventListener("click", (e) => {
       const btn = e.target.closest(".btn-actions");
       if (!btn) return;
-
       const wrap = btn.closest(".ws-actions");
       if (!wrap || wrap.dataset.hasActions !== "1") return;
-
       e.preventDefault();
       e.stopPropagation();
       openFloatingMenu(btn);
     });
 
-    // Close the menu if user clicks outside it or presses ESC
     document.addEventListener("click", (e) => {
       if (openMenuEl && !openMenuEl.contains(e.target) && !e.target.closest(".btn-actions")) {
         closeFloatingMenu();
       }
     });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeFloatingMenu(); });
-
-    // Close immediately on any action click (capture phase too)
     document.addEventListener("click", (e) => {
       if (e.target.closest(".actions-menu .btn-approve, .actions-menu .btn-reject, .actions-menu .btn-mark-paid")) {
         closeFloatingMenu();
       }
     }, true);
-
-    // Also auto-close on scroll/resize
     window.addEventListener("scroll", closeFloatingMenu, { passive: true });
     window.addEventListener("resize", closeFloatingMenu);
 
-    // ---- Action handlers with re-entrancy guard ----
+    // ---- Action handlers (now pass ?source=) ----
     document.addEventListener("click", async (e)=>{
       const btn = e.target.closest(".btn-approve"); if (!btn) return;
       e.preventDefault();
-      const id = btn.dataset.id;
+      const id  = btn.dataset.id;
+      const src = btn.dataset.source || btn.closest(".ws-actions")?.dataset.source || "customer";
       const key = actionKey("approve", id);
-      if (runningActions.has(key)) return; // already running
+      if (runningActions.has(key)) return;
       runningActions.add(key);
       try{
-        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/approve`, {
-          method: "PATCH", credentials: "include"
-        });
+        const url = buildWithdrawalActionUrl(id, "approve", src);
+        const res = await fetch(url, { method: "PATCH", credentials: "include" });
         const data = await res.json().catch(()=>({}));
         if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
         toast(`Withdrawal #${id} approved`, {type:"info"});
         refreshActiveTab();
+        try { loadAccounts(); } catch {}
+        try { loadLedger(); } catch {}
       }catch(err){ toast(err.message||"Approve failed", {type:"error"}); }
       finally { runningActions.delete(key); }
     });
@@ -539,18 +537,20 @@ Object.assign(window.wsAdmin, {
     document.addEventListener("click", async (e)=>{
       const btn = e.target.closest(".btn-reject"); if (!btn) return;
       e.preventDefault();
-      const id = btn.dataset.id;
+      const id  = btn.dataset.id;
+      const src = btn.dataset.source || btn.closest(".ws-actions")?.dataset.source || "customer";
       const key = actionKey("reject", id);
       if (runningActions.has(key)) return;
       runningActions.add(key);
       try{
-        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/reject`, {
-          method: "PATCH", credentials: "include"
-        });
+        const url = buildWithdrawalActionUrl(id, "reject", src);
+        const res = await fetch(url, { method: "PATCH", credentials: "include" });
         const data = await res.json().catch(()=>({}));
         if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
         toast(`Withdrawal #${id} rejected`, {type:"info"});
         refreshActiveTab();
+        try { loadAccounts(); } catch {}
+        try { loadLedger(); } catch {}
       }catch(err){ toast(err.message||"Reject failed", {type:"error"}); }
       finally { runningActions.delete(key); }
     });
@@ -558,12 +558,14 @@ Object.assign(window.wsAdmin, {
     document.addEventListener("click", async (e)=>{
       const btn = e.target.closest(".btn-mark-paid"); if (!btn) return;
       e.preventDefault();
-      const id = btn.dataset.id;
+      const id  = btn.dataset.id;
+      const src = btn.dataset.source || btn.closest(".ws-actions")?.dataset.source || "customer";
       const key = actionKey("paid", id);
       if (runningActions.has(key)) return;
       runningActions.add(key);
       try{
-        const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/mark-paid`, {
+        const url = buildWithdrawalActionUrl(id, "mark-paid", src);
+        const res = await fetch(url, {
           method: "PATCH", credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ payoutRef: "" })
@@ -572,12 +574,61 @@ Object.assign(window.wsAdmin, {
         if (!res.ok || data?.success === false) throw new Error(data?.error?.message || `HTTP ${res.status}`);
         toast(`Withdrawal #${id} marked as paid`, {type:"info"});
         refreshActiveTab();
+        try { loadAccounts(); } catch {}
+        try { loadLedger(); } catch {}
       }catch(err){ toast(err.message||"Mark Paid failed", {type:"error"}); }
       finally { runningActions.delete(key); }
     });
   }
 
-  // ---------- Increment 2 + 3: NEW WITHDRAWAL modal wiring ----------
+  // ---------- NOTIFICATIONS ----------
+  async function loadNotifications({resetPage=false}={}){
+    if (resetPage) state.page=1; cacheEls(); ensurePager();
+    const tbody = els.notificationsBody || $("#loyaltyNotificationsBody");
+    addLoading(tbody,true); setRefreshDisabled(true);
+    try{
+      const data = await api(`/api/admin/loyalty/notifications${buildQuery()}`);
+      const rows = Array.isArray(data)?data:(data.notifications||[]);
+      state.total = (typeof data.total==="number")?data.total:null;
+      state.lastCount = rows.length;
+      renderNotifRows(tbody, rows);
+      setMeta(rows.length, state.total);
+      updatePager();
+    }catch(err){
+      showErrorRow(tbody, err, 5);
+      setMeta(0); state.total=null; state.lastCount=0; updatePager();
+    }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
+  }
+
+  function renderNotifRows(tbody, rows){
+    if (!tbody) return; 
+    tbody.innerHTML = "";
+
+    if (!rows?.length){
+      tbody.appendChild(emptyRow(5));
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for (const n of rows){
+      const id      = n.id;
+      const kind    = n.kind ?? "—";
+      const email   = n.email ?? n.user_email ?? n.recipient_email ?? n.to ?? "—";
+      const status  = n.status ?? "—";
+      const created = n.created_at ?? n.createdAt ?? "";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${esc(id)}</td>
+        <td>${esc(kind)}</td>
+        <td>${esc(email)}</td>
+        <td>${esc(status)}</td>
+        <td>${esc(created)}</td>
+      `;
+      frag.appendChild(tr);
+    }
+    tbody.appendChild(frag);
+  }
+
+  // ---------- NEW WITHDRAWAL modal wiring ----------
   const SEARCH_URL = "/api/admin/users/search";
   const SEARCH_DEBOUNCE_MS = 250;
 
@@ -775,7 +826,6 @@ Object.assign(window.wsAdmin, {
       renderResults(users);
     }, SEARCH_DEBOUNCE_MS);
 
-    // Open modal
     btn && btn.addEventListener("click", () => {
       try { window.wsCloseActionsMenu && window.wsCloseActionsMenu(); } catch (_) {}
       if (accId) { accId.value = ""; accId.readOnly = false; accId.classList.remove("input--readonly"); }
@@ -787,9 +837,7 @@ Object.assign(window.wsAdmin, {
       try { dlg.showModal(); } catch(_){/* safari fallback ignored */ }
     });
 
-    // Search listeners (new flow)
     if (sInput) sInput.addEventListener("input", doSearch);
-
     if (sResults && sResults.tagName === "SELECT") {
       sResults.addEventListener("change", () => {
         const opt = sResults.options[sResults.selectedIndex];
@@ -800,10 +848,8 @@ Object.assign(window.wsAdmin, {
         updateValidity();
       });
     }
-
     if (pts) pts.addEventListener("input", updateValidity);
 
-    // Submit
     if (submitBtn) {
       submitBtn.addEventListener("click", async () => {
         setOut("");
@@ -947,436 +993,326 @@ Object.assign(window.wsAdmin, {
     tbody.appendChild(frag);
   }
 
-  // ---------- NOTIFICATIONS ----------
-  async function loadNotifications({resetPage=false}={}){
-    if (resetPage) state.page=1; cacheEls(); ensurePager();
-    const tbody = els.notificationsBody || $("#loyaltyNotificationsBody");
-    addLoading(tbody,true); setRefreshDisabled(true);
-    try{
-      const data = await api(`/api/admin/loyalty/notifications${buildQuery()}`);
-      const rows = Array.isArray(data)?data:(data.notifications||[]);
-      state.total = (typeof data.total==="number")?data.total:null;
-      state.lastCount = rows.length;
-      renderNotifRows(tbody, rows);
-      setMeta(rows.length, state.total);
-      updatePager();
-    }catch(err){
-      showErrorRow(tbody, err, 5);
-      setMeta(0); state.total=null; state.lastCount=0; updatePager();
-    }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
-  }
+  // ---------- NOTIFS UI helpers ----------
+  function addLoading(tbody, on){ if (!tbody) return; if (on){ tbody.setAttribute("aria-busy","true"); } else tbody.removeAttribute("aria-busy"); }
+  function emptyRow(cols){ const tr=document.createElement("tr"); tr.innerHTML=`<td colspan="${cols}">No data</td>`; return tr; }
+  function showErrorRow(tbody, err, cols){ if (!tbody) return; tbody.innerHTML=""; const tr=document.createElement("tr"); tr.innerHTML = `<td colspan="${cols}">${esc(err.message||String(err))}</td>`; tbody.appendChild(tr); }
 
-  function renderNotifRows(tbody, rows){
-    if (!tbody) return; 
-    tbody.innerHTML = "";
-
-    if (!rows?.length){
-      tbody.appendChild(emptyRow(5)); // ID, Kind, Email, Status, Created
-      return;
-    }
-
-    const frag = document.createDocumentFragment();
-
-    for (const n of rows){
-      const id      = n.id;
-      const kind    = n.kind ?? "—";
-      const email   = n.email ?? n.user_email ?? n.recipient_email ?? n.to ?? "—";
-      const status  = n.status ?? "—";
-      const created = n.created_at ?? n.createdAt ?? "";
-
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${esc(id)}</td>
-        <td>${esc(kind)}</td>
-        <td>${esc(email)}</td>
-        <td>${esc(status)}</td>
-        <td>${esc(created)}</td>
-      `;
-      frag.appendChild(tr);
-    }
-
-    tbody.appendChild(frag);
-  }
-
-
-// put this near the top of wireManageModal()
-async function manageSearchUsers(term) {
-  const t = (term || "").trim();
-  if (t.length < 2) return [];
-  try {
-    const res = await fetch(`/api/admin/users/search?q=${encodeURIComponent(t)}`, {
-      credentials: "include"
-    });
-    const j = await res.json().catch(() => ({}));
-    const arr = Array.isArray(j) ? j : (j.results || j.users || []);
-    if (!Array.isArray(arr)) return [];
-    return arr.map(u => ({
-      id: u.id,
-      name: u.name || "",
-      email: u.email || "",
-      phone: u.phone || "",
-      account_id: u.account_id ?? u.accountId ?? null,
-      status: u.status || "",
-      program_name: u.program_name || u.programName || "",
-      balancePoints: u.balancePoints ?? u.balance_points ?? u.balance ?? 0,
-      minWithdrawPoints: u.minWithdrawPoints ?? u.min_withdraw_points ?? 0
-    }));
-  } catch {
-    return [];
-  }
-}
-
-// ---------- Manage modal: search + create (reuses existing searchUsers) ----------
-function wireManageModal(){
-  const dlg   = document.getElementById("accManageDialog");
-  const btn   = document.getElementById("accManageBtn");
-  if (!dlg) return;
-
-  // Show Manage button only on Accounts tab
-  const showManageBtn = (on) => { if (btn) btn.style.display = on ? "" : "none"; };
-  document.addEventListener("click", (e) => {
-    if (e.target?.id === "tabAccountsBtn") showManageBtn(true);
-    if (e.target?.id === "tabWithdrawalsBtn" || e.target?.id === "tabLedgerBtn" || e.target?.id === "tabNotifsBtn") showManageBtn(false);
-  });
-
-  const sInput   = document.getElementById("mUserSearch");
-  const sResults = document.getElementById("mUserResults");
-  const accId    = document.getElementById("mAccId") || document.querySelector("#accManageDialog input[placeholder*='e.g. 1']");
-  const userId   = document.getElementById("mUserId") || document.querySelector("#accManageDialog input[placeholder*='e.g. 42']");
-  const out      = document.getElementById("mOut")    || document.querySelector("#accManageDialog #accManageResponse, #accManageDialog .response");
-  const mCreate  = document.getElementById("mCreateBtn");
-
-  const hintProg = document.getElementById("mHintProgram");
-  const hintMin  = document.getElementById("mHintMin");
-  const hintElig = document.getElementById("mHintEligible");
-  const hintStart= document.getElementById("mHintStart");
-  const hintEnd  = document.getElementById("mHintEnd");
-
-  const statusSel= document.getElementById("mStatus") || document.querySelector("#accManageDialog select");
-  const extDate  = document.getElementById("mExtendDate"); // NEW: date field
-  const eligDate = document.getElementById("mEligibleFrom");
-  const extNote  = document.getElementById("mExtendNote")   || document.querySelector("#accManageDialog input[placeholder='reason or note']");
-  const penPts   = document.getElementById("mPenaltyPoints")|| document.querySelector("#accManageDialog input[placeholder='e.g. 10']");
-  const penNote  = document.getElementById("mPenaltyNote")  || document.querySelector("#accManageDialog input[placeholder='reason for penalty']");
-  const applyBtn = document.getElementById("mApplyAll") || document.querySelector("#accManageDialog .card-actions .btn.btn--primary, #accManageDialog .card-actions .btn");
-  
-  if (applyBtn && !applyBtn.dataset.wsEndDateBound) {
-  applyBtn.dataset.wsEndDateBound = "1";
-  applyBtn.addEventListener("click", async () => {
+  // ---------- Manage modal search (helper) ----------
+  async function manageSearchUsers(term) {
+    const t = (term || "").trim();
+    if (t.length < 2) return [];
     try {
-      const idStr = (accId && accId.value) ? accId.value.trim() : "";
-      const id = parseInt(idStr, 10);
-      if (!Number.isInteger(id) || id <= 0) {
-        setOut && setOut("Pick a user with an active account first.");
-        return;
-      }
+      const res = await fetch(`/api/admin/users/search?q=${encodeURIComponent(t)}`, {
+        credentials: "include"
+      });
+      const j = await res.json().catch(() => ({}));
+      const arr = Array.isArray(j) ? j : (j.results || j.users || []);
+      if (!Array.isArray(arr)) return [];
+      return arr.map(u => ({
+        id: u.id,
+        name: u.name || "",
+        email: u.email || "",
+        phone: u.phone || "",
+        account_id: u.account_id ?? u.accountId ?? null,
+        status: u.status || "",
+        program_name: u.program_name || u.programName || "",
+        balancePoints: u.balancePoints ?? u.balance_points ?? u.balance ?? 0,
+        minWithdrawPoints: u.minWithdrawPoints ?? u.min_withdraw_points ?? 0
+      }));
+    } catch {
+      return [];
+    }
+  }
 
-      const end = (extDate && extDate.value) ? extDate.value.trim() : "";
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(end)) {
-        // allow blank (means "no change"), but if provided it must be YYYY-MM-DD
-        if (end) return setOut && setOut("Extend Date must be YYYY-MM-DD.");
-      }
+  // ---------- Manage modal: search + create + apply ----------
+  function wireManageModal(){
+    const dlg   = document.getElementById("accManageDialog");
+    const btn   = document.getElementById("accManageBtn");
+    if (!dlg) return;
 
-      applyBtn.disabled = true;
+    const showManageBtn = (on) => { if (btn) btn.style.display = on ? "" : "none"; };
+    document.addEventListener("click", (e) => {
+      if (e.target?.id === "tabAccountsBtn") showManageBtn(true);
+      if (e.target?.id === "tabWithdrawalsBtn" || e.target?.id === "tabLedgerBtn" || e.target?.id === "tabNotifsBtn") showManageBtn(false);
+    });
 
-      // Only patch if a date is provided (blank → no-op)
-      if (end) {
-        const r = await fetch(`/api/admin/loyalty/accounts/${id}/end-date`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ end_date: end })
-        });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok || j?.success === false) {
-          throw new Error(j?.error?.message || `HTTP ${r.status}`);
+    const sInput   = document.getElementById("mUserSearch");
+    const sResults = document.getElementById("mUserResults");
+    const accId    = document.getElementById("mAccId") || document.querySelector("#accManageDialog input[placeholder*='e.g. 1']");
+    const userId   = document.getElementById("mUserId") || document.querySelector("#accManageDialog input[placeholder*='e.g. 42']");
+    const out      = document.getElementById("mOut")    || document.querySelector("#accManageDialog #accManageResponse, #accManageDialog .response");
+    const mCreate  = document.getElementById("mCreateBtn");
+
+    const hintProg = document.getElementById("mHintProgram");
+    const hintMin  = document.getElementById("mHintMin");
+    const hintElig = document.getElementById("mHintEligible");
+    const hintStart= document.getElementById("mHintStart");
+    const hintEnd  = document.getElementById("mHintEnd");
+
+    const statusSel= document.getElementById("mStatus") || document.querySelector("#accManageDialog select");
+    const extDate  = document.getElementById("mExtendDate");
+    const eligDate = document.getElementById("mEligibleFrom");
+    const extNote  = document.getElementById("mExtendNote")   || document.querySelector("#accManageDialog input[placeholder='reason or note']");
+    const penPts   = document.getElementById("mPenaltyPoints")|| document.querySelector("#accManageDialog input[placeholder='e.g. 10']");
+    const penNote  = document.getElementById("mPenaltyNote")  || document.querySelector("#accManageDialog input[placeholder='reason for penalty']");
+    const applyBtn = document.getElementById("mApplyAll") || document.querySelector("#accManageDialog .card-actions .btn.btn--primary, #accManageDialog .card-actions .btn");
+
+    if (applyBtn && !applyBtn.dataset.wsEndDateBound) {
+      applyBtn.dataset.wsEndDateBound = "1";
+      applyBtn.addEventListener("click", async () => {
+        try {
+          const idStr = (accId && accId.value) ? accId.value.trim() : "";
+          const id = parseInt(idStr, 10);
+          if (!Number.isInteger(id) || id <= 0) {
+            out && (out.textContent = "Pick a user with an active account first.");
+            return;
+          }
+
+          const end = (extDate && extDate.value) ? extDate.value.trim() : "";
+          if (end && !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+            out && (out.textContent = "Extend Date must be YYYY-MM-DD.");
+            return;
+          }
+
+          applyBtn.disabled = true;
+
+          if (end) {
+            const r = await fetch(`/api/admin/loyalty/accounts/${id}/end-date`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ end_date: end })
+            });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok || j?.success === false) throw new Error(j?.error?.message || `HTTP ${r.status}`);
+          }
+
+          const elig = (eligDate && eligDate.value) ? eligDate.value.trim() : "";
+          if (elig && !/^\d{4}-\d{2}-\d{2}$/.test(elig)) {
+            out && (out.textContent = "Eligible From must be YYYY-MM-DD.");
+            return;
+          }
+          if (elig) {
+            const r2 = await fetch(`/api/admin/loyalty/accounts/${id}/eligible-from`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ eligible_from: elig })
+            });
+            const j2 = await r2.json().catch(() => ({}));
+            if (!r2.ok || j2?.success === false) throw new Error(j2?.error?.message || `HTTP ${r2.status}`);
+          }
+
+          toast("Changes applied.", { type: "info" });
+          try { if (typeof loadAccounts === "function") loadAccounts({ resetPage:true }); } catch {}
+          try { if (pickedUser?.id) await hydrateForUser({ id: pickedUser.id }); } catch {}
+
+          try {
+            localStorage.setItem("loyaltyUpdatedAt", String(Date.now()));
+            window.postMessage({ type: "loyalty-updated" }, "*");
+          } catch (_) {}
+
+        } catch (e) {
+          out && (out.textContent = e.message || "Apply failed.");
+          toast(e.message || "Apply failed", { type: "error" });
+        } finally {
+          applyBtn.disabled = false;
         }
-      }
-      // PATCH eligible_from if provided
-      const elig = (eligDate && eligDate.value) ? eligDate.value.trim() : "";
-      if (elig && !/^\d{4}-\d{2}-\d{2}$/.test(elig)) {
-        return setOut && setOut("Eligible From must be YYYY-MM-DD.");
-      }
-      if (elig) {
-        const r2 = await fetch(`/api/admin/loyalty/accounts/${id}/eligible-from`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ eligible_from: elig })
-        });
-        const j2 = await r2.json().catch(() => ({}));
-        if (!r2.ok || j2?.success === false) {
-          throw new Error(j2?.error?.message || `HTTP ${r2.status}`);
-        }
-      }
+      });
+    }
 
-      toast("Changes applied.", { type: "info" });
-      try { if (typeof loadAccounts === "function") loadAccounts({ resetPage:true }); } catch {}
-      try { if (pickedUser?.id) await hydrateForUser({ id: pickedUser.id }); } catch {}
+    // --- Clear account-related UI (prevents stale values while hydrating) ---
+    function clearManageAccountUI() {
+      if (accId) {
+        accId.value = "";
+        accId.readOnly = true;
+        accId.classList.add("input--readonly");
+      }
+      if (statusSel) statusSel.value = "Active";
+      if (extDate)  extDate.value  = "";
+      if (eligDate) eligDate.value = "";
 
+      if (mCreate) { mCreate.style.display = "none"; mCreate.disabled = false; }
+
+      if (hintProg) hintProg.textContent = "—";
+      if (hintMin)  hintMin.textContent  = "—";
+      if (hintElig) hintElig.textContent = "—";
+      if (hintStart)hintStart.textContent= "—";
+      if (hintEnd)  hintEnd.textContent  = "—";
+      if (out) out.textContent = "";
+    }
+
+    let pickedUser = null;
+    let program    = null;
+
+    const asDate = (d) => (d instanceof Date ? d : new Date(d));
+    const ymd = (d) => {
+      if (!d) return "—";
+      const z = asDate(d);
+      return `${z.getFullYear()}-${String(z.getMonth()+1).padStart(2,"0")}-${String(z.getDate()).padStart(2,"0")}`;
+    };
+
+    async function apiGet(url){
+      const r = await fetch(url, { credentials: "include" });
+      let j = null; try { j = await r.json(); } catch {}
+      if (!r.ok || j?.success === false) throw new Error(j?.error?.message || `HTTP ${r.status}`);
+      return j;
+    }
+    async function apiPost(url, body){
+      const r = await fetch(url, { method:"POST", credentials:"include", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body||{}) });
+      let j = null; try { j = await r.json(); } catch {}
+      if (!r.ok || j?.success === false) throw new Error(j?.error?.message || `HTTP ${r.status}`);
+      return j;
+    }
+
+    async function loadProgram(){
+      if (program) return program;
+      try { program = await apiGet("/api/admin/loyalty/program"); } catch { program = {}; }
+      return program;
+    }
+
+    function computeDatesFromProgram(){
+      const today = new Date();
+      const start = ymd(today);
+      const end = new Date(today);
+      const dur = parseInt(program?.durationMonths ?? 6, 10) || 6;
+      end.setMonth(end.getMonth() + dur);
+      const elig = new Date(today);
+      const wait = parseInt(program?.withdrawWaitDays ?? 90, 10) || 90;
+      elig.setDate(elig.getDate() + wait);
+      return { start, end: ymd(end), eligible: ymd(elig) };
+    }
+
+    function renderHints({ programName="—", min="—", start="—", end="—", eligible="—" }){
+      if (hintProg) hintProg.textContent = programName;
+      if (hintMin)  hintMin.textContent  = String(min);
+      if (hintStart)hintStart.textContent= start;
+      if (hintEnd)  hintEnd.textContent  = end;
+      if (hintElig) hintElig.textContent = eligible;
+    }
+
+    async function hydrateForUser(u){
+      pickedUser = u;
+      if (userId && u?.id) {
+        userId.value = String(u.id);
+        userId.readOnly = true;
+        userId.classList.add("input--readonly");
+      }
+      if (mCreate) { mCreate.style.display = "none"; mCreate.disabled = false; }
+
+      // Fetch user's account
+      let acct = null;
       try {
-        localStorage.setItem("loyaltyUpdatedAt", String(Date.now()));
-        window.postMessage({ type: "loyalty-updated" }, "*");
-      } catch (_) {}
+        const q = new URLSearchParams({
+          userId: String(u.id),
+          user_id: String(u.id),
+          active: "true"
+        }).toString();
+        const data = await apiGet(`/api/admin/loyalty/accounts?${q}`);
+        let rows = Array.isArray(data) ? data : (data.accounts || []);
+        rows = rows.filter(r => String(r.user_id ?? r.userId) === String(u.id));
+        if (rows?.length) {
+          const actives = rows.filter(a =>
+            a.is_active === true ||
+            a.active === true ||
+            String(a.status || "").toLowerCase() === "active"
+          );
+          acct = actives.sort((a,b)=> (b.id||0)-(a.id||0))[0] || null;
+        }
+      } catch {}
 
-    } catch (e) {
-      setOut && setOut(e.message || "Apply failed.");
-      toast(e.message || "Apply failed", { type: "error" });
-    } finally {
-      applyBtn.disabled = false;
-    }
-  });
-}
-// --- Clear account-related UI (prevents stale values while hydrating) ---
-  function clearManageAccountUI() {
-    if (accId) {
-      accId.value = "";
-      accId.readOnly = true;
-      accId.classList.add("input--readonly");
-    }
-    if (statusSel) statusSel.value = "Active"; // default while we load
-    if (extDate)  extDate.value  = "";      // ← add
-    if (eligDate) eligDate.value = "";      // ← add
+      const prog = await loadProgram();
+      const progName = prog?.name || "—";
+      const minPts = prog?.minWithdrawPoints ?? prog?.min_withdraw_points ?? null;
 
-    // Hide Create until we decide (no flicker)
-    if (mCreate) { mCreate.style.display = "none"; mCreate.disabled = false; }
+      let start, end, eligible;
 
-    // Reset hints to neutral
-    if (hintProg) hintProg.textContent = "—";
-    if (hintMin)  hintMin.textContent  = "—";
-    if (hintElig) hintElig.textContent = "—";
-    if (hintStart)hintStart.textContent= "—";
-    if (hintEnd)  hintEnd.textContent  = "—";
-    if (out) out.textContent = "";
-  }
-
-  let pickedUser = null;
-  let program    = null;
-
-  const setOut = (msg) => { if (out) out.textContent = msg || ""; };
-
-  const asDate = (d) => (d instanceof Date ? d : new Date(d));
-  const ymd = (d) => {
-    if (!d) return "—";
-    const z = asDate(d);
-    return `${z.getFullYear()}-${String(z.getMonth()+1).padStart(2,"0")}-${String(z.getDate()).padStart(2,"0")}`;
-  };
-
-  async function apiGet(url){
-    const r = await fetch(url, { credentials: "include" });
-    let j = null; try { j = await r.json(); } catch {}
-    if (!r.ok || j?.success === false) throw new Error(j?.error?.message || `HTTP ${r.status}`);
-    return j;
-  }
-  async function apiPost(url, body){
-    const r = await fetch(url, { method:"POST", credentials:"include", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body||{}) });
-    let j = null; try { j = await r.json(); } catch {}
-    if (!r.ok || j?.success === false) throw new Error(j?.error?.message || `HTTP ${r.status}`);
-    return j;
-  }
-
-  async function loadProgram(){
-    if (program) return program;
-    try { program = await apiGet("/api/admin/loyalty/program"); } catch { program = {}; }
-    return program;
-  }
-
-  function computeDatesFromProgram(){
-    const today = new Date();
-    const start = ymd(today);
-
-    const end = new Date(today);
-    const dur = parseInt(program?.durationMonths ?? 6, 10) || 6;
-    end.setMonth(end.getMonth() + dur);
-
-    const elig = new Date(today);
-    const wait = parseInt(program?.withdrawWaitDays ?? 90, 10) || 90;
-    elig.setDate(elig.getDate() + wait);
-
-    return { start, end: ymd(end), eligible: ymd(elig) };
-  }
-
-  function renderHints({ programName="—", min="—", start="—", end="—", eligible="—" }){
-    if (hintProg) hintProg.textContent = programName;
-    if (hintMin)  hintMin.textContent  = String(min);
-    if (hintStart)hintStart.textContent= start;
-    if (hintEnd)  hintEnd.textContent  = end;
-    if (hintElig) hintElig.textContent = eligible;
-  }
-
-  async function hydrateForUser(u){
-    pickedUser = u;
-    setOut("");
-
-    // Fill user_id (read-only)
-if (userId && u?.id) {
-  userId.value = String(u.id);
-  userId.readOnly = true;
-  userId.classList.add("input--readonly");
-}
-// Start with Create hidden; hydrate will decide to show it if needed
-if (mCreate) { mCreate.style.display = "none"; mCreate.disabled = false; }
-
-    // Fetch user's account
- let acct = null;
-try {
-  const q = new URLSearchParams({
-  userId: String(u.id),     // if backend reads camelCase
-  user_id: String(u.id),    // if backend reads snake_case
-  active: "true"            // optional: lets backend filter server-side
-}).toString();
-
-const data = await apiGet(`/api/admin/loyalty/accounts?${q}`);
-
-let rows = Array.isArray(data) ? data : (data.accounts || []);
-// Guard: keep only this user's rows (server currently returns all)
-rows = rows.filter(r => String(r.user_id ?? r.userId) === String(u.id));
-
-
-  if (rows?.length) {
-    const actives = rows.filter(a =>
-      a.is_active === true ||
-      a.active === true ||
-      String(a.status || "").toLowerCase() === "active"
-    );
-    acct = actives.sort((a,b)=> (b.id||0)-(a.id||0))[0] || null; // only active
-  }
-} catch {}
-
-    const prog = await loadProgram();
-    const progName = prog?.name || "—";
-    const minPts = prog?.minWithdrawPoints ?? prog?.min_withdraw_points ?? null;
-
-   let start, end, eligible;
-
-  if (acct) {
-  if (accId) { accId.value = String(acct.id); accId.readOnly = true; accId.classList.add("input--readonly"); }
-  if (statusSel) statusSel.value = acct.status || "Active";
-  if (extDate)   extDate.value = (acct.end_date || "").slice(0,10);
-  if (eligDate)  eligDate.value = (acct.eligible_from || "").slice(0,10);
-  // has active account → hide Create
-  if (mCreate) mCreate.style.display = "none";
-} else {
-  if (accId) { accId.value = ""; accId.readOnly = true; accId.classList.add("input--readonly"); }
-  if (statusSel) statusSel.value = "Active";
-  if (extDate)   extDate.value = ""; // nothing selected
-  if (eligDate)  eligDate.value = "";
-  // no active account → show Create
-  if (mCreate) { mCreate.style.display = ""; mCreate.disabled = false; }
-}
- // ---- NEW: feed the hint card with dates ----
- if (acct) {
-   start    = (acct.start_date     || "").slice(0, 10);
-   end      = (acct.end_date       || "").slice(0, 10);
-   eligible = (acct.eligible_from  || "").slice(0, 10);
- } else {
-   // derive defaults from Program (uses program’s duration + wait days)
-   const d = computeDatesFromProgram();
-   start = d.start;
-   end = d.end;
-   eligible = d.eligible;
- }
-
-    renderHints({ programName: progName, min: (minPts ?? "—"), start, end, eligible });
-  }
-
-  // debounced search; reuse existing searchUsers
-  const debounceFn = (typeof debounce === "function")
-    ? debounce
-    : (fn,ms)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms||300); }; };
-
-  const doSearch = debounceFn(async () => {
-    const term = sInput?.value || "";
-    if (!term.trim()) { if (sResults) sResults.innerHTML = ""; pickedUser = null; return; }
-    let users = [];
-    try {
-      users = await manageSearchUsers(term);
-    } catch { users = []; }
-    if (!sResults) return;
-    sResults.innerHTML = "";
-    if (!users.length){
-      const opt = document.createElement("option");
-      opt.value = ""; opt.textContent = "No results"; opt.disabled = true; opt.selected = true;
-      sResults.appendChild(opt); return;
-    }
-    users.forEach(u => {
-      const opt = document.createElement("option");
-      const label = `${u.name || u.email || u.phone || ('User#'+u.id)}${u.account_id ? "" : " (no active account)"}`;
-      opt.value = String(u.id); opt.textContent = label; opt.dataset.payload = JSON.stringify(u);
-      sResults.appendChild(opt);
-    });
-    sResults.selectedIndex = 0;
-    sResults.dispatchEvent(new Event("change"));
-  }, 250);
-
-  if (sInput) sInput.addEventListener("input", doSearch);
-  if (sResults) sResults.addEventListener("change", () => {
-  const opt = sResults.options[sResults.selectedIndex];
-  const u = opt ? JSON.parse(opt.dataset.payload || "{}") : null;
-
-  // Clear first to avoid showing a previous user’s account briefly
-  clearManageAccountUI();
-  if (extDate) extDate.value = "";
-  if (eligDate) eligDate.value = "";   // ← add
-  if (u && u.id) hydrateForUser(u);
-});
-if (btn) btn.addEventListener("click", () => {
-  clearManageAccountUI();   // fresh start on open
-  setOut("");
-  pickedUser = null;
-  try { dlg.showModal(); } catch {}
-});
-
-
-
-  const accountsBody = document.getElementById("loyaltyAccountsBody");
-  if (accountsBody && !accountsBody.dataset.wsManageDbl) {
-    accountsBody.dataset.wsManageDbl = "1";
-    accountsBody.addEventListener("dblclick", (ev) => {
-      const tr = ev.target.closest("tr"); if (!tr) return;
-      const tds = tr.querySelectorAll("td");
-      const uid = tds && tds[1] ? parseInt(tds[1].textContent.trim(), 10) : NaN;
-      if (Number.isFinite(uid)) {
-        try { dlg.showModal(); } catch{}
-        hydrateForUser({ id: uid });
+      if (acct) {
+        if (accId) { accId.value = String(acct.id); accId.readOnly = true; accId.classList.add("input--readonly"); }
+        if (statusSel) statusSel.value = acct.status || "Active";
+        if (extDate)   extDate.value = (acct.end_date || "").slice(0,10);
+        if (eligDate)  eligDate.value = (acct.eligible_from || "").slice(0,10);
+        if (mCreate) mCreate.style.display = "none";
+      } else {
+        if (accId) { accId.value = ""; accId.readOnly = true; accId.classList.add("input--readonly"); }
+        if (statusSel) statusSel.value = "Active";
+        if (extDate)   extDate.value = "";
+        if (eligDate)  eligDate.value = "";
+        if (mCreate) { mCreate.style.display = ""; mCreate.disabled = false; }
       }
+
+      if (acct) {
+        start    = (acct.start_date     || "").slice(0, 10);
+        end      = (acct.end_date       || "").slice(0, 10);
+        eligible = (acct.eligible_from  || "").slice(0, 10);
+      } else {
+        const d = computeDatesFromProgram();
+        start = d.start; end = d.end; eligible = d.eligible;
+      }
+
+      renderHints({ programName: progName, min: (minPts ?? "—"), start, end, eligible });
+    }
+
+    const debounceFn = (typeof debounce === "function")
+      ? debounce
+      : (fn,ms)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms||300); }; };
+
+    const doSearch = debounceFn(async () => {
+      const term = sInput?.value || "";
+      if (!term.trim()) { if (sResults) sResults.innerHTML = ""; pickedUser = null; return; }
+      let users = [];
+      try { users = await manageSearchUsers(term); } catch { users = []; }
+      if (!sResults) return;
+      sResults.innerHTML = "";
+      if (!users.length){
+        const opt = document.createElement("option");
+        opt.value = ""; opt.textContent = "No results"; opt.disabled = true; opt.selected = true;
+        sResults.appendChild(opt); return;
+      }
+      users.forEach(u => {
+        const opt = document.createElement("option");
+        const label = `${u.name || u.email || u.phone || ('User#'+u.id)}${u.account_id ? "" : " (no active account)"}`;
+        opt.value = String(u.id); opt.textContent = label; opt.dataset.payload = JSON.stringify(u);
+        sResults.appendChild(opt);
+      });
+      sResults.selectedIndex = 0;
+      sResults.dispatchEvent(new Event("change"));
+    }, 250);
+
+    if (sInput) sInput.addEventListener("input", doSearch);
+    if (sResults) sResults.addEventListener("change", () => {
+      const opt = sResults.options[sResults.selectedIndex];
+      const u = opt ? JSON.parse(opt.dataset.payload || "{}") : null;
+      clearManageAccountUI();
+      if (extDate) extDate.value = "";
+      if (eligDate) eligDate.value = "";
+      if (u && u.id) hydrateForUser(u);
     });
+    if (btn) btn.addEventListener("click", () => {
+      clearManageAccountUI();
+      try { dlg.showModal(); } catch {}
+    });
+
+    // Create Active Account
+    if (mCreate){
+      mCreate.addEventListener("click", async ()=>{
+        if (!pickedUser?.id) { out && (out.textContent = "Pick a user first."); return; }
+        try {
+          mCreate.disabled = true;
+          await apiPost("/api/admin/loyalty/accounts", { userId: pickedUser.id });
+          toast("Active account created", { type: "info" });
+          out && (out.textContent = "Active account created.");
+          try { loadAccounts({ resetPage:true }); } catch {}
+          await hydrateForUser({ id: pickedUser.id });
+        } catch (e) {
+          out && (out.textContent = e.message || "Create failed");
+          toast(e.message || "Create failed", { type: "error" });
+        } finally {
+          mCreate.disabled = false;
+        }
+      });
+    }
   }
 
-  // Create Active Account
- if (mCreate){
-  mCreate.addEventListener("click", async ()=>{
-    setOut("");
-    if (!pickedUser?.id) { setOut("Pick a user first."); return; }
-    try {
-      mCreate.disabled = true;
-
-      const res = await apiPost("/api/admin/loyalty/accounts", { userId: pickedUser.id });
-
-      // Success: toast + inline message
-      toast("Active account created", { type: "info" });
-      setOut("Active account created.");
-
-      // Refresh Accounts tab and rehydrate this user (button will hide)
-      try { if (typeof loadAccounts === "function") loadAccounts({ resetPage:true }); } catch {}
-      await hydrateForUser({ id: pickedUser.id });
-
-    } catch (e) {
-      setOut(e.message || "Create failed");
-      toast(e.message || "Create failed", { type: "error" });
-    } finally {
-      mCreate.disabled = false;
-    }
-  });
-}
-
-
-}
-
-function wsToggleCreateButton(hasAccount){
-  var btn = document.getElementById('mCreateBtn');
-  if (!btn) return;
-  if (hasAccount) { btn.style.display = 'none'; btn.disabled = false; }
-  else { btn.style.display = ''; btn.disabled = false; }
-}
 })();
