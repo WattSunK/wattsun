@@ -281,21 +281,42 @@ router.get("/me", requireAuth, async (req, res) => {
     }
 
     // --- derive canonical totals from ledger; prefer these over stale columns ---
-    const sums = await new Promise((resolve, reject) => {
-      db.get(
-        `
-        SELECT
-          COALESCE(SUM(CASE WHEN points_delta > 0 THEN points_delta ELSE 0 END), 0)                                   AS earned_pts,
-          COALESCE(SUM(CASE WHEN points_delta < 0 AND kind LIKE 'penalty%' THEN -points_delta ELSE 0 END), 0)         AS penalty_pts,
-          COALESCE(SUM(CASE WHEN kind = 'withdraw_paid' THEN -points_delta ELSE 0 END), 0)                             AS paid_pts,
-          COALESCE(SUM(points_delta), 0)                                                                               AS net_balance_pts
-        FROM loyalty_ledger
-        WHERE account_id = ?
-        `,
-        [acct.id],
-        (err, row) => (err ? reject(err) : resolve(row || { earned_pts:0, penalty_pts:0, paid_pts:0, net_balance_pts:0 }))
-      );
-    });
+const sums = await new Promise((resolve, reject) => {
+  db.get(
+    `
+    SELECT
+      COALESCE(SUM(CASE WHEN points_delta > 0 THEN points_delta ELSE 0 END), 0) AS earned_pts,
+      COALESCE(SUM(CASE WHEN UPPER(kind) LIKE 'PENALTY%' THEN ABS(points_delta) ELSE 0 END), 0) AS penalty_pts,
+      COALESCE(SUM(
+        CASE
+          WHEN (points_delta < 0 AND UPPER(kind) <> 'PENALTY')
+            OR UPPER(kind) IN ('WITHDRAWAL','WITHDRAW_PAID')
+          THEN ABS(points_delta)
+          ELSE 0
+        END
+      ), 0) AS paid_pts,
+      MAX(0,
+        COALESCE(SUM(CASE WHEN points_delta > 0 THEN points_delta ELSE 0 END), 0)
+        - COALESCE(SUM(CASE WHEN UPPER(kind) LIKE 'PENALTY%' THEN ABS(points_delta) ELSE 0 END), 0)
+        - COALESCE(SUM(
+            CASE
+              WHEN (points_delta < 0 AND UPPER(kind) <> 'PENALTY')
+                OR UPPER(kind) IN ('WITHDRAWAL','WITHDRAW_PAID')
+              THEN ABS(points_delta)
+              ELSE 0
+            END
+          ), 0)
+      ) AS net_balance_pts
+    FROM loyalty_ledger
+    WHERE account_id = ?
+    `,
+    [acct.id],
+    (err, row) =>
+      err
+        ? reject(err)
+        : resolve(row || { earned_pts: 0, penalty_pts: 0, paid_pts: 0, net_balance_pts: 0 })
+  );
+});
 
     // Overlay the derived values (read path only)
     acct.total_earned   = sums.earned_pts;
