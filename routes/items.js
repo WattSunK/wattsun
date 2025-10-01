@@ -3,45 +3,44 @@ const router = express.Router();
 
 // Pass knex instance from app.js/server.js
 module.exports = (knex) => {
-    // --- GET /api/items (all items) ---  [CHANGED: use canonical columns + compat fields]
-  router.get("/", async (req, res) => {
-    try {
-      const activeParam = (req.query.active ?? '1').toString().toLowerCase();
-      const onlyActive = !(activeParam === '0' || activeParam === 'false' || activeParam === 'all');
+   // --- GET /api/items (all items) ---  [FINAL: read real stock/priority/warranty]
+router.get("/", async (req, res) => {
+  try {
+    const activeParam = (req.query.active ?? "1").toString().toLowerCase();
+    const onlyActive = !(activeParam === "0" || activeParam === "false" || activeParam === "all");
 
-      let q = knex("items as i")
-        .leftJoin("categories as c", "c.id", "i.categoryId")
-        .select(
-          "i.id",
-          "i.sku",
-          "i.name",
-          "i.description",
-          "i.priceCents",
-          // backward-compat fields
-          knex.raw("CAST(ROUND(i.priceCents / 100.0) AS INTEGER) AS price"),
-          "i.categoryId",
-          "c.name as categoryName",
-          "i.image",
-          "i.active",
-          // legacy extras as safe defaults
-          knex.raw("0 AS stock"),
-          knex.raw("0 AS priority"),
-          knex.raw("NULL AS warranty")
-        );
+    let q = knex("items as i")
+      .leftJoin("categories as c", "c.id", "i.categoryId")
+      .select(
+        "i.id",
+        "i.sku",
+        "i.name",
+        "i.description",
+        "i.priceCents",
+        // backward-compat fields for current UI
+        knex.raw("CAST(ROUND(i.priceCents / 100.0) AS INTEGER) AS price"),
+        "i.categoryId",
+        "c.name as categoryName",
+        "i.image",
+        "i.active",
+        // now read the real columns (were constants before)
+        "i.stock",
+        "i.priority",
+        "i.warranty"
+      );
 
-      if (onlyActive) q = q.where("i.active", 1);
+    if (onlyActive) q.where("i.active", 1);
 
-      // Canonical ordering (priority no longer a real column here)
-      q = q.orderBy([{ column: "i.name", order: "asc" }]);
+    // restore legacy ordering if you used it
+    q.orderBy([{ column: "i.priority", order: "desc" }, { column: "i.name", order: "asc" }]);
 
-      const items = await q;
-      return res.json(items); // keep bare array to avoid frontend churn
-    } catch (err) {
-      console.error("❌ Failed to fetch items:", err);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
+    const items = await q;
+    return res.json(items); // keep bare array (no frontend churn)
+  } catch (err) {
+    console.error("❌ Failed to fetch items:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
   // --- PATCH /api/items/:sku/status (activate/deactivate item) ---
   router.patch("/:sku/status", async (req, res) => {
@@ -63,37 +62,37 @@ module.exports = (knex) => {
     }
   });
 
-    // --- GET /api/items/:sku (single item) ---  [CHANGED: use canonical columns + compat fields]
-  router.get("/:sku", async (req, res) => {
-    try {
-      const item = await knex("items as i")
-        .leftJoin("categories as c", "c.id", "i.categoryId")
-        .select(
-          "i.id",
-          "i.sku",
-          "i.name",
-          "i.description",
-          "i.priceCents",
-          knex.raw("CAST(ROUND(i.priceCents / 100.0) AS INTEGER) AS price"), // compat
-          "i.categoryId",
-          "c.name as categoryName",                                         // compat
-          "i.image",
-          "i.active",
-          knex.raw("0 AS stock"),
-          knex.raw("0 AS priority"),
-          knex.raw("NULL AS warranty")
-        )
-        .where("i.sku", req.params.sku)
-        .first();
+   // --- GET /api/items/:sku (single item) ---  [FINAL: read real stock/priority/warranty]
+   
+router.get("/:sku", async (req, res) => {
+  try {
+    const item = await knex("items as i")
+      .leftJoin("categories as c", "c.id", "i.categoryId")
+      .select(
+        "i.id",
+        "i.sku",
+        "i.name",
+        "i.description",
+        "i.priceCents",
+        knex.raw("CAST(ROUND(i.priceCents / 100.0) AS INTEGER) AS price"), // compat
+        "i.categoryId",
+        "c.name as categoryName",                                         // compat
+        "i.image",
+        "i.active",
+        "i.stock",                                                        // real column
+        "i.priority",                                                     // real column
+        "i.warranty"                                                      // real column
+      )
+      .where("i.sku", req.params.sku)
+      .first();
 
-      if (!item) return res.status(404).json({ error: "Item not found" });
-      return res.json(item);
-    } catch (err) {
-      console.error("❌ Failed to fetch item:", err);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
+    if (!item) return res.status(404).json({ error: "Item not found" });
+    return res.json(item);
+  } catch (err) {
+    console.error("❌ Failed to fetch item:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
    // --- PATCH /api/items/:sku (edit item) ---  [CHANGED: write canonical priceCents/categoryId]
   router.patch("/:sku", async (req, res) => {
