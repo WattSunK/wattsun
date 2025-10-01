@@ -1,81 +1,178 @@
-// routes/checkout.js
+cat > routes/checkout.js <<'JS'
 const express = require("express");
+const path = require("path");
+const sqlite3 = require("sqlite3").verbose();
+
 const router = express.Router();
 
-module.exports = function makeCheckout(db) {
-  function genOrderNumber() {
-    // WATT + epoch milliseconds
-    return "WATT" + Date.now();
+// JSON only (no urlencoded fallback)
+router.use(express.json({ limit: "1mb" }));
+
+const DB_PATH =
+  process.env.WATTSUN_DB ||
+  path.join(__dirname, "../data/dev/wattsun.dev.db");
+
+const db = new sqlite3.Database(DB_PATH, (err) => {
+  if (err) console.error("[checkout] DB open error:", err);
+  else {
+    console.log("[checkout] DB connected:", DB_PATH);
+    // Enforce FKs for order_items -> orders
+    db.run("PRAGMA foreign_keys = ON;");
   }
-  function cents(n) { return Number.isFinite(n) ? Math.round(n) : 0; }
+});
 
-  // Normalize cart items coming from checkout.html
-  function normalizeCart(cart) {
-    const items = Array.isArray(cart) ? cart : [];
-    return items.map(it => ({
-      id:        String(it.id || it.sku || it.name || "ITEM"),
-      name:      String(it.name || it.title || "Item"),
-      qty:       Number(it.quantity || it.qty || 1),
-      priceCents: cents(typeof it.price === "string" ? it.replace(/[^\d]/g,"") : it.price),
-      depositCents: cents(it.deposit),
-      image:     it.image || ""
-    }));
-  }
-
-  router.post("/checkout", express.json(), async (req, res) => {
-    try {
-      const body = req.body || {};
-      const orderNumber = genOrderNumber();
-      const fullName = String(body.fullName || body.name || "Customer");
-      const email = String(body.email || "");
-      const phone = String(body.phone || "");
-      const address = String(body.address || "");
-      const deliveryAddress = String(body.deliveryAddress || address || "");
-      const rawCart = body.cart || [];
-      const items = normalizeCart(rawCart);
-
-      // totals
-      const totalCents = items.reduce((t, it) => t + (it.priceCents * it.qty), 0);
-      const depositCents = items.reduce((t, it) => t + (it.depositCents || 0), 0);
-      const currency = String(body.currency || "KES");
-
-      // create order (TEXT id = orderNumber, to match your admin UX)
-      const id = orderNumber;
-
-      const insertOrder = db.prepare(`
-        INSERT INTO orders (id, orderNumber, fullName, email, phone, status, totalCents, depositCents, currency, address, createdAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-      `);
-      insertOrder.run(id, orderNumber, fullName, email, phone, "Pending", totalCents, depositCents, currency, deliveryAddress);
-
-      const insertItem = db.prepare(`
-        INSERT INTO order_items (order_id, sku, name, qty, priceCents, depositCents, image)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `);
-      const tx = db.transaction((rows) => {
-        rows.forEach(it => insertItem.run(
-          id, it.id, it.name, it.qty, it.priceCents, it.depositCents, it.image
-        ));
-      });
-      tx(items);
-
-      // optional: queue notification for later SMTP
-      try {
-        db.prepare(`
-          INSERT INTO notifications_queue (type, payload, created_at, status)
-          VALUES ('order_created', json(?), datetime('now'), 'queued')
-        `).run(JSON.stringify({ id, orderNumber, fullName, email, phone, totalCents, depositCents, currency }));
-      } catch {}
-
-      return res.json({ success: true, id, orderNumber });
-    } catch (e) {
-      console.error("[checkout] error", e);
-      res.status(500).json({ success: false, error: "Checkout failed" });
-    }
-  });
-
-  // benign endpoint to accept cart syncs; no-op
-  router.post("/cart", express.json(), (req, res) => res.json({ success: true }));
-
-  return router;
+// helpers
+const toCents = (n) => {
+  const v = Number(n);
+  return Number.isFinite(v) ? Math.round(v * 100) : 0;
 };
+
+function makeOrderId() {
+  const now = Date.now();
+  const rand = Math.floor(Math.random() * 1e6).toString().padStart(6, "0");
+  return `WATT${now}${rand}`;
+}
+
+// POST /api/checkout  (SQL-only)
+router.post("/checkout", async (req, res) => {
+  try {
+    const {
+      fullName = "", email = "", phone = "",
+      address = "", deliveryAddress = "",
+      items = [],            // [{id|sku|name, price, deposit, quantity, image}]
+      deposit = 0            // TOTAL deposit (KES) for the whole order
+    } = req.body || {};
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success:false, message:"No items" });
+    }
+
+    // normalize & validate items
+    const normItems = items.map((it) => {
+      const qty = Math.max(1, Number(it.quantity || 1));
+      const price = Number(it.price || 0);
+      const dep = Number(it.deposit || 0);
+      return {
+        id:   it.id || it.sku || it.name || "",
+        sku:  it.sku || it.id || "",
+        name: it.name || it.sku || it.id || "",
+        quantity: qty,
+        price,
+        deposit: dep,
+        image: it.image || ""
+      };
+    });
+
+    const totalKES   = normItems.reduce((s, it) => s + (it.price * it.quantity), 0);
+    const depositKES = Number(deposit || 0); // single total deposit per your spec
+
+    const orderId       = makeOrderId();
+    const orderNumber   = orderId; // keep equal for now
+    const totalCents    = toCents(totalKES);
+    const depositCents  = toCents(depositKES);
+    const currency      = "KES";
+    const status        = "Pending";
+    const addr          = address || deliveryAddress || "";
+    const createdAt     = new Date().toISOString(); // ISO like imported legacy rows
+
+    db.serialize(() => {
+      db.run("BEGIN IMMEDIATE");
+
+      // orders
+      db.run(
+        `INSERT INTO orders
+           (id, orderNumber, fullName, email, phone, status, totalCents, address, depositCents, currency, createdAt)
+         VALUES
+           (?,  ?,           ?,       ?,     ?,     ?,      ?,          ?,       ?,            ?,        ?)`,
+        [
+          orderId, orderNumber, fullName, email, phone, status,
+          totalCents, addr, depositCents, currency, createdAt
+        ],
+        function (err) {
+          if (err) {
+            console.error("[checkout] insert orders error:", err);
+            db.run("ROLLBACK");
+            return res.status(500).json({ success:false, message:"DB error (orders)" });
+          }
+
+          // order_items
+          const stmt = db.prepare(
+            `INSERT INTO order_items (order_id, sku, name, qty, priceCents, depositCents, image)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`
+          );
+
+          for (const it of normItems) {
+            stmt.run(
+              orderId,
+              String(it.id || it.sku || ""),
+              String(it.name || ""),
+              it.quantity,
+              toCents(it.price),
+              toCents(it.deposit), // optional per-line deposit
+              String(it.image || "")
+            );
+          }
+
+          stmt.finalize((e2) => {
+            if (e2) {
+              console.error("[checkout] insert order_items error:", e2);
+              db.run("ROLLBACK");
+              return res.status(500).json({ success:false, message:"DB error (order_items)" });
+            }
+
+            // notifications_queue (admin + customer). SMTP will be wired later.
+            const payloadAdmin = JSON.stringify({
+              to: process.env.ADMIN_EMAIL || "admin@example.com",
+              subject: `New order ${orderNumber}`,
+              text: `New order from ${fullName || ""} (${phone || ""})
+Items: ${normItems.map(i => `${i.name} x${i.quantity}`).join(", ")}
+Total: KES ${totalKES}
+Deposit: KES ${depositKES}`
+            });
+
+            const payloadCustomer = JSON.stringify({
+              to: email || "",
+              subject: `Thanks for your order ${orderNumber}`,
+              text: `Dear ${fullName || "Customer"},
+We received your order ${orderNumber}.
+Total: KES ${totalKES}
+Deposit: KES ${depositKES}
+We’ll contact you shortly.`
+            });
+
+            const nq = db.prepare(
+              `INSERT OR IGNORE INTO notifications_queue(kind, user_id, email, payload, status, dedupe_key)
+               VALUES(?, NULL, ?, ?, 'Queued', ?)`
+            );
+            nq.run("order_created", null, payloadAdmin,    `order_created_admin_${orderNumber}`);
+            nq.run("order_created", null, payloadCustomer, `order_created_cust_${orderNumber}`);
+
+            nq.finalize((e3) => {
+              if (e3) {
+                // don't fail the order if notifications insert fails
+                console.warn("[checkout] notifications_queue warning:", e3);
+              }
+              db.run("COMMIT");
+              return res.json({
+                success: true,
+                orderNumber,
+                status,
+                total: totalKES,
+                deposit: depositKES,
+                currency,
+                createdAt
+              });
+            });
+          });
+        }
+      );
+    });
+  } catch (e) {
+    console.error("[checkout] error:", e);
+    try { db.run("ROLLBACK"); } catch {}
+    return res.status(500).json({ success:false, message:"Unexpected error" });
+  }
+});
+
+module.exports = router;
+JS

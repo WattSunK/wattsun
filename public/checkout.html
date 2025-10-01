@@ -761,3 +761,63 @@ return; // ensure the guarded code after this does not run
 <script src="/js/money.js"></script>
 </body>
 </html>
+<!-- SQL-only checkout override -->
+<script>
+(function(){
+  // Try to find the place-order button. Adjust selector if your button id differs.
+  const btn = document.querySelector('#placeOrderBtn, button#place-order, button.place-order, button[type="submit"]');
+  if (!btn || btn.__wsSqlBound) return;
+  btn.__wsSqlBound = true;
+
+  async function getCartItems() {
+    // Your site appears to store cart in localStorage. Adjust if your cart lives elsewhere.
+    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+    return cart.map(i => ({
+      id: i.id || i.sku || i.name || "",
+      sku: i.sku || i.id || "",
+      name: i.name || i.title || "",
+      quantity: Number(i.quantity || 1),
+      price: Number(i.price || 0),
+      deposit: Number(i.deposit || 0),
+      image: i.image || ""
+    }));
+  }
+
+  async function submitSqlOrder(e){
+    e.preventDefault();
+    const fullName = document.getElementById('fullName')?.value || document.getElementById('name')?.value || "";
+    const email    = document.getElementById('email')?.value || "";
+    const phone    = document.getElementById('phone')?.value || "";
+    const address  = document.getElementById('address')?.value || "";
+    const delivery = document.getElementById('deliveryAddress')?.value || address;
+    const deposit  = Number(document.getElementById('deposit')?.value || 0);
+
+    const items = await getCartItems();
+    if (!items.length) { alert("Your cart is empty."); return; }
+
+    const payload = { fullName, email, phone, address, deliveryAddress: delivery, items, deposit };
+
+    try {
+      const r = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(payload),
+        credentials: "same-origin"
+      });
+      const j = await r.json();
+      if (!r.ok || !j.success) {
+        alert("Checkout failed. Please try again.");
+        return;
+      }
+      // Clear cart and go to thank you page (existing page)
+      localStorage.removeItem("cart");
+      location.href = "/thankyou.html?order=" + encodeURIComponent(j.orderNumber);
+    } catch(err) {
+      console.error(err);
+      alert("Network error. Please try again.");
+    }
+  }
+
+  btn.addEventListener("click", submitSqlOrder, { capture: true });
+})();
+</script>
