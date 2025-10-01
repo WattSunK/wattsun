@@ -3,43 +3,45 @@ const router = express.Router();
 
 // Pass knex instance from app.js/server.js
 module.exports = (knex) => {
-  // --- GET /api/items (all items) ---
+    // --- GET /api/items (all items) ---  [CHANGED: use canonical columns + compat fields]
   router.get("/", async (req, res) => {
     try {
-      // Default: only active items. Override with ?active=0 or ?active=false
       const activeParam = (req.query.active ?? '1').toString().toLowerCase();
       const onlyActive = !(activeParam === '0' || activeParam === 'false' || activeParam === 'all');
 
-      let q = knex("items")
-        .leftJoin("categories", "items.category_id", "categories.id")
+      let q = knex("items as i")
+        .leftJoin("categories as c", "c.id", "i.categoryId")
         .select(
-          "items.sku",
-          "items.name",
-          "items.description",
-          "items.price",
-          "items.warranty",
-          "items.stock",
-          "items.image",
-          "items.active",
-          "items.priority",                 // ← added: expose priority in reads
-          "categories.name as category"
+          "i.id",
+          "i.sku",
+          "i.name",
+          "i.description",
+          "i.priceCents",
+          // backward-compat fields
+          knex.raw("CAST(ROUND(i.priceCents / 100.0) AS INTEGER) AS price"),
+          "i.categoryId",
+          "c.name as categoryName",
+          "i.image",
+          "i.active",
+          // legacy extras as safe defaults
+          knex.raw("0 AS stock"),
+          knex.raw("0 AS priority"),
+          knex.raw("NULL AS warranty")
         );
 
-      if (onlyActive) q = q.where("items.active", 1);
+      if (onlyActive) q = q.where("i.active", 1);
 
-      // ← added: canonical server-side order
-      q = q.orderBy([
-        { column: "items.priority", order: "desc" },
-        { column: "items.name",     order: "asc"  }
-      ]);
+      // Canonical ordering (priority no longer a real column here)
+      q = q.orderBy([{ column: "i.name", order: "asc" }]);
 
       const items = await q;
-      res.json(items);
+      return res.json(items); // keep bare array to avoid frontend churn
     } catch (err) {
       console.error("❌ Failed to fetch items:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });
+
 
   // --- PATCH /api/items/:sku/status (activate/deactivate item) ---
   router.patch("/:sku/status", async (req, res) => {
@@ -61,72 +63,81 @@ module.exports = (knex) => {
     }
   });
 
-  // --- GET /api/items/:sku (single item) ---
+    // --- GET /api/items/:sku (single item) ---  [CHANGED: use canonical columns + compat fields]
   router.get("/:sku", async (req, res) => {
     try {
-      const item = await knex("items")
-        .leftJoin("categories", "items.category_id", "categories.id")
+      const item = await knex("items as i")
+        .leftJoin("categories as c", "c.id", "i.categoryId")
         .select(
-          "items.sku",
-          "items.name",
-          "items.description",
-          "items.price",
-          "items.warranty",
-          "items.stock",
-          "items.image",
-          "items.active",
-          "items.priority",               // ← added
-          "categories.name as category"
+          "i.id",
+          "i.sku",
+          "i.name",
+          "i.description",
+          "i.priceCents",
+          knex.raw("CAST(ROUND(i.priceCents / 100.0) AS INTEGER) AS price"), // compat
+          "i.categoryId",
+          "c.name as categoryName",                                         // compat
+          "i.image",
+          "i.active",
+          knex.raw("0 AS stock"),
+          knex.raw("0 AS priority"),
+          knex.raw("NULL AS warranty")
         )
-        .where("items.sku", req.params.sku)
+        .where("i.sku", req.params.sku)
         .first();
+
       if (!item) return res.status(404).json({ error: "Item not found" });
-      res.json(item);
+      return res.json(item);
     } catch (err) {
       console.error("❌ Failed to fetch item:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });
 
-  // --- PATCH /api/items/:sku (edit item) ---
+
+   // --- PATCH /api/items/:sku (edit item) ---  [CHANGED: write canonical priceCents/categoryId]
   router.patch("/:sku", async (req, res) => {
     try {
-      const { name, description, price, warranty, stock, category, image, priority } = req.body;
+      const { name, description, price, priceCents, warranty, stock, category, image } = req.body;
 
-      // Optional: Get category_id from category name if provided
-      let category_id = null;
+      // Resolve categoryId from category name (if provided)
+      let categoryId = null;
       if (category) {
         const cat = await knex("categories").where("name", category).first();
-        if (cat) category_id = cat.id;
+        if (cat) categoryId = cat.id;
       }
 
+      // Build canonical updates
       const updateFields = {};
       if (name !== undefined)        updateFields.name = name;
       if (description !== undefined) updateFields.description = description;
-      if (price !== undefined)       updateFields.price = price;
-      if (warranty !== undefined)    updateFields.warranty = warranty;
-      if (stock !== undefined)       updateFields.stock = stock;
       if (image !== undefined)       updateFields.image = image;
-      if (category_id !== null)      updateFields.category_id = category_id;
+      if (warranty !== undefined)    updateFields.warranty = warranty; // kept if you still carry it
+      if (stock !== undefined)       updateFields.stock = stock;       // ditto
 
-      // ← added: priority handling (coerce to integer; default 0 if invalid)
-      if (priority !== undefined) {
-        const prioNum = Number(priority);
-        updateFields.priority = Number.isFinite(prioNum) ? Math.trunc(prioNum) : 0;
+      // Money: support either priceCents or price (KES)
+      if (priceCents !== undefined) {
+        const n = Number(priceCents);
+        if (!Number.isFinite(n)) return res.status(400).json({ error: "priceCents must be a number" });
+        updateFields.priceCents = Math.trunc(n);
+      } else if (price !== undefined) {
+        const p = Number(price);
+        if (!Number.isFinite(p)) return res.status(400).json({ error: "price must be numeric (KES)" });
+        updateFields.priceCents = Math.trunc(Math.round(p * 100));
       }
 
-      const updated = await knex("items")
-        .where("sku", req.params.sku)
-        .update(updateFields);
+      if (categoryId !== null) updateFields.categoryId = categoryId;
 
+      const updated = await knex("items").where("sku", req.params.sku).update(updateFields);
       if (!updated) return res.status(404).json({ error: "Item not found" });
 
-      res.json({ success: true });
+      return res.json({ success: true });
     } catch (err) {
       console.error("❌ Failed to update item:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });
+
 
   // --- DELETE /api/items/:sku (delete item) ---
   router.delete("/:sku", async (req, res) => {
@@ -140,54 +151,58 @@ module.exports = (knex) => {
     }
   });
 
-  // --- POST /api/items (create new item, stricter required fields) ---
+    // --- POST /api/items (create new item) ---  [CHANGED: write canonical priceCents/categoryId]
   router.post("/", async (req, res) => {
     try {
-      const { sku, name, description, price, category, warranty, stock, image, active, priority } = req.body;
+      const { sku, name, description, price, priceCents, category, warranty, stock, image, active } = req.body;
 
-      // Validate required fields
-      if (!sku || !name || !description || !price || !category) {
+      // Validation: require sku, name, description, category AND one of price/priceCents
+      if (!sku || !name || !description || !category || (price === undefined && priceCents === undefined)) {
         return res.status(400).json({
-          error: "SKU, Name, Description, Price, and Category are required."
+          error: "SKU, Name, Description, Category, and Price/priceCents are required."
         });
       }
 
-      // Lookup category_id from category name
+      // Resolve categoryId
       const cat = await knex("categories").where("name", category).first();
-      if (!cat) {
-        return res.status(400).json({ error: "Category not found." });
-      }
-      const category_id = cat.id;
+      if (!cat) return res.status(400).json({ error: "Category not found." });
+      const categoryId = cat.id;
 
-      // Check SKU uniqueness
+      // Uniqueness
       const exists = await knex("items").where("sku", sku).first();
-      if (exists) {
-        return res.status(409).json({ error: "SKU already exists." });
-      }
+      if (exists) return res.status(409).json({ error: "SKU already exists." });
 
-      // ← added: priority handling (coerce to integer; default 0)
-      const prioNum = Number(priority);
-      const prio = Number.isFinite(prioNum) ? Math.trunc(prioNum) : 0;
+      // Money
+      let priceCentsFinal;
+      if (priceCents !== undefined) {
+        const n = Number(priceCents);
+        if (!Number.isFinite(n)) return res.status(400).json({ error: "priceCents must be a number" });
+        priceCentsFinal = Math.trunc(n);
+      } else {
+        const p = Number(price);
+        if (!Number.isFinite(p)) return res.status(400).json({ error: "price must be numeric (KES)" });
+        priceCentsFinal = Math.trunc(Math.round(p * 100));
+      }
 
       await knex("items").insert({
         sku,
         name,
         description,
-        price,
-        warranty: warranty || null,
-        stock: stock || 0,
-        image: image || null,
-        active: active !== undefined ? !!active : true,
-        category_id,
-        priority: prio                   // ← added
+        priceCents: priceCentsFinal,
+        categoryId,
+        warranty: warranty ?? null,
+        stock: stock ?? 0,
+        image: image ?? null,
+        active: active !== undefined ? !!active : true
       });
 
-      res.status(201).json({ success: true });
+      return res.status(201).json({ success: true });
     } catch (err) {
       console.error("❌ Failed to create item:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });
+
 
   return router;
 };
