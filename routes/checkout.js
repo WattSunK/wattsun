@@ -33,7 +33,7 @@ function makeOrderId() {
 }
 
 // POST /api/checkout  (SQL-only)
-router.post("/checkout", async (req, res) => {
+router.post("/", async (req, res) => {
   try {
     const {
       fullName = "", email = "", phone = "",

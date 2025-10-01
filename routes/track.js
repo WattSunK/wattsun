@@ -11,7 +11,7 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
   if (err) console.error("[track] DB open error:", err);
 });
 
-router.get("/track", async (req, res) => {
+router.get("/", async (req, res) => {
   const { phone = "", email = "", orderNumber = "", id = "" } = req.query || {};
   const ident = (orderNumber || id || "").trim();
   const phoneDigits = String(phone).replace(/[^\d]/g, "");
