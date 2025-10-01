@@ -60,7 +60,11 @@
     if (!pane) return; // If user switched away, do nothing.
 
     const url = buildAdminOrdersUrl();
-    return fetch(url, { cache: "no-store", headers: { "Cache-Control": "no-cache" } })
+    return fetch(url, { 
+    cache: "no-store",
+    credentials: "include",
+    headers: { "Cache-Control": "no-cache" }
+  })
       .then((r) => r.json())
       .then((data) => {
         // accept {success,orders} or raw array defensively
@@ -392,6 +396,7 @@
         try {
           const r = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
             method: "PATCH",
+            credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status: newStatus, notes: newNotes }),
           });
@@ -469,7 +474,7 @@
       bindModalButtons();
       return;
     }
-    fetch("/partials/orders-modal.html")
+    fetch("/partials/orders-modal.html", { credentials: "include" })
       .then((r) => (r.ok ? r.text() : ""))
       .then((html) => {
         if (html) {
