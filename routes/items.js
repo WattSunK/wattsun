@@ -21,6 +21,7 @@ router.get("/", async (req, res) => {
         knex.raw("CAST(ROUND(i.priceCents / 100.0) AS INTEGER) AS price"),
         "i.categoryId",
         "c.name as categoryName",
+        "c.name as category",
         "i.image",
         "i.active",
         // now read the real columns (were constants before)
@@ -76,7 +77,8 @@ router.get("/:sku", async (req, res) => {
         "i.priceCents",
         knex.raw("CAST(ROUND(i.priceCents / 100.0) AS INTEGER) AS price"), // compat
         "i.categoryId",
-        "c.name as categoryName",                                         // compat
+        "c.name as categoryName", 
+        "c.name as category",                                        // compat
         "i.image",
         "i.active",
         "i.stock",                                                        // real column
