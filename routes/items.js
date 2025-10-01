@@ -42,25 +42,25 @@ router.get("/", async (req, res) => {
   }
 });
 
-  // --- PATCH /api/items/:sku/status (activate/deactivate item) ---
-  router.patch("/:sku/status", async (req, res) => {
-    try {
-      const { active } = req.body;
-      if (typeof active !== "boolean")
-        return res.status(400).json({ error: "Missing or invalid 'active' field" });
+ // --- PATCH /api/items/:sku/status (activate/deactivate item) ---
+router.patch("/:sku/status", async (req, res) => {
+  try {
+    const { active } = req.body;
+    if (typeof active !== "boolean")
+      return res.status(400).json({ error: "Missing or invalid 'active' field" });
 
-      const updated = await knex("items")
-        .where("sku", req.params.sku)
-        .update({ active });
+    const updated = await knex("items")
+      .where("sku", req.params.sku)
+      .update({ active: active ? 1 : 0 });  // <— coerce to 0/1
 
-      if (!updated) return res.status(404).json({ error: "Item not found" });
+    if (!updated) return res.status(404).json({ error: "Item not found" });
 
-      res.json({ success: true });
-    } catch (err) {
-      console.error("❌ Failed to update item status:", err);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Failed to update item status:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
    // --- GET /api/items/:sku (single item) ---  [FINAL: read real stock/priority/warranty]
    
