@@ -51,7 +51,13 @@ app.set("db", sqliteDb);
 // Knex (your existing DB)
 const db = knex({
   client: "sqlite3",
-  connection: { filename: path.join(__dirname, "inventory.db") },
+// AFTER (honour .env, fallback to dev path, then legacy)
+connection: {
+  filename: process.env.SQLITE_INVENTORY
+    || path.join(process.cwd(), "data/dev/inventory.dev.db")
+    || path.join(__dirname, "inventory.db")
+},
+
   useNullAsDefault: true,
 });
 
