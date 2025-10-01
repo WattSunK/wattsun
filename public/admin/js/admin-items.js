@@ -140,8 +140,8 @@
         <tr>
           <td>${startIndex + i + 1}</td>
           <td><img src="${img}" alt="Item" onerror="this.onerror=null;this.src='/images/products/placeholder.jpg';" style="max-width:60px;max-height:60px;object-fit:contain"></td>
-          <td>${esc(it.name)}</td>
-          <td>${esc(it.sku)}</td>
+          <td><a href="#" class="item-link" data-sku="${esc(it.sku)}">${esc(it.name)}</a></td>
+<td>${esc(it.sku)}</td>
           <td>${esc(it.category || '')}</td>
           <td>${it.stock ?? 0}</td>
           <td>${it.price==null?'-':fmtKSH(it.price)}</td>
@@ -167,10 +167,10 @@
               <span class="status-label">${it.active ? 'Active' : 'Inactive'}</span>
             </label>
           </td>
-          <td>
-            <button class="items-action-btn btn btn-sm btn-outline-secondary edit-item-btn" data-sku="${esc(it.sku)}">Edit</button>
-            <button class="items-action-btn btn btn-sm btn-outline-danger ms-1 delete-item-btn" data-sku="${esc(it.sku)}">Delete</button>
-          </td>
+          
+<td>
+  <button class="items-action-btn btn btn-sm btn-outline-secondary edit-item-btn" data-sku="${esc(it.sku)}">Edit</button>
+</td>
         </tr>
       `;
     }).join('');
@@ -263,12 +263,16 @@
   });
 
   document.addEventListener('click', (e)=>{
+  // Name link → open edit modal
+  {
+    const a = e.target.closest('a.item-link');
+    if (a) { e.preventDefault(); const s = a.dataset.sku; if (s) openEdit(s); return; }
+  }
+
     const btn = e.target.closest('button.items-action-btn');
     if (!btn) return;
     const sku = btn.dataset.sku;
-    if (btn.classList.contains('edit-item-btn')) openEdit(sku);
-    if (btn.classList.contains('delete-item-btn')) delItem(sku);
-  });
+    if (btn.classList.contains('edit-item-btn')) openEdit(sku);});
 
   // ---------- Search / Filter / Per-page (delegated)
   document.addEventListener('click', (e)=>{
