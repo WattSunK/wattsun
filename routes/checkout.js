@@ -174,4 +174,3 @@ We’ll contact you shortly.`
 });
 
 module.exports = router;
-JS
