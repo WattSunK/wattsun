@@ -809,9 +809,11 @@ return; // ensure the guarded code after this does not run
         alert("Checkout failed. Please try again.");
         return;
       }
-      // Clear cart and go to thank you page (existing page)
+     // Clear cart, remember order, then go to thank you page
       localStorage.removeItem("cart");
-      location.href = "/thankyou.html?order=" + encodeURIComponent(j.orderNumber);
+      sessionStorage.setItem("lastOrderNumber", j.orderNumber || "");
+      sessionStorage.setItem("lastCustomerName", fullName || "");
+      location.href = "/thankyou.html?order=" + encodeURIComponent(j.orderNumber || "");
     } catch(err) {
       console.error(err);
       alert("Network error. Please try again.");
