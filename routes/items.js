@@ -94,49 +94,54 @@ router.get("/:sku", async (req, res) => {
   }
 });
 
-   // --- PATCH /api/items/:sku (edit item) ---  [CHANGED: write canonical priceCents/categoryId]
-  router.patch("/:sku", async (req, res) => {
-    try {
-      const { name, description, price, priceCents, warranty, stock, category, image } = req.body;
+   // --- PATCH /api/items/:sku (edit item) ---  [FIX: persist priority; coerce stock/active; money & category map]
+router.patch("/:sku", async (req, res) => {
+  try {
+    const {
+      name, description, price, priceCents,
+      warranty, stock, priority,
+      category, image, active
+    } = req.body;
 
-      // Resolve categoryId from category name (if provided)
-      let categoryId = null;
-      if (category) {
-        const cat = await knex("categories").where("name", category).first();
-        if (cat) categoryId = cat.id;
-      }
-
-      // Build canonical updates
-      const updateFields = {};
-      if (name !== undefined)        updateFields.name = name;
-      if (description !== undefined) updateFields.description = description;
-      if (image !== undefined)       updateFields.image = image;
-      if (warranty !== undefined)    updateFields.warranty = warranty; // kept if you still carry it
-      if (stock !== undefined)       updateFields.stock = stock;       // ditto
-
-      // Money: support either priceCents or price (KES)
-      if (priceCents !== undefined) {
-        const n = Number(priceCents);
-        if (!Number.isFinite(n)) return res.status(400).json({ error: "priceCents must be a number" });
-        updateFields.priceCents = Math.trunc(n);
-      } else if (price !== undefined) {
-        const p = Number(price);
-        if (!Number.isFinite(p)) return res.status(400).json({ error: "price must be numeric (KES)" });
-        updateFields.priceCents = Math.trunc(Math.round(p * 100));
-      }
-
-      if (categoryId !== null) updateFields.categoryId = categoryId;
-
-      const updated = await knex("items").where("sku", req.params.sku).update(updateFields);
-      if (!updated) return res.status(404).json({ error: "Item not found" });
-
-      return res.json({ success: true });
-    } catch (err) {
-      console.error("❌ Failed to update item:", err);
-      res.status(500).json({ error: "Internal server error" });
+    // Resolve categoryId from category name (optional)
+    let categoryId = null;
+    if (typeof category === "string" && category.trim()) {
+      const cat = await knex("categories").where("name", category.trim()).first();
+      if (!cat) return res.status(400).json({ error: "Category not found." });
+      categoryId = cat.id;
     }
-  });
 
+    const updateFields = {};
+    if (name !== undefined)        updateFields.name = name;
+    if (description !== undefined) updateFields.description = description;
+    if (image !== undefined)       updateFields.image = image;
+    if (active !== undefined)      updateFields.active = active ? 1 : 0;
+    if (warranty !== undefined)    updateFields.warranty = warranty ?? null;
+    if (stock !== undefined)       updateFields.stock = Number.isFinite(+stock) ? Math.trunc(+stock) : 0;
+    if (priority !== undefined)    updateFields.priority = Number.isFinite(+priority) ? Math.trunc(+priority) : 0;
+
+    // Money: accept priceCents or price (KES)
+    if (priceCents !== undefined) {
+      const n = Number(priceCents);
+      if (!Number.isFinite(n)) return res.status(400).json({ error: "priceCents must be a number" });
+      updateFields.priceCents = Math.trunc(n);
+    } else if (price !== undefined) {
+      const p = Number(price);
+      if (!Number.isFinite(p)) return res.status(400).json({ error: "price must be numeric (KES)" });
+      updateFields.priceCents = Math.trunc(Math.round(p * 100));
+    }
+
+    if (categoryId !== null) updateFields.categoryId = categoryId;
+
+    const updated = await knex("items").where("sku", req.params.sku).update(updateFields);
+    if (!updated) return res.status(404).json({ error: "Item not found" });
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Failed to update item:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
   // --- DELETE /api/items/:sku (delete item) ---
   router.delete("/:sku", async (req, res) => {
@@ -150,58 +155,63 @@ router.get("/:sku", async (req, res) => {
     }
   });
 
-    // --- POST /api/items (create new item) ---  [CHANGED: write canonical priceCents/categoryId]
-  router.post("/", async (req, res) => {
-    try {
-      const { sku, name, description, price, priceCents, category, warranty, stock, image, active } = req.body;
+   // --- POST /api/items (create new item) ---  [FIX: accept/insert priority; coerce stock; money & category map]
+router.post("/", async (req, res) => {
+  try {
+    const {
+      sku, name, description,
+      price, priceCents,
+      category, image, active,
+      stock, priority, warranty
+    } = req.body;
 
-      // Validation: require sku, name, description, category AND one of price/priceCents
-      if (!sku || !name || !description || !category || (price === undefined && priceCents === undefined)) {
-        return res.status(400).json({
-          error: "SKU, Name, Description, Category, and Price/priceCents are required."
-        });
-      }
-
-      // Resolve categoryId
-      const cat = await knex("categories").where("name", category).first();
-      if (!cat) return res.status(400).json({ error: "Category not found." });
-      const categoryId = cat.id;
-
-      // Uniqueness
-      const exists = await knex("items").where("sku", sku).first();
-      if (exists) return res.status(409).json({ error: "SKU already exists." });
-
-      // Money
-      let priceCentsFinal;
-      if (priceCents !== undefined) {
-        const n = Number(priceCents);
-        if (!Number.isFinite(n)) return res.status(400).json({ error: "priceCents must be a number" });
-        priceCentsFinal = Math.trunc(n);
-      } else {
-        const p = Number(price);
-        if (!Number.isFinite(p)) return res.status(400).json({ error: "price must be numeric (KES)" });
-        priceCentsFinal = Math.trunc(Math.round(p * 100));
-      }
-
-      await knex("items").insert({
-        sku,
-        name,
-        description,
-        priceCents: priceCentsFinal,
-        categoryId,
-        warranty: warranty ?? null,
-        stock: stock ?? 0,
-        image: image ?? null,
-        active: active !== undefined ? !!active : true
+    // Validate required fields
+    if (!sku || !name || !description || !category || (price === undefined && priceCents === undefined)) {
+      return res.status(400).json({
+        error: "SKU, Name, Description, Category, and Price/priceCents are required."
       });
-
-      return res.status(201).json({ success: true });
-    } catch (err) {
-      console.error("❌ Failed to create item:", err);
-      res.status(500).json({ error: "Internal server error" });
     }
-  });
 
+    // Resolve categoryId
+    const cat = await knex("categories").where("name", category).first();
+    if (!cat) return res.status(400).json({ error: "Category not found." });
+    const categoryId = cat.id;
+
+    // Uniqueness
+    const exists = await knex("items").where("sku", sku).first();
+    if (exists) return res.status(409).json({ error: "SKU already exists." });
+
+    // Money
+    let priceCentsFinal;
+    if (priceCents !== undefined) {
+      const n = Number(priceCents);
+      if (!Number.isFinite(n)) return res.status(400).json({ error: "priceCents must be a number" });
+      priceCentsFinal = Math.trunc(n);
+    } else {
+      const p = Number(price);
+      if (!Number.isFinite(p)) return res.status(400).json({ error: "price must be numeric (KES)" });
+      priceCentsFinal = Math.trunc(Math.round(p * 100));
+    }
+
+    await knex("items").insert({
+      sku,
+      name,
+      description,
+      priceCents: priceCentsFinal,
+      categoryId,
+      image: image ?? null,
+      active: active !== undefined ? (active ? 1 : 0) : 1,
+      warranty: warranty ?? null,
+      stock: Number.isFinite(+stock) ? Math.trunc(+stock) : 0,
+      priority: Number.isFinite(+priority) ? Math.trunc(+priority) : 0
+    });
+
+    return res.status(201).json({ success: true });
+  } catch (err) {
+    console.error("❌ Failed to create item:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
   return router;
 };
