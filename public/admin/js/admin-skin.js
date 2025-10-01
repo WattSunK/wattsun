@@ -166,7 +166,7 @@
       console.warn('[admin-skin] Could not ensure orders modals before open.');
       return;
     }
-    // Re-fire the click so existing handlers (orders-controller.js) run as-is.
+    // Re-fire the click so existing handlers (admin-orders.js) run as-is.
     redispatchClick(hit);
   }, true); // <-- capture=true so we run before other listeners
 
