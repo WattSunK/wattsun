@@ -1,35 +1,60 @@
-// routes/users.db.js
+// routes/users.js
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 
 const router = express.Router();
-const dbPath = process.env.DB_PATH_USERS || path.join(__dirname, "../inventory.db");
-console.log("📂 Using DB path:", dbPath);
+
+// Use canonical users DB (wattsun.dev.db, not inventory.db)
+const dbPath = process.env.DB_PATH_USERS || path.join(__dirname, "../data/dev/wattsun.dev.db");
+console.log("📂 [users.js] Using DB path:", dbPath);
 const db = new sqlite3.Database(dbPath);
 
-// GET all users
+// GET all users (admin only in future, but left open for now)
 router.get("/users", (req, res) => {
-  db.all("SELECT * FROM users", (err, rows) => {
+  db.all("SELECT id, name, email, phone, type, status, created_at FROM users", (err, rows) => {
     if (err) {
       console.error("Failed to fetch users:", err);
       return res.status(500).json({ error: "Failed to fetch users" });
     }
-    console.log("🧪 Users fetched:", rows);
-    res.json(rows);
+    res.json({ success: true, users: rows });
   });
 });
 
 // GET one user by ID
 router.get("/users/:id", (req, res) => {
-  db.get("SELECT * FROM users WHERE id = ?", [req.params.id], (err, row) => {
-    if (err) {
-      console.error("Failed to fetch user:", err);
-      return res.status(500).json({ error: "Failed to fetch user" });
+  db.get(
+    "SELECT id, name, email, phone, type, status, created_at FROM users WHERE id = ?",
+    [req.params.id],
+    (err, row) => {
+      if (err) {
+        console.error("Failed to fetch user:", err);
+        return res.status(500).json({ error: "Failed to fetch user" });
+      }
+      if (!row) return res.status(404).json({ error: "User not found" });
+      res.json({ success: true, user: row });
     }
-    if (!row) return res.status(404).json({ error: "User not found" });
-    res.json(row);
-  });
+  );
+});
+
+// GET current logged-in user (session-based)
+router.get("/users/me", (req, res) => {
+  const u = req.session?.user;
+  if (!u) {
+    return res.status(401).json({ success: false, error: "Not logged in" });
+  }
+  db.get(
+    "SELECT id, name, email, phone, type, status, created_at FROM users WHERE id = ?",
+    [u.id],
+    (err, row) => {
+      if (err) {
+        console.error("Failed to fetch current user:", err);
+        return res.status(500).json({ error: "Failed to fetch user" });
+      }
+      if (!row) return res.status(404).json({ error: "User not found" });
+      res.json({ success: true, user: row });
+    }
+  );
 });
 
 module.exports = router;

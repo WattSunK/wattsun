@@ -121,7 +121,7 @@ app.use("/api", require("./routes/login"));
 app.use("/api", require("./routes/reset"));
 
 app.use("/api", require("./routes/checkout"));
-app.use("/api", require("./routes/track"));
+app.use("/api/track", require("./routes/track"));
 
 // Catalog (uses Knex)
 app.use("/api/items", require("./routes/items")(db));
@@ -166,7 +166,7 @@ app.use("/api/admin/orders/meta", require("./routes/admin-orders-meta"));
    ========================= */
 
 app.use("/api", require("./routes/calculator"));
-app.use("/api", require("./routes/users")); // user CRUD/list, etc.
+app.use("/api", require("./routes/users")); // user CRUD + /users/me
 
 // Contact form helpers (safe mailer)
 async function getAdminEmail() {
