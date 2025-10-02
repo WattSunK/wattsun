@@ -67,7 +67,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(
   session({
-    secret: "wattsecret",
+    secret: process.env.SESSION_SECRET || "wattsecret",
     resave: false,
     saveUninitialized: false,
     cookie: { secure: false },
@@ -127,35 +127,6 @@ app.use("/api", require("./routes/reset"));
 app.use("/api/admin/loyalty", require("./routes/admin-loyalty"));
 app.use("/api/admin", require("./routes/admin-loyalty-withdrawals"));
 app.use('/api/admin/users', require('./routes/admin-users-search'));
-
-
-// --- Wrap /api/orders to cache the latest list in memory ---
-const ordersRouter = require("./routes/orders");
-app.use(
-  "/api/orders",
-  (req, res, next) => {
-    // Wrap res.json to capture outgoing data
-    const origJson = res.json.bind(res);
-    res.json = (data) => {
-      try {
-        if (Array.isArray(data)) {
-          // plain array
-          req.app.locals.orders = data;
-          req.app.locals.ordersWrap = { total: data.length, orders: data };
-        } else if (data && Array.isArray(data.orders)) {
-          // wrapped { total, orders }
-          req.app.locals.orders = data.orders;
-          req.app.locals.ordersWrap = data;
-        }
-      } catch (_e) {
-        // swallow
-      }
-      return origJson(data);
-    };
-    next();
-  },
-  ordersRouter
-);
 
 // Keep existing route
 app.use("/api/track", require("./routes/track"));
