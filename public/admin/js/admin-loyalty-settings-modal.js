@@ -68,7 +68,7 @@
     if (hasEl('pointsPerKES')) payload.pointsPerKES = Math.max(0, num($('pointsPerKES').value, 1));
     if (hasEl('eurPerPoint'))  payload.eurPerPoint  = Math.max(0, num($('eurPerPoint').value, 1));
 
-    if (hasEl('signupBonus'))       payload.signupBonus       = Math.max(0, num($('signupBonus').value, 100));
+    if (hasEl('signupBonus'))        payload.signupBonus        = Math.max(0, num($('signupBonus').value, 100));
     if (hasEl('dailyAccrualPoints')) payload.dailyAccrualPoints = Math.max(0, num($('dailyAccrualPoints').value, 5));
     if (hasEl('enableDailyAccrual')) payload.enableDailyAccrual = $('enableDailyAccrual').checked ? 1 : 0;
 
@@ -156,35 +156,34 @@
 
   // ---------- Tabs / Modal wiring (delegated) ----------
   function switchTab(which) {
-  const prog = $('tabProgram');
-  const acct = $('tabAccounts');
-  const bProg = $('tabProgramBtn');
-  const bAcct = $('tabAccountsBtn');
+    const prog = $('tabProgram');
+    const acct = $('tabAccounts');
+    const bProg = $('tabProgramBtn');
+    const bAcct = $('tabAccountsBtn');
 
-  const setActive = (btn, isOn) => {
-    if (!btn) return;
-    btn.classList.toggle('is-active', !!isOn);   // golden ring hook
-    // keep your ghost style for the inactive one
-    btn.classList.toggle('btn--ghost', !isOn);
-  };
+    const setActive = (btn, isOn) => {
+      if (!btn) return;
+      btn.classList.toggle('is-active', !!isOn);   // golden ring hook
+      // keep your ghost style for the inactive one
+      btn.classList.toggle('btn--ghost', !isOn);
+    };
 
-  if (which === 'accounts') {
-    if (prog) prog.style.display = 'none';
-    if (acct) acct.style.display = 'block';
-    setActive(bProg, false);
-    setActive(bAcct, true);
-    $('lsSave') && ($('lsSave').style.display = 'none');
-    $('lsMsg') && ($('lsMsg').textContent = '');
-  } else {
-    if (prog) prog.style.display = 'block';
-    if (acct) acct.style.display = 'none';
-    setActive(bProg, true);
-    setActive(bAcct, false);
-    $('lsSave') && ($('lsSave').style.display = 'inline-block');
-    $('lsMsg') && ($('lsMsg').textContent = '');
+    if (which === 'accounts') {
+      if (prog) prog.style.display = 'none';
+      if (acct) acct.style.display = 'block';
+      setActive(bProg, false);
+      setActive(bAcct, true);
+      $('lsSave') && ($('lsSave').style.display = 'none');
+      $('lsMsg') && ($('lsMsg').textContent = '');
+    } else {
+      if (prog) prog.style.display = 'block';
+      if (acct) acct.style.display = 'none';
+      setActive(bProg, true);
+      setActive(bAcct, false);
+      $('lsSave') && ($('lsSave').style.display = 'inline-block');
+      $('lsMsg') && ($('lsMsg').textContent = '');
+    }
   }
-}
-
 
   async function openModal() {
     const modal = $('lsModal');
