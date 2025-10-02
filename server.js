@@ -142,7 +142,7 @@ app.use("/api/loyalty", require("./routes/loyalty"));             // enroll/me, 
 app.use("/api/admin", requireAdmin);
 
 // Orders (SQL)
-app.use("/api/admin/orders", require("./routes/admin-orders")(db));
+app.use("/api/admin/orders", require("./routes/admin-orders")(sqliteDb));
 
 // Dispatches (SQL)
 app.use("/api/admin/dispatches", require("./routes/admin-dispatch"));
