@@ -56,9 +56,9 @@ router.get("/users", (req, res) => {
 });
 
 // ===========================
-// GET one user by ID
+// GET one user by ID (only numeric IDs)
 // ===========================
-router.get("/users/:id", (req, res) => {
+router.get("/users/:id(\\d+)", (req, res) => {
   const db = req.app.get("db");
   db.get(
     "SELECT id, name, email, phone, type, status, created_at FROM users WHERE id = ?",
