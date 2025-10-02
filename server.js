@@ -6,7 +6,7 @@ const path = require("path");
 const http = require("http");
 const express = require("express");
 const session = require("express-session");
-const sqlite3 = require("sqlite3").verbose();
+const Database = require("better-sqlite3");   // ✅ switched from sqlite3.verbose()
 const knex = require("knex");
 const nodemailer = require("nodemailer");
 
@@ -16,19 +16,14 @@ const app = express();
    Core DB handles
    ========================= */
 
-// Users / admin overlay DB (SQLite)
+// Users / admin overlay DB (better-sqlite3)
 const DB_PATH =
   process.env.SQLITE_DB ||
   process.env.DB_PATH || // legacy env alias (still supported)
   path.join(__dirname, "data", "dev", "wattsun.dev.db");
 
-const sqliteDb = new sqlite3.Database(DB_PATH, (err) => {
-  if (err) {
-    console.error("❌ SQLite open failed:", err);
-    process.exit(1);
-  }
-  console.log("Admin overlay DB:", DB_PATH);
-});
+const sqliteDb = new Database(DB_PATH);   // ✅ sync handle
+console.log("Admin overlay DB (better-sqlite3):", DB_PATH);
 app.set("db", sqliteDb);
 
 // Catalog / inventory (Knex + SQLite). Honour env, fallback to dev file, then legacy inventory.db
@@ -141,7 +136,7 @@ app.use("/api/loyalty", require("./routes/loyalty"));             // enroll/me, 
 // Gate everything under /api/admin with ONE line:
 app.use("/api/admin", requireAdmin);
 
-// Orders (SQL)
+// Orders (SQL, better-sqlite3)
 app.use("/api/admin/orders", require("./routes/admin-orders")(sqliteDb));
 
 // Dispatches (SQL)
@@ -184,7 +179,6 @@ app.post("/api/contact", async (req, res) => {
     return res.status(400).json({ error: "Missing required fields" });
   }
   try {
-    // persist message if you keep a table for it
     try {
       await db("messages").insert({
         name,
@@ -256,26 +250,6 @@ app.get("/api/test", (_req, res) => res.send("✅ Test route works"));
 app.get("/", (_req, res) =>
   res.sendFile(path.join(__dirname, "public", "index.html"))
 );
-
-/* =========================
-   End-of-boot DB echo
-   ========================= */
-
-(function endCheck() {
-  try {
-    const dbh = app.get("db");
-    if (!dbh) return console.warn("[EndCheck] no db handle on app");
-    dbh.all("PRAGMA database_list", [], (e, rows) => {
-      if (e) console.warn("[EndCheck] PRAGMA failed:", e.message);
-      else {
-        const mainFile = (rows || []).find((r) => r.name === "main")?.file;
-        console.log("[EndCheck] final sqlite main file:", mainFile);
-      }
-    });
-  } catch (e) {
-    console.warn("[EndCheck] check failed:", e.message);
-  }
-})();
 
 /* =========================
    Boot
