@@ -116,9 +116,9 @@ function requireAdmin(req, res, next) {
    Public / customer routes
    ========================= */
 
-app.use("/api/signup", require("./routes/signup"));
-app.use("/api/login", require("./routes/login")); // login sets req.session.user
-app.use("/api/reset", require("./routes/reset"));
+app.use("/api", require("./routes/signup"));
+app.use("/api", require("./routes/login"));
+app.use("/api", require("./routes/reset"));
 
 app.use("/api/checkout", require("./routes/checkout")); // SQL checkout
 app.use("/api/track", require("./routes/track"));       // SQL tracking
