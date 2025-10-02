@@ -12,16 +12,16 @@
         <div class="grid two">
           <label class="field">
             <span>Customer Name</span>
-            <input id="oa_fullName" name="fullName" type="text" placeholder="John Doe" autocomplete="name" required />
+            <input id="oa_fullName" name="fullName" type="text" class="input" placeholder="John Doe" autocomplete="name" required />
           </label>
           <label class="field">
             <span>Phone</span>
-            <input id="oa_phone" name="phone" type="tel" placeholder="+2547XXXXXXXX" autocomplete="tel" required />
+            <input id="oa_phone" name="phone" type="tel" class="input" placeholder="+2547XXXXXXXX" autocomplete="tel" required />
           </label>
         </div>
         <label class="field">
           <span>Email</span>
-          <input id="oa_email" name="email" type="email" placeholder="john@example.com" autocomplete="email" />
+          <input id="oa_email" name="email" type="email" class="input" placeholder="john@example.com" autocomplete="email" />
         </label>
       </fieldset>
 
@@ -31,7 +31,7 @@
         <div class="grid two">
           <label class="field">
             <span>Status</span>
-            <select id="oa_status" name="status" required>
+            <select id="oa_status" name="status" class="input" required>
               <option value="Pending" selected>Pending</option>
               <option value="Confirmed">Confirmed</option>
               <option value="Dispatched">Dispatched</option>
@@ -42,7 +42,7 @@
           </label>
           <label class="field">
             <span>Currency</span>
-            <select id="oa_currency" name="currency" required>
+            <select id="oa_currency" name="currency" class="input" required>
               <option value="KES" selected>KES</option>
               <option value="USD">USD</option>
             </select>
@@ -52,17 +52,17 @@
         <div class="grid two">
           <label class="field">
             <span>Total (cents)</span>
-            <input id="oa_totalCents" name="totalCents" type="number" inputmode="numeric" placeholder="e.g. 25000" min="0" />
+            <input id="oa_totalCents" name="totalCents" type="number" class="input" inputmode="numeric" placeholder="e.g. 25000" min="0" />
           </label>
           <label class="field">
             <span>Deposit (cents)</span>
-            <input id="oa_depositCents" name="depositCents" type="number" inputmode="numeric" placeholder="e.g. 5000" min="0" />
+            <input id="oa_depositCents" name="depositCents" type="number" class="input" inputmode="numeric" placeholder="e.g. 5000" min="0" />
           </label>
         </div>
 
         <label class="field">
           <span>Notes</span>
-          <textarea id="oa_notes" name="notes" rows="3" placeholder="Phone order, customer prefers delivery on Friday…"></textarea>
+          <textarea id="oa_notes" name="notes" rows="3" class="input" placeholder="Phone order, customer prefers delivery on Friday…"></textarea>
         </label>
       </fieldset>
 
@@ -80,8 +80,8 @@
             </thead>
             <tbody id="oa_itemsBody">
               <tr>
-                <td><input type="text" class="oa_item_sku" placeholder="FLA12100" /></td>
-                <td><input type="number" class="oa_item_qty" placeholder="1" min="1" value="1" /></td>
+                <td><input type="text" class="input oa_item_sku" placeholder="FLA12100" /></td>
+                <td><input type="number" class="input oa_item_qty" placeholder="1" min="1" value="1" /></td>
                 <td><button class="btn small ghost oa_row_remove" type="button">Remove</button></td>
               </tr>
             </tbody>
@@ -105,12 +105,19 @@
   (function () {
     const dlg = document.getElementById("orderAddModal");
     const form = document.getElementById("orderAddForm");
-    document.querySelectorAll("#orderAddModal [data-close]").forEach(btn => {
-      btn.addEventListener("click", () => { try { dlg.close(); } catch { dlg.removeAttribute("open"); } });
+
+    // Cancel closes modal
+    dlg.querySelectorAll("[data-close]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        try { dlg.close(); } catch { dlg.removeAttribute("open"); }
+      });
     });
+
+    // Save emits event for handler
     form?.addEventListener("submit", (e) => {
       e.preventDefault();
       window.dispatchEvent(new CustomEvent("orders:add:submit", { detail: new FormData(form) }));
+      try { dlg.close(); } catch { dlg.removeAttribute("open"); }
     });
   })();
 </script>
