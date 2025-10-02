@@ -20,13 +20,7 @@ module.exports = function makeAdminOrders(db) {
     };
   }
 
-  // tracer ping
-  router.get("/_ping", (req, res) => {
-    console.log("[admin-orders] _ping route hit, session.user:", req.session?.user);
-    res.json({ success: true, message: "admin-orders router alive" });
-  });
-
-  // GET /
+   // GET /
   router.get("/", (req, res) => {
     console.log("[admin-orders] GET / orders hit");
     try {
