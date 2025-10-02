@@ -1,124 +1,116 @@
 <!-- public/partials/orders-add.html -->
-<!-- Admin “Add Order” Modal -->
-<div id="orderAddModal" class="ws-modal hidden" role="dialog" aria-modal="true" aria-labelledby="oa_title" tabindex="-1">
-  <div class="ws-modal__backdrop" data-oa-close></div>
-
-  <div class="ws-modal__card">
-    <div class="ws-modal__header">
+<dialog id="orderAddModal" class="modal" aria-labelledby="oa_title" aria-modal="true">
+  <div class="modal-card">
+    <header class="modal-header">
       <h3 id="oa_title">Add Order</h3>
-      <button class="btn small ghost" type="button" title="Close" data-oa-close>✕</button>
-    </div>
+    </header>
 
-    <div class="ws-modal__body">
-      <!-- Status/alerts -->
-      <div id="oa_alert" class="ws-alert hidden"></div>
-
-      <form id="orderAddForm" novalidate>
-        <!-- Customer -->
-        <fieldset class="ws-fieldset">
-          <legend>Customer</legend>
-          <div class="ws-grid two">
-            <label class="ws-field">
-              <span>Customer Name</span>
-              <input id="oa_fullName" name="fullName" type="text" placeholder="John Doe" autocomplete="name" required autofocus />
-            </label>
-            <label class="ws-field">
-              <span>Phone</span>
-              <input id="oa_phone" name="phone" type="tel" placeholder="+2547XXXXXXXX" autocomplete="tel" required />
-            </label>
-          </div>
-          <label class="ws-field">
-            <span>Email</span>
-            <input id="oa_email" name="email" type="email" placeholder="john@example.com" autocomplete="email" />
+    <form id="orderAddForm" class="modal-body" method="dialog">
+      <!-- Customer -->
+      <fieldset class="card soft">
+        <legend>Customer</legend>
+        <div class="grid two">
+          <label class="field">
+            <span>Customer Name</span>
+            <input id="oa_fullName" name="fullName" type="text" placeholder="John Doe" autocomplete="name" required />
           </label>
-        </fieldset>
-
-        <!-- Order meta -->
-        <fieldset class="ws-fieldset">
-          <legend>Order</legend>
-          <div class="ws-grid two">
-            <label class="ws-field">
-              <span>Status</span>
-              <select id="oa_status" name="status" required>
-                <option value="Pending" selected>Pending</option>
-                <option value="Confirmed">Confirmed</option>
-                <option value="Dispatched">Dispatched</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Closed">Closed</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-            </label>
-            <label class="ws-field">
-              <span>Currency</span>
-              <select id="oa_currency" name="currency" required>
-                <option value="KES" selected>KES</option>
-                <option value="USD">USD</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="ws-grid two">
-            <label class="ws-field">
-              <span>Total (cents)</span>
-              <input id="oa_totalCents" name="totalCents" type="number" inputmode="numeric" placeholder="e.g. 25000" min="0" />
-            </label>
-            <label class="ws-field">
-              <span>Deposit (cents)</span>
-              <input id="oa_depositCents" name="depositCents" type="number" inputmode="numeric" placeholder="e.g. 5000" min="0" />
-            </label>
-          </div>
-
-          <label class="ws-field">
-            <span>Notes</span>
-            <textarea id="oa_notes" name="notes" rows="3" placeholder="Phone order, customer prefers delivery on Friday…"></textarea>
+          <label class="field">
+            <span>Phone</span>
+            <input id="oa_phone" name="phone" type="tel" placeholder="+2547XXXXXXXX" autocomplete="tel" required />
           </label>
-        </fieldset>
+        </div>
+        <label class="field">
+          <span>Email</span>
+          <input id="oa_email" name="email" type="email" placeholder="john@example.com" autocomplete="email" />
+        </label>
+      </fieldset>
 
-        <!-- Items -->
-        <fieldset class="ws-fieldset">
-          <legend>Items (optional)</legend>
-          <div class="ws-table-wrap" style="overflow-x:auto;">
-            <table class="ws-table" id="oa_itemsTable" aria-label="Order items">
-              <thead>
-                <tr>
-                  <th style="width: 45%;">SKU</th>
-                  <th style="width: 20%;">Qty</th>
-                  <th style="width: 20%;">&nbsp;</th>
-                </tr>
-              </thead>
-              <tbody id="oa_itemsBody">
-                <tr>
-                  <td><input type="text" class="oa_item_sku" placeholder="FLA12100" /></td>
-                  <td><input type="number" class="oa_item_qty" placeholder="1" min="1" value="1" /></td>
-                  <td><button class="btn small ghost oa_row_remove" type="button">Remove</button></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="ws-row">
-            <button id="oa_addRow" class="btn small" type="button">+ Add Item</button>
-          </div>
-          <p class="ws-hint">First version keeps items minimal: SKU + Qty. (Advanced pricing/name later.)</p>
-        </fieldset>
-      </form>
-    </div>
+      <!-- Order -->
+      <fieldset class="card soft">
+        <legend>Order</legend>
+        <div class="grid two">
+          <label class="field">
+            <span>Status</span>
+            <select id="oa_status" name="status" required>
+              <option value="Pending" selected>Pending</option>
+              <option value="Confirmed">Confirmed</option>
+              <option value="Dispatched">Dispatched</option>
+              <option value="Delivered">Delivered</option>
+              <option value="Closed">Closed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Currency</span>
+            <select id="oa_currency" name="currency" required>
+              <option value="KES" selected>KES</option>
+              <option value="USD">USD</option>
+            </select>
+          </label>
+        </div>
 
-    <div class="ws-modal__footer">
-      <button class="btn small ghost" type="button" data-oa-close>Cancel</button>
-      <button id="oa_submit" class="btn small" type="submit" form="orderAddForm">Save</button>
-    </div>
+        <div class="grid two">
+          <label class="field">
+            <span>Total (cents)</span>
+            <input id="oa_totalCents" name="totalCents" type="number" inputmode="numeric" placeholder="e.g. 25000" min="0" />
+          </label>
+          <label class="field">
+            <span>Deposit (cents)</span>
+            <input id="oa_depositCents" name="depositCents" type="number" inputmode="numeric" placeholder="e.g. 5000" min="0" />
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Notes</span>
+          <textarea id="oa_notes" name="notes" rows="3" placeholder="Phone order, customer prefers delivery on Friday…"></textarea>
+        </label>
+      </fieldset>
+
+      <!-- Items -->
+      <fieldset class="card soft">
+        <legend>Items (optional)</legend>
+        <div class="table-wrap" style="overflow-x:auto;">
+          <table class="table" id="oa_itemsTable" aria-label="Order items">
+            <thead>
+              <tr>
+                <th style="width:45%;">SKU</th>
+                <th style="width:20%;">Qty</th>
+                <th style="width:20%;">&nbsp;</th>
+              </tr>
+            </thead>
+            <tbody id="oa_itemsBody">
+              <tr>
+                <td><input type="text" class="oa_item_sku" placeholder="FLA12100" /></td>
+                <td><input type="number" class="oa_item_qty" placeholder="1" min="1" value="1" /></td>
+                <td><button class="btn small ghost oa_row_remove" type="button">Remove</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="row">
+          <button id="oa_addRow" class="btn small" type="button">+ Add Item</button>
+        </div>
+        <p class="hint">First version keeps items minimal: SKU + Qty. (Advanced pricing/name later.)</p>
+      </fieldset>
+    </form>
+
+    <footer class="modal-footer">
+      <button type="button" class="btn ghost" data-close>Cancel</button>
+      <button type="submit" class="btn primary" form="orderAddForm">Save</button>
+    </footer>
   </div>
-</div>
+</dialog>
 
-<style>
-/* Responsive enhancements */
-.ws-modal__card {
-  max-width: 720px;
-  width: 90%;
-}
-@media (max-width: 600px) {
-  .ws-grid.two {
-    grid-template-columns: 1fr !important;
-  }
-}
-</style>
+<script>
+  (function () {
+    const dlg = document.getElementById("orderAddModal");
+    const form = document.getElementById("orderAddForm");
+    document.querySelectorAll("#orderAddModal [data-close]").forEach(btn => {
+      btn.addEventListener("click", () => { try { dlg.close(); } catch { dlg.removeAttribute("open"); } });
+    });
+    form?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      window.dispatchEvent(new CustomEvent("orders:add:submit", { detail: new FormData(form) }));
+    });
+  })();
+</script>
