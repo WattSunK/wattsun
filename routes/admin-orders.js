@@ -1,23 +1,26 @@
 // routes/admin-orders.js
 const express = require("express");
 const router = express.Router();
-const db = require("../db"); // adjust path if your db.js is elsewhere
+const Database = require("better-sqlite3");
 
-// Helper: map DB row to API response
+// Direct DB connection (adjust path if needed)
+const db = new Database("/volume1/web/wattsun/data/dev/wattsun.dev.db");
+
+// Helper: safely map a DB row to API response
 function mapRow(row) {
   if (!row) return null;
   return {
-    id: row.id,
-    orderNumber: row.orderNumber,
-    fullName: row.fullName,
-    phone: row.phone,
-    email: row.email,
-    status: row.status,
-    createdAt: row.createdAt,
-    totalCents: row.totalCents,
-    depositCents: row.depositCents,
-    currency: row.currency,
-    notes: row.notes
+    id: row.id ?? null,
+    orderNumber: row.orderNumber ?? null,
+    fullName: row.fullName ?? row.customerName ?? null,
+    phone: row.phone ?? null,
+    email: row.email ?? null,
+    status: row.status ?? "Pending",
+    createdAt: row.createdAt ?? null,
+    totalCents: row.totalCents ?? null,
+    depositCents: row.depositCents ?? null,
+    currency: row.currency ?? "KES",
+    notes: row.notes ?? null,
   };
 }
 
@@ -41,7 +44,7 @@ router.get("/", (req, res) => {
       page,
       per,
       total: totalRow.n,
-      orders: rows.map(mapRow)
+      orders: rows.map(mapRow),
     });
   } catch (e) {
     console.error("[admin-orders] GET / failed:", e);
@@ -53,6 +56,8 @@ router.get("/", (req, res) => {
 router.get("/:id", (req, res) => {
   try {
     const id = req.params.id;
+    console.log("[admin-orders] detail lookup for", id);
+
     const row = db
       .prepare("SELECT * FROM orders WHERE id = ? OR orderNumber = ?")
       .get(id, id);
