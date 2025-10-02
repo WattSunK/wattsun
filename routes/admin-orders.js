@@ -20,45 +20,28 @@ module.exports = function makeAdminOrders(db) {
     };
   }
 
-  // GET /api/admin/orders
-  router.get("/", (req, res) => {
-    const q = (req.query.q || "").trim().toLowerCase();
-    const status = (req.query.status || "").trim();
-    const from = (req.query.from || "").trim();
-    const to   = (req.query.to || "").trim();
-    const page = Math.max(1, parseInt(req.query.page || "1", 10));
-    const per  = Math.min(100, Math.max(5, parseInt(req.query.per || "15", 10)));
-
-    let where = [];
-    let params = [];
-    if (q) {
-      where.push(`(
-        LOWER(orderNumber) LIKE ? OR 
-        LOWER(fullName) LIKE ? OR 
-        LOWER(email) LIKE ? OR 
-        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(phone,''), '+',''), ' ', ''), '-', ''), '(', ''), ')', '') LIKE ?
-      )`);
-      const qlike = `%${q}%`;
-      const qdigits = q.replace(/\D/g, "");
-      params.push(qlike, qlike, qlike, `%${qdigits}%`);
-    }
-    if (status) { where.push(`status = ?`); params.push(status); }
-    if (from)   { where.push(`datetime(createdAt) >= datetime(?)`); params.push(from); }
-    if (to)     { where.push(`datetime(createdAt) < datetime(?)`);  params.push(to); }
-
-    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-    const total = db.prepare(`SELECT COUNT(*) AS n FROM orders ${whereSql}`).get(...params).n;
-    const off = (page - 1) * per;
-
+  // GET /api/admin/orders (fallback minimal version)
+router.get("/", (req, res) => {
+  try {
     const rows = db.prepare(`
-      SELECT * FROM orders
-      ${whereSql}
+      SELECT *
+      FROM orders
       ORDER BY datetime(createdAt) DESC
-      LIMIT ? OFFSET ?
-    `).all(...params, per, off);
+      LIMIT 20
+    `).all();
 
-    res.json({ success: true, page, per, total, orders: rows.map(mapRow) });
-  });
+    res.json({
+      success: true,
+      page: 1,
+      per: 20,
+      total: rows.length,
+      orders: rows.map(mapRow)
+    });
+  } catch (e) {
+    console.error("[admin-orders] fallback GET / failed", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
 
   // GET /api/admin/orders/:id
   router.get("/:id", (req, res) => {
