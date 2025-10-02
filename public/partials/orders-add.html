@@ -1,7 +1,5 @@
 <!-- public/partials/orders-add.html -->
-<!-- Admin “Add Order” Modal (first version) -->
-<!-- Uses existing admin.css styles; no new CSS introduced. -->
-
+<!-- Admin “Add Order” Modal -->
 <div id="orderAddModal" class="ws-modal hidden" role="dialog" aria-modal="true" aria-labelledby="oa_title" tabindex="-1">
   <div class="ws-modal__backdrop" data-oa-close></div>
 
@@ -12,25 +10,21 @@
     </div>
 
     <div class="ws-modal__body">
-      <!-- Status/alerts surface -->
       <div id="oa_alert" class="ws-alert hidden"></div>
 
       <form id="orderAddForm" novalidate>
         <!-- Customer -->
         <fieldset class="ws-fieldset">
           <legend>Customer</legend>
-
           <div class="ws-grid">
             <label class="ws-field">
               <span>Customer Name</span>
               <input id="oa_fullName" name="fullName" type="text" placeholder="John Doe" autocomplete="name" required autofocus />
             </label>
-
             <label class="ws-field">
               <span>Phone</span>
               <input id="oa_phone" name="phone" type="tel" placeholder="+2547XXXXXXXX" autocomplete="tel" required />
             </label>
-
             <label class="ws-field">
               <span>Email</span>
               <input id="oa_email" name="email" type="email" placeholder="john@example.com" autocomplete="email" />
@@ -41,20 +35,19 @@
         <!-- Order meta -->
         <fieldset class="ws-fieldset">
           <legend>Order</legend>
-
           <div class="ws-grid">
             <label class="ws-field">
               <span>Status</span>
               <select id="oa_status" name="status" required>
+                <!-- PATCHED: normalized to canonical six -->
                 <option value="Pending" selected>Pending</option>
                 <option value="Confirmed">Confirmed</option>
-                <option value="Processing">Processing</option>
                 <option value="Dispatched">Dispatched</option>
-                <option value="Completed">Completed</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Closed">Closed</option>
                 <option value="Cancelled">Cancelled</option>
               </select>
             </label>
-
             <label class="ws-field">
               <span>Currency</span>
               <select id="oa_currency" name="currency" required>
@@ -62,28 +55,24 @@
                 <option value="USD">USD</option>
               </select>
             </label>
-
             <label class="ws-field">
               <span>Total (cents)</span>
               <input id="oa_totalCents" name="totalCents" type="number" inputmode="numeric" placeholder="e.g. 25000" min="0" />
             </label>
-
             <label class="ws-field">
               <span>Deposit (cents)</span>
               <input id="oa_depositCents" name="depositCents" type="number" inputmode="numeric" placeholder="e.g. 5000" min="0" />
             </label>
           </div>
-
           <label class="ws-field">
             <span>Notes</span>
             <textarea id="oa_notes" name="notes" rows="3" placeholder="Phone order, customer prefers delivery on Friday…"></textarea>
           </label>
         </fieldset>
 
-        <!-- Items (v1: free-text SKU + Qty rows) -->
+        <!-- Items -->
         <fieldset class="ws-fieldset">
           <legend>Items (optional)</legend>
-
           <div class="ws-table-wrap">
             <table class="ws-table" id="oa_itemsTable" aria-label="Order items">
               <thead>
@@ -94,7 +83,6 @@
                 </tr>
               </thead>
               <tbody id="oa_itemsBody">
-                <!-- Rows added dynamically; one starter row for convenience -->
                 <tr>
                   <td><input type="text" class="oa_item_sku" placeholder="FLA12100" /></td>
                   <td><input type="number" class="oa_item_qty" placeholder="1" min="1" value="1" /></td>
@@ -103,19 +91,16 @@
               </tbody>
             </table>
           </div>
-
           <div class="ws-row">
             <button id="oa_addRow" class="btn small" type="button">+ Add Item</button>
           </div>
-
-          <p class="ws-hint">First version keeps items minimal: SKU + Qty. (Advanced pricing/name later.)</p>
+          <p class="ws-hint">First version keeps items minimal: SKU + Qty.</p>
         </fieldset>
       </form>
     </div>
 
     <div class="ws-modal__footer">
       <button class="btn small ghost" type="button" data-oa-close>Cancel</button>
-      <!-- Important: submit to trigger binder's form.submit handler -->
       <button id="oa_submit" class="btn small" type="submit" form="orderAddForm">Save</button>
     </div>
   </div>
