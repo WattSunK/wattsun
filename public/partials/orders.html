@@ -52,16 +52,16 @@
         <tr>
           <th>Order #</th>
           <th>Customer</th>
-          <th>Phone</th>           <!-- NEW -->
+          <th>Phone</th>
           <th>Status</th>
           <th>Created</th>
           <th>Total</th>
-          <th>Deposit</th>         <!-- NEW -->
+          <th>Deposit</th>
           <th style="text-align:center;">Action</th>
         </tr>
       </thead>
       <tbody id="ordersTbody">
-        <tr><td colspan="8" class="muted">(No data yet)</td></tr> <!-- was 6 -->
+        <tr><td colspan="8" class="muted">(No data yet)</td></tr>
       </tbody>
     </table>
   </div>
@@ -72,6 +72,14 @@
     <div id="ordersMeta" class="group">Showing 0 of 0 entries</div>
     <div class="spacer"></div>
     <div class="pager" id="ordersPager">
+      <!-- 👇 INSERTED selector -->
+      <label for="ordersPer">Per page</label>
+      <select id="ordersPer" class="input">
+        <option value="5">5</option>
+        <option value="10" selected>10</option>
+        <option value="20">20</option>
+      </select>
+      <!-- end insert -->
       <button class="btn" id="ordersFirst">First</button>
       <button class="btn" id="ordersPrev">Previous</button>
       <span class="page-indicator" id="ordersPageNum">1</span>
@@ -83,19 +91,16 @@
 
 <script>
 (function () {
-  // "Add Order" button -> bubble to admin shell (optional handler your shell listens for)
   document.getElementById('btnAddOrder_orders')?.addEventListener('click', () => {
     window.dispatchEvent(new CustomEvent('admin:create', {
       detail: { type: 'order', source: 'orders' }
     }));
   });
 
-  // Tell controllers the Orders partial is mounted
   window.dispatchEvent(new CustomEvent('admin:partial-loaded', {
     detail: { partial: 'orders', section: document.getElementById('ordersSection') }
   }));
 
-  // Retry until the controller is defined, then force a boot
   const tryBoot = () => {
     if (typeof window.__WS_ORDERS_FORCE_BOOT === 'function') {
       try { window.__WS_ORDERS_FORCE_BOOT(); } catch (_) {}
@@ -105,7 +110,6 @@
   };
   tryBoot();
 
-  // Extra nudges in case of timing races
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       setTimeout(() => window.__WS_ORDERS_FORCE_BOOT?.(), 0);
@@ -118,17 +122,16 @@
 })();
 </script>
 <script>
-  // When edit/add signal a change, ask the orders list to re-fetch
-  (function () {
-    function refresh() {
-      if (typeof window.__WS_ORDERS_FORCE_BOOT === "function") {
-        window.__WS_ORDERS_FORCE_BOOT();
-      }
+(function () {
+  function refresh() {
+    if (typeof window.__WS_ORDERS_FORCE_BOOT === "function") {
+      window.__WS_ORDERS_FORCE_BOOT();
     }
-    window.addEventListener("orders:reload", refresh);
-    window.addEventListener("message", function (e) {
-      if (e && e.data && e.data.type === "orders-updated") refresh();
-    });
-  })();
+  }
+  window.addEventListener("orders:reload", refresh);
+  window.addEventListener("message", function (e) {
+    if (e && e.data && e.data.type === "orders-updated") refresh();
+  });
+})();
 </script>
 <!-- End of file: public/partials/orders.html -->
