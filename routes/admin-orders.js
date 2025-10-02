@@ -12,7 +12,7 @@ function mapRow(row) {
   return {
     id: row.id ?? null,
     orderNumber: row.orderNumber ?? null,
-    fullName: row.fullName ?? row.customerName ?? null,
+    fullName: row.fullName ?? null,
     phone: row.phone ?? null,
     email: row.email ?? null,
     status: row.status ?? "Pending",
@@ -21,6 +21,8 @@ function mapRow(row) {
     depositCents: row.depositCents ?? null,
     currency: row.currency ?? "KES",
     notes: row.notes ?? null,
+    address: row.address ?? null,
+    driverId: row.driverId ?? null,
   };
 }
 
@@ -76,14 +78,38 @@ router.get("/:id", (req, res) => {
 // POST /api/admin/orders
 router.post("/", express.json(), (req, res) => {
   try {
-    const { fullName, phone, email, status, totalCents, depositCents, currency, notes } = req.body;
+    const {
+      fullName,
+      phone,
+      email,
+      status,
+      totalCents,
+      depositCents,
+      currency,
+      notes,
+      address,
+      driverId,
+    } = req.body;
+
     const orderNumber = "WATT" + Date.now(); // simple generator
 
     db.prepare(
       `INSERT INTO orders 
-        (orderNumber, fullName, phone, email, status, totalCents, depositCents, currency, notes, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
-    ).run(orderNumber, fullName, phone, email, status, totalCents, depositCents, currency, notes);
+        (orderNumber, fullName, phone, email, status, totalCents, depositCents, currency, notes, address, driverId, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+    ).run(
+      orderNumber,
+      fullName,
+      phone,
+      email,
+      status,
+      totalCents,
+      depositCents,
+      currency,
+      notes,
+      address,
+      driverId
+    );
 
     console.log("[admin-orders] inserted order", orderNumber);
     res.json({ success: true, orderNumber });
@@ -97,13 +123,31 @@ router.post("/", express.json(), (req, res) => {
 router.patch("/:id", express.json(), (req, res) => {
   try {
     const id = req.params.id;
-    const { status, totalCents, depositCents, currency, notes, driverId } = req.body;
+    const {
+      status,
+      totalCents,
+      depositCents,
+      currency,
+      notes,
+      address,
+      driverId,
+    } = req.body;
 
     const result = db.prepare(
       `UPDATE orders 
-       SET status = ?, totalCents = ?, depositCents = ?, currency = ?, notes = ?, driverId = ?
+       SET status = ?, totalCents = ?, depositCents = ?, currency = ?, notes = ?, address = ?, driverId = ?
        WHERE id = ? OR orderNumber = ?`
-    ).run(status, totalCents, depositCents, currency, notes, driverId, id, id);
+    ).run(
+      status,
+      totalCents,
+      depositCents,
+      currency,
+      notes,
+      address,
+      driverId,
+      id,
+      id
+    );
 
     if (result.changes === 0) {
       return res.status(404).json({ success: false, error: "Order not found" });
