@@ -294,6 +294,35 @@
     if (!o) return;
     openViewModalWithData(o);
   });
+// Listen for Add Order form submit (dispatched from orders-add.html)
+window.addEventListener("orders:add:submit", async (e) => {
+  try {
+    const formData = Object.fromEntries(e.detail.entries());
+
+    const r = await fetch("/api/admin/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(formData)
+    });
+
+    if (!r.ok) throw new Error(`Add order failed: ${r.status}`);
+    const data = await r.json();
+
+    if (data.success) {
+      console.log("[orders-controller] Order added:", data.orderNumber);
+      // Option A: reload the page to refresh the table
+      location.reload();
+      // Option B: or emit a custom event to refresh table without reload:
+      // window.dispatchEvent(new Event("orders:refresh"));
+    } else {
+      alert("Failed to add order: " + (data.error || "Unknown error"));
+    }
+  } catch (err) {
+    console.error("Add order failed", err);
+    alert("Failed to add order.");
+  }
+});
 
   document.addEventListener("click", (e) => {
     const btn = e.target.closest("#orderViewModal button, #orderViewModal [data-close]");
