@@ -137,7 +137,9 @@ app.use("/api/loyalty", require("./routes/loyalty"));             // enroll/me, 
 app.use("/api/admin", requireAdmin);
 
 // Orders (SQL, better-sqlite3)
-app.use("/api/admin/orders", require("./routes/admin-orders")(sqliteDb));
+
+app.use("/api/admin/orders", require("./routes/admin-orders"));
+
 
 // Dispatches (SQL)
 app.use("/api/admin/dispatches", require("./routes/admin-dispatch"));
