@@ -93,19 +93,24 @@ app.get("/api/_whoami", (req, res) => {
    ========================= */
 
 function requireAdmin(req, res, next) {
-  // Let diagnostics under /api/admin/_diag pass without auth
-  if (req.path && req.path.startsWith("/_diag")) return next();
+  try {
+    if (req.path && req.path.startsWith("/_diag")) return next();
 
-  const u = req.session?.user || req.user || null;
-  const isAdmin = !!u && (u.type === "Admin" || u.role === "Admin");
-  if (!isAdmin) {
-    return res.status(403).json({
-      success: false,
-      error: { code: "FORBIDDEN", message: "Admin access required." },
-    });
+    const u = req.session?.user || req.user || null;
+    const isAdmin = !!u && (u.type === "Admin" || u.role === "Admin");
+    if (!isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Admin access required." },
+      });
+    }
+    return next();
+  } catch (e) {
+    console.error("[requireAdmin] error:", e);
+    return res.status(500).json({ success: false, error: "Admin check failed" });
   }
-  next();
 }
+
 
 /* =========================
    Public / customer routes
