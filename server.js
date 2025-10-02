@@ -120,8 +120,8 @@ app.use("/api", require("./routes/signup"));
 app.use("/api", require("./routes/login"));
 app.use("/api", require("./routes/reset"));
 
-app.use("/api/checkout", require("./routes/checkout")); // SQL checkout
-app.use("/api/track", require("./routes/track"));       // SQL tracking
+app.use("/api", require("./routes/checkout"));
+app.use("/api", require("./routes/track"));
 
 // Catalog (uses Knex)
 app.use("/api/items", require("./routes/items")(db));
