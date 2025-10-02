@@ -73,4 +73,48 @@ router.get("/:id", (req, res) => {
   }
 });
 
+// POST /api/admin/orders
+router.post("/", express.json(), (req, res) => {
+  try {
+    const { fullName, phone, email, status, totalCents, depositCents, currency, notes } = req.body;
+    const orderNumber = "WATT" + Date.now(); // simple generator
+
+    db.prepare(
+      `INSERT INTO orders 
+        (orderNumber, fullName, phone, email, status, totalCents, depositCents, currency, notes, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+    ).run(orderNumber, fullName, phone, email, status, totalCents, depositCents, currency, notes);
+
+    console.log("[admin-orders] inserted order", orderNumber);
+    res.json({ success: true, orderNumber });
+  } catch (e) {
+    console.error("[admin-orders] POST / failed:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// PATCH /api/admin/orders/:id
+router.patch("/:id", express.json(), (req, res) => {
+  try {
+    const id = req.params.id;
+    const { status, totalCents, depositCents, currency, notes, driverId } = req.body;
+
+    const result = db.prepare(
+      `UPDATE orders 
+       SET status = ?, totalCents = ?, depositCents = ?, currency = ?, notes = ?, driverId = ?
+       WHERE id = ? OR orderNumber = ?`
+    ).run(status, totalCents, depositCents, currency, notes, driverId, id, id);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ success: false, error: "Order not found" });
+    }
+
+    console.log("[admin-orders] updated order", id);
+    res.json({ success: true });
+  } catch (e) {
+    console.error("[admin-orders] PATCH /:id failed:", e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 module.exports = router;
