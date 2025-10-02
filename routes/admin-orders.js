@@ -76,22 +76,25 @@ router.get("/", (req, res) => {
 });
 
 // --------------------------- DETAIL ---------------------------
-// GET /api/admin/orders/:idOrNumber
+// ---------- DETAIL: GET /api/admin/orders/:idOrNumber (with logging) ----------
 router.get("/:id", (req, res) => {
   try {
     const key = String(req.params.id || "").trim();
     const byNumeric = toNumOrNeg1(key);
+    console.log("[admin-orders][GET detail] key =", key, "byNumeric =", byNumeric);
 
-    // Base: allow lookup by numeric id OR by orderNumber
+    // Base row: lookup by numeric id OR orderNumber
     const base = db
       .prepare("SELECT * FROM orders WHERE id = ? OR orderNumber = ?")
       .get(byNumeric, key);
+
+    console.log("[admin-orders][GET detail] base row =", base);
 
     if (!base) {
       return res.status(404).json({ success: false, error: "NOT_FOUND" });
     }
 
-    // Overlay: STRICTLY by orderNumber -> admin_order_meta.order_id
+    // Overlay lookup strictly by orderNumber
     const overlay = db
       .prepare(
         `SELECT 
@@ -107,13 +110,18 @@ router.get("/:id", (req, res) => {
       )
       .get(base.orderNumber);
 
+    console.log("[admin-orders][GET detail] overlay row =", overlay);
+
     const merged = mergeOverlay(base, overlay);
+    console.log("[admin-orders][GET detail] merged =", merged);
+
     return res.json({ success: true, order: mapRow(merged) });
   } catch (err) {
-    console.error("[admin-orders] GET /:id failed:", err);
+    console.error("[admin-orders][GET detail] ERROR:", err);
     res.status(500).json({ success: false, error: "SERVER_ERROR" });
   }
 });
+
 
 // --------------------------- CREATE ---------------------------
 // POST /api/admin/orders
