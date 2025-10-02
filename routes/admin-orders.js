@@ -1,8 +1,9 @@
 // routes/admin-orders.js
 const express = require("express");
-const router = express.Router();
 
 module.exports = function makeAdminOrders(db) {
+  const router = express.Router();
+
   function mapRow(row) {
     return {
       id: row.id,
@@ -19,7 +20,8 @@ module.exports = function makeAdminOrders(db) {
     };
   }
 
-  router.get("/admin/orders", (req, res) => {
+  // GET /api/admin/orders
+  router.get("/", (req, res) => {
     const q = (req.query.q || "").trim().toLowerCase();
     const status = (req.query.status || "").trim();
     const from = (req.query.from || "").trim();
@@ -30,7 +32,12 @@ module.exports = function makeAdminOrders(db) {
     let where = [];
     let params = [];
     if (q) {
-      where.push(`(LOWER(orderNumber) LIKE ? OR LOWER(fullName) LIKE ? OR LOWER(email) LIKE ? OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(phone,''), '+',''), ' ', ''), '-', ''), '(', ''), ')', '') LIKE ?)`);
+      where.push(`(
+        LOWER(orderNumber) LIKE ? OR 
+        LOWER(fullName) LIKE ? OR 
+        LOWER(email) LIKE ? OR 
+        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(phone,''), '+',''), ' ', ''), '-', ''), '(', ''), ')', '') LIKE ?
+      )`);
       const qlike = `%${q}%`;
       const qdigits = q.replace(/\D/g, "");
       params.push(qlike, qlike, qlike, `%${qdigits}%`);
@@ -50,18 +57,21 @@ module.exports = function makeAdminOrders(db) {
       LIMIT ? OFFSET ?
     `).all(...params, per, off);
 
-    res.json({ success: true, total, orders: rows.map(mapRow) });
+    res.json({ success: true, page, per, total, orders: rows.map(mapRow) });
   });
 
-  router.get("/admin/orders/:id", (req, res) => {
+  // GET /api/admin/orders/:id
+  router.get("/:id", (req, res) => {
     const id = String(req.params.id);
     const row = db.prepare(`SELECT * FROM orders WHERE id = ? OR orderNumber = ?`).get(id, id);
     if (!row) return res.status(404).json({ success: false, error: "Not found" });
+
     const items = db.prepare(`SELECT * FROM order_items WHERE order_id = ?`).all(row.id);
     res.json({ success: true, order: mapRow(row), items });
   });
 
-  router.put("/admin/orders/:id", express.json(), (req, res) => {
+  // PUT /api/admin/orders/:id
+  router.put("/:id", express.json(), (req, res) => {
     const id = String(req.params.id);
     const row = db.prepare(`SELECT * FROM orders WHERE id = ? OR orderNumber = ?`).get(id, id);
     if (!row) return res.status(404).json({ success: false, error: "Not found" });
@@ -69,7 +79,7 @@ module.exports = function makeAdminOrders(db) {
     const { status, totalCents, depositCents, currency, notes } = req.body || {};
     const newStatus = status || row.status;
 
-    const upd = db.prepare(`
+    db.prepare(`
       UPDATE orders
          SET status = COALESCE(?, status),
              totalCents = COALESCE(?, totalCents),
@@ -78,17 +88,22 @@ module.exports = function makeAdminOrders(db) {
              notes = COALESCE(?, notes),
              completed_at = CASE WHEN COALESCE(?, status) = 'Completed' THEN datetime('now') ELSE completed_at END
        WHERE id = ?
-    `);
-    upd.run(newStatus, totalCents, depositCents, currency, notes, newStatus, row.id);
+    `).run(newStatus, totalCents, depositCents, currency, notes, newStatus, row.id);
 
+    // Optional history insert
     if (newStatus && newStatus !== row.status) {
       try {
         db.prepare(`
-          INSERT INTO order_status_history(order_id, from_status, to_status, changed_at)
+          INSERT INTO order_status_history(
+            order_id, old_order_status, new_order_status, changed_at
+          )
           VALUES (?, ?, ?, datetime('now'))
         `).run(row.id, row.status || '', newStatus);
-      } catch {}
+      } catch (e) {
+        console.error("[admin-orders] failed to insert history", e);
+      }
     }
+
     const updated = db.prepare(`SELECT * FROM orders WHERE id = ?`).get(row.id);
     res.json({ success: true, order: mapRow(updated) });
   });
