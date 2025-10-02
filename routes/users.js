@@ -10,7 +10,7 @@ const dbPath = process.env.DB_PATH_USERS || path.join(__dirname, "../data/dev/wa
 console.log("📂 [users.js] Using DB path:", dbPath);
 const db = new sqlite3.Database(dbPath);
 
-// GET all users (admin only in future, but left open for now)
+// GET all users (mostly for admin/debug)
 router.get("/users", (req, res) => {
   db.all("SELECT id, name, email, phone, type, status, created_at FROM users", (err, rows) => {
     if (err) {
