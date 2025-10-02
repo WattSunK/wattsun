@@ -3,21 +3,34 @@ const express = require("express");
 const router = express.Router();
 const Database = require("better-sqlite3");
 
-// DB path (adjust if needed)
+// === DB path (adjust if needed) ===
 const DB_PATH = "/volume1/web/wattsun/data/dev/wattsun.dev.db";
 const db = new Database(DB_PATH, { fileMustExist: true });
 
-// --- DEBUG IDENT ---
-const ROUTE_VERSION = "admin-orders:v3-logging-2025-10-02T19:40Z";
+// === Debug identifier / version endpoint ===
+const ROUTE_VERSION = "admin-orders:v4-watt-key-conditional-2025-10-02T20:25Z";
 console.log("[admin-orders] ROUTE FILE LOADED:", __filename, "version:", ROUTE_VERSION);
 
-// ----------------- helpers -----------------
+router.get("/__version", (req, res) => {
+  res.json({
+    ok: true,
+    version: ROUTE_VERSION,
+    file: __filename,
+    dbPath: DB_PATH,
+    pid: process.pid,
+  });
+});
+
+// === Helpers ===
+function nowIso() {
+  return new Date().toISOString();
+}
 function toNumOrNeg1(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : -1;
 }
-function nowIso() {
-  return new Date().toISOString();
+function isWattKey(k) {
+  return /^WATT\d+$/.test(String(k || "").trim());
 }
 function mapRow(row) {
   if (!row) return null;
@@ -40,6 +53,7 @@ function mapRow(row) {
 function mergeOverlay(base, overlay) {
   if (!overlay) return base;
   const out = { ...base };
+  // Only override with meaningful overlay values (notes can be null to clear)
   if (overlay.statusOverlay) out.status = overlay.statusOverlay;
   if (overlay.driverIdOverlay !== null && overlay.driverIdOverlay !== undefined)
     out.driverId = overlay.driverIdOverlay;
@@ -52,25 +66,14 @@ function mergeOverlay(base, overlay) {
   return out;
 }
 
-// ----------------- version endpoint -----------------
-router.get("/__version", (req, res) => {
-  res.json({
-    ok: true,
-    version: ROUTE_VERSION,
-    file: __filename,
-    dbPath: DB_PATH,
-    pid: process.pid,
-  });
-});
-
-// ----------------- LIST -----------------
+// === LIST: GET /api/admin/orders?page=&per= ===
 router.get("/", (req, res) => {
   try {
     const page = parseInt(req.query.page || "1", 10);
     const per = parseInt(req.query.per || "10", 10);
     const offset = (page - 1) * per;
 
-    const totalRow = db.prepare("SELECT COUNT(*) AS n FROM orders").get();
+    const total = db.prepare("SELECT COUNT(*) AS n FROM orders").get().n;
     const rows = db
       .prepare("SELECT * FROM orders ORDER BY datetime(createdAt) DESC LIMIT ? OFFSET ?")
       .all(per, offset);
@@ -79,7 +82,7 @@ router.get("/", (req, res) => {
       success: true,
       page,
       per,
-      total: totalRow.n,
+      total,
       orders: rows.map(mapRow),
     });
   } catch (err) {
@@ -88,23 +91,23 @@ router.get("/", (req, res) => {
   }
 });
 
-// ----------------- DETAIL with logging -----------------
+// === DETAIL: GET /api/admin/orders/:idOrNumber ===
 router.get("/:id", (req, res) => {
   try {
     const key = String(req.params.id || "").trim();
+    const useWatt = isWattKey(key);
     const byNumeric = toNumOrNeg1(key);
-    console.log("[admin-orders][GET detail] key =", key, "byNumeric =", byNumeric);
 
-    const base = db
-      .prepare("SELECT * FROM orders WHERE id = ? OR orderNumber = ?")
-      .get(byNumeric, key);
-    console.log("[admin-orders][GET detail] base =", base);
+    // Base row
+    const base = useWatt
+      ? db.prepare("SELECT * FROM orders WHERE orderNumber = ?").get(key)
+      : db.prepare("SELECT * FROM orders WHERE id = ? OR orderNumber = ?").get(byNumeric, key);
 
     if (!base) {
-      console.warn("[admin-orders][GET detail] NOT_FOUND for", key);
       return res.status(404).json({ success: false, error: "NOT_FOUND" });
     }
 
+    // Overlay strictly by orderNumber
     const overlay = db
       .prepare(
         `SELECT 
@@ -113,25 +116,21 @@ router.get("/:id", (req, res) => {
            deposit_cents AS depositCentsOverlay,
            currency      AS currencyOverlay,
            driver_id     AS driverIdOverlay,
-           status        AS statusOverlay,
-           updated_at
+           status        AS statusOverlay
          FROM admin_order_meta
          WHERE order_id = ?`
       )
       .get(base.orderNumber);
-    console.log("[admin-orders][GET detail] overlay =", overlay);
 
     const merged = mergeOverlay(base, overlay);
-    console.log("[admin-orders][GET detail] merged =", merged);
-
     return res.json({ success: true, order: mapRow(merged) });
   } catch (err) {
-    console.error("[admin-orders][GET detail] ERROR:", err);
+    console.error("[admin-orders] GET /:id failed:", err);
     res.status(500).json({ success: false, error: "SERVER_ERROR" });
   }
 });
 
-// ----------------- CREATE -----------------
+// === CREATE: POST /api/admin/orders ===
 router.post("/", express.json(), (req, res) => {
   try {
     const body = req.body || {};
@@ -154,6 +153,7 @@ router.post("/", express.json(), (req, res) => {
 
     const orderNumber = "WATT" + Date.now();
 
+    // Insert base (no notes column here)
     db.prepare(
       `INSERT INTO orders 
          (orderNumber, fullName, phone, email, status, totalCents, depositCents, currency, address, driverId, createdAt)
@@ -171,6 +171,7 @@ router.post("/", express.json(), (req, res) => {
       driverId
     );
 
+    // Upsert overlay
     db.prepare(
       `INSERT INTO admin_order_meta (order_id, status, driver_id, notes, total_cents, deposit_cents, currency, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -200,44 +201,53 @@ router.post("/", express.json(), (req, res) => {
   }
 });
 
-// ----------------- UPDATE -----------------
+// === UPDATE: PATCH /api/admin/orders/:idOrNumber ===
 router.patch("/:id", express.json(), (req, res) => {
   try {
     const key = String(req.params.id || "").trim();
+    const useWatt = isWattKey(key);
     const byNumeric = toNumOrNeg1(key);
     const body = req.body || {};
 
-    const base = db
-      .prepare("SELECT id, orderNumber FROM orders WHERE id = ? OR orderNumber = ?")
-      .get(byNumeric, key);
+    // Resolve base (need orderNumber for overlay key)
+    const base = useWatt
+      ? db.prepare("SELECT id, orderNumber FROM orders WHERE orderNumber = ?").get(key)
+      : db.prepare("SELECT id, orderNumber FROM orders WHERE id = ? OR orderNumber = ?").get(byNumeric, key);
+
     if (!base) {
       return res.status(404).json({ success: false, error: "NOT_FOUND" });
     }
 
-    // Base updates
+    // 1) Update base table fields present in orders
     const set = [];
     const vals = [];
-    if ("status" in body) { set.push("status = ?"); vals.push(body.status); }
-    if ("totalCents" in body) { set.push("totalCents = ?"); vals.push(+body.totalCents || null); }
-    if ("depositCents" in body) { set.push("depositCents = ?"); vals.push(+body.depositCents || null); }
-    if ("currency" in body) { set.push("currency = ?"); vals.push((body.currency || "KES").toUpperCase()); }
-    if ("address" in body) { set.push("address = ?"); vals.push(body.address ?? null); }
-    if ("driverId" in body) { set.push("driverId = ?"); vals.push(body.driverId || null); }
+    if ("status" in body)      { set.push("status = ?");       vals.push(body.status); }
+    if ("totalCents" in body)  { set.push("totalCents = ?");   vals.push(body.totalCents === "" ? null : Number(body.totalCents)); }
+    if ("depositCents" in body){ set.push("depositCents = ?"); vals.push(body.depositCents === "" ? null : Number(body.depositCents)); }
+    if ("currency" in body)    { set.push("currency = ?");     vals.push((body.currency || "KES").toUpperCase()); }
+    if ("address" in body)     { set.push("address = ?");      vals.push(body.address ?? null); }
+    if ("driverId" in body)    { set.push("driverId = ?");     vals.push(body.driverId === "" ? null : body.driverId); }
 
     if (set.length) {
-      const sql = `UPDATE orders SET ${set.join(", ")} WHERE id = ? OR orderNumber = ?`;
-      db.prepare(sql).run(...vals, byNumeric, key);
+      const sql = useWatt
+        ? `UPDATE orders SET ${set.join(", ")} WHERE orderNumber = ?`
+        : `UPDATE orders SET ${set.join(", ")} WHERE id = ? OR orderNumber = ?`;
+      const args = useWatt ? [...vals, key] : [...vals, byNumeric, key];
+      const r = db.prepare(sql).run(...args);
+      if (r.changes === 0) {
+        return res.status(404).json({ success: false, error: "NOT_FOUND" });
+      }
     }
 
-    // Overlay updates
+    // 2) Upsert overlay — keyed strictly by orderNumber
     const overlaySet = [];
     const overlayVals = [];
-    if ("status" in body) { overlaySet.push("status = ?"); overlayVals.push(body.status); }
-    if ("driverId" in body) { overlaySet.push("driver_id = ?"); overlayVals.push(body.driverId || null); }
-    if ("notes" in body) { overlaySet.push("notes = ?"); overlayVals.push(body.notes ?? null); }
-    if ("totalCents" in body) { overlaySet.push("total_cents = ?"); overlayVals.push(+body.totalCents || null); }
-    if ("depositCents" in body) { overlaySet.push("deposit_cents = ?"); overlayVals.push(+body.depositCents || null); }
-    if ("currency" in body) { overlaySet.push("currency = ?"); overlayVals.push((body.currency || "KES").toUpperCase()); }
+    if ("status" in body)      { overlaySet.push("status = ?");         overlayVals.push(body.status); }
+    if ("driverId" in body)    { overlaySet.push("driver_id = ?");      overlayVals.push(body.driverId === "" ? null : body.driverId); }
+    if ("notes" in body)       { overlaySet.push("notes = ?");          overlayVals.push(body.notes ?? null); }
+    if ("totalCents" in body)  { overlaySet.push("total_cents = ?");    overlayVals.push(body.totalCents === "" ? null : Number(body.totalCents)); }
+    if ("depositCents" in body){ overlaySet.push("deposit_cents = ?");  overlayVals.push(body.depositCents === "" ? null : Number(body.depositCents)); }
+    if ("currency" in body)    { overlaySet.push("currency = ?");       overlayVals.push((body.currency || "KES").toUpperCase()); }
 
     if (overlaySet.length) {
       db.prepare(
@@ -249,9 +259,11 @@ router.patch("/:id", express.json(), (req, res) => {
       db.prepare(sql).run(...overlayVals, nowIso(), base.orderNumber);
     }
 
-    const freshBase = db
-      .prepare("SELECT * FROM orders WHERE id = ? OR orderNumber = ?")
-      .get(byNumeric, key);
+    // 3) Return merged snapshot
+    const freshBase = (useWatt
+      ? db.prepare("SELECT * FROM orders WHERE orderNumber = ?").get(key)
+      : db.prepare("SELECT * FROM orders WHERE id = ? OR orderNumber = ?").get(byNumeric, key)
+    );
     const freshOverlay = db
       .prepare(
         `SELECT 
