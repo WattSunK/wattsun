@@ -108,7 +108,6 @@ function requireAdmin(req, res, next) {
 // Mounted routes (unchanged)
 app.use("/api/signup", require("./routes/signup"));
 app.use("/api/checkout", require("./routes/checkout"));
-app.use("/api/myorders", require("./routes/myorders"));
 app.use("/api/items", require("./routes/items")(db));
 app.use("/api/categories", require("./routes/categories")(db));
 app.use("/api/loyalty", require("./routes/loyalty-withdrawals")); // Customer withdrawals
