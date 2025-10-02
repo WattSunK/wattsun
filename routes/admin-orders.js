@@ -3,11 +3,15 @@ const express = require("express");
 const router = express.Router();
 const Database = require("better-sqlite3");
 
-// Adjust DB path if needed for your environment
+// DB path (adjust if needed)
 const DB_PATH = "/volume1/web/wattsun/data/dev/wattsun.dev.db";
 const db = new Database(DB_PATH, { fileMustExist: true });
 
-// --------------------------- helpers ---------------------------
+// --- DEBUG IDENT ---
+const ROUTE_VERSION = "admin-orders:v3-logging-2025-10-02T19:40Z";
+console.log("[admin-orders] ROUTE FILE LOADED:", __filename, "version:", ROUTE_VERSION);
+
+// ----------------- helpers -----------------
 function toNumOrNeg1(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : -1;
@@ -36,11 +40,10 @@ function mapRow(row) {
 function mergeOverlay(base, overlay) {
   if (!overlay) return base;
   const out = { ...base };
-  // Only override when overlay fields are present and non-null (or defined for notes)
   if (overlay.statusOverlay) out.status = overlay.statusOverlay;
   if (overlay.driverIdOverlay !== null && overlay.driverIdOverlay !== undefined)
     out.driverId = overlay.driverIdOverlay;
-  if (overlay.notes !== undefined) out.notes = overlay.notes; // can be null to explicitly clear
+  if (overlay.notes !== undefined) out.notes = overlay.notes;
   if (overlay.totalCentsOverlay !== null && overlay.totalCentsOverlay !== undefined)
     out.totalCents = overlay.totalCentsOverlay;
   if (overlay.depositCentsOverlay !== null && overlay.depositCentsOverlay !== undefined)
@@ -49,8 +52,18 @@ function mergeOverlay(base, overlay) {
   return out;
 }
 
-// --------------------------- LIST ---------------------------
-// GET /api/admin/orders?page=&per=
+// ----------------- version endpoint -----------------
+router.get("/__version", (req, res) => {
+  res.json({
+    ok: true,
+    version: ROUTE_VERSION,
+    file: __filename,
+    dbPath: DB_PATH,
+    pid: process.pid,
+  });
+});
+
+// ----------------- LIST -----------------
 router.get("/", (req, res) => {
   try {
     const page = parseInt(req.query.page || "1", 10);
@@ -75,26 +88,23 @@ router.get("/", (req, res) => {
   }
 });
 
-// --------------------------- DETAIL ---------------------------
-// ---------- DETAIL: GET /api/admin/orders/:idOrNumber (with logging) ----------
+// ----------------- DETAIL with logging -----------------
 router.get("/:id", (req, res) => {
   try {
     const key = String(req.params.id || "").trim();
     const byNumeric = toNumOrNeg1(key);
     console.log("[admin-orders][GET detail] key =", key, "byNumeric =", byNumeric);
 
-    // Base row: lookup by numeric id OR orderNumber
     const base = db
       .prepare("SELECT * FROM orders WHERE id = ? OR orderNumber = ?")
       .get(byNumeric, key);
-
-    console.log("[admin-orders][GET detail] base row =", base);
+    console.log("[admin-orders][GET detail] base =", base);
 
     if (!base) {
+      console.warn("[admin-orders][GET detail] NOT_FOUND for", key);
       return res.status(404).json({ success: false, error: "NOT_FOUND" });
     }
 
-    // Overlay lookup strictly by orderNumber
     const overlay = db
       .prepare(
         `SELECT 
@@ -109,8 +119,7 @@ router.get("/:id", (req, res) => {
          WHERE order_id = ?`
       )
       .get(base.orderNumber);
-
-    console.log("[admin-orders][GET detail] overlay row =", overlay);
+    console.log("[admin-orders][GET detail] overlay =", overlay);
 
     const merged = mergeOverlay(base, overlay);
     console.log("[admin-orders][GET detail] merged =", merged);
@@ -122,9 +131,7 @@ router.get("/:id", (req, res) => {
   }
 });
 
-
-// --------------------------- CREATE ---------------------------
-// POST /api/admin/orders
+// ----------------- CREATE -----------------
 router.post("/", express.json(), (req, res) => {
   try {
     const body = req.body || {};
@@ -145,9 +152,8 @@ router.post("/", express.json(), (req, res) => {
       return res.status(400).json({ success: false, error: "REQUIRED_FIELDS" });
     }
 
-    const orderNumber = "WATT" + Date.now(); // simple ID generator
+    const orderNumber = "WATT" + Date.now();
 
-    // Base table insert (NO notes column here)
     db.prepare(
       `INSERT INTO orders 
          (orderNumber, fullName, phone, email, status, totalCents, depositCents, currency, address, driverId, createdAt)
@@ -165,7 +171,6 @@ router.post("/", express.json(), (req, res) => {
       driverId
     );
 
-    // Overlay upsert strictly keyed by orderNumber
     db.prepare(
       `INSERT INTO admin_order_meta (order_id, status, driver_id, notes, total_cents, deposit_cents, currency, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -195,15 +200,13 @@ router.post("/", express.json(), (req, res) => {
   }
 });
 
-// --------------------------- UPDATE ---------------------------
-// PATCH /api/admin/orders/:idOrNumber
+// ----------------- UPDATE -----------------
 router.patch("/:id", express.json(), (req, res) => {
   try {
     const key = String(req.params.id || "").trim();
     const byNumeric = toNumOrNeg1(key);
     const body = req.body || {};
 
-    // Confirm the base order and get orderNumber for overlay key
     const base = db
       .prepare("SELECT id, orderNumber FROM orders WHERE id = ? OR orderNumber = ?")
       .get(byNumeric, key);
@@ -211,107 +214,44 @@ router.patch("/:id", express.json(), (req, res) => {
       return res.status(404).json({ success: false, error: "NOT_FOUND" });
     }
 
-    // 1) Update base table fields that exist in orders
+    // Base updates
     const set = [];
     const vals = [];
-    if ("status" in body) {
-      set.push("status = ?");
-      vals.push(body.status);
-    }
-    if ("totalCents" in body) {
-      set.push("totalCents = ?");
-      vals.push(
-        body.totalCents === null || body.totalCents === "" ? null : Number(body.totalCents)
-      );
-    }
-    if ("depositCents" in body) {
-      set.push("depositCents = ?");
-      vals.push(
-        body.depositCents === null || body.depositCents === ""
-          ? null
-          : Number(body.depositCents)
-      );
-    }
-    if ("currency" in body) {
-      set.push("currency = ?");
-      vals.push((body.currency || "KES").toUpperCase());
-    }
-    if ("address" in body) {
-      set.push("address = ?");
-      vals.push(body.address ?? null);
-    }
-    if ("driverId" in body) {
-      set.push("driverId = ?");
-      vals.push(
-        body.driverId === undefined || body.driverId === "" ? null : body.driverId
-      );
-    }
+    if ("status" in body) { set.push("status = ?"); vals.push(body.status); }
+    if ("totalCents" in body) { set.push("totalCents = ?"); vals.push(+body.totalCents || null); }
+    if ("depositCents" in body) { set.push("depositCents = ?"); vals.push(+body.depositCents || null); }
+    if ("currency" in body) { set.push("currency = ?"); vals.push((body.currency || "KES").toUpperCase()); }
+    if ("address" in body) { set.push("address = ?"); vals.push(body.address ?? null); }
+    if ("driverId" in body) { set.push("driverId = ?"); vals.push(body.driverId || null); }
 
     if (set.length) {
       const sql = `UPDATE orders SET ${set.join(", ")} WHERE id = ? OR orderNumber = ?`;
-      const r = db.prepare(sql).run(...vals, byNumeric, key);
-      if (r.changes === 0) {
-        return res.status(404).json({ success: false, error: "NOT_FOUND" });
-      }
+      db.prepare(sql).run(...vals, byNumeric, key);
     }
 
-    // 2) Update overlay (notes/status/driver/total/deposit/currency) keyed by orderNumber
+    // Overlay updates
     const overlaySet = [];
     const overlayVals = [];
-
-    if ("status" in body) {
-      overlaySet.push("status = ?");
-      overlayVals.push(body.status);
-    }
-    if ("driverId" in body) {
-      overlaySet.push("driver_id = ?");
-      overlayVals.push(
-        body.driverId === undefined || body.driverId === "" ? null : body.driverId
-      );
-    }
-    if ("notes" in body) {
-      overlaySet.push("notes = ?");
-      overlayVals.push(body.notes ?? null);
-    }
-    if ("totalCents" in body) {
-      overlaySet.push("total_cents = ?");
-      overlayVals.push(
-        body.totalCents === null || body.totalCents === ""
-          ? null
-          : Number(body.totalCents)
-      );
-    }
-    if ("depositCents" in body) {
-      overlaySet.push("deposit_cents = ?");
-      overlayVals.push(
-        body.depositCents === null || body.depositCents === ""
-          ? null
-          : Number(body.depositCents)
-      );
-    }
-    if ("currency" in body) {
-      overlaySet.push("currency = ?");
-      overlayVals.push((body.currency || "KES").toUpperCase());
-    }
+    if ("status" in body) { overlaySet.push("status = ?"); overlayVals.push(body.status); }
+    if ("driverId" in body) { overlaySet.push("driver_id = ?"); overlayVals.push(body.driverId || null); }
+    if ("notes" in body) { overlaySet.push("notes = ?"); overlayVals.push(body.notes ?? null); }
+    if ("totalCents" in body) { overlaySet.push("total_cents = ?"); overlayVals.push(+body.totalCents || null); }
+    if ("depositCents" in body) { overlaySet.push("deposit_cents = ?"); overlayVals.push(+body.depositCents || null); }
+    if ("currency" in body) { overlaySet.push("currency = ?"); overlayVals.push((body.currency || "KES").toUpperCase()); }
 
     if (overlaySet.length) {
-      // Ensure a row exists for this orderNumber, then update provided fields
       db.prepare(
         `INSERT OR IGNORE INTO admin_order_meta (order_id, status, updated_at)
          VALUES (?, ?, ?)`
       ).run(base.orderNumber, body.status ?? null, nowIso());
 
-      const sql = `UPDATE admin_order_meta SET ${overlaySet.join(
-        ", "
-      )}, updated_at = ? WHERE order_id = ?`;
+      const sql = `UPDATE admin_order_meta SET ${overlaySet.join(", ")}, updated_at = ? WHERE order_id = ?`;
       db.prepare(sql).run(...overlayVals, nowIso(), base.orderNumber);
     }
 
-    // 3) Return merged snapshot (base + overlay)
     const freshBase = db
       .prepare("SELECT * FROM orders WHERE id = ? OR orderNumber = ?")
       .get(byNumeric, key);
-
     const freshOverlay = db
       .prepare(
         `SELECT 
@@ -321,8 +261,7 @@ router.patch("/:id", express.json(), (req, res) => {
            currency      AS currencyOverlay,
            driver_id     AS driverIdOverlay,
            status        AS statusOverlay
-         FROM admin_order_meta
-         WHERE order_id = ?`
+         FROM admin_order_meta WHERE order_id = ?`
       )
       .get(freshBase.orderNumber);
 
