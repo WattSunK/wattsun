@@ -47,8 +47,17 @@ function toInt(v, def) {
 // ---- core fetch ----
 async function fetchOrdersFromDb({ phone, status, q, page, per }) {
   return withDb(async (db) => {
-    const where = ["phone = ?"];
-    const args = [phone];
+    const where = [];
+    const args = [];
+
+    // Phone normalized to digits only (same as idx_orders_phone_digits)
+    if (phone) {
+      where.push(
+        `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(phone,''), '+',''), ' ', ''), '-', ''), '(', ''), ')', '') 
+         = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(?,'+',''),' ',''),'-',''),'(',''),')','')`
+      );
+      args.push(phone);
+    }
 
     if (status) {
       where.push("LOWER(status) = LOWER(?)");
@@ -57,9 +66,9 @@ async function fetchOrdersFromDb({ phone, status, q, page, per }) {
 
     if (q) {
       where.push(
-        "(CAST(orderNumber AS TEXT) LIKE ? OR CAST(id AS TEXT) LIKE ?)"
+        "(CAST(orderNumber AS TEXT) LIKE ? OR CAST(id AS TEXT) LIKE ? OR LOWER(fullName) LIKE LOWER(?))"
       );
-      args.push(`%${q}%`, `%${q}%`);
+      args.push(`%${q}%`, `%${q}%`, `%${q}%`);
     }
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
@@ -76,14 +85,20 @@ async function fetchOrdersFromDb({ phone, status, q, page, per }) {
       `SELECT 
          id,
          orderNumber,
+         fullName,
+         email,
+         phone,
+         address,
          status,
          totalCents,
          depositCents,
          currency,
-         createdAt
+         createdAt,
+         completed_at,
+         driverId
        FROM orders
        ${whereSql}
-       ORDER BY createdAt DESC
+       ORDER BY datetime(createdAt) DESC
        LIMIT ? OFFSET ?`,
       [...args, per, (page - 1) * per]
     );
