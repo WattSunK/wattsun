@@ -1,188 +1,112 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Track Order • WattSun</title>
+  <meta charset="UTF-8">
+  <title>Track Order</title>
   <link rel="stylesheet" href="/main.css"/>
-  <style>
-    /* keep legacy styling */
-    .account-section{max-width:980px;margin:18px auto;background:#fff;border:1px solid #eee;border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(0,0,0,.06);}
-    .result-box{margin-top:12px;background:#fffdf3;border:1px solid #f0e6bf;border-radius:10px;padding:12px;}
-    .muted{color:#777;font-size:13px;}
-    .pill{display:inline-block;padding:4px 10px;border-radius:999px;border:1px solid #fadb14;background:#fffbe6;font-weight:700;font-size:12px;}
-    .logo-img{height:28px;object-fit:contain;margin-right:10px;}
-    header.site-header .topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#ffd666;}
-  </style>
 </head>
 <body>
+  <header class="site-header">
+    <a href="/index.html"><img src="/images/logo.png" alt="Wattsun Logo"></a>
+    <nav>
+      <a href="/shop.html">Shop</a>
+      <a href="/myaccount/userdash.html">My Account</a>
+      <a href="/cart.html">Cart <span id="cartCount">0</span></a>
+    </nav>
+  </header>
 
-<header class="site-header">
-  <div class="topbar">
-    <h1 class="logo"><img class="logo-img" src="/assets/logo/Wattsun Solar log2.png" alt="">WattSun Solar</h1>
-    <button aria-label="Toggle Menu" class="nav-toggle" onclick="document.querySelector('nav').classList.toggle('nav-open')">☰</button>
-  </div>
-  <nav>
-    <a href="/index.html">Home</a>
-    <a href="/shop.html">Shop</a>
-    <a href="/calculators/calculator.html">Calculator</a>
-    <a href="/financing.html">Financing</a>
-    <a href="/projects.html">Projects</a>
-    <a href="/contact.html">Contact</a>
-  </nav>
-</header>
+  <main class="account-section">
+    <h2>Track Your Order</h2>
+    <form id="trackForm">
+      <label>
+        Phone:
+        <input id="phone" name="phone" required placeholder="+2547xxxxxxx">
+      </label>
+      <label>
+        Status:
+        <input id="status" name="status" placeholder="Optional (Pending, Confirmed...)">
+      </label>
+      <button type="submit">Track</button>
+    </form>
 
-<div class="account-section">
-  <h2>Track Your WattSun Order</h2>
-  <p class="muted" id="lockNote" style="display:none;">Using your account phone number. To change it, update your profile.</p>
+    <p id="lockNote" class="muted"></p>
+    <div id="trackBox" class="track-box">Enter your phone number to track orders.</div>
+  </main>
 
-  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-    <input id="track-phone" type="tel" placeholder="+254 7XX XXX XXX" style="flex:1;" pattern="^\\+\\d{10,15}$">
-    <select id="track-status" style="flex:1;min-width:200px;">
-      <option value="">Any</option>
-      <option value="Pending">Pending</option>
-      <option value="Processing">Processing</option>
-      <option value="Delivered">Delivered</option>
-      <option value="Cancelled">Cancelled</option>
-    </select>
-    <button id="track-btn">Check Status</button>
-  </div>
+  <footer class="site-footer">
+    <nav class="mobile-nav">
+      <a href="/index.html">Home</a>
+      <a href="/shop.html">Shop</a>
+      <a href="/myaccount/userdash.html">Account</a>
+      <a href="/cart.html">Cart <span id="cartCountFooter">0</span></a>
+    </nav>
+  </footer>
 
-  <div class="muted" id="orderBadge" style="margin-top:8px;display:none;">
-    Filter: <span class="pill" id="orderPill"></span>
-    <a href="javascript:void(0)" id="clearOrder" style="margin-left:8px;">Clear</a>
-  </div>
+  <script>
+    async function runTrack(phone, status) {
+      const box = document.getElementById('trackBox');
+      box.innerHTML = 'Loading...';
+      try {
+        const url = new URL('/api/track', window.location.origin);
+        url.searchParams.set('phone', phone);
+        if (status) url.searchParams.set('status', status);
+        const res = await fetch(url);
+        const data = await res.json();
 
-  <div id="track-result" class="result-box" style="display:none;"></div>
-</div>
+        const list = (data && Array.isArray(data.orders)) ? data.orders : [];
 
-<div class="account-section">
-  <h2>Need Help?</h2>
-  <p><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></p>
-  <p><a href="/contact.html">Contact Page</a></p>
-</div>
+        if (!list.length) {
+          box.innerHTML='<p>No orders found for this phone'+(status?' and status':'')+'.</p>';
+        } else {
+          box.innerHTML = list.map(o=>{
+            const total = o.totalCents ? (o.totalCents/100).toLocaleString('en-KE',{minimumFractionDigits:2}) : '—';
+            const deposit = o.depositCents ? (o.depositCents/100).toLocaleString('en-KE',{minimumFractionDigits:2}) : '—';
+            return `
+              <p><strong>Order Number:</strong> ${o.orderNumber}</p>
+              <p><strong>Status:</strong> ${o.status||'Pending'}</p>
+              <p><strong>Created:</strong> ${o.createdAt?new Date(o.createdAt).toLocaleString():'—'}</p>
+              <p><strong>Customer:</strong> ${o.fullName||'—'}</p>
+              <p><strong>Delivery Address:</strong> ${o.address||'—'}</p>
+              <p><strong>Total:</strong> KSh ${total}</p>
+              <p><strong>Deposit:</strong> KSh ${deposit}</p>
+              <hr>`;
+          }).join('');
+        }
+      } catch (err) {
+        console.error(err);
+        box.innerHTML='<p style="color:red;">Error loading orders.</p>';
+      }
+    }
 
-<footer class="mobile-nav">
-  <a aria-label="Home" href="/index.html">🏠</a>
-  <a aria-label="Account" href="/myaccount/track.html">👤</a>
-  <a aria-label="Cart" href="/cart.html">🛒<span id="cart-count">0</span></a>
-  <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('nav').classList.toggle('nav-open')">☰</a>
-</footer>
-
-<script>
-/* tiny cart badge refresh */
-function updateCartCountBadge(){
-  let c=0; try{const cart=JSON.parse(localStorage.getItem("cart"))||[];c=cart.reduce((s,i)=>s+(i.quantity||1),0);}catch(e){}
-  const b=document.getElementById('cart-count'); if(b) b.textContent=c;
-}
-document.addEventListener('DOMContentLoaded', updateCartCountBadge);
-window.addEventListener('storage', updateCartCountBadge);
-
-/* ----- enhanced tracking logic (legacy look preserved) ----- */
-function getSession(){
-  try{
-    const raw=localStorage.getItem('wattsunUser')||localStorage.getItem('ws_user');
-    if(!raw) return {};
-    const o=JSON.parse(raw);
-    return o.user ? o.user : o;
-  }catch{ return {}; }
-}
-function qs(){ return new URLSearchParams(location.search); }
-
-async function runTrack({ phone, status, order, email }){
-  const box=document.getElementById('track-result');
-  box.style.display='none'; box.innerHTML='';
-  try{
-    const body={ phone, status };
-    if(order) body.order = order;
-    if(email) body.email = email; // background email for server fallback
-
-    const res=await fetch('/api/track',{
-      method:'POST',
-      headers:{'Content-Type':'application/json', 'X-WS-Email': email || ''},
-      body:JSON.stringify(body)
+    document.getElementById('trackForm').addEventListener('submit', e=>{
+      e.preventDefault();
+      const phone = document.getElementById('phone').value.trim();
+      const status = document.getElementById('status').value.trim();
+      if (phone) runTrack(phone, status);
     });
 
-    let data; try{ data=await res.json(); } catch{ data=[]; }
-    const list = Array.isArray(data) ? data : (data && Array.isArray(data.orders) ? data.orders : []);
+    // Session integration: prefill phone if logged in
+    document.addEventListener('DOMContentLoaded', ()=>{
+      try {
+        const raw = localStorage.getItem('wattsunUser') || localStorage.getItem('ws_user');
+        if (raw) {
+          const u = JSON.parse(raw);
+          const phone = u?.user?.phone || u?.phone;
+          if (phone) {
+            document.getElementById('phone').value = phone;
+            document.getElementById('phone').readOnly = true;
+            document.getElementById('lockNote').textContent = "Tracking locked to your account phone.";
+            runTrack(phone, "");
+          }
+        }
+      } catch {}
+    });
 
-    if(!list.length){
-      box.innerHTML='<p>No orders found for this phone'+(status?' and status':'')+'.</p>';
-    }else{
-      box.innerHTML = list.map(o=>`
-        <p><strong>Order Number:</strong> ${o.orderNumber}</p>
-        <p><strong>Status:</strong> ${o.status||'Pending'}</p>
-        <p><strong>Last Updated:</strong> ${o.updatedAt?new Date(o.updatedAt).toLocaleString():'—'}</p>
-        <p><strong>Customer:</strong> ${o.fullName||'—'}</p>
-        <p><strong>Delivery Address:</strong> ${o.deliveryAddress||'—'}</p>
-        <p><strong>Payment Type:</strong> ${o.paymentType||'—'}</p>
-        <p><strong>Net Value:</strong> ${typeof o.total==='number' ? ('KSh '+o.total.toLocaleString('en-KE',{minimumFractionDigits:2})) : (o.total||'—')}</p>
-        <p><strong>Items:</strong><br>${(o.cart_summary||'').replaceAll('\\n','<br>')}</p>
-        <hr>`).join('');
+    // Auto-run if URL params provided
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('phone') || params.get('order')) {
+      runTrack(params.get('phone') || '', params.get('status') || '');
     }
-    box.style.display='block';
-  }catch(e){
-    box.innerHTML='<p>Something went wrong. Please try again.</p>'; box.style.display='block';
-  }
-}
-
-document.getElementById('track-btn').addEventListener('click', ()=>{
-  const phone = document.getElementById('track-phone').value.trim();
-  const status= document.getElementById('track-status').value;
-  const order = qs().get('order') || '';
-  const email = getSession().email || '';
-  if(!phone) return alert('Please enter your phone number.');
-  runTrack({ phone, status, order, email });
-});
-
-document.getElementById('clearOrder').addEventListener('click', ()=>{
-  const p=qs(); p.delete('order'); location.search=p.toString();
-});
-
-document.addEventListener('DOMContentLoaded', ()=>{
-  const sess = getSession();
-  const phone = sess.phone || '';
-  const email = sess.email || '';
-  const input = document.getElementById('track-phone');
-  const note  = document.getElementById('lockNote');
-
-  if(phone){ input.value=phone; input.readOnly=true; input.style.background='#fffbe6'; note.style.display='block'; }
-
-  const p=qs();
-  const status=p.get('status')||'Pending';
-  const order =p.get('order')||'';
-  document.getElementById('track-status').value=status;
-
-  if(order){
-    document.getElementById('orderPill').textContent=order;
-    document.getElementById('orderBadge').style.display='block';
-  }
-  if(phone && (order || true)){ // auto-run even without order if you want
-    runTrack({ phone, status, order, email });
-  }
-});
-</script>
-
-<!-- Step 6.4: live refresh harness for Track (append-only) -->
-<script>
-(function(){
-  function qs(){ return new URLSearchParams(location.search); }
-  function getSession(){ try{ const raw=localStorage.getItem('wattsunUser')||localStorage.getItem('ws_user'); if(!raw) return {}; const o=JSON.parse(raw); return o.user?o.user:o; }catch{return{};} }
-  async function refetch(){
-    if (typeof window.runTrack !== 'function') return;
-    const p=qs();
-    const phone=(document.getElementById('track-phone')?.value||'').trim() || (getSession().phone||'').trim();
-    const status=document.getElementById('track-status')?.value || p.get('status') || '';
-    const order=p.get('order')||'';
-    const email=(getSession().email||'');
-    if (phone) await window.runTrack({ phone, status, order, email });
-  }
-  let pending=false; const kick=()=>{ if(pending) return; pending=true; queueMicrotask(async()=>{ try{ await refetch(); } finally{ pending=false; } }); };
-  window.addEventListener('focus', kick);
-  window.addEventListener('storage', (e)=>{ if(e.key==='ordersUpdatedAt') kick(); });
-  window.addEventListener('message', (e)=>{ if(e?.data?.type==='orders-updated') kick(); });
-})();
-</script>
-
+  </script>
 </body>
 </html>
