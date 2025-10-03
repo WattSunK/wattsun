@@ -128,8 +128,10 @@ router.get("/", async (req, res) => {
     const out = await fetchOrdersFromDb({ phone, status, q, page, per });
     return res.json({ success: true, ...out });
   } catch (e) {
-    console.error("[orders][GET] error:", e.message);
-    return res.status(500).json({ success: false, message: "DB error" });
+    console.error("[orders][GET] error:", e);
+    return res
+      .status(500)
+      .json({ success: false, message: "DB error", detail: e.message });
   }
 });
 
@@ -153,8 +155,10 @@ router.post("/", async (req, res) => {
     const out = await fetchOrdersFromDb({ phone, status, q, page, per });
     return res.json({ success: true, ...out });
   } catch (e) {
-    console.error("[orders][POST] error:", e.message);
-    return res.status(500).json({ success: false, message: "DB error" });
+    console.error("[orders][POST] error:", e);
+    return res
+      .status(500)
+      .json({ success: false, message: "DB error", detail: e.message });
   }
 });
 
