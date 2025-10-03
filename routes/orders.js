@@ -30,15 +30,6 @@ function withDb(fn) {
   });
 }
 
-const q = (db, sql, params = []) =>
-  new Promise((res, rej) =>
-    db.get(sql, params, (e, row) => (e ? rej(e) : res(row || null)))
-  );
-const all = (db, sql, params = []) =>
-  new Promise((res, rej) =>
-    db.all(sql, params, (e, rows) => (e ? rej(e) : res(rows || [])))
-  );
-
 function toInt(v, def) {
   const n = parseInt(v, 10);
   return Number.isFinite(n) && n > 0 ? n : def;
@@ -46,64 +37,71 @@ function toInt(v, def) {
 
 // ---- core fetch ----
 async function fetchOrdersFromDb({ phone, status, q, page, per }) {
-  return withDb(async (db) => {
-    const where = [];
-    const args = [];
+  return withDb((db) => {
+    return new Promise((resolve, reject) => {
+      const where = [];
+      const args = [];
 
-    // Phone normalized to digits only (same as idx_orders_phone_digits)
-    if (phone) {
-      where.push(
-        `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(phone,''), '+',''), ' ', ''), '-', ''), '(', ''), ')', '') 
-         = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(?,'+',''),' ',''),'-',''),'(',''),')','')`
+      // Phone normalized to digits only (same as idx_orders_phone_digits)
+      if (phone) {
+        where.push(
+          `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(phone,''), '+',''), ' ', ''), '-', ''), '(', ''), ')', '') 
+           = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(?,'+',''),' ',''),'-',''),'(',''),')','')`
+        );
+        args.push(phone);
+      }
+
+      if (status) {
+        where.push("LOWER(status) = LOWER(?)");
+        args.push(status);
+      }
+
+      if (q) {
+        where.push(
+          "(CAST(orderNumber AS TEXT) LIKE ? OR CAST(id AS TEXT) LIKE ? OR LOWER(fullName) LIKE LOWER(?))"
+        );
+        args.push(`%${q}%`, `%${q}%`, `%${q}%`);
+      }
+
+      const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+      // Count first
+      db.get(
+        `SELECT COUNT(*) AS n FROM orders ${whereSql}`,
+        args,
+        (err, totRow) => {
+          if (err) return reject(err);
+          const total = totRow?.n || 0;
+
+          // Then fetch page
+          db.all(
+            `SELECT 
+               id,
+               orderNumber,
+               fullName,
+               email,
+               phone,
+               address,
+               status,
+               totalCents,
+               depositCents,
+               currency,
+               createdAt,
+               completed_at,
+               driverId
+             FROM orders
+             ${whereSql}
+             ORDER BY datetime(createdAt) DESC
+             LIMIT ? OFFSET ?`,
+            [...args, per, (page - 1) * per],
+            (err2, rows) => {
+              if (err2) return reject(err2);
+              resolve({ orders: rows, total, page, per });
+            }
+          );
+        }
       );
-      args.push(phone);
-    }
-
-    if (status) {
-      where.push("LOWER(status) = LOWER(?)");
-      args.push(status);
-    }
-
-    if (q) {
-      where.push(
-        "(CAST(orderNumber AS TEXT) LIKE ? OR CAST(id AS TEXT) LIKE ? OR LOWER(fullName) LIKE LOWER(?))"
-      );
-      args.push(`%${q}%`, `%${q}%`, `%${q}%`);
-    }
-
-    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-
-    const totRow = await q(
-      db,
-      `SELECT COUNT(*) AS n FROM orders ${whereSql}`,
-      args
-    );
-    const total = totRow?.n || 0;
-
-    const rows = await all(
-      db,
-      `SELECT 
-         id,
-         orderNumber,
-         fullName,
-         email,
-         phone,
-         address,
-         status,
-         totalCents,
-         depositCents,
-         currency,
-         createdAt,
-         completed_at,
-         driverId
-       FROM orders
-       ${whereSql}
-       ORDER BY datetime(createdAt) DESC
-       LIMIT ? OFFSET ?`,
-      [...args, per, (page - 1) * per]
-    );
-
-    return { orders: rows, total, page, per };
+    });
   });
 }
 
