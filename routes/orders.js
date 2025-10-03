@@ -1,6 +1,6 @@
-// routes/myorders.js
-// Customer-facing SQL route for /api/myorders
-// Returns { success, orders, total, page, pages }
+// routes/orders.js
+// Customer-facing SQL route for /api/orders
+// Returns { success, orders, total, page, per }
 
 const express = require("express");
 const path = require("path");
@@ -30,7 +30,6 @@ function withDb(fn) {
   });
 }
 
-// ---- helpers ----
 const q = (db, sql, params = []) =>
   new Promise((res, rej) =>
     db.get(sql, params, (e, row) => (e ? rej(e) : res(row || null)))
@@ -46,7 +45,7 @@ function toInt(v, def) {
 }
 
 // ---- core fetch ----
-async function fetchOrdersFromDb({ phone, status, q, page, limit }) {
+async function fetchOrdersFromDb({ phone, status, q, page, per }) {
   return withDb(async (db) => {
     const where = ["phone = ?"];
     const args = [phone];
@@ -65,16 +64,13 @@ async function fetchOrdersFromDb({ phone, status, q, page, limit }) {
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-    // total
     const totRow = await q(
       db,
       `SELECT COUNT(*) AS n FROM orders ${whereSql}`,
       args
     );
     const total = totRow?.n || 0;
-    const pages = Math.max(1, Math.ceil(total / limit));
 
-    // paged results
     const rows = await all(
       db,
       `SELECT 
@@ -89,55 +85,60 @@ async function fetchOrdersFromDb({ phone, status, q, page, limit }) {
        ${whereSql}
        ORDER BY createdAt DESC
        LIMIT ? OFFSET ?`,
-      [...args, limit, (page - 1) * limit]
+      [...args, per, (page - 1) * per]
     );
 
-    return { orders: rows, total, page, pages };
+    return { orders: rows, total, page, per };
   });
 }
 
 // ---- Routes ----
-
-// GET /api/myorders?phone=+254...&status=Pending&q=panel&page=1&limit=5
+// GET /api/orders?phone=+254...&page=1&per=5
 router.get("/", async (req, res) => {
   const { phone, status, q } = req.query;
   const page = toInt(req.query.page, 1);
-  const limit = Math.min(50, toInt(req.query.limit, 5));
+  const per = Math.min(50, toInt(req.query.per, 5));
 
-  if (!phone) return res.status(400).json({ success: false, message: "phone is required" });
+  if (!phone)
+    return res.status(400).json({ success: false, message: "phone is required" });
   if (!INTL_PHONE.test(phone)) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Invalid phone format. Use + and 10–15 digits, e.g. +254712345678" });
+    return res.status(400).json({
+      success: false,
+      message:
+        "Invalid phone format. Use + and 10–15 digits, e.g. +254712345678",
+    });
   }
 
   try {
-    const out = await fetchOrdersFromDb({ phone, status, q, page, limit });
+    const out = await fetchOrdersFromDb({ phone, status, q, page, per });
     return res.json({ success: true, ...out });
   } catch (e) {
-    console.error("[myorders][GET] error:", e.message);
+    console.error("[orders][GET] error:", e.message);
     return res.status(500).json({ success: false, message: "DB error" });
   }
 });
 
-// POST /api/myorders { phone, status?, q?, page?, limit? }
+// POST /api/orders { phone, status?, q?, page?, per? }
 router.post("/", async (req, res) => {
-  const { phone, status, q, page: pIn, limit: lIn } = req.body || {};
+  const { phone, status, q, page: pIn, per: perIn } = req.body || {};
   const page = toInt(pIn, 1);
-  const limit = Math.min(50, toInt(lIn, 5));
+  const per = Math.min(50, toInt(perIn, 5));
 
-  if (!phone) return res.status(400).json({ success: false, message: "phone is required" });
+  if (!phone)
+    return res.status(400).json({ success: false, message: "phone is required" });
   if (!INTL_PHONE.test(phone)) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Invalid phone format. Use + and 10–15 digits, e.g. +254712345678" });
+    return res.status(400).json({
+      success: false,
+      message:
+        "Invalid phone format. Use + and 10–15 digits, e.g. +254712345678",
+    });
   }
 
   try {
-    const out = await fetchOrdersFromDb({ phone, status, q, page, limit });
+    const out = await fetchOrdersFromDb({ phone, status, q, page, per });
     return res.json({ success: true, ...out });
   } catch (e) {
-    console.error("[myorders][POST] error:", e.message);
+    console.error("[orders][POST] error:", e.message);
     return res.status(500).json({ success: false, message: "DB error" });
   }
 });

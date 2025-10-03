@@ -116,6 +116,7 @@ app.use("/api", require("./routes/login"));
 app.use("/api", require("./routes/reset"));
 
 app.use("/api", require("./routes/checkout"));
+app.use("/api/orders", require("./routes/orders"));
 app.use("/api/track", require("./routes/track"));
 
 // Catalog (uses Knex)
