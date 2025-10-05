@@ -1,0 +1,299 @@
+(Transcribed by TurboScribe.ai. Go Unlimited to remove this message.)
+
+In this video I will take you through the Bomahat demo. I have created an account to the username new-demo so I will sign into the account. So upon signing in you'll be greeted with this verification.
+
+So you'll need to first verify your account. I will quickly verify the account and then proceed. After verification you'll tell us how you got to know about Bomahat.
+
+So for example for this I will use Google. And then how are you using the app? Are you using the app as a landlord, as a property manager, both or other? So other could be for example for community management. So for this I will choose landlord.
+
+But the same will work really for property manager, no much difference. So I'll use landlord. And then I have completed the survey successfully.
+
+So you can see this there is an onboarding which you can opt to use. Or you can skip the onboarding. But in this video we are going to go through the onboarding.
+
+So view onboarding progress. So this is what when I view this is what it tells me to do. So for example add property, add units and then add tenants.
+
+And then it tells you when you complete. And you have the option to skip the onboarding here. Okay, so we will now go through the onboarding.
+
+Okay, so we'll add a property. So click continue here. So we'll add a property and we will name the property.
+
+Say let's say we discuss plaza. Okay, number of units, let's say it has 25 units. City, say Nairobi.
+
+Then anything after this show more button is an optional field. Okay, so we can click on show more. Water rate.
+
+So this is the rate that you charge your tenants for water. So the average rate is usually 150. Electricity rate usually it's token.
+
+So it's a prepaid meter. So zero for now. But if you're billing your tenants postpaid, you can have, you can enter your figure here for water.
+
+Mpesa pay bill. This is only if you have an Mpesa pay bill that you got directly from Safaricom. This is where you enter your pay bill number.
+
+And if you have your till number, this is where you enter your store number and your till number itself. And then rent payment penalty. So this is if you want to penalize your tenants.
+
+Okay, so you can choose to penalize your tenants, say on a fixed amount, percentage of rent or percentage of balance. So this is where you choose. And then tax rate, the default rate is 7.5%. And then other recurring bills.
+
+So say for example, you're charging your tenants garbage and it's a recurring fee every month of maybe 300 shillings. This is where you would enter garbage 300. Okay, like that 300.
+
+And every time the system will be generating the invoices for rent at the start of the month, it will also be generating garbage. So it will be creating rent and garbage for every tenant. So you don't have to go and do it for each and every tenant one after the other.
+
+This will capture for all the tenants at a go. Okay, and then management fee. This is if you are a property manager, you will enter the management fee here.
+
+So if it's a fixed amount of percentage of the rent collected, this is where you enter it. Street name and all those things. These are all things that you can skip for now, or you can also choose to add.
+
+Payment instructions. This is what will be included in your invoices as the payment instruction for your building. So you can use this.
+
+Say if it's equity, you can say to pay use pay bill number 247247 and account number and then your account number. But for now, we can now add the property. Okay, now we have added the property.
+
+After we add the property, below here, you can see it is already telling us to add units. Remember, we are still under onboarding. So we'll say add units.
+
+Okay, so you see it has already pre-selected Hibiscus for us. So we'll say H1. Okay, like that.
+
+Say the rent is 10,000. Tax rate. All this is optional after the rent amount.
+
+Okay, other recurring bills. Remember, we already selected 300 shillings for garbage. This is why it's telling us that.
+
+Notice that we have this field here. This only applies if you have a certain unit that maybe pays garbage 400. This is why you would set that for this unit, it is 400.
+
+Choose garbage and then 400. Or if you have a specific recurring bill for a specific unit that does not affect other units, this is where you add it. Then the notes, if you have any notes here, let's say you can say here, this is a one bedroom house.
+
+Okay, and then you can add the unit. Okay, so we've added the unit. And then we can now add a tenant.
+
+You can see down here, it is already suggesting to us that we need to add a tenant. Okay, so now the tenant, I will add myself as a tenant. So I'll add Kiprotich Newton.
+
+That's my name. Then I add my number here. And then anything after show more again, we said is an optional field.
+
+So we'll click on the show more button here. Okay, deposit. So this is the deposit that the tenant paid.
+
+So deposit type, you can say rent, say they paid 10,000 deposit for rent. And let's say they paid, say water deposit of 1000. This is where you add it like that.
+
+Account number, by default, it will be H1. Okay, but you can add any account number. This is if you want to have a unique identifier for tenant.
+
+ID number, email, care repin, all these are optional fields. But if you want to add them, you can add them. Payment penalty, notes, moving date, move out date, other phone numbers.
+
+The system allows you to add up to 10 phone numbers per tenant. So you can add as many phone numbers as you want per tenant, including parent phone numbers, or guardian phone numbers or sibling or wife, you know, you can add them. And then bank payer names.
+
+This one applies for our automation. Sorry, for our payment automation. This is where you would add the names of those who usually pay rent for that unit, so that it will automatically pick it up.
+
+Okay. And then lease start date, lease end date, all these are the data that you can add. File upload, this is where you can upload your lease agreements, your ID for the tenant and all those other things.
+
+You can upload them and store them here. Okay, at no extra charge, then we can add the tenant. So you've added the tenant.
+
+Now it is telling us down here to view tenants. So when I click view tenants, we can now see the tenant that we have added here. That is how the onboarding goes, helps us to be able to easily add a property unit and a tenant.
+
+We'll once again go through the properties tab just to understand everything. So the properties tab is on the left. Click on property slash unit, click on click on properties.
+
+And then you will see all your properties here. Remember we added Hibiscus Plaza of 25 units. If you want to edit this property, just come to action and then edit or just click on the on the property name here.
+
+And it will give you the chance to edit the property. You can see all the details here and then you can click update for that one property if you want to edit it. Okay, that's the property.
+
+If you want to add another property, this is where you add the other property from. If you want to add a unit in the property, this is where you add it from. So if you want to see all your units, you click on the units on the left.
+
+This is where you see all your units, you see H1. So for the purposes of this demo, remember we added one unit and one tenant. Okay, so I will add two more units just for you to see how a vacant unit looks like on the system.
+
+So remember we did H1, so let's do H2 and H3. So click on right, you see add unit, click on it. You see H2, rent say 10,000 again.
+
+You don't have to click on this occupied, it will by itself detect. Okay, and then say add unit. And then click down here and say add another unit.
+
+And H3, 10,000 again. You can even say 9,000. They don't have to be of the same rent amount.
+
+Then you say add unit. Now, when you go back here, you will see that you have H1, H2 and H3. Okay, so those are the units.
+
+So if the tenants are on the tenants tab. So the tenants on the tenants tab, you will see you can be able to filter by their account balances, okay, by property. If you have many properties, you can show archive tenants.
+
+Archive tenants are tenants who have been deleted. So when a tenant moves out, you don't have to delete fully, just archive them. So you'll still have their data, but the unit will be marked vacant.
+
+Days to lease expire, you can filter by those whose leases are expiring within the next 7, 30 or 60 days, okay. Top right, you can be able to add a tenant. You can be able to send reminders.
+
+And you can be able to send a custom message. You can be able to add an invoice. You can be able to generate rent invoices, send recurring bill invoices, add a payment and shift a tenant.
+
+So that is the overall look of the tenants page. For each tenant, you can be able to, so you click on actions. You can be able to edit.
+
+You can be able to add an invoice. You can be able to add a payment. You can be able to send a custom message to them.
+
+You can be able to send a custom message. For example, it's happy new year, okay. You can be able to send them their statement.
+
+You can be able to send it via email. You can be able to download their statement as a PDF. You can download it as a CSV.
+
+You can shift them from one unit to another. And you can archive the tenant, which means deleting a tenant, but you still have their data. So that is what you can do for a tenant, okay.
+
+So all these things, you can be able to do them. So maybe I can explain a few things here, but I'll explain others in future videos. So maybe the only thing I can explain here is maybe shifting a tenant.
+
+So shifting a tenant, say you want to move this tenant, Kiprotich Newton. You see it has already pulled Kiprotich Newton up because they are the only tenant we have. You see, you can move them to H2 or H3 because they are vacant.
+
+You see H1 is marked as occupied here because Newton is now on H1. So you can move them to H2 or H3 if you wish, just like that. And then you click on shift and they will be moved from H1 to H2 with all their data that they had.
+
+Even if they've been living in your premises for two years, they just move with all their data, with their balances and everything, okay. So that is the overall look of the tenants page. Now we will go through the invoicing, okay.
+
+The invoicing usually happens automatically. At the start of the month, the system will invoice your tenants automatically. You can also choose to switch off the automatic invoicing so that you invoice manually, okay.
+
+So in this demo, we are going to invoice manually so that you can see how the invoice versus the payments work, okay. So there are multiple ways of creating invoices. So you can do it while you're on the tenants page.
+
+So you can create one invoice for a particular tenant. So you can go to the particular tenant like this. You click on their balance, okay.
+
+You add an invoice, okay. So that's one way. So let's not add it for now first.
+
+That's the first way. The other way, you just click on action and then add invoice. It will do the same thing.
+
+And then the last way is you go to invoices on the left, financials and then invoices and then add invoice. And then you have to select the tenant here. So this will give you all the tenants in the property and then you can add the invoice.
+
+So let's go back to the first one, which is clicking on the balance. So when you click on a particular tenant's balance, it will show you all their transactions, all their payments and their invoices. So let's click on that, okay.
+
+And then let's add the invoice. So we add an invoice here. So let's say it's an invoice for rent 10,000.
+
+And then you can say rent invoice and then it will choose today's date here, okay. And then you can say, we can look at other options here. By default, it will select open status.
+
+By default, this is checked combined with other invoices. This means that it is not good to invoice one particular tenant multiple items to say rent, garbage independently. So it's good to put everything in one invoice.
+
+So that's why you have this combined with other invoices. But if you want to send them separately, you just uncheck here. So for now, we'll check it.
+
+Other things you can write whatever you want to write inside this memo here. So we can add the invoice. So now you can see that the invoice has been added and the balance for this tenant has gone to 10,000 shillings.
+
+Now, other things that you can do on invoices, you can decide to generate invoices in bulk. So that assuming you have 20, 30, 40, 100 tenants, okay. You cannot, it will be very hard for you or very time consuming for you to go and add one invoice at a time.
+
+So what do you do? You add, you generate invoices in bulk. Okay. So generating invoices in bulk for rent is done here.
+
+More actions and then generate rent invoices. And then you select the property or multiple properties if you had many. And then you say generate invoices like this.
+
+Okay. Just like that. And you will be able to generate invoices for all the tenants.
+
+Okay. You can also be able to send reminders to those who are late in paying by clicking on this send reminders here. Then you select the properties like this.
+
+And then you say send reminders. And anyone who has a balance will receive a message asking them to pay. So that's adding an invoice, generating rent invoices and sending reminders.
+
+So you can also generate other recurring bill invoices. Say for example, you had garbage. So remember, all these things will be happening automatically.
+
+But in case you choose to be doing it manually, you can generate other recurring bill invoices like garbage invoices in bulk by clicking on more actions, generate recurring bill invoices. And then you select the property and then you say generate invoices. And it will generate invoices for the garbage or service fee or security or any other fee that is a recurring bill that is not rent.
+
+Okay. The other thing you can do is you can bulk add invoices. So say for example, you have let's say a bill or an invoice that usually is not there.
+
+Say for example, you're asking your tenants to pay you for maybe you want to generate copies of the keys for gate, keys for the gate, for example. Okay. Say and you'll be charging them say 100 shillings.
+
+Okay. Each tenant. So you would go to invoices.
+
+And then you can decide to add for each tenant that invoice. Or you can just come to more actions here, invoices and then more actions. And then bulk add invoices.
+
+And then you select the property, you select the item. So in this case, it was the key. So we don't have a specific one for the key.
+
+So you can just say other. And then let's say it's 100 shillings only. And then each tenant and then the description, you can say key keys for the gate.
+
+Okay. And then we can submit. It will then pull all your tenants here.
+
+And then you can just say save invoices. Okay. And that way invoices for all the tenants will be generated.
+
+But remember here, we only have one tenant. So that when you go back to this one tenant here, you will see their balance is 10,100. So it's the rent invoice we had generated here.
+
+And then the other invoice for the key gate has been added here. So, but if you had say 30 tenants, it would have done it for all the tenants, just like that in bulk. Okay.
+
+So that's a bulk adding invoices or bill. Now let's discuss the payments. Okay.
+
+So the same way we have multiple ways of adding invoices, we also have multiple ways of adding payments. You can click on the balance and then you say add payment here. That's one.
+
+We can also click on a particular tenant's actions. And then you say add payment. That's the second.
+
+And you can go to the payment section on the left financials payments. And then you record a payment. You select the tenant and then you add the payment.
+
+Okay. So that's the three ways. So for now, we'll use this one that we used for adding an invoice, which is adding by clicking on the particular tenants accounts.
+
+Okay. Now, this is a manual way of adding payments. These are all manual ways of adding payments.
+
+We also have automatic ways of recording payments, where, for example, we can integrate with your bank or M-Pesa pay bill. So that whenever the tenants pay, the payments will be automatically captured by the system so that you don't have to add one by one. That is a great strength of our system.
+
+But in this demo, we are going to add them manually. Okay. So let's add a payment.
+
+So remember, we had an invoice of 10,100 so far. So let's add a payment here of say 9,000. Okay.
+
+And say it was done today. Other things that you can add when adding a payment, show more. You can select the payment type, say M-Pesa check, cash, all those things, say M-Pesa here.
+
+Description, you can say rent for deck. Okay. Or whichever.
+
+And then bank transaction ID, if you have one. File upload. If you have a photo of the receipt, you can even upload it.
+
+Then you can add the payment. Now we added a payment of 9,000. Now you see the balance is 1,100 because it has deducted 9,000.
+
+So you see here under money due is the invoice. And then the payment is under money paid. And the running balance is 1,100.
+
+That is adding a payment. So that is simple and clear, I hope. The next thing that we have under payments is if, for example, you choose to be using the bank statement upload method, you can be uploading a bank statement for it to capture all the payments by going to payments, financials, and then payments.
+
+And then top right click on upload bank statement. Then you select the bank statement from. Okay, so it will take some time to read the PDF.
+
+Okay, so it is reading. So it has read the PDF, you see, and it has lifted all the transactions from the statement. You can see and brought them all to the system.
+
+And now it will assign them to the tenants. Now you see this red here, it is showing the red because it does not assign. It does not have any tenants to assign to.
+
+But if, let's say this first payment was for Newton with a tenant that we had added. So let me select Newton like that. So it will automatically pre-select Newton like this by itself.
+
+It will just go through the transaction details and pull look at the details and then see which tenant it matches just like that. Okay, and then it will assign it to the tenant by itself. So that is bank statement upload.
+
+And then you just say save selected payments. Okay, so you'll need to select the payments from here. Select the payments that you want to select to save like this one.
+
+If you want to select all you click this and you select all. Okay, so we also have this concept called unassigned payments where you can save payments, but they have not been allocated to any tenant so that you can allocate them to a tenant later. So that's another concept you need to know about our system.
+
+So that's all about payments. The next thing you're going to look at is expenses. So the expenses you click on financials and then expenses on the left.
+
+So you can be able to record expenses for your property here so that you can be able to get a full report of the income and expenses. So you can be able to filter expenses here. So to record an expense, you just click on record expense top right.
+
+Then you click on if an expense is related to a specific unit. You select the unit here. If it's not, you can just, you see it's optional.
+
+So you can leave it optional. Okay, you can leave it unselected. The amount of the expense, say the expense is 1400.
+
+Payment method, say Mpesa, expense category. So let's say it was a Siwa payment, for example, and then the expense date is there. Show more, again, only shows the optional fields.
+
+So you can say here Siwa payment for a deck and then upload. If you have any receipt or something, you can upload the file here. So you can add the expense.
+
+So you see now the expense is marked here as an expense. Okay, so the other thing that you can do is adding maintenance. Okay, so maintenance is done on the left.
+
+And then you click on property slash unit and then maintenance. Okay, then you click on add maintenance on the top right. So maintenance can be something like maybe fixing something or painting something.
+
+So let's, for example, say it's maybe stairs painting or something or broken kitchen sink in H1. So let's say select unit H1 and then status open in progress or closed. Let's say open category, we can say that it is plumbing.
+
+Okay, so broken kitchen sink. Okay, and then broken kitchen sink in H1. Okay, but you can see this one is optional.
+
+Okay, you can even take a photo of the issue and then upload it here. And then you can see here it is asking if you want to create an expense record for it. Okay, so that you can link the maintenance record to an expense record.
+
+So you can just say if you tick here, you see it will ask you to say how much you spent to fix this. So let's say you spent say 900 shillings. So you just say add.
+
+Now what it will do, it will add the maintenance and it will also add an expense record. So now if you go back to expenses like this, you'll see you'll find two expenses. One is the sewer, the one we had added for 1400.
+
+And then the one for H1 for maintenance for 900 is for the broken kitchen sink that we had. Okay, so if you go to maintenance here, you will see the maintenance record itself. And then this is the link to the expense here.
+
+Okay, so you can link a maintenance record to an expense. So that's maintenance and linking maintenance to expenses. Okay, next, we're going to look at utilities.
+
+So utilities are like say water. For example, water can be consumed by a tenant and you have a meter to track the consumption. We can be able to record the readings of the meter so that you can have previous and current readings and we can be able to calculate how much they need to pay for water, for example.
+
+So that's utilities. So to look at utilities on our system, you go to property slash unit and then utilities. And then you can see here we have record utility, bulk upload utilities and reset utilities.
+
+So recording a utility, you can decide to record a utility one by one. This one will take you a lot of time. So I'm going to show you what it looks like, but it takes a lot of time.
+
+So you can say say H1 and then water current reading say 3.6, then the month and then the previous reading say 2.8. Then you add the utility. But this one will take a lot of time. If you do it, remember for one unit at a time, it will take you forever.
+
+So we have this bulk upload utilities. So you can just come in and say water. And then it will allow you to add utility records readings for each of the units.
+
+So current reading. So you can come in and say 2.1. So if you had previous readings, they would be shown here under the previous reading section. So you see here, you can just do it for many units at a go.
+
+2.9, say 8.1, like that, like that for all the units. And then you say save just like that. Then it will ask you, are you sure you want to add new utility records? Then it will ask you, do you want to create invoices for those units? You can say yes or no.
+
+So for now, we can even say yes. So notice, I think we have a small problem with this decimal points, but we'll work on it. But you can see it stored 2.1 now as a previous reading and the date that we recorded the reading.
+
+So 2.1, 2.899, so 2.9, I guess. And then 8.1 is here. So this will be fixed, but this is ideally how it works.
+
+And then if we go back to the tenant here and we look at their balance, notice that their balance, the invoice here now includes water usage from 0.0 to 2.1. And the amount is 315. Why is it 315? Because we all remember we stored 150 shillings per unit consumed when we were adding the property. That is why we have this here.
+
+So that is how we handle utility. Okay, so next we are going to look at reports. Just before we go to the reports, you will be receiving such an alert on your dashboard.
+
+You can easily just close it like this so that it never shows up again on this x here. And then you say, okay, just keep the onboarding. Okay, now reports, you go to reports on the left.
+
+So we have so many reports. We have tenant statement, property statement, rare statement, expenses month on month, year on year, and property groupings report. So I'll explain each of these.
+
+A tenant statement is going to show you all the transactions for a particular tenant. So we added only one tenant. So we'll select the tenant, then we submit.
+
+And then you can be able to see their invoices and payments and how they are used to calculate their balance. Okay, you can always download this PDF as an, this report as a PDF or an Excel for all of them. Okay, another report is a property statement.
+
+So I'm going to cover just a few, but I'll explain all of them. So property statement, this one is going to show you a report of the whole building. Okay, so for example, if we select December 1st to 20th, and then you say select all columns, and then submit, you'll be able to see it will list all your tenants here.
+
+Okay, which now shows you the income. And then it will show you your expenses here. And then your summary.
+
+Again, you're going to be able to download this as a PDF and an Excel. Arrears report, it will show you your arrears for all the tenants and all the properties. Expenses report will show you expenses for all your properties.
+
+Month-on-month report, this will enable you to compare your performances over many months, so that you can be able to see how you performed in certain months vis-a-vis other months. Okay, and again, you can be able to download them as PDF. So this is good for analytics so that you can just see maybe which months you did better than the other so that maybe you know why that happened.
+
+Yeah, year-on-year, same as the month-on-month, but now comparison of years. Property groupings report. This is for property months.
+
+(This file is longer than 30 minutes. Go Unlimited at TurboScribe.ai to transcribe files up to 10 hours long.)

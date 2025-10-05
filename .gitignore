@@ -1,0 +1,6 @@
+.env
+/run/*.pid
+/logs/*.log
+logs/*.gz
+/data/dev/*.db
+node_modules
