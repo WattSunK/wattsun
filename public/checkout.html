@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Checkout</title>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<link href="main.css" rel="stylesheet"/>
+<style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #fafafa;
+    }
+    .page-content { flex: 1 0 auto; }
+    footer { flex-shrink: 0; }
+    .container {
+      max-width: 950px;
+      width: 95vw;
+      margin: 44px auto;
+      padding: 38px 12px 30px 12px;
+      background: #fff;
+      border-radius: 13px;
+      box-shadow: 0 4px 20px rgba(247,183,51,0.10), 0 1.5px 9px rgba(0,0,0,0.04);
+      box-sizing: border-box;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 2em;
+      font-weight: bold;
+      color: #b47d08;
+    }
+    .table-wrapper {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: auto;
+      box-sizing: border-box;
+      background: #fff;
+      border-radius: 10px;
+    }
+    table {
+      width: 100%;
+      min-width: 0;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: #fff;
+      margin-bottom: 22px;
+      border-radius: 10px;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.07);
+      overflow: hidden;
+      table-layout: auto;
+      font-size: 0.97em;
+      box-sizing: border-box;
+    }
+    th, td {
+      text-align: left;
+      padding: 14px 8px;
+      border-bottom: 1px solid #f2e2b6;
+      font-size: 1em;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+    th {
+      background-color: #f9eabb;
+      color: #444;
+      font-weight: bold;
+      text-align: center;
+    }
+    /* Compact numeric columns */
+    th.compact-col, td.compact-col {
+      width: 68px;
+      min-width: 48px;
+      max-width: 80px;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-variant-numeric: tabular-nums;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    /* Product column - widest */
+    td.product-col {
+      text-align: left;
+      font-weight: 500;
+      min-width: 180px;
+      max-width: 320px;
+      width: 38%;
+      word-break: break-word;
+      white-space: normal;
+    }
+    .total {
+      text-align: right;
+      margin-top: 15px;
+      font-size: 1.15em;
+      font-weight: bold;
+      color: #3E9F50;
+    }
+    /* --- Actions (Buttons) --- */
+    .actions {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 30px;
+      margin-bottom: 36px;
+      width: 100%;
+    }
+    .actions .btn,
+    .actions .btn-clear {
+      min-width: 120px;
+      max-width: 170px;
+      width: auto !important;
+      font-size: 1em;
+      padding: 9px 18px;
+      margin: 0;
+      display: inline-block;
+      box-sizing: border-box;
+    }
+    .btn {
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      background: linear-gradient(90deg, #f7b733 0%, #fcf6ba 100%);
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(247,183,51, 0.14);
+      letter-spacing: 0.5px;
+      text-decoration: none;
+      transition: background 0.3s, transform 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover {
+      background: linear-gradient(90deg, #fcf6ba 0%, #f7b733 100%);
+      color: #b37900 !important;
+      transform: translateY(-2px) scale(1.03);
+      box-shadow: 0 6px 20px rgba(247,183,51, 0.20);
+    }
+    /* Hamburger & mobile nav styles */
+    .nav-toggle {
+      display: none;
+      font-size: 2rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    @media (max-width: 800px) {
+      .nav-toggle {
+        display: inline-block;
+        z-index: 1001;
+        position: absolute;
+        top: 18px;
+        right: 20px;
+      }
+      nav {
+        display: none;
+        flex-direction: column;
+        background: #fff;
+        position: absolute;
+        right: 0;
+        top: 60px;
+        width: 80vw;
+        border-radius: 0 0 0 20px;
+        box-shadow: 0 10px 32px #ccc;
+        padding: 30px 0;
+        z-index: 1000;
+      }
+      nav.active {
+        display: flex !important;
+      }
+      nav a {
+        margin: 12px 0;
+        font-size: 1.3em;
+        padding-left: 28px;
+        color: #333;
+        border-bottom: 1px solid #eee;
+        width: 100%;
+        display: block;
+        text-align: left;
+      }
+      nav span {
+        display: block;
+        padding-left: 28px;
+        margin: 12px 0 0 0;
+      }
+    }
+    @media (max-width: 700px) {
+      .container {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        box-sizing: border-box !important;
+      }
+      .table-wrapper {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        margin-left: 0 !important;
+      }
+      table {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        table-layout: fixed !important;
+      }
+      th.col-desc, td.col-desc, th.col-unit, td.col-unit, th.col-total-deposit, td.col-total-deposit {
+        display: none !important;
+      }
+      td.product-col {
+        width: 40% !important;
+        min-width: 80px !important;
+        max-width: 140px !important;
+        white-space: nowrap !important;
+      }
+      table {
+        table-layout: fixed !important;
+      }
+      th, td {
+        padding: 8px 6px !important;
+        font-size: 0.9em !important;
+      }
+      .actions {
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 12px !important;
+      }
+      .actions .btn, .actions .btn-clear {
+        width: 80vw !important;
+        max-width: 96vw !important;
+        min-width: 0 !important;
+      }
+    }
+    @media (max-width: 900px) {
+      .container { padding: 18px 5vw; }
+      table th, table td { font-size: 0.98em; }
+      .btn, .btn-clear { width: 100%; margin: 10px 0; }
+    }
+    /* === Logo Styles from index.html === */
+    .logo-container {
+      display: none;
+    }
+    .desktop-logo {
+      display: block;
+    }
+    .brand-name {
+      font-size: 1.8em;
+      font-weight: bold;
+      color: white;
+      white-space: nowrap;
+    }
+    .site-logo {
+      height: 48px;
+      max-width: 48px;
+      object-fit: contain;
+      vertical-align: middle;
+    }
+    @media (max-width: 768px) {
+      header {
+        height: 56px;
+      }
+      .desktop-logo {
+        display: none;
+      }
+      .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        white-space: nowrap;
+        padding: 4px 12px;
+        height: 56px;
+        margin-left: 10px;
+      }
+      .site-logo {
+        height: auto;
+        max-height: 36px;
+        object-fit: contain;
+      }
+      .brand-name {
+        font-size: 1.3em;
+      }
+    }
+    /* --- Sticky Footer and Mobile Nav --- */
+    footer {
+      margin-top: 48px;
+      width: 100vw;
+      background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
+      color: #6b5100;
+      text-align: center;
+      font-size: 1.08em;
+      padding: 18px 0 5px 0;
+      letter-spacing: 0.01em;
+      font-family: inherit;
+      flex-shrink: 0;
+      display: block;
+    }
+    .footer-contacts { display: inline; }
+    .footer-contacts a { color: #6b5100; text-decoration: underline; }
+    .footer-contacts a:hover { color: #a58512; }
+
+    /* Floating mobile nav/footer */
+    footer.mobile-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 1002;
+      background: linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);
+      color: #6b5100;
+      box-shadow: 0 -3px 14px #e6d0773d;
+      display: none;
+      justify-content: space-around;
+      align-items: center;
+      padding: 8px 0 4px 0;
+      font-size: 1.55em;
+    }
+    footer.mobile-nav a {
+      color: #6b5100;
+      text-decoration: none;
+      font-size: 1.1em;
+      padding: 2px 13px 0 13px;
+      display: inline-block;
+      background: none;
+      border: none;
+      outline: none;
+    }
+    footer.mobile-nav a:hover { color: #ad890b; }
+    /* Only show mobile nav on small screens */
+    @media (max-width: 700px) {
+      footer:not(.mobile-nav) { display: none !important; }
+      footer.mobile-nav { display: flex !important; }
+    }
+  /* --- Cart icon badge (match cart.html style) --- */
+    .cart-icon { position: relative; display: inline-block; }
+    .cart-count-badge {
+      position: absolute;
+      top: -6px;
+      right: -10px;
+      min-width: 18px;
+      height: 18px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #e53935;
+      color: #fff;
+      font-size: 12px;
+      line-height: 14px;
+      display: none; /* shown via JS when count > 0 */
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 0 2px #fff; /* halo like in cart.html */
+    }
+
+    /* --- Subtle input polish --- */
+    .user-details-card input,
+    .user-details-card textarea {
+      border: 1px solid #e6d8a3;
+      border-radius: 8px;
+      background: #fff;
+      outline: none;
+      transition: box-shadow .15s ease, border-color .15s ease;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+      font-size: 0.98em;
+    }
+    .user-details-card input[readonly] {
+      background: #fcfbf3; /* hint readonly */
+      color: #555;
+    }
+    .user-details-card input:focus,
+    .user-details-card textarea:focus {
+      border-color: #f7b733;
+      box-shadow: 0 0 0 3px rgba(247,183,51,0.25);
+    }
+    .user-details-card label { font-weight: 600; color:#3d3d3d; }
+</style>
+</head>
+<body>
+<header>
+<div class="header-bar">
+<h1 class="desktop-logo">
+<img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
+  WattSun Solar
+</h1>
+<div class="logo-container">
+<img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
+<span class="brand-name">WattSun Solar</span>
+</div>
+<button aria-label="Menu" class="nav-toggle" onclick="toggleNav()">☰</button>
+</div>
+<nav id="mainNav">
+<a href="index.html">Home</a>
+<a href="solutions.html">Solutions</a>
+<a href="shop.html">Shop</a>
+<a href="calculators/calculator.html">Calculator</a>
+<a href="financing.html">Financing</a>
+<a href="projects.html">Projects</a>
+<a href="contact.html">Contact</a>
+<!-- Cart Icon START -->
+<a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
+<span class="cart-icon">
+          🛒
+          <span class="cart-count-badge" id="cart-count-badge">0</span>
+</span>
+</a>
+<!-- Cart Icon END -->
+</nav>
+</header>
+<div class="page-content">
+<div class="container">
+<h2>Checkout</h2>
+<div class="table-wrapper">
+<table id="cartTable">
+<thead>
+<tr>
+<th>Product</th>
+<th>Description</th>
+<th class="compact-col">Qty</th>
+<th class="compact-col">Price (KES)</th>
+<th class="compact-col">Deposit (KES)</th>
+<th class="compact-col">Total (KES)</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+<div class="checkout-container">
+    <h3>Checkout Details</h3>
+    <form id="checkout-form">
+        
+<div class="user-details-card" style="border:1px solid #ddd; border-radius:8px; padding:15px; margin-top:20px; background:#fafafa;; padding:20px; max-width:900px; margin:20px auto">
+  <h3 style="margin-top:0;">Your Details</h3>
+  <label for="fullName">Full Name</label>
+  <input type="text" id="fullName" name="fullName" readonly style="width:100%; padding:8px; margin-bottom:10px;" readonly>
+
+  <label for="email">Email Address</label>
+  <input type="email" id="email" name="email" readonly style="width:100%; padding:8px; margin-bottom:10px;" readonly>
+
+  <label for="phone">Phone Number</label>
+  <input type="tel" id="phone" name="phone" readonly style="width:100%; padding:8px; margin-bottom:10px;" readonly>
+
+  <label for="address">Delivery Address</label>
+  <textarea id="address" name="address" required style="width:100%; padding:8px;" required></textarea>
+</div>
+
+
+        <div class="total-deposit" style="text-align:right; font-weight:bold; margin-top:10px;">
+            Total Deposit: <span id="total-deposit-amount">KES 0</span>
+        </div>
+
+        <div class="actions">
+          <button class="btn" type="submit" id="placeOrderBtn">Place Order</button>
+          <button class="btn btn-clear" id="clearCartBtn" style="display:none;" type="button">Back to Shop</button>
+        </div>
+        </form>
+</div>
+
+<div class="total" id="totalAmount">Total Deposit: KES 0</div>
+</div>
+</div>
+<footer>
+    © 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
+</footer>
+<footer class="mobile-nav">
+  <a aria-label="Home" href="index.html">🏠</a>
+  <a aria-label="Account" href="account.html">👤</a>
+  <a aria-label="Cart" href="cart.html">🛒<span id="cart-count">0</span></a>
+  <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
+</footer>
+<script>
+    // Hamburger menu logic
+    function toggleNav() {
+      var nav = document.getElementById("mainNav");
+      nav.classList.toggle("active");
+    }
+    window.addEventListener('resize', function() {
+      if (window.innerWidth > 800) {
+        document.getElementById("mainNav").classList.remove("active");
+      }
+    });
+
+    // --- CART BADGE LOGIC ---
+    function updateCartCountBadge() {
+      let count = 0;
+      try {
+        const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+        count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+      } catch(e){}
+      const badge = document.getElementById('cart-count-badge');
+      const mobileCount = document.getElementById('cart-count');
+      if (badge) {
+        if (count > 0) {
+          badge.textContent = count;
+          badge.style.display = 'flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+      if (mobileCount) {
+        mobileCount.textContent = count;
+      }
+    }
+    document.addEventListener('DOMContentLoaded', updateCartCountBadge);
+    window.addEventListener('storage', updateCartCountBadge);
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // ---------- Helpers ----------
+  function getCurrentUser() {
+    try {
+      const raw = localStorage.getItem('wattsunUser');
+      const parsed = JSON.parse(raw || "null");
+      return parsed && parsed.success ? parsed.user : null;
+    } catch { return null; }
+  }
+  function getCart() {
+    try { return JSON.parse(localStorage.getItem("cart") || "[]"); }
+    catch { return []; }
+  }
+  function formatKES(n){ try { return Number(n||0).toLocaleString(); } catch { return String(n||0); } }
+
+  async function postCheckout(payload, rawCart, customerAddress){
+    // Attempt 1: ADR-001 preferred path
+    let res = await fetch("/api/cart/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept":"application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    // If 404, try legacy endpoint with same body
+    if (res.status === 404) {
+      res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept":"application/json" },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    // Parse JSON if possible
+    let ct = res.headers.get("content-type") || "";
+    let data = null;
+    if (ct.includes("application/json")) {
+      try { data = await res.json(); } catch { data = null; }
+    }
+
+    // Second-chance legacy shape if backend says required fields/cart missing
+    const msg = (data && (data.message || data.error?.message || "")) || "";
+    if ((res.status === 400 && /required|cart/i.test(msg)) || (res.status === 400 && !data)) {
+      // --- Second attempt: legacy JSON body { name,email,phone,address,cart } ---
+      const legacyCart = (rawCart||[]).map(it => ({
+        id: it.productId || it.id || it.sku || it.name,
+        sku: it.sku,
+        name: it.name || it.sku || it.id || "",
+        price: Number(it.price)||0,
+        deposit: Number(it.deposit)||0,
+        quantity: Number(it.quantity)||1,
+        image: it.image || it.img || it.picture || ""
+      }));
+      const legacyBody = {
+        name: payload.customer?.fullName || "",
+        email: payload.customer?.email || "",
+        phone: payload.customer?.phone || "",
+        address: customerAddress || "",
+        cart: legacyCart,
+        notes: payload.notes || ""
+      };
+      res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept":"application/json" },
+        body: JSON.stringify(legacyBody)
+      });
+      ct = res.headers.get("content-type") || "";
+      data = ct.includes("application/json") ? await res.json() : null;
+
+      // --- Third attempt: urlencoded form (server may only parse urlencoded) ---
+      const stillMissing = (res.status === 400) && (
+        !data || /required|cart/i.test((data.message || data.error?.message || ""))
+      );
+      if (stillMissing) {
+        const form = new URLSearchParams();
+        form.append("name", legacyBody.name);
+        form.append("fullName", legacyBody.name); // in case server expects this key
+        form.append("email", legacyBody.email);
+        form.append("phone", legacyBody.phone);
+        form.append("address", legacyBody.address);
+        form.append("cart", JSON.stringify(legacyBody.cart));
+        form.append("notes", legacyBody.notes || "");
+        res = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept":"application/json" },
+          body: form.toString()
+        });
+        ct = res.headers.get("content-type") || "";
+        data = ct.includes("application/json") ? await res.json() : null;
+      }
+    }
+
+    if (!ct.includes("application/json") && !data) {
+      throw new Error(`Checkout failed (${res.status}). Server did not return JSON.`);
+    }
+
+    return { res, data };
+  }
+
+  // ---------- Gate: must be logged in ----------
+  const user = getCurrentUser();
+  if (!user) {
+    // Remember the intended destination in this tab and go to homepage with login modal
+try { sessionStorage.setItem("redirectAfterLogin", "/checkout.html"); } catch(e) {}
+window.location.href = "/index.html?login=1&next=/checkout.html";
+return; // ensure the guarded code after this does not run
+
+  }
+
+  // ---------- Prefill readonly fields ----------
+  const fullNameInput = document.getElementById("fullName");
+  const emailInput    = document.getElementById("email");
+  const phoneInput    = document.getElementById("phone");
+  if (fullNameInput) fullNameInput.value = user.name || user.fullName || "";
+  if (emailInput)    emailInput.value    = user.email || "";
+  if (phoneInput)    phoneInput.value    = user.phone || "";
+
+  // ---------- Render cart table + totals ----------
+  const cartTableBody = document.querySelector("#cartTable tbody");
+  const totalDisplay  = document.getElementById("totalAmount");
+  const totalTopEl    = document.getElementById("total-deposit-amount");
+  const clearCartBtn  = document.getElementById("clearCartBtn");
+
+  function renderCart() {
+    const cart = getCart();
+    cartTableBody.innerHTML = "";
+    let totalDeposit = 0;
+
+    cart.forEach(item => {
+      const qty = Number(item.quantity)||1;
+      const price = Number(item.price)||0;
+      const deposit = Number(item.deposit)||0;
+      const totalPrice = price * qty;
+      const totalItemDeposit = deposit * qty;
+      totalDeposit += totalItemDeposit;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="product-col">${item.name || item.sku || item.id || ""}</td>
+        <td class="product-col">${item.description || ""}</td>
+        <td class="compact-col">${qty}</td>
+        <td class="compact-col">${formatKES(price)}</td>
+        <td class="compact-col">${formatKES(deposit)}</td>
+        <td class="compact-col">${formatKES(totalPrice)}</td>
+      `;
+      cartTableBody.appendChild(tr);
+    });
+
+    totalDisplay.textContent = "Total Deposit: KES " + formatKES(totalDeposit);
+    if (totalTopEl) totalTopEl.textContent = "KES " + formatKES(totalDeposit);
+    clearCartBtn.style.display = getCart().length ? "inline-block" : "none";
+  }
+
+  renderCart();
+
+  // Clear cart
+  clearCartBtn.addEventListener("click", () => { window.location.href = "shop.html"; });
+// ---------- Legacy checkout post (urlencoded first, then JSON) ----------
+  async function postLegacyCheckout(orderData) {
+    // 1) Try urlencoded first
+    const formBody = new URLSearchParams();
+    formBody.set("fullName", orderData.fullName || "");
+    formBody.set("email", orderData.email || "");
+    formBody.set("phone", (orderData.phone || "").toString());
+    formBody.set("address", orderData.address || "");
+    formBody.set("cart", JSON.stringify(orderData.cart || []));
+    formBody.set("cart_summary", orderData.cart_summary || "");
+
+    let res = await fetch("/api/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
+      body: formBody.toString()
+    });
+    let ct = res.headers.get("content-type") || "";
+    let data = ct.includes("application/json") ? await res.json() : null;
+
+    // 2) Fallback: JSON
+    if (!data || !(data.status === "success" || data.success === true)) {
+      res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept":"application/json" },
+        body: JSON.stringify(orderData)
+      });
+      ct = res.headers.get("content-type") || "";
+      data = ct.includes("application/json") ? await res.json() : null;
+    }
+
+    return { res, data };
+  }
+
+  // ---------- Submit: legacy /api/checkout payload ----------
+  const form = document.getElementById("checkout-form");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const address = (document.getElementById("address")?.value || "").trim();
+    const cart = getCart();
+
+    if (!cart.length) { alert("Your cart is empty."); return; }
+    if (!address)     { alert("Please enter your delivery address."); return; }
+
+    // Normalize cart for legacy backend (display logic untouched)
+    const legacyCart = cart.map(it => ({
+      id: it.productId || it.id || it.sku || it.code || it.name,
+      sku: it.sku,
+      name: it.name || it.sku || it.id || "",
+      price: Number(it.price)||0,
+      deposit: Number(it.deposit)||0,
+      quantity: Number(it.quantity)||1,
+      image: it.image || it.img || it.picture || ""
+    }));
+
+    const cartSummaryArr = legacyCart.map(item =>
+      `${item.name || item.sku || item.id || "Item"} (x${Number(item.quantity)||1}): Price ${item.price}, Deposit ${item.deposit}`
+    );
+
+    const orderData = {
+      fullName: fullNameInput?.value || (user && (user.name || user.fullName)) || "",
+      email:    emailInput?.value    || (user && user.email) || "",
+      phone:    phoneInput?.value    || (user && user.phone) || "",
+      address:  address,
+      cart:     legacyCart,
+      cart_summary: cartSummaryArr.join("\\n")
+    };
+
+    try {
+      const { res, data } = await postLegacyCheckout(orderData);
+      const ok = (res.ok && (data && (data.status === "success" || data.success === true)));
+      if (!ok) {
+        console.error("Checkout failed:", data);
+        alert(data?.message || data?.error?.message || "Checkout failed. Please try again.");
+        return;
+      }
+
+      const orderNumber = data.orderNumber || data.order?.orderNumber || data.order?.id || "";
+      sessionStorage.setItem("orderNumber", orderNumber);
+      sessionStorage.setItem("customerName", orderData.fullName);
+      localStorage.removeItem("cart");
+      updateCartCountBadge();
+      window.location.href = "thankyou.html";
+    } catch (err) {
+      console.error("Checkout error", err);
+      alert("Network error during checkout. Please try again.");
+    }
+  });
+});
+</script>
+<script src="/js/money.js"></script>
+</body>
+</html>

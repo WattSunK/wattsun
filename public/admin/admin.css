@@ -1,0 +1,521 @@
+/* WattSun Admin Skin — Light + Golden (consolidated) */
+/* ==================================================================
+   Design tokens
+   ================================================================== */
+:root {
+  --ws-bg: #f9fafb;
+  --ws-panel: #ffffff;
+  --ws-text: #1f2937;
+  --ws-muted: #6b7280;
+  --ws-border: #e5e7eb;
+  --ws-gold: #c58f00;
+  --ws-gold-600: #b07f00;
+  --ws-gold-50: #fff8e6;
+  --ws-focus: #0ea5e9;
+  --radius: 14px;
+  --shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
+  --shadow-soft: 0 2px 10px rgba(17, 24, 39, 0.06);
+}
+
+/* ==================================================================
+   Shell layout
+   ================================================================== */
+body.admin-shell {
+  margin:0;
+  display:grid;
+  grid-template-columns:260px 1fr;
+  grid-template-rows:100vh;
+  background:var(--ws-bg);
+  color:var(--ws-text);
+  font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
+}
+
+.admin-sidebar {
+  background:linear-gradient(180deg,var(--ws-gold-50),#fff);
+  border-right:1px solid var(--ws-border);
+  padding:20px 16px;
+}
+.brand { display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.brand-logo { width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:var(--ws-gold);color:#fff;font-size:18px;box-shadow:var(--shadow-soft);}
+.brand-title { font-weight:700;letter-spacing:.3px;}
+.admin-nav { display:grid;gap:6px;}
+.nav-link {
+  display:block;padding:10px 12px;border-radius:10px;color:var(--ws-text);
+  text-decoration:none;border:1px solid transparent;transition:background .18s ease,border-color .18s ease;
+}
+.nav-link:is(:hover,:focus) { background:var(--ws-gold-50);border-color:var(--ws-border);outline:none;}
+.nav-link.is-active { background:#fff;border-color:var(--ws-gold);box-shadow:inset 0 0 0 1px var(--ws-gold);}
+
+.admin-main { display:grid;grid-template-rows:auto 1fr;min-width:0;}
+.admin-topbar { display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--ws-panel);border-bottom:1px solid var(--ws-border);}
+.page-title { margin:0;font-size:18px;font-weight:700;}
+.topbar-actions { display:flex;gap:10px;}
+.admin-content { padding:18px;overflow:auto;}
+
+/* ==================================================================
+   Globals: buttons, focus, helpers
+   ================================================================== */
+.loading { display:flex;align-items:center;gap:10px;color:var(--ws-muted);}
+.spinner { width:16px;height:16px;border-radius:50%;border:2px solid var(--ws-border);border-top-color:var(--ws-gold);animation:s 1s linear infinite;}
+@keyframes s { to{ transform:rotate(360deg);} }
+
+.btn { appearance:none;border:1px solid var(--ws-border);background:#fff;padding:8px 12px;border-radius:10px;cursor:pointer;box-shadow:var(--shadow-soft); }
+.btn:hover { border-color:var(--ws-gold); }
+.btn-ghost { background:transparent; }
+.btn-primary { background:var(--ws-gold);border-color:var(--ws-gold);color:#fff; }
+.btn-primary:hover { background:var(--ws-gold-600);border-color:var(--ws-gold-600); }
+.btn.small, .btn-sm { padding:6px 10px; border-radius:8px; font-size:13px; }
+
+:focus-visible { outline:2px solid var(--ws-focus);outline-offset:2px;}
+.sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,1px,1px);white-space:nowrap;border:0;}
+
+.muted{color:var(--ws-muted)}
+.danger{color:#ef4444}
+.vspace-8{height:8px}
+.mx-auto{margin-left:auto;margin-right:auto}
+.my-6{margin-top:6px;margin-bottom:6px}
+.w-60{width:60%}.w-40{width:40%}
+.w-90{width:90px}
+
+/* ==================================================================
+   Cards
+   ================================================================== */
+.card {
+  background: var(--ws-panel);
+  border: 1px solid var(--ws-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+}
+.card-header {
+  padding: 12px 16px;
+  font-weight: 600;
+}
+.card-body {
+  padding: 12px 16px 16px;
+}
+
+.card-header--tight{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;border-bottom:1px solid var(--ws-border)}
+.card-body--tight{padding:0 12px 12px}
+.h2{margin:0;font-size:18px;font-weight:600}
+
+/* Small helpers used inside cards */
+.card .actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+.card .links   { margin-top: 8px;  font-size: .95rem; }
+
+/* ==================================================================
+   Dashboard 3-card layout
+   ================================================================== */
+.dash-cards {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+  margin-top: 12px;
+}
+@media (min-width: 1000px) {
+  .dash-cards { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+/* ==================================================================
+   Tables
+   ================================================================== */
+.table-wrap { background:var(--ws-panel);border:1px solid var(--ws-border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+.table { width:100%;border-collapse:separate;border-spacing:0;}
+.table thead th { text-align:left;padding:12px;background:#fff9ed;color:#5b4b1a;border-bottom:1px solid var(--ws-border);font-weight:700;}
+.table tbody td { padding:10px 12px;border-bottom:1px solid var(--ws-border);}
+.table tbody tr:hover { background:#fffdfa;}
+
+/* ==================================================================
+   Forms / Inputs
+   ================================================================== */
+.input,
+select.input,
+textarea.input {
+  display:block;
+  width:100%;
+  max-width:480px;
+  box-sizing:border-box;
+  padding:8px 10px;
+  border:1px solid var(--ws-border);
+  border-radius:6px;
+  font-size:14px;
+  line-height:1.4;
+  background-color:#fff;
+  color:#111827;
+  transition:border-color .2s, box-shadow .2s;
+}
+.input:focus, select.input:focus, textarea.input:focus {
+  outline:none;
+  border-color:#f59e0b;
+  box-shadow:0 0 0 2px rgba(245,158,11,.2);
+}
+
+.form-group{margin:8px 0}
+.form-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.actions{display:flex;gap:10px}
+.help{color:var(--ws-muted)}
+
+/* Input variations */
+.input--search{padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;width:240px}
+.select--driver{min-width:200px;padding:6px 8px;border:1px solid #d1d5db;border-radius:8px;background:#fff}
+
+/* ==================================================================
+   Filters Bar + Pager (single source of truth)
+   ================================================================== */
+.filters-bar {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  background:var(--ws-panel);
+  border:1px solid var(--ws-border);
+  border-radius:var(--radius);
+  padding:10px;
+  margin:12px 0;
+  box-shadow:var(--shadow-soft);
+}
+.filters-bar .group{display:grid;gap:4px}
+.filters-bar .group label{ color:var(--ws-muted); font-size:12px; }
+.filters-bar .spacer{flex:1}
+.filters-bar input[type="text"],
+.filters-bar input[type="search"],
+.filters-bar input[type="date"],
+.filters-bar select {
+  padding:6px 10px;
+  border:1px solid var(--ws-border);
+  border-radius:10px;
+  background:#fff;
+  min-width:160px;
+  font-size:.95rem;
+}
+
+.pager{display:flex;align-items:center;gap:8px}
+.page-indicator{min-width:2ch;text-align:center}
+.pager button { height:34px;min-width:34px;border-radius:10px; }
+
+/* ==================================================================
+   Toasts
+   ================================================================== */
+.toasts { position: fixed; right: 16px; bottom: 16px; display:flex; flex-direction:column; gap:8px; z-index: 9999; }
+.toast { opacity: 0; transform: translateY(8px); transition: .25s; padding: 10px 12px; border-radius: 8px; background:#1f2937; color:#fff; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.success { background:#065f46; }
+.toast.error   { background:#7f1d1d; }
+.toast.info    { background:#1f2937; }
+
+/* ==================================================================
+   Modal (native <dialog> confirm) — existing
+   ================================================================== */
+.modal::backdrop { background: rgba(0,0,0,.35); }
+.modal-card { width: min(560px, 94vw); background:#fff; border-radius:12px; padding:16px; border:1px solid var(--ws-border); box-shadow: var(--shadow); }
+.modal-title { font-weight:700; margin-bottom:8px; }
+.modal-body { color:#4b5563; margin-bottom:12px; }
+.modal-actions { display:flex; justify-content:flex-end; gap:8px; }
+
+/* ==================================================================
+   Modal (overlay style) — used by Dispatch details
+   ================================================================== */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;display:none;align-items:flex-start;justify-content:center}
+.modal-backdrop.is-open{display:flex}
+.modal-card{width:96%;max-width:640px;margin-top:6%;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);overflow:hidden;border:1px solid var(--ws-border)}
+.modal-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--ws-border)}
+/* (re-use .modal-body, .modal-footer from above confirm modal) */
+.modal-footer{display:flex;justify-content:flex-end;gap:10px;padding:12px 16px;border-top:1px solid var(--ws-border)}
+
+/* ==================================================================
+   Skeletons & loading
+   ================================================================== */
+.skel { background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 37%, #f3f4f6 63%); background-size: 400% 100%; animation: skel 1.4s ease infinite; border-radius:8px; }
+@keyframes skel { 0%{background-position:100% 50%} 100%{background-position:0 50%} }
+.skel-row { height: 14px; margin:8px 0; }
+.skel-block { height: 120px; }
+
+.btn.is-loading { position: relative; color: transparent !important; }
+.btn.is-loading::after {
+  content:""; position:absolute; inset:0; margin:auto; width:16px; height:16px; border-radius:50%;
+  border:2px solid currentColor; border-right-color: transparent; animation: spin .6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ==================================================================
+   Empty state & banners
+   ================================================================== */
+.empty { padding:24px; text-align:center; color:var(--ws-muted); }
+.empty .title { font-weight:700; margin-bottom:6px; }
+
+.banner { padding:10px 12px; border-radius:8px; display:flex; gap:10px; align-items:center; border: 1px solid transparent; }
+.banner.error { background:#fef2f2; border-color:#fecaca; color:#7f1d1d; }
+.banner .spacer { flex:1; }
+
+/* ==================================================================
+   Secondary (page-local) tabs used in Profile
+   ================================================================== */
+.subtabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.subtab{
+  appearance:none;border:1px solid #f3c94a;background:#fff8e6;color:#7a5b00;
+  padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600;
+  box-shadow:0 1px 0 #f5e0a6 inset
+}
+.subtab:hover,.subtab:focus{outline:none;border-color:#d7a900;background:#fff3d1}
+.subtab.is-active{
+  background:#ffc400;color:#1f2937;border-color:#ffb100;box-shadow:inset 0 0 0 1px #ffb100
+}
+.tabpanels{background:#fff;border:1px solid var(--ws-border);border-radius:12px;box-shadow:var(--shadow-soft)}
+.tabpanel{padding:16px}
+.tabpanel[hidden]{display:none}
+
+/* ==================================================================
+   Orders modal grid helpers
+   ================================================================== */
+.ws-order-dialog{min-width:min(680px,95vw);border:none}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-full{grid-column:1/-1}
+.grid--order-info{display:grid;grid-template-columns:160px 1fr;row-gap:8px;column-gap:12px}
+.label-muted{color:#6b7280}
+
+
+/* Normalize anchor buttons to match <button class="btn"> */
+a.btn, a.btn:link, a.btn:visited { color: inherit; text-decoration: none; }
+a.btn:hover, a.btn:focus { text-decoration: none; }
+a.btn { display: inline-flex; align-items: center; justify-content: center; }
+
+
+.btn-danger{background:#ef4444;border-color:#ef4444;color:#fff;}
+.btn-danger:hover{background:#dc2626;border-color:#dc2626;}
+
+/* ===== Orders: modern <dialog> view/edit ===== */
+#orderViewModal, #orderEditModal { padding:0; border:0; background:transparent; }
+#orderViewModal::backdrop, #orderEditModal::backdrop { background: rgba(0,0,0,.35); }
+
+/* View modal uses .modal-card; Edit modal uses .ws-modal-card */
+#orderViewModal .modal-card,
+#orderEditModal .ws-modal-card {
+  width: min(640px, 96vw);
+  max-height: 85vh;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px 16px;
+  border: 1px solid var(--ws-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+/* Ensure inputs in both modals expand nicely */
+#orderViewModal .input,
+#orderEditModal .ws-input,
+#orderEditModal .ws-select,
+#orderEditModal .ws-textarea {
+  width: 100%;
+}
+
+/* ===== Add Order: custom overlay (.ws-modal) ===== */
+.hidden { display: none !important; }
+
+.ws-modal { position: fixed; inset: 0; z-index: 1000; display: none; }
+.ws-modal.is-open { display: block; }  /* orders-add.js may toggle this */
+.ws-modal__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.35); }
+
+.ws-modal__card {
+  position: relative;
+  margin: 6% auto 0;
+  width: min(720px, 95vw);
+  background: #fff;
+  border: 1px solid var(--ws-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.ws-modal__header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--ws-border);
+}
+.ws-modal__body   { padding: 12px 16px; }
+.ws-modal__footer {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 12px 16px; border-top: 1px solid var(--ws-border);
+}
+
+/* Add form chunks */
+.ws-fieldset {
+  border: 1px solid var(--ws-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 10px 0;
+}
+.ws-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+@media (max-width: 700px) { .ws-grid { grid-template-columns: 1fr; } }
+.ws-field { display: flex; flex-direction: column; gap: 6px; }
+
+/* Table used in Add modal (items) */
+.ws-table-wrap { overflow: auto; border: 1px solid var(--ws-border); border-radius: 8px; }
+.ws-table { width: 100%; border-collapse: collapse; }
+.ws-table th, .ws-table td { padding: 8px 10px; border-bottom: 1px solid var(--ws-border); }
+.ws-hint { color: var(--ws-muted); font-size: .9rem; margin-top: 6px; }
+
+/* Dispatch-only pager parity */
+#dispatch-root .pager { display:flex; align-items:center; gap:8px; }
+#dispatch-root .pager.row { justify-content:space-between; }
+#dispatch-root .pager .col { display:flex; align-items:center; gap:8px; }
+#dispatch-root .pager .col--right { justify-content:flex-end; margin-left:auto; }
+#dispatch-root .pager .btn { height:34px; min-width:34px; border-radius:10px; }
+
+/* Dispatch Edit Modal (scoped) */
+#dispatch-edit { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.38); z-index: 1000; }
+#dispatch-edit.show { display: flex; }
+#dispatch-edit .modal-sheet { background: #fff; color: var(--fg, #222); border-radius: 12px; padding: 16px; min-width: 420px; max-width: 92vw; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+#dispatch-edit .modal-title { margin: 0 0 12px 0; font-size: 18px; }
+#dispatch-edit .row { display: flex; gap: 12px; align-items: center; margin: 8px 0; }
+#dispatch-edit .row > label { min-width: 110px; }
+#dispatch-edit .row.right { justify-content: flex-end; }
+#dispatch-edit .input { flex: 1; }
+#dispatch-edit .check { display: flex; align-items: center; gap: 6px; }
+
+/* Dispatch Edit Modal — History (scoped) */
+#dispatch-edit .history { display: none; max-height: 240px; overflow: auto; background: #fafafa; border: 1px solid #eee; border-radius: 10px; padding: 8px; }
+#dispatch-edit .history.show { display: block; }
+#dispatch-edit .history .item { display: grid; grid-template-columns: 160px 1fr auto; gap: 8px 12px; padding: 8px 0; border-top: 1px dashed #e8e8e8; }
+#dispatch-edit .history .item.first { border-top: 0; padding-top: 0; }
+#dispatch-edit .history .when { color: var(--ws-muted, #666); font-size: .9rem; }
+#dispatch-edit .history .change { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+#dispatch-edit .history .who { color: var(--ws-muted, #666); font-size: .9rem; }
+#dispatch-edit .history .note { grid-column: 1 / -1; margin-top: 2px; font-size: .95rem; color: #333; background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 6px 8px; }
+#dispatch-edit .history .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid #e1e1e1; background: #f6f6f6; font-size: .85rem; }
+#dispatch-edit .history .badge--new { background: #eef6ff; border-color: #d7e9ff; }
+#dispatch-edit .history .arrow { opacity: .7; }
+#dispatch-edit .history .empty, #dispatch-edit .history .loading, #dispatch-edit .history .error { color: #666; padding: 8px; }
+
+#dispatch-edit .history + .row .btn { margin-right: 6px; }
+
+/* ============================
+   Orders → Edit Modal + History
+   ============================ */
+
+/* Ensure the modal card has comfortable spacing in the edit dialog */
+#orderEditModal .modal-card {
+  width: min(640px, 96vw);
+  max-height: 85vh;
+  overflow: auto;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--ws-border);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+/* Your HTML uses .card-content; match it to .card-body spacing */
+.card-content { padding: 12px 16px 16px; }
+
+/* History card spacing inside the modal */
+#order-history {
+  margin: 10px 0 12px;
+}
+
+/* Header look consistent with other cards */
+#order-history .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ws-border);
+  background: #fff;
+}
+#order-history .card-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* Scrollable list of entries with soft item surfaces */
+#order-history .history-list {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;         /* adjust if you want more */
+  overflow: auto;
+  padding: 6px 2px 2px;
+}
+#order-history .history-item {
+  padding: 8px 10px;
+  border: 1px solid var(--ws-border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--ws-text);
+}
+
+/* Actions row (Load more / Export) */
+#order-history .history-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+#order-history .history-actions .btn {
+  height: 32px;
+  min-width: 34px;
+  border-radius: 8px;
+}
+
+/* Small screens: let the history breathe */
+@media (max-width: 520px) {
+  #order-history .card-content { padding: 10px 12px 12px; }
+  #order-history .history-list { max-height: 220px; }
+}
+
+/* Generic modal sizing that fits the viewport */
+.modal { padding: 0; border: 0; }
+
+.modal::backdrop {
+  background: rgba(0,0,0,.35);
+}
+
+/* The card is a vertical flex container */
+.modal .modal-card {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 92vw);
+  max-height: 90vh;             /* <-- keeps the whole modal within viewport */
+  overflow: hidden;             /* clip internal overflow to body area */
+  border-radius: 12px;
+}
+
+/* Header & footer stay fixed; body flexes */
+.modal .modal-header,
+.modal .modal-footer {
+  flex: 0 0 auto;
+  padding: 16px 20px;
+}
+
+/* Body takes remaining space and scrolls if needed */
+.modal .modal-body {
+  flex: 1 1 auto;
+  overflow: auto;               /* <-- only this area scrolls */
+  padding: 16px 20px;
+}
+
+/* Keep actions aligned like Orders */
+.modal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
+  border-top: 1px solid var(--border, #e5e7eb);
+}
+
+/* Inputs fill available width inside their cell */
+.modal .modal-body .input,
+.modal .modal-body input[type="text"],
+.modal .modal-body input[type="email"],
+.modal .modal-body input[type="tel"],
+.modal .modal-body select {
+  width: 100%;
+  box-sizing: border-box;
+}

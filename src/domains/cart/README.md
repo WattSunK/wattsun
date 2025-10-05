@@ -1,0 +1,1 @@
+# src/domains/cart — placeholder

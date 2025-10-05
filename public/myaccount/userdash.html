@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WattSun – My Account</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="/main.css"/>
+  <style>
+    :root{
+      --ws-bg:#f5f6fa; --ws-card:#fff; --ws-border:#e9e9ef; --ws-shadow:0 6px 18px rgba(0,0,0,.06);
+      --ws-avatar:#fadb14; --ws-badge-bg:#d9f7be; --ws-badge-text:#389e0d;
+    }
+    body{margin:0;background:var(--ws-bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
+    .ws-container{display:flex;min-height:100vh;}
+    .ws-sidebar{width:220px;background:#f0f2f5;padding:20px 0;border-right:1px solid #ddd;}
+    .ws-sidebar ul{list-style:none;margin:0;padding:0;}
+    .ws-sidebar li{padding:12px 24px;cursor:pointer;color:#333;user-select:none;}
+    .ws-sidebar li.active{background:#fff;border-left:4px solid #2e7d32;padding-left:20px;font-weight:600;}
+    .ws-main{flex:1;display:flex;flex-direction:column;overflow:auto;}
+    .ws-header{background:var(--ws-card);padding:20px;border-bottom:1px solid var(--ws-border);box-shadow:var(--ws-shadow);}
+    .ws-main-inner{max-width:1180px;margin:0 auto;padding:20px;}
+
+    /* ✅ header summary card – renamed & scoped */
+    .ws-header-card{display:flex;align-items:center;gap:16px;background:var(--ws-card);border:1px solid var(--ws-border);
+      border-radius:12px;box-shadow:var(--ws-shadow);padding:16px 20px;margin:0 0 18px;}
+    .ws-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+      background:var(--ws-avatar);color:#000;font-weight:800;font-size:18px;user-select:none;}
+    .ws-user-meta .name{font-weight:700;}
+    .ws-user-meta .sub{color:#666;font-size:13px;}
+    .ws-badge{background:var(--ws-badge-bg);color:var(--ws-badge-text);font-weight:700;font-size:12px;line-height:1;
+      padding:4px 10px;border-radius:999px;border:1px solid #c2f0a2;margin-left:8px;}
+
+    #content-area{margin-top:12px;min-height:200px;}
+    .ws-empty{padding:14px 0;color:#888;}
+  </style>
+</head>
+<body>
+  <div class="ws-container">
+    <aside class="ws-sidebar">
+      <ul>
+        <li onclick="loadSection('profile')">Profile</li>
+        <li class="active" onclick="loadSection('orders')">Orders</li>
+        <li onclick="loadSection('addresses')">Manage Addresses</li>
+        <li onclick="loadSection('payments')">Payments</li>
+        <li onclick="loadSection('favorites')">Favorites</li>
+        <li onclick="loadSection('offers')">Offers</li>        
+        <li onclick="loadSection('help')">Help Center</li>
+      </ul>
+    </aside>
+
+    <main class="ws-main">
+      <header class="ws-header">
+        <div class="ws-main-inner">
+          <!-- ✅ renamed from ws-profile-card to ws-header-card -->
+          <section class="ws-header-card" id="profileCard">
+            <div class="ws-avatar" id="userAvatar">U</div>
+            <div class="ws-user-meta">
+              <div class="name" id="userName">User Name <span class="ws-badge" id="userRole">Customer</span></div>
+              <div class="sub" id="userEmail">user@email.com</div>
+              <div class="sub" id="lastLogin">Last login: —</div>
+            </div>
+            <button class="ws-logout" onclick="logout()" style="margin-left:auto;border:1px solid #e9e9ef;background:#fff;border-radius:8px;padding:8px 12px;cursor:pointer;">
+              Logout
+            </button>
+          </section>
+        </div>
+      </header>
+
+      <div class="ws-main-inner">
+        <div id="content-area"></div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    function getUser(){
+      try{const raw=localStorage.getItem('wattsunUser');return raw?JSON.parse(raw).user:null;}catch{return null;}
+    }
+    function logout(){ localStorage.removeItem('wattsunUser'); window.location.href='/'; }
+
+    function setSidebarActive(section){
+      document.querySelectorAll('.ws-sidebar li').forEach(li=>li.classList.remove('active'));
+      const el=[...document.querySelectorAll('.ws-sidebar li')].find(li=>li.textContent.toLowerCase().includes(section));
+      if(el) el.classList.add('active');
+    }
+
+    async function loadSection(section){
+      setSidebarActive(section);
+      const file={
+        profile:'/myaccount/profile.html',
+        orders:'/myaccount/myorders.html',
+        addresses:'/myaccount/addresses.html',
+        payments:'/myaccount/payments.html',
+        favorites:'/myaccount/favorites.html',
+        offers:'/myaccount/offers.html',
+        help:'/myaccount/help.html'
+      }[section];
+      if(!file) return;
+
+      try{
+        const res = await fetch(file, {cache:'no-cache'});
+        if(!res.ok) throw new Error('Cannot GET '+file);
+        document.getElementById('content-area').innerHTML = await res.text();
+
+        if (section === 'profile') {
+          const mod = await import('/js/myaccount.js?ts='+Date.now());
+          const fn = (mod && (mod.initMyAccountProfile || (mod.default && mod.default.initMyAccountProfile)))
+                    || (typeof window.initMyAccountProfile==='function' && window.initMyAccountProfile);
+          if (typeof fn === 'function') fn();
+        }
+        if (section === 'orders') {
+          const mod = await import('/js/myorders.js?ts='+Date.now());
+          const fn = (mod && (mod.initMyOrders || (mod.default && mod.default.initMyOrders)))
+                    || (typeof window.initMyOrders==='function' && window.initMyOrders);
+          if (typeof fn === 'function') fn();
+        }
+      }catch(err){
+        console.error('[userdash] loadSection failed:', err);
+        document.getElementById('content-area').innerHTML =
+          '<div class="ws-empty">'+(err?.message || 'Unable to load tab')+'</div>';
+      }
+    }
+
+    function applyHeader(user){
+      const name=user?.name || 'User';
+      document.getElementById('userName').firstChild.nodeValue = name + ' ';
+      document.getElementById('userEmail').textContent = user?.email || '—';
+      document.getElementById('userRole').textContent = user?.type || 'Customer';
+      document.getElementById('userAvatar').textContent = (name[0]||'U').toUpperCase();
+      document.getElementById('lastLogin').textContent = 'Last login: ' + (user?.lastLogin || '—');
+    }
+
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const user=getUser();
+      if(!user){ window.location.href='/'; return; }
+      applyHeader(user);
+      loadSection('orders'); // default tab
+    });
+  </script>
+</body>
+</html>

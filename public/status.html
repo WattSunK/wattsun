@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WattSun System Status</title>
+  <link rel="stylesheet" href="main.css" />
+  <style>
+    :root{
+      --ok:#16a34a;   /* green  */
+      --warn:#f59e0b; /* yellow */
+      --bad:#dc2626;  /* red    */
+      --card:#fff; --ink:#222; --muted:#666; --accent:#228B22;
+    }
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f3f3f3;color:var(--ink);padding:2rem;max-width:780px;margin:0 auto;}
+    header{text-align:center;margin-bottom:1.2rem;}
+    header img{max-width:180px;display:block;margin:0 auto .5rem;}
+    h1{color:var(--accent);margin:.25rem 0 0;font-size:2rem;}
+
+    .card{
+      background:var(--card);
+      border-radius:12px;
+      box-shadow:0 2px 8px rgba(0,0,0,.06);
+      padding:1rem 1.25rem;
+      margin-bottom:1rem;
+      display:grid;
+      grid-template-columns:1.1rem auto;
+      gap:.75rem;
+      align-items:center;
+      border-left:6px solid var(--warn);
+    }
+    .card.ok   { border-left-color: var(--ok); }
+    .card.warn { border-left-color: var(--warn); }
+    .card.bad  { border-left-color: var(--bad); }
+
+    /* >>> THIS is the colored dot you were looking for <<< */
+    .status-dot{
+      display:inline-block !important;
+      width:12px; height:12px;
+      border-radius:50%;
+      background:var(--warn);
+      margin-right:.5rem;
+      vertical-align:middle;
+    }
+    .status-dot.ok   { background:var(--ok); }
+    .status-dot.warn { background:var(--warn); }
+    .status-dot.bad  { background:var(--bad); }
+
+    .title{font-weight:700;}
+    .detail{color:var(--muted);margin-left:.35rem;}
+    .row{display:flex;align-items:center;gap:.25rem;flex-wrap:wrap;}
+    .meta{text-align:center;color:var(--muted);font-size:.92rem;margin-top:.75rem;}
+    button.refresh{appearance:none;border:1px solid #ddd;background:#fff;padding:.45rem .8rem;border-radius:8px;cursor:pointer;}
+    button.refresh:hover{background:#fafafa;}
+  </style>
+</head>
+<body>
+  <header>
+    <img src="/images/logo.png" alt="WattSun Logo">
+    <h1>System Status</h1>
+  </header>
+
+  <section id="cards">
+    <div id="api-card" class="card warn" aria-live="polite">
+      <span id="api-dot" class="status-dot warn" aria-hidden="true"></span>
+      <div class="row">
+        <span class="title">Backend API:</span>
+        <span class="detail" id="api-text">Checking…</span>
+      </div>
+    </div>
+
+    <div id="cf-card" class="card warn" aria-live="polite">
+      <span id="cf-dot" class="status-dot warn" aria-hidden="true"></span>
+      <div class="row">
+        <span class="title">Cloudflare Tunnel:</span>
+        <span class="detail" id="cf-text">Checking…</span>
+      </div>
+    </div>
+  </section>
+  
+</script>
+  <!-- Meta info and refresh button -->
+  <div class="meta">
+    <span id="stamp">Last checked: —</span>
+    &nbsp;•&nbsp;
+    <button id="btnRefresh" class="refresh" type="button">Refresh</button>
+    <div>Auto-refreshes every 30s</div>
+  </div>
+
+  <script>
+    const $ = (s, r=document)=>r.querySelector(s);
+
+    function setCard(state, text, ids){
+      const { cardId, dotId, textId } = ids;
+      const card = $(cardId), dot = $(dotId), detail = $(textId);
+      for (const cls of ['ok','warn','bad']) { card.classList.remove(cls); dot.classList.remove(cls); }
+      card.classList.add(state);
+      dot.classList.add(state);
+      detail.textContent = text;
+    }
+
+    async function checkApi(){
+      try{
+        const r = await fetch('/api/health', { cache:'no-store' });
+        if(r.ok) setCard('ok','OK',{cardId:'#api-card',dotId:'#api-dot',textId:'#api-text'});
+        else     setCard('bad',`HTTP ${r.status}`,{cardId:'#api-card',dotId:'#api-dot',textId:'#api-text'});
+      }catch{
+        setCard('bad','Unreachable',{cardId:'#api-card',dotId:'#api-dot',textId:'#api-text'});
+      }
+    }
+
+    async function checkTunnel(){
+      let state='warn', label='Disconnected';
+      try{
+        const r = await fetch('/cdn-cgi/trace', { cache:'no-store' });
+        if(r.ok){
+          const txt = await r.text();
+          const host=(txt.match(/h=([^\n]+)/)||[])[1];
+          const colo=(txt.match(/colo=([^\n]+)/)||[])[1];
+          if(host && host===location.hostname){
+            state='ok'; label=`Connected${colo?` via ${colo}`:''}`;
+          }
+        }
+      }catch{/* ignore */}
+
+      if(state!=='ok'){
+        try{
+          const r = await fetch('/api/health', { cache:'no-store' });
+          const viaCF = !!r.headers.get('cf-ray') ||
+            String(r.headers.get('server')||'').toLowerCase().includes('cloudflare');
+          if(viaCF){ state='ok'; label='Connected'; }
+        }catch{ state='bad'; label='Error'; }
+      }
+
+      setCard(state,label,{cardId:'#cf-card',dotId:'#cf-dot',textId:'#cf-text'});
+    }
+
+    async function refresh(){
+      await Promise.all([checkApi(), checkTunnel()]);
+      $('#stamp').textContent = 'Last checked: ' + new Date().toLocaleTimeString();
+    }
+
+    $('#btnRefresh').addEventListener('click', refresh);
+    refresh();
+    setInterval(refresh, 30_000);
+  </script>
+</body>
+</html>

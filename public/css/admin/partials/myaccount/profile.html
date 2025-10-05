@@ -1,0 +1,32 @@
+<div class="myaccount-tabs">
+  <button class="myaccount-tab-btn active" data-myaccount="profile">Profile</button>
+  <button class="myaccount-tab-btn" data-myaccount="orders">Orders</button>
+  <button class="myaccount-tab-btn" data-myaccount="addresses">Delivery Addresses</button>
+  <button class="myaccount-tab-btn" data-myaccount="payments">Payment Methods</button>
+  <button class="myaccount-tab-btn" data-myaccount="email-settings">Email Settings</button>
+</div>
+
+<div class="account-profile-card">
+  <div class="account-avatar"><span class="avatar-initials">PM</span></div>
+  <div class="account-details">
+    <div class="account-name">Peter Maina <span class="account-role">Admin</span></div>
+    <div class="account-email">admin@wattsun.co.ke</div>
+    <div class="account-meta">Last login: 30-Jul-2025 15:10</div>
+  </div>
+</div>
+<form class="account-form">
+  <div class="account-form-fields">
+    <label>Name <input type="text" value="Peter Maina"></label>
+    <label>Email <input type="email" value="admin@wattsun.co.ke"></label>
+    <label>Phone <input type="text" value="0799123456"></label>
+  </div>
+  <div class="account-password-row">
+    <span>Password</span>
+    <button type="button" class="account-pw-btn" onclick="alert('Change Password')">Change Password &gt;</button>
+  </div>
+  <div class="account-actions">
+    <button type="submit" class="account-btn">Save Changes</button>
+    <button type="button" class="account-btn account-btn-cancel" onclick="alert('Canceled (demo)!')">Cancel</button>
+  </div>
+  <button type="button" class="account-btn account-btn-danger" onclick="if(confirm('Deactivate your account?'))alert('Account deactivated (demo)!')">Deactivate Account</button>
+</form>

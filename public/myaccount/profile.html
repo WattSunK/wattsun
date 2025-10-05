@@ -1,0 +1,149 @@
+<!-- /partials/profile.html -->
+<section class="ws-profile-card">
+  <div class="ws-form-grid">
+    <div class="ws-field">
+      <label for="pf-name">Name</label>
+      <input id="pf-name" class="ws-input" type="text" autocomplete="name" />
+    </div>
+
+    <div class="ws-field">
+      <label for="pf-email">Email</label>
+      <input id="pf-email" class="ws-input" type="email" autocomplete="email" />
+    </div>
+
+    <div class="ws-field">
+      <label for="pf-phone">Phone</label>
+      <input id="pf-phone" class="ws-input" type="tel" autocomplete="tel" />
+    </div>
+
+    <div class="ws-row">
+      <label>Password</label>
+      <a class="ws-link" href="/reset-password.html">Change Password &gt;</a>
+    </div>
+
+    <div class="ws-actions">
+      <button class="ws-btn ws-btn-primary" id="btnSave" type="button">Save Changes</button>
+      <button class="ws-btn ws-btn-outline" id="btnCancel" type="button">Cancel</button>
+    </div>
+
+    <button class="ws-btn ws-btn-danger" id="btnDeactivate" type="button">Deactivate Account</button>
+  </div>
+</section>
+
+<style>
+  :root{
+    --ws-card:#fff;
+    --ws-border:#e9e9ef;
+    --ws-shadow:0 6px 18px rgba(0,0,0,.06);
+    --ws-radius:12px;
+
+    --ws-input-bg:#fffbe6;     /* warm yellow */
+    --ws-input-border:#f0c240; /* subtle golden border */
+    --ws-input-focus:#ffe58f;
+
+    --ws-primary:#f0c419;      /* Save */
+    --ws-primary-hover:#e1b614;
+    --ws-danger:#d84a44;       /* Deactivate */
+  }
+
+  .ws-profile-card{
+    background:var(--ws-card);
+    border:1px solid var(--ws-border);
+    border-radius:var(--ws-radius);
+    box-shadow:var(--ws-shadow);
+    padding:22px;
+    max-width:500px;       /* matches your mockup proportions */
+    margin:0;              /* left-aligned under header */
+  }
+
+  .ws-form-grid{ display:grid; grid-template-columns:1fr; gap:14px; }
+
+  .ws-field label{
+    display:block; font-size:14px; color:#333; margin-bottom:6px;
+  }
+
+  .ws-input{
+    width:100%;
+    padding:10px 12px;
+    border-radius:10px;
+    border:1px solid var(--ws-input-border);
+    background:var(--ws-input-bg);
+    font-size:14px; outline:none;
+  }
+  .ws-input:focus{
+    border-color:var(--ws-input-focus);
+    box-shadow:0 0 0 3px rgba(255,229,143,.45);
+  }
+
+  .ws-row{
+    display:flex; align-items:center; justify-content:space-between; margin-top:2px;
+  }
+
+  .ws-link{ color:#1f6fd6; text-decoration:none; font-size:14px; }
+  .ws-link:hover{ text-decoration:underline; }
+
+  .ws-actions{ display:flex; gap:12px; margin-top:6px; }
+
+  .ws-btn{
+    appearance:none; border:none; border-radius:10px;
+    padding:10px 16px; font-weight:700; cursor:pointer;
+    transition:transform .06s ease, filter .06s ease, background .15s ease;
+  }
+  .ws-btn:active{ transform:scale(.98); }
+
+  .ws-btn-primary{ background:var(--ws-primary); color:#222; }
+  .ws-btn-primary:hover{ background:var(--ws-primary-hover); }
+
+  .ws-btn-outline{ background:#fff; border:1px solid #e0e0e0; color:#333; }
+  .ws-btn-outline:hover{ filter:brightness(.98); }
+
+  .ws-btn-danger{
+    width:100%; margin-top:10px; background:var(--ws-danger); color:#fff;
+  }
+  .ws-btn-danger:hover{ filter:brightness(.95); }
+</style>
+
+<script>
+  (function(){
+    const stored = JSON.parse(localStorage.getItem('wattsunUser') || 'null');
+    const user = stored && stored.user ? stored.user : null;
+    const isAdmin = String(user?.type || '').toLowerCase() === 'admin';
+
+    const $ = id => document.getElementById(id);
+
+    if (user){
+      $('pf-name').value  = user.name  || '';
+      $('pf-email').value = user.email || '';
+      $('pf-phone').value = user.phone || '';
+    }
+
+    // lock email/phone unless Admin
+    $('pf-email').readOnly = !isAdmin;
+    $('pf-phone').readOnly = !isAdmin;
+
+    $('btnSave').addEventListener('click', ()=>{
+      if (!user) return;
+      const updated = {
+        ...user,
+        name:  $('pf-name').value.trim(),
+        email: $('pf-email').value.trim(),
+        phone: $('pf-phone').value.trim()
+      };
+      localStorage.setItem('wattsunUser', JSON.stringify({ success:true, user: updated }));
+      alert('Saved.');
+    });
+
+    $('btnCancel').addEventListener('click', ()=>{
+      if (!user) return;
+      $('pf-name').value  = user.name  || '';
+      $('pf-email').value = user.email || '';
+      $('pf-phone').value = user.phone || '';
+    });
+
+    $('btnDeactivate').addEventListener('click', ()=>{
+      if (confirm('Deactivate your account? This cannot be undone.')) {
+        alert('Deactivation flow will be implemented on the backend.');
+      }
+    });
+  })();
+</script>

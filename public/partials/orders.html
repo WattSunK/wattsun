@@ -1,0 +1,134 @@
+<section class="card" id="ordersSection">
+  <div class="card-header card-header--tight">
+    <h2 class="h2">Orders</h2>
+    <div class="spacer"></div>
+    <button id="btnAddOrder_orders" class="btn btn-primary">Add Order</button>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-bar">
+    <div class="group">
+      <label>Status</label>
+      <select id="ordersStatus" class="input">
+        <option value="">All</option>
+        <option>Pending</option>
+        <option>Processing</option>
+        <option>Confirmed</option>
+        <option>Dispatched</option>
+        <option>Delivered</option>
+        <option>Closed</option>
+        <option>Cancelled</option>
+      </select>
+    </div>
+
+    <div class="group">
+      <label>From</label>
+      <input id="ordersFrom" class="input" type="date" placeholder="dd/mm/yyyy" />
+    </div>
+
+    <div class="group">
+      <label>To</label>
+      <input id="ordersTo" class="input" type="date" placeholder="dd/mm/yyyy" />
+    </div>
+
+    <div class="group grow">
+      <label>Search</label>
+      <input id="ordersSearch" class="input" type="search" placeholder="Find order…" />
+    </div>
+
+    <div class="group">
+      <label>&nbsp;</label>
+      <div class="row">
+        <button id="ordersSearchBtn" class="btn">Search</button>
+        <button id="ordersClearBtn" class="btn">Clear</button>
+      </div>
+    </div>
+  </div>
+
+     <!-- Table -->
+  <div class="table-wrap">
+    <table id="ordersTable" class="table">
+      <thead>
+        <tr>
+          <th>Order #</th>
+          <th>Customer</th>
+          <th>Phone</th>           <!-- NEW -->
+          <th>Status</th>
+          <th>Created</th>
+          <th>Total</th>
+          <th>Deposit</th>         <!-- NEW -->
+          <th style="text-align:center;">Action</th>
+        </tr>
+      </thead>
+      <tbody id="ordersTbody">
+        <tr><td colspan="8" class="muted">(No data yet)</td></tr> <!-- was 6 -->
+      </tbody>
+    </table>
+  </div>
+
+
+  <!-- Pager / Meta -->
+  <div class="filters-bar">
+    <div id="ordersMeta" class="group">Showing 0 of 0 entries</div>
+    <div class="spacer"></div>
+    <div class="pager" id="ordersPager">
+      <button class="btn" id="ordersFirst">First</button>
+      <button class="btn" id="ordersPrev">Previous</button>
+      <span class="page-indicator" id="ordersPageNum">1</span>
+      <button class="btn" id="ordersNext">Next</button>
+      <button class="btn" id="ordersLast">Last</button>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  // "Add Order" button -> bubble to admin shell (optional handler your shell listens for)
+  document.getElementById('btnAddOrder_orders')?.addEventListener('click', () => {
+    window.dispatchEvent(new CustomEvent('admin:create', {
+      detail: { type: 'order', source: 'orders' }
+    }));
+  });
+
+  // Tell controllers the Orders partial is mounted
+  window.dispatchEvent(new CustomEvent('admin:partial-loaded', {
+    detail: { partial: 'orders', section: document.getElementById('ordersSection') }
+  }));
+
+  // Retry until the controller is defined, then force a boot
+  const tryBoot = () => {
+    if (typeof window.__WS_ORDERS_FORCE_BOOT === 'function') {
+      try { window.__WS_ORDERS_FORCE_BOOT(); } catch (_) {}
+    } else {
+      setTimeout(tryBoot, 100);
+    }
+  };
+  tryBoot();
+
+  // Extra nudges in case of timing races
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      setTimeout(() => window.__WS_ORDERS_FORCE_BOOT?.(), 0);
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    setTimeout(() => window.__WS_ORDERS_FORCE_BOOT?.(), 0);
+  });
+})();
+</script>
+<script>
+  // When edit/add signal a change, ask the orders list to re-fetch
+  (function () {
+    function refresh() {
+      if (typeof window.__WS_ORDERS_FORCE_BOOT === "function") {
+        window.__WS_ORDERS_FORCE_BOOT();
+      }
+    }
+    window.addEventListener("orders:reload", refresh);
+    window.addEventListener("message", function (e) {
+      if (e && e.data && e.data.type === "orders-updated") refresh();
+    });
+  })();
+</script>
+<!-- End of file: public/partials/orders.html -->

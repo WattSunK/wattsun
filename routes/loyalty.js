@@ -1,0 +1,220 @@
+// routes/loyalty.js
+// Minimal Staff Loyalty routes: enroll + me
+// ADR envelopes: { success, ... }, integers for points
+
+const express = require("express");
+const router = express.Router();
+router.use(express.json());
+router.use(express.urlencoded({ extended: true }));
+
+const sqlite3 = require("sqlite3").verbose();
+const path = require("path");
+
+// Resolve DB path the same way your app does (env first, fallback)
+const DB_PATH = process.env.DB_PATH_USERS || process.env.SQLITE_DB || path.join(process.cwd(), "data/dev/wattsun.dev.db");
+const db = new sqlite3.Database(DB_PATH);
+
+// ---- helpers -------------------------------------------------
+
+function requireStaff(req, res, next) {
+  const u = req?.session?.user;
+  // Accept either type or role = 'Staff'
+  if (!u || !/Staff/i.test(String(u.type || u.role || ""))) {
+    return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Staff only" } });
+  }
+  next();
+}
+
+function getProgramSettings(code = "STAFF") {
+  return new Promise((resolve, reject) => {
+    db.all(
+      `
+      SELECT p.id as program_id, p.code, p.name, p.active, s.key, s.value
+      FROM loyalty_programs p
+      LEFT JOIN loyalty_program_settings s ON s.program_id = p.id
+      WHERE p.code = ?
+      `,
+      [code],
+      (err, rows) => {
+        if (err) return reject(err);
+        if (!rows || rows.length === 0) return resolve(null);
+        const base = {
+          programId: rows[0].program_id,
+          code: rows[0].code,
+          name: rows[0].name,
+          active: !!rows[0].active,
+          // defaults (will be overridden if keys exist)
+          eligibleUserTypes: ["Staff"],
+          durationMonths: 6,
+          withdrawWaitDays: 90,
+          minWithdrawPoints: 100,
+          eurPerPoint: 1,
+          signupBonus: 100,
+        };
+        for (const r of rows) {
+          if (!r || !r.key) continue;
+          const k = r.key;
+          let v = r.value;
+          // parse JSON if looks like array/object, else coerce to int where relevant
+          try {
+            if (/^\s*\[|\{/.test(v)) v = JSON.parse(v);
+          } catch (_) {}
+          if (["durationMonths", "withdrawWaitDays", "minWithdrawPoints", "eurPerPoint", "signupBonus"].includes(k)) {
+            const n = parseInt(v, 10);
+            v = Number.isFinite(n) ? n : v;
+          }
+          base[k] = v;
+        }
+        resolve(base);
+      }
+    );
+  });
+}
+
+function isEligibleUser(u, eligibleUserTypes) {
+  const t = String(u?.type || u?.role || "").trim();
+  return eligibleUserTypes.map(String).includes(t);
+}
+
+function sqlGetAccount(programId, userId) {
+  return new Promise((resolve, reject) => {
+    db.get(
+      `SELECT * FROM loyalty_accounts WHERE program_id=? AND user_id=?`,
+      [programId, userId],
+      (err, row) => (err ? reject(err) : resolve(row || null))
+    );
+  });
+}
+
+function sqlInsertAccount({ programId, userId, startDate, endDate, eligibleFrom }) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      `
+      INSERT INTO loyalty_accounts (program_id, user_id, status, start_date, end_date, eligible_from, points_balance, total_earned, total_penalty, total_paid)
+      VALUES (?, ?, 'Active', ?, ?, ?, 0, 0, 0, 0)
+      `,
+      [programId, userId, startDate, endDate, eligibleFrom],
+      function (err) {
+        if (err) return reject(err);
+        resolve({ id: this.lastID });
+      }
+    );
+  });
+}
+
+function sqlInsertLedger(accountId, kind, delta, note, adminUserId = null) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      `INSERT INTO loyalty_ledger (account_id, kind, points_delta, note, admin_user_id) VALUES (?, ?, ?, ?, ?)`,
+      [accountId, kind, delta, note || null, adminUserId],
+      function (err) {
+        if (err) return reject(err);
+        resolve({ id: this.lastID });
+      }
+    );
+  });
+}
+
+function sqlGetAccountSnapshot(accountId) {
+  return new Promise((resolve, reject) => {
+    db.get(`SELECT * FROM loyalty_accounts WHERE id=?`, [accountId], (err, row) =>
+      err ? reject(err) : resolve(row)
+    );
+  });
+}
+
+function sqlGetRecentLedger(accountId, limit = 30) {
+  return new Promise((resolve, reject) => {
+    db.all(
+      `SELECT id, ts, kind, points_delta AS delta, note FROM loyalty_ledger WHERE account_id=? ORDER BY datetime(ts) DESC LIMIT ?`,
+      [accountId, limit],
+      (err, rows) => (err ? reject(err) : resolve(rows || []))
+    );
+  });
+}
+
+// ---- routes --------------------------------------------------
+
+/**
+ * POST /api/loyalty/enroll
+ * Creates account if missing, credits signup bonus (+100 by default),
+ * returns snapshot + program settings.
+ */
+router.post("/enroll", requireStaff, async (req, res) => {
+  const user = req.session.user;
+  try {
+    const program = await getProgramSettings("STAFF");
+    if (!program || !program.active) {
+      return res.status(400).json({ success: false, error: { code: "PROGRAM_INACTIVE", message: "Program not active" } });
+    }
+    if (!isEligibleUser(user, program.eligibleUserTypes)) {
+      return res.status(403).json({ success: false, error: { code: "NOT_ELIGIBLE", message: "User not eligible" } });
+    }
+
+    const existing = await sqlGetAccount(program.programId, user.id);
+    if (existing) {
+      // already enrolled → just return current snapshot
+      const recent = await sqlGetRecentLedger(existing.id);
+      return res.json({ success: true, account: existing, program, recent, message: "Already enrolled" });
+    }
+
+    // compute dates
+    const start = new Date();
+    const startDate = start.toISOString().slice(0, 10);
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + (program.durationMonths || 6));
+    const endDate = end.toISOString().slice(0, 10);
+
+    const eligible = new Date(start);
+    eligible.setDate(eligible.getDate() + (program.withdrawWaitDays || 90));
+    const eligibleFrom = eligible.toISOString().slice(0, 10);
+
+    // insert account
+    const { id: accountId } = await sqlInsertAccount({
+      programId: program.programId,
+      userId: user.id,
+      startDate,
+      endDate,
+      eligibleFrom,
+    });
+
+    // credit signup bonus
+    const bonus = Number.isFinite(program.signupBonus) ? program.signupBonus : 100;
+    if (bonus > 0) {
+      await sqlInsertLedger(accountId, "enroll", bonus, "Signup bonus");
+    }
+
+    const account = await sqlGetAccountSnapshot(accountId);
+    const recent = await sqlGetRecentLedger(accountId);
+    return res.json({ success: true, account, program, recent, message: "Enrolled" });
+  } catch (err) {
+    console.error("[loyalty/enroll]", err);
+    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: "Unable to enroll" } });
+  }
+});
+
+/**
+ * GET /api/loyalty/me
+ * Returns current account snapshot + recent ledger + program settings.
+ */
+router.get("/me", requireStaff, async (req, res) => {
+  const user = req.session.user;
+  try {
+    const program = await getProgramSettings("STAFF");
+    if (!program) {
+      return res.status(404).json({ success: false, error: { code: "PROGRAM_NOT_FOUND", message: "Program missing" } });
+    }
+    const acct = await sqlGetAccount(program.programId, user.id);
+    if (!acct) {
+      // not enrolled yet — still return program config so UI can show CTA
+      return res.json({ success: true, account: null, program, recent: [] });
+    }
+    const recent = await sqlGetRecentLedger(acct.id);
+    return res.json({ success: true, account: acct, program, recent });
+  } catch (err) {
+    console.error("[loyalty/me]", err);
+    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: "Unable to load account" } });
+  }
+});
+
+module.exports = router;

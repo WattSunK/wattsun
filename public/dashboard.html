@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WattSun Admin</title>
+  <link href="/admin/admin.css?v=20250912-02" rel="stylesheet" />
+</head>
+<body class="admin-shell">
+  <aside class="admin-sidebar">
+    <div class="brand">
+      <div class="brand-logo" aria-hidden="true">☀️</div>
+      <div class="brand-title">WattSun Admin</div>
+    </div>
+    <nav class="admin-nav" aria-label="Admin Navigation">
+      <a href="#" class="nav-link is-active"
+         data-partial="system-status" data-url="/partials/system-status.html">System Status</a>
+
+      <a href="#" class="nav-link"
+         data-partial="profile" data-url="/partials/profile.html">Profile</a>
+
+      <a href="#" class="nav-link"
+         data-partial="users" data-url="/partials/users.html">Users</a>
+    
+      <a href="#" class="nav-link"
+         data-partial="orders" data-url="/partials/orders.html">Orders</a>
+   
+      <a href="#" class="nav-link"
+         data-partial="items" data-url="/partials/items.html">Items</a>
+
+      <a href="#" class="nav-link"
+         data-partial="dispatch" data-url="/partials/dispatch.html">Dispatch</a>
+
+      <a href="#" class="nav-link"
+         data-partial="admin-loyalty" data-url="/partials/admin-loyalty.html">Loyalty</a>
+
+      <!-- Existing external link (optional, unchanged) -->
+       
+      <a href="/myaccount/userdash.html" class="nav-link">My Account</a>
+     
+
+    </nav>
+  </aside>
+
+  <main class="admin-main">
+    <header class="admin-topbar">
+      <h1 class="page-title">Dashboard</h1>
+      <div class="topbar-actions">
+        <!-- NEW: Home + Logout buttons -->
+        <button id="btn-home" class="btn btn-ghost" type="button" title="Go to Home">Home</button>
+        <button id="btn-logout" class="btn btn-ghost" type="button" title="Log out">Logout</button>
+        <!-- Existing -->
+        <button id="hard-refresh" class="btn btn-ghost" type="button" title="Hard refresh">Refresh</button>
+      </div>
+    </header>
+
+    <section id="admin-content" class="admin-content" aria-live="polite" aria-busy="true">
+      <div class="loading">
+        <span class="spinner" aria-hidden="true"></span>
+        <span class="sr-only">Loading…</span>
+      </div>
+    </section>
+  </main>
+
+  <div id="toasts" class="toasts" aria-live="polite" aria-atomic="true"></div>
+
+  <dialog id="confirmModal" class="modal">
+    <form method="dialog" class="modal-card">
+      <div class="modal-title" id="confirmTitle">Confirm</div>
+      <div class="modal-body" id="confirmBody">Are you sure?</div>
+      <div class="modal-actions">
+        <button class="btn small" data-modal-target="#orderAddModal">+ Add Order</button>
+        <button id="confirmCancel" class="btn small" value="cancel">Cancel</button>
+        <button id="confirmOk" class="btn small" value="ok">OK</button>
+              </div>
+    </form>
+  </dialog>
+
+  <!-- Add Order modal include -->
+  <!--#include file="/public/partials/orders-add.html" -->
+
+  <script>
+    window.toast = (msg, type="info", ms=3000) => {
+      const box = document.getElementById("toasts");
+      const el = document.createElement("div");
+      el.className = `toast ${type}`;
+      el.role = "status";
+      el.innerText = msg;
+      box.appendChild(el);
+      requestAnimationFrame(() => el.classList.add("show"));
+      setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 250); }, ms);
+    };
+    window.askConfirm = (title, body) => new Promise((resolve) => {
+      const dlg = document.getElementById('confirmModal');
+      const onClose = (e) => { dlg.removeEventListener('close', onClose); resolve(dlg.returnValue === 'ok'); };
+      const onCancel = (e) => { dlg.returnValue = 'cancel'; };
+      document.getElementById('confirmTitle').textContent = title || 'Confirm';
+      document.getElementById('confirmBody').textContent = body || 'Are you sure?';
+      dlg.addEventListener('close', onClose, { once: true });
+      dlg.addEventListener('cancel', onCancel);
+      dlg.showModal();
+    });
+  </script>
+
+<!-- Wire Home + Logout (Home does NOT log out) -->
+
+<script>
+  (function () {
+    const homeBtn   = document.getElementById('btn-home');
+    const logoutBtn = document.getElementById('btn-logout');
+
+    function goHome(e) {
+      e?.preventDefault?.(); e?.stopPropagation?.(); e?.stopImmediatePropagation?.();
+      // Do NOT clear session here
+      location.replace('/'); // send to site root (where index.html is served)
+    }
+
+    function doLogout(e) {
+      e?.preventDefault?.(); e?.stopPropagation?.(); e?.stopImmediatePropagation?.();
+      try { localStorage.removeItem('wattsunUser'); } catch {}
+      location.replace('/'); // then go to site root
+    }
+
+    homeBtn?.addEventListener('click', goHome, true);   // capture=true to override other listeners
+    logoutBtn?.addEventListener('click', doLogout, true);
+  })();
+</script>
+
+  <script>window.__ADMIN_VERSION__ = "20250906-02";</script>
+
+  <!-- Load order-sensitive scripts in correct order -->
+  <script src="/admin/js/admin-skin.js?v=20250918-01"></script>
+  <script src="/admin/js/data-adapter.js?v=202509-08" defer></script>
+  <script src="/admin/js/orders-controller.js?v=20250915-03" defer></script>
+  <script src="/admin/js/dispatch-controller.js?v=20250912-03" defer></script>  
+  <script src="/admin/js/orders-edit.js?v=20250915-06" defer></script>
+  <script src="/admin/js/orders-add.js?v=20250911-12" defer></script>
+  <script src="/admin/js/admin-users.js?v=20250915-02"></script>
+  <script defer src="/js/admin-loyalty-settings-modal.js"></script>
+</body>
+</html>

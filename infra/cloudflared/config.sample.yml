@@ -1,0 +1,12 @@
+
+# SAMPLE — replace with your tunnel UUID and credentials path on NAS
+tunnel: <TUNNEL_UUID>
+credentials-file: /etc/cloudflared/<TUNNEL_UUID>.json
+ingress:
+  - hostname: api.wattsun.co.ke
+    service: http://127.0.0.1:3001
+  - hostname: staging.wattsun.co.ke
+    service: http://127.0.0.1:3000
+  - hostname: www.wattsun.co.ke
+    service: http://127.0.0.1:3000
+  - service: http_status:404

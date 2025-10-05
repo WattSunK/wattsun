@@ -1,0 +1,195 @@
+<section class="card" id="dispatch-root" aria-labelledby="dispatch-title">
+  <header class="card-header">
+    <h2 id="dispatch-title" class="card-title">Dispatches</h2>
+     <div class="spacer"></div>
+    <button id="btnCreateDispatch" class="btn btn-primary">+ Create Dispatch</button>
+  </header>
+  <div class="card-body">
+    <!-- Standard filters component -->
+    <form id="dispatch-filters" class="filters-bar" autocomplete="off">
+      <div class="group">
+        <label for="f-q">Search</label>
+        <input id="f-q" name="q" class="input" placeholder="Order ID contains…" />
+      </div>
+
+      <div class="group">
+        <label for="f-status">Status</label>
+        <select id="f-status" name="status" class="input">
+          <option value="">Any</option>
+          <option>Created</option>
+          <option>Assigned</option>
+          <option>InTransit</option>
+          <option>Delivered</option>
+          <option>Canceled</option>
+        </select>
+      </div>
+
+      <div class="group">
+        <label for="f-driverId">Driver ID</label>
+        <input id="f-driverId" name="driverId" class="input" inputmode="numeric" pattern="\\d*" placeholder="e.g. 6" />
+      </div>
+
+      <div class="group">
+        <label for="f-date">Planned date</label>
+        <input id="f-date" name="planned_date" class="input" type="date" />
+      </div>
+
+      <div class="group">
+        <label for="f-per">Per</label>
+        <select id="f-per" name="per" class="input">
+          <option>10</option>
+          <option selected>20</option>
+          <option>50</option>
+          <option>100</option>
+        </select>
+      </div>
+
+      <span class="spacer"></span>
+
+      <div class="group">
+        <label class="sr-only" for="apply-btn">Apply</label>
+        <button id="apply-btn" class="btn" type="submit">Apply</button>
+      </div>
+    </form>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table class="table" id="dispatch-table" aria-describedby="dispatch-caption">
+        <caption id="dispatch-caption" class="sr-only">Dispatch list</caption>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Order</th>
+            <th>Status</th>
+            <th>Driver</th>
+            <th>Planned</th>
+            <th>Updated</th>
+            <th>Actions</th> <!-- added -->
+          </tr>
+        </thead>
+        <tbody id="dispatch-tbody">
+          <tr class="empty"><td colspan="7">No dispatches yet.</td></tr> <!-- 6 -> 7 -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pager -->
+    <div class="pager row" id="dispatch-pager" aria-live="polite">
+      <div class="col">
+        <span id="dispatch-total">0</span> total
+      </div>
+      <div class="col col--right">
+        <button id="dispatch-prev" class="btn btn-ghost" type="button" disabled>Prev</button>
+        <span id="dispatch-page">1</span>
+        <button id="dispatch-next" class="btn btn-ghost" type="button" disabled>Next</button>
+      </div>
+    </div>
+
+  </div>
+
+<!-- Create Dispatch Modal -->
+
+<dialog id="dispatchCreateModal" class="modal">
+  <form id="dispatchCreateForm" method="dialog" class="modal-body" autocomplete="off" novalidate>
+    <header class="modal-header">
+      <h3>Create Dispatch</h3>
+    </header>
+
+    <div class="grid grid-2">
+      <div class="form-field">
+        <label for="dc-order-id">Order ID <span class="req">*</span></label>
+        <input id="dc-order-id" name="order_id" type="text" class="input" placeholder="WATT2025..." required />
+        <small class="hint">Paste an existing order number, e.g. <code>WATT20250729205910</code>.</small>
+      </div>
+
+      <div class="form-field">
+        <label for="dc-driver-id">Driver</label>
+        <select id="dc-driver-id" name="driver_id" class="input">
+          <option value="">— Unassigned —</option>
+          <!-- options injected by JS -->
+        </select>
+        <small class="hint">Optional. You can assign later.</small>
+      </div>
+
+      <div class="form-field">
+        <label for="dc-planned-date">Planned date</label>
+        <input id="dc-planned-date" name="planned_date" type="date" class="input" />
+      </div>
+
+      <div class="form-field form-span-2">
+        <label for="dc-notes">Notes</label>
+        <textarea id="dc-notes" name="notes" class="input" rows="3" placeholder="Optional note…"></textarea>
+      </div>
+    </div>
+
+    <div id="dc-error" class="form-error" role="alert" aria-live="polite" style="display:none;"></div>
+
+    <footer class="modal-footer">
+      <button type="button" class="btn btn-ghost" id="dc-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="dc-submit">Create</button>
+    </footer>
+  </form>
+</dialog>
+
+  <!-- Edit Dispatch Modal -->
+<div id="dispatch-edit" class="modal" aria-hidden="true">
+  <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="dispatch-edit-title">
+    <h3 id="dispatch-edit-title" class="modal-title">Edit Dispatch</h3>
+
+    <form id="dispatch-edit-form" autocomplete="off">
+      <input type="hidden" id="de-id" />
+
+      <div class="row">
+        <label for="de-status">Status</label>
+        <select id="de-status" class="input">
+          <option>Created</option>
+          <option>Assigned</option>
+          <option>InTransit</option>
+          <option>Canceled</option>
+          <option>Delivered</option>
+        </select>
+      </div>
+
+      <div class="row">
+      <label for="de-driver">Driver ID</label>
+      <input id="de-driver" class="input" list="drivers-list" placeholder="e.g. 2 — Maina" />
+      <datalist id="drivers-list"></datalist>
+      <label class="check"><input type="checkbox" id="de-unassign" /> Unassign</label>
+    </div>
+
+      <div class="row">
+        <label for="de-date">Planned date</label>
+        <input id="de-date" class="input" type="date" />
+        <label class="check"><input type="checkbox" id="de-clear-date" /> Clear date</label>
+      </div>
+
+      <div class="row">
+        <label for="de-notes">Notes</label>
+        <textarea id="de-notes" class="input" rows="3" placeholder="Optional note…"></textarea>
+      </div>
+
+      <!-- History panel (hidden by default) -->
+      <div class="row">
+        <button type="button" class="btn btn-ghost" id="de-history-more">Load more</button>
+        <button type="button" class="btn btn-ghost" id="de-history-csv">Export CSV</button>
+        <div id="de-history" class="history" aria-live="polite"></div>
+      </div>
+
+    <div class="row right">
+      <button type="button" class="btn btn-ghost" id="de-delivered">Mark Delivered</button>
+      <button type="button" class="btn btn-ghost" id="de-history-btn">History</button>
+      <button type="button" class="btn btn-ghost" id="de-cancel">Cancel</button>
+      <button type="submit" class="btn" id="de-save">Save</button>
+    </div>
+
+    </form>
+  </div>
+</div>
+
+<!-- modal script -->
+<script src="/admin/js/dispatch-edit-modal.js?v=20250913"></script>
+
+</section>
+
+<script src="/admin/js/dispatch-controller.js?v=20250912-03" defer></script>
+

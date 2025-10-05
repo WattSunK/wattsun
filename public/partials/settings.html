@@ -1,0 +1,215 @@
+<!-- Settings (page header) -->
+<section class="card">
+  <div class="card-header">Settings</div>
+  <div class="card-body">
+    <div class="filters-bar settings-toolbar">
+      <div class="group">
+        <label>Settings</label>
+        <span class="help">Admin</span>
+      </div>
+      <div class="spacer"></div>
+      <button id="btnSettingsRefresh" class="btn small">Refresh</button>
+    </div>
+    <div id="settingsIntro" class="help">
+      Configure company info, user management, notifications, integrations, appearance, and system controls.
+    </div>
+  </div>
+</section>
+
+<div class="dash-cards">
+
+  <section class="card">
+    <div class="card-header">Company Information</div>
+    <div class="card-body">
+      <div class="form-group">
+        <label for="companyName"><strong>Company Name</strong></label>
+        <input id="companyName" type="text" class="input" value="WattSun Solar" />
+      </div>
+
+      <div class="form-group">
+        <label for="supportEmail"><strong>Support Email</strong></label>
+        <input id="supportEmail" type="email" class="input" value="support@wattsun.co.ke" />
+      </div>
+
+      <div class="form-group">
+        <label for="supportPhone"><strong>Support Phone</strong></label>
+        <input id="supportPhone" type="tel" class="input" value="+254700123456" />
+      </div>
+
+      <div class="form-group">
+        <label for="physicalAddress"><strong>Physical Address</strong></label>
+        <input id="physicalAddress" type="text" class="input" value="Nairobi, Kenya" />
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header">User Management</div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-row">
+          <input id="enforceStrongPw" type="checkbox" />
+          Enforce strong passwords
+        </label>
+      </div>
+
+      <div class="form-group">
+        <label for="sessionTimeout"><strong>Session Timeout</strong></label>
+        <select id="sessionTimeout" class="input">
+          <option>15 minutes</option>
+          <option>30 minutes</option>
+          <option selected>1 hour</option>
+          <option>2 hours</option>
+          <option>8 hours</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-row">
+          <input id="allowPwReset" type="checkbox" />
+          Allow Password Reset
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header">Notifications</div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-row">
+          <input id="notifOrderPlaced" type="checkbox" checked />
+          Order Placed Email
+        </label>
+      </div>
+
+      <div class="form-group">
+        <label class="form-row">
+          <input id="notifOrderDelivered" type="checkbox" checked />
+          Order Delivered Email
+        </label>
+      </div>
+
+      <div class="form-group form-row">
+        <label class="form-row">
+          <input id="notifLowStock" type="checkbox" checked />
+          Low Stock Alerts
+        </label>
+        <label for="lowStockThreshold" class="form-row">
+          <input id="lowStockThreshold" class="input w-90" type="number" min="1" value="10" />
+          <span>threshold</span>
+        </label>
+      </div>
+
+      <div class="form-group">
+        <label for="notifEmailTo"><strong>Send notifications to</strong></label>
+        <input id="notifEmailTo" type="email" class="input" value="alerts@wattsun.co.ke" />
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header">Integrations</div>
+    <div class="card-body">
+      <div class="form-group">
+        <label for="paybill"><strong>Paybill Number</strong></label>
+        <input id="paybill" type="text" class="input" value="123456" />
+      </div>
+
+      <div class="form-group">
+        <label for="apiKey"><strong>API Key</strong></label>
+        <input id="apiKey" type="password" class="input" value="********" />
+      </div>
+
+      <div class="form-group">
+        <label for="smsGateway"><strong>SMS Gateway</strong></label>
+        <select id="smsGateway" class="input">
+          <option selected>Africa's Talking</option>
+          <option>Twilio</option>
+          <option>Infobip</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="smsSenderId"><strong>Sender ID</strong></label>
+        <input id="smsSenderId" type="text" class="input" value="WattSun" />
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header">Appearance</div>
+    <div class="card-body">
+      <div class="form-group">
+        <label for="logoUpload"><strong>Logo Upload</strong></label>
+        <input id="logoUpload" type="file" class="input" />
+      </div>
+
+      <div class="form-group">
+        <label for="themeSelect"><strong>Theme</strong></label>
+        <select id="themeSelect" class="input">
+          <option selected>Light</option>
+          <option>Dark</option>
+          <option>System</option>
+        </select>
+      </div>
+
+      <div class="actions">
+        <button id="btnSaveAppearance" class="btn">Save</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header">System Controls</div>
+    <div class="card-body">
+      <div class="actions">
+        <button id="btnBackup" class="btn">Backup Data</button>
+        <label class="btn" for="restoreFile">Restore from Backup</label>
+        <input id="restoreFile" type="file" class="input" hidden />
+        <button id="btnExport" class="btn">Export Data</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-header">Danger Zone</div>
+    <div class="card-body">
+      <style>
+        .danger-note { color:#b91c1c; font-weight:600; }
+        .btn-danger { background:#fef2f2; border:1px solid #fecaca; }
+        .btn-danger:hover { background:#fee2e2; }
+      </style>
+      <p class="danger-note">Caution: these actions are irreversible.</p>
+      <div class="actions">
+        <button class="btn btn-danger" id="btnClearCache">Clear Server Cache</button>
+        <button class="btn btn-danger" id="btnResetEmails">Reset Email Settings</button>
+        <button class="btn btn-danger" id="btnDeleteTestData">Delete Test Data</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  (function(){
+    const confirmDo = (msg, fn) => { if (confirm(msg)) fn?.(); };
+
+    document.getElementById('btnSettingsRefresh')?.addEventListener('click', () => location.reload());
+    document.getElementById('btnSaveAppearance')?.addEventListener('click', () => alert('Appearance saved.'));
+    document.getElementById('btnBackup')?.addEventListener('click', () => alert('Backup started.'));
+    document.getElementById('restoreFile')?.addEventListener('change', (e) => {
+      if (e.target.files?.length) alert('Restore uploaded: ' + e.target.files[0].name);
+    });
+    document.getElementById('btnExport')?.addEventListener('click', () => alert('Export started.'));
+    document.getElementById('btnClearCache')?.addEventListener('click', () =>
+      confirmDo('Clear server cache now?', () => console.log('[settings] clear cache'))
+    );
+    document.getElementById('btnResetEmails')?.addEventListener('click', () =>
+      confirmDo('Reset email settings?', () => console.log('[settings] reset SMTP'))
+    );
+    document.getElementById('btnDeleteTestData')?.addEventListener('click', () =>
+      confirmDo('Delete ALL test data? This cannot be undone.', () => console.log('[settings] delete test data'))
+    );
+  })();
+</script>

@@ -1,0 +1,215 @@
+<!-- Orders Modals (normalized) -->
+
+<!-- =========================
+     View Order (read-only)
+     ========================= -->
+<dialog id="orderViewModal" class="modal" aria-labelledby="ov_title" aria-modal="true">
+  <div class="modal-card">
+    <header class="modal-header">
+      <h3 id="ov_title">Order</h3>
+      <!-- header close removed to avoid duplicate -->
+    </header>
+
+    <section class="modal-body">
+      <div class="grid two">
+        <!-- Summary -->
+        <div class="card soft">
+          <h3 class="section-title">Summary</h3>
+          <div class="table-wrap">
+            <table class="table compact kv">
+              <tbody>
+                <tr>
+                  <th style="width: 180px">Order #</th>
+                  <td><span id="ov_orderNumber"></span></td>
+                </tr>
+                <tr>
+                  <th>Status</th>
+                  <td><span id="ov_status"></span></td>
+                </tr>
+                <tr>
+                  <th>Created</th>
+                  <td><span id="ov_createdAt"></span></td>
+                </tr>
+                <tr>
+                  <th>Address</th>
+                  <td><span id="ov_address"></span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Customer & Money -->
+        <div class="card soft">
+          <h3 class="section-title">Customer &amp; Money</h3>
+          <div class="table-wrap">
+            <table class="table compact kv">
+              <tbody>
+                <tr>
+                  <th style="width: 180px">Customer</th>
+                  <td><span id="ov_fullName"></span></td>
+                </tr>
+                <tr>
+                  <th>Phone</th>
+                  <td><span id="ov_phone"></span></td>
+                </tr>
+                <tr>
+                  <th>Email</th>
+                  <td><span id="ov_email"></span></td>
+                </tr>
+                <tr>
+                  <th>Total</th>
+                  <td><span id="ov_total"></span></td>
+                </tr>
+                <tr>
+                  <th>Deposit</th>
+                  <td><span id="ov_deposit"></span></td>
+                </tr>
+                <tr>
+                  <th>Currency</th>
+                  <td><span id="ov_currency"></span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Items table -->
+      <div class="card soft">
+        <h3 class="section-title">Items</h3>
+        <div class="table-wrap">
+          <table class="table compact" id="ov_items_table">
+            <thead>
+              <tr>
+                <th class="num" style="width:72px">Qty</th>
+                <th>Name</th>
+                <th class="num" style="width:150px">Line Total</th>
+              </tr>
+            </thead>
+            <tbody id="ov_items"><!-- rows injected by JS --></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <footer class="modal-footer">
+      <button type="button" data-ov-close class="btn primary">Close</button>
+    </footer>
+  </div>
+</dialog>
+
+<!-- =========================
+     Edit Order (interactive)
+     ========================= -->
+<dialog id="orderEditModal" class="modal" aria-labelledby="oem_title" aria-modal="true">
+  <div class="modal-card">
+    <header class="modal-header">
+      <h3 id="oem_title">Edit Order</h3>
+      <!-- header close removed to avoid duplicate -->
+    </header>
+
+    <form id="orderEditForm" class="modal-body" method="dialog">
+      <div class="grid rows">
+        <!-- Status -->
+        <div class="row">
+          <label for="orderStatus">Status</label>
+          <div>
+            <select id="orderStatus" name="status" class="input">
+              <option>Pending</option>
+              <option>Confirmed</option>
+              <option>Dispatched</option>
+              <option>Delivered</option>
+              <option>Closed</option>
+              <option>Cancelled</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Driver -->
+        <div class="row">
+          <label for="orderDriver">Driver</label>
+          <div>
+            <select id="orderDriver" name="driverId" class="input">
+              <!-- populated by JS -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Totals -->
+        <div class="row">
+          <label for="orderTotal">Total (cents)</label>
+          <div><input id="orderTotal" name="totalCents" type="number" class="input" inputmode="numeric" min="0" /></div>
+        </div>
+
+        <div class="row">
+          <label for="orderDeposit">Deposit (cents)</label>
+          <div><input id="orderDeposit" name="depositCents" type="number" class="input" inputmode="numeric" min="0" /></div>
+        </div>
+
+        <div class="row">
+          <label for="orderCurrency">Currency</label>
+          <div>
+            <input id="orderCurrency" name="currency" type="text" class="input" maxlength="3" placeholder="KES" />
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="row">
+          <label for="orderNotes">Notes</label>
+          <div>
+            <textarea id="orderNotes" name="notes" rows="4" class="input" placeholder="Internal note (optional)"></textarea>
+          </div>
+        </div>
+      </div>
+    </form>
+
+    <!-- ========= Orders → History ========= -->
+    <section id="order-history" class="card" data-history-ready="0" hidden>
+      <header class="card-header">
+        <h3 class="card-title">History</h3>
+        <button type="button" class="btn btn-sm" id="history-refresh-btn" aria-label="Refresh history">
+          Refresh
+        </button>
+      </header>
+
+      <div class="card-content">
+        <div class="history-list" role="list">
+          <!-- rows injected by JS -->
+        </div>
+
+        <div class="history-actions">
+          <button type="button" class="btn" id="history-load-more" data-cursor="">
+            Load more
+          </button>
+          <button type="button" class="btn" id="history-export-csv">
+            Export CSV
+          </button>
+        </div>
+      </div>
+    </section>
+    <!-- ========= /Orders → History ========= -->
+
+    <footer class="modal-footer">
+      <button type="button" class="btn ghost" id="oemCancel">Cancel</button>
+      <button type="button" class="btn primary" id="oemSave">Save</button>
+    </footer>
+  </div>
+</dialog>
+
+<!-- keep any script block you already have in this partial -->
+<script>
+  (function () {
+    const vDlg = document.getElementById('orderViewModal');
+    const vBtns = document.querySelectorAll('[data-ov-close]');
+    vBtns.forEach(btn => {
+      btn.addEventListener('click', () => { try { vDlg.close(); } catch { vDlg.removeAttribute('open'); } });
+    });
+
+    const eDlg = document.getElementById('orderEditModal');
+    const el = document.getElementById('oemCancel');
+    if (el && eDlg) {
+      el.addEventListener('click', () => { try { eDlg.close(); } catch { eDlg.removeAttribute('open'); } });
+    }
+  })();
+</script>
