@@ -43,6 +43,16 @@ router.post("/login", (req, res) => {
     if (!row) {
       return res.status(401).json({ success: false, error: { code: "INVALID", message: "Invalid credentials" } });
     }
+      // 🔒 Prevent login for deleted or inactive users
+      if (row.status && row.status.toLowerCase() !== "active") {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "USER_INACTIVE",
+            message: "This account is no longer active. Please contact support."
+          }
+        });
+      }
 
     let ok = false;
     if (row.password_hash && bcrypt) {
