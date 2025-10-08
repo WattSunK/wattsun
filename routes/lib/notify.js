@@ -64,13 +64,22 @@ function computeDedupeKey(kind, userId, payload, explicit) {
  * @param {string} [opts.dedupeKey] - optional explicit dedupe key
  * @returns {Promise<{success:boolean, queued:boolean, noOp:boolean, dedupeKey:string, id?:number}>}
  */
-async function enqueue(kind, { userId = null, email = null, payload = {}, dedupeKey } = {}) {
-  const json = typeof payload === "string" ? payload : JSON.stringify(payload || {});
+async function enqueue(
+  kind,
+  opts = {}
+) {
+  const { userId = null, email = null, payload = {}, dedupeKey } = opts;
+
+  // --- normalize payload so dedupe has accountId even if nested ---
+  if (opts.accountId && !payload.accountId) payload.accountId = opts.accountId;
+
+  const json =
+    typeof payload === "string" ? payload : JSON.stringify(payload || {});
   const cols = await notifCols();
   const hasDedupe = cols.includes("dedupe_key");
 
+  // compute dedupe key from raw object, not JSON string
   const key = computeDedupeKey(kind, userId, payload, dedupeKey);
-
 
   // --- Primary guard (fast path): dedupe_key unique check
   if (hasDedupe) {
@@ -136,7 +145,13 @@ async function enqueue(kind, { userId = null, email = null, payload = {}, dedupe
   const sql = `INSERT INTO notifications_queue (${fields.join(",")}) VALUES (${qmarks})`;
 
   const result = await run(sql, values);
-  return { success: true, queued: true, noOp: false, dedupeKey: key, id: result.lastID };
+  return {
+    success: true,
+    queued: true,
+    noOp: false,
+    dedupeKey: key,
+    id: result.lastID,
+  };
 }
 
 module.exports = { enqueue };
