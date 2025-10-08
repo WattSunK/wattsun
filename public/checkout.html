@@ -802,7 +802,17 @@ return; // ensure the guarded code after this does not run
     const phone    = document.getElementById('phone')?.value || "";
     const address  = document.getElementById('address')?.value || "";
     const delivery = document.getElementById('deliveryAddress')?.value || address;
-    const deposit  = Number(document.getElementById('deposit')?.value || 0);
+    // Try both visible and hidden total elements
+    let deposit = 0;
+    const depInput = document.getElementById('deposit');
+    const depTotal = document.getElementById('totalDeposit');
+    if (depInput) deposit = Number(depInput.value || 0);
+    else if (depTotal) {
+  // Extract number from text like "Total Deposit: KES 5,000"
+  const match = (depTotal.textContent || "").replace(/[^\d.]/g, "");
+  deposit = Number(match || 0);
+}
+
 
         let items = await getCartItems();
     // normalize cents → KES if present
