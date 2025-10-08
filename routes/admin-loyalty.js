@@ -612,32 +612,31 @@ router.post("/penalize", async (req, res) => {
     if (!userId || !Number.isInteger(p) || p < 1) {
       return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"userId and points>=1 required" } });
     }
+
     const prog = await withDb((db) => get(db, `SELECT id FROM loyalty_programs WHERE code='STAFF'`));
     if (!prog?.id) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
 
     const acct = await getAccountByUser(prog.id, parseInt(userId, 10));
     if (!acct) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Account not found for user" } });
 
-    await insertLedger(
-      acct.id,
-      "penalty",
-      -p,
-      note || "Admin penalty",
-      req.session?.user?.id,
-      note || null
-    );
+    // --- 1️⃣ Ledger insert ---
+    await insertLedger(acct.id, "penalty", -p, note || "Admin penalty", req.session?.user?.id, note || null);
 
+    // --- 2️⃣ Fresh connection for enqueue (avoid DB lock) ---
     try {
-      const updatedNow = await getAccountById(acct.id);
-      await enqueue("penalty", {
+      const { enqueue } = require("./lib/notify");
+      const payload = { points: p, note: note || "", accountId: acct.id };
+      const r = await enqueue("penalty", {
         userId: acct.user_id,
         accountId: acct.id,
-        payload: { points: p, note: note || "", balance: updatedNow.points_balance }
+        payload
       });
-    } catch (e) {
-      console.warn("enqueue(penalty) failed:", e.message);
+      console.log("[notify] penalty queued", r);
+    } catch (ee) {
+      console.error("[notify.error.penalty]", ee);
     }
 
+    // --- 3️⃣ Return updated account ---
     const updated = await getAccountById(acct.id);
     res.json({ success:true, account: updated });
   } catch (e) {
