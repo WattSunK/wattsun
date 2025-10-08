@@ -82,25 +82,29 @@ async function enqueue(kind, options = {}) {
     accountId = null,
   } = options;
 
-  // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
   // Normalize payload to ensure accountId always present for dedupe computation
   // ---------------------------------------------------------------------------
   let payloadObj =
     typeof payload === "string" ? JSON.parse(payload || "{}") : { ...payload };
-  if (accountId && !payloadObj.accountId) payloadObj.accountId = accountId;
+
+  // 🩹 Deduplication fix: coerce accountId into numeric + bake into payload
+  const normalizedAccountId = Number(accountId ?? payloadObj.accountId ?? 0) || null;
+  if (normalizedAccountId && !payloadObj.accountId)
+    payloadObj.accountId = normalizedAccountId;
 
   const json = JSON.stringify(payloadObj || {});
   const cols = await notifCols();
   const hasDedupe = cols.includes("dedupe_key");
 
   // Compute dedupe key from raw object (not serialized string)
-  const normalizedAccountId = accountId ?? payloadObj.accountId ?? null;
   const key = computeDedupeKey(
     kind,
     userId,
     { ...payloadObj, accountId: normalizedAccountId },
     dedupeKey
   );
+
 
   // ---------------------------------------------------------------------------
   // Fast-path dedupe guard (modern schema)

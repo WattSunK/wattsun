@@ -622,19 +622,24 @@ router.post("/penalize", async (req, res) => {
     // --- 1️⃣ Ledger insert ---
     await insertLedger(acct.id, "penalty", -p, note || "Admin penalty", req.session?.user?.id, note || null);
 
-    // --- 2️⃣ Fresh connection for enqueue (avoid DB lock) ---
-    try {
-      const { enqueue } = require("./lib/notify");
-      const payload = { points: p, note: note || "", accountId: acct.id };
-      const r = await enqueue("penalty", {
-        userId: acct.user_id,
-        accountId: acct.id,
-        payload
-      });
-      console.log("[notify] penalty queued", r);
-    } catch (ee) {
-      console.error("[notify.error.penalty]", ee);
-    }
+   // --- 2️⃣ Fresh connection for enqueue (avoid DB lock) ---
+try {
+  const { enqueue } = require("./lib/notify");
+
+  // 🩹 Explicitly coerce accountId to numeric before enqueue (dedupe fix)
+  const accountId = Number(acct.id);
+  const payload = { points: p, note: note || "", accountId };
+
+  const r = await enqueue("penalty", {
+    userId: acct.user_id,
+    accountId,
+    payload
+  });
+  console.log("[notify] penalty queued", r);
+} catch (ee) {
+  console.error("[notify.error.penalty]", ee);
+}
+
 
     // --- 3️⃣ Return updated account ---
     const updated = await getAccountById(acct.id);
