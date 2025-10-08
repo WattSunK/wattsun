@@ -31,7 +31,7 @@ router.get("/users", requireAdmin, (req, res) => {
   const where = [];
   const params = {};
 // PATCH /api/admin/users/:id/soft-delete
-router.patch("/:id/soft-delete", (req, res) => {
+router.patch("/users/:id/soft-delete", (req, res) => {
   try {
     const { id } = req.params;
     const user = db.prepare("SELECT id, name, email, status FROM users WHERE id=?").get(id);
