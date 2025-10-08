@@ -48,11 +48,16 @@ if (loginForm) {
         body: JSON.stringify({ email, password })
       });
       const data = await res.json();
-      if (!res.ok || data.success === false) {
-        errorDiv.textContent = data.error || "Login failed";
+       if (!res.ok || data.success === false) {
+        const msg =
+          typeof data.error === "object"
+            ? data.error.message || JSON.stringify(data.error)
+            : data.error || "Login failed";
+        errorDiv.textContent = msg;
         errorDiv.style.display = 'block';
         return;
       }
+
       localStorage.setItem('wattsunUser', JSON.stringify({ success: true, user: data.user }));
       updateLoginUI();
       closeLogin();
