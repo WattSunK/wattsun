@@ -2,11 +2,21 @@
 const path = require("path");
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
-const { requireAdmin } = require("../middleware/requireAdmin"); // ✅ single import
 
 const router = express.Router();
 
-// --- DB connection
+// --- simple admin guard (reuse existing global version if mounted higher)
+function requireAdmin(req, res, next) {
+  const u = req.session && req.session.user;
+  if (!u || (u.type !== "Admin" && u.role !== "Admin")) {
+    return res.status(403).json({
+      success: false,
+      error: { code: "FORBIDDEN", message: "Admin access required." },
+    });
+  }
+  next();
+}
+
 const DB_PATH =
   process.env.DB_PATH_USERS ||
   process.env.SQLITE_DB ||
@@ -129,48 +139,6 @@ router.get("/users", requireAdmin, (req, res) => {
 });
 
 // ============================================================
-// PATCH /api/admin/users/:id/soft-delete  — soft delete user
-// ============================================================
-
-router.patch("/users/:id/soft-delete", requireAdmin, (req, res) => {
-  const { id } = req.params;
-
-  // Step 1: read user record
-  db.get("SELECT id, name, email, status FROM users WHERE id=?", [id], (err, user) => {
-    if (err) {
-      return res.status(500).json({
-        success: false,
-        error: { code: "DB_READ", message: err.message }
-      });
-    }
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        error: { code: "NOT_FOUND", message: "User not found" }
-      });
-    }
-
-    // Step 2: mark as Deleted
-    db.run("UPDATE users SET status='Deleted' WHERE id=?", [id], function (err2) {
-      if (err2) {
-        return res.status(500).json({
-          success: false,
-          error: { code: "DB_UPDATE", message: err2.message }
-        });
-      }
-
-      // Step 3: respond
-      return res.json({
-        success: true,
-        message: `User ${user.email} marked as Deleted`,
-        user: { ...user, status: "Deleted" }
-      });
-    });
-  });
-});
-
-
-// ============================================================
 // POST /api/admin/users  — create user
 // ============================================================
 router.post("/users", requireAdmin, express.json(), (req, res) => {
@@ -218,6 +186,46 @@ router.post("/users", requireAdmin, express.json(), (req, res) => {
 });
 
 // ============================================================
+// PATCH /api/admin/users/:id/soft-delete  — mark user as Deleted
+// ============================================================
+router.patch("/users/:id/soft-delete", requireAdmin, (req, res) => {
+  const { id } = req.params;
+
+  // Step 1: read user
+  db.get("SELECT id, name, email, status FROM users WHERE id=?", [id], (err, user) => {
+    if (err) {
+      return res.status(500).json({
+        success: false,
+        error: { code: "DB_READ", message: err.message }
+      });
+    }
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "User not found" }
+      });
+    }
+
+    // Step 2: mark as Deleted
+    db.run("UPDATE users SET status='Deleted' WHERE id=?", [id], function (err2) {
+      if (err2) {
+        return res.status(500).json({
+          success: false,
+          error: { code: "DB_UPDATE", message: err2.message }
+        });
+      }
+
+      // Step 3: respond
+      return res.json({
+        success: true,
+        message: `User ${user.email} marked as Deleted`,
+        user: { ...user, status: "Deleted" }
+      });
+    });
+  });
+});
+
+// ============================================================
 // PATCH /api/admin/users/:id  — update user fields
 // ============================================================
 router.patch("/users/:id", requireAdmin, express.json(), (req, res) => {
@@ -260,7 +268,6 @@ router.patch("/users/:id", requireAdmin, express.json(), (req, res) => {
 // POST /api/admin/users/:id/send-reset — stub (future mailer)
 // ============================================================
 router.post("/users/:id/send-reset", requireAdmin, (req, res) => {
-  // TODO: integrate real mailer
   return res.json({ success: true });
 });
 
