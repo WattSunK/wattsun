@@ -102,13 +102,14 @@ async function enqueue(kind, options = {}) {
   const cols = await notifCols();
   const hasDedupe = cols.includes("dedupe_key");
 
-// 🧩 Ensure dedupe key uses numeric accountId explicitly
+// 🧩 Final fix: force accountId into string for consistent dedupe key
 const key = computeDedupeKey(
   kind,
   userId,
-  { ...payloadObj, accountId: normalizedAccountId ?? 0 },
+  { ...payloadObj, accountId: String(normalizedAccountId ?? "") },
   dedupeKey
 );
+
 
   // ---------------------------------------------------------------------------
   // Fast-path dedupe guard (modern schema)
