@@ -131,30 +131,44 @@ router.get("/users", requireAdmin, (req, res) => {
 // ============================================================
 // PATCH /api/admin/users/:id/soft-delete  — soft delete user
 // ============================================================
+
 router.patch("/users/:id/soft-delete", requireAdmin, (req, res) => {
-  try {
-    const { id } = req.params;
-    const user = db.prepare("SELECT id, name, email, status FROM users WHERE id=?").get(id);
+  const { id } = req.params;
+
+  // Step 1: read user record
+  db.get("SELECT id, name, email, status FROM users WHERE id=?", [id], (err, user) => {
+    if (err) {
+      return res.status(500).json({
+        success: false,
+        error: { code: "DB_READ", message: err.message }
+      });
+    }
     if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, error: { code: "NOT_FOUND", message: "User not found" } });
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "User not found" }
+      });
     }
 
-    db.prepare("UPDATE users SET status='Deleted' WHERE id=?").run(id);
+    // Step 2: mark as Deleted
+    db.run("UPDATE users SET status='Deleted' WHERE id=?", [id], function (err2) {
+      if (err2) {
+        return res.status(500).json({
+          success: false,
+          error: { code: "DB_UPDATE", message: err2.message }
+        });
+      }
 
-    return res.json({
-      success: true,
-      message: `User ${user.email} marked as Deleted`,
-      user: { ...user, status: "Deleted" },
+      // Step 3: respond
+      return res.json({
+        success: true,
+        message: `User ${user.email} marked as Deleted`,
+        user: { ...user, status: "Deleted" }
+      });
     });
-  } catch (err) {
-    console.error("[admin-users][soft-delete] error:", err);
-    return res
-      .status(500)
-      .json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
-  }
+  });
 });
+
 
 // ============================================================
 // POST /api/admin/users  — create user
