@@ -367,6 +367,33 @@ router.post("/loyalty/withdrawals", async (req, res) => {
 
       return getUnifiedWithdrawal(db, id); // return normalized shape (includes 'source')
     });
+    // --- enqueue notification for admin-initiated withdrawal (NEW) ---
+    try {
+      const { email, userId } = await lookupEmailForNotificationLogged(db, {
+        accountId,
+        withdrawalId: row.id,
+        source: 'admin'
+      });
+
+      await enqueueNotification(db, {
+        userId,
+        accountId,
+        kind: 'withdrawal_created_admin',
+        email,
+        payload: {
+          withdrawalId: row.id,
+          accountId,
+          points,
+          eur,
+          source: 'admin',
+          note
+        }
+      });
+
+      console.log('[notify] queued withdrawal_created_admin', { id: row.id, userId, accountId });
+    } catch (e) {
+      console.warn('[notify.error.withdrawal_created_admin]', e.message);
+    }
 
     return res.json({ success: true, withdrawal: row });
   } catch (e) {
