@@ -48,9 +48,10 @@ router.post("/", async (req, res) => {
 
     // normalize & validate items
     const normItems = items.map((it) => {
-      const qty = Math.max(1, Number(it.quantity || 1));
-      const price = Number(it.price || 0);
-      const dep = Number(it.deposit || 0);
+    const qty = Math.max(1, Number(it.quantity || 1));
+    const price = Number(it.priceCents ? it.priceCents / 100 : it.price || 0);
+    const dep   = Number(it.depositCents ? it.depositCents / 100 : it.deposit || 0);
+
       return {
         id:   it.id || it.sku || it.name || "",
         sku:  it.sku || it.id || "",
@@ -64,6 +65,10 @@ router.post("/", async (req, res) => {
 
     const totalKES   = normItems.reduce((s, it) => s + (it.price * it.quantity), 0);
     const depositKES = Number(deposit || 0); // single total deposit per your spec
+        if (totalKES <= 0) {
+      return res.status(400).json({ success:false, message:"Invalid cart item prices" });
+    }
+
 
     const orderId       = makeOrderId();
     const orderNumber   = orderId; // keep equal for now

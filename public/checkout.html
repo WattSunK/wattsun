@@ -526,6 +526,18 @@ document.addEventListener("DOMContentLoaded", function () {
     catch { return []; }
   }
   function formatKES(n){ try { return Number(n||0).toLocaleString(); } catch { return String(n||0); } }
+  // --- Normalize cart for SQL/ADR-001 backend (priceCents → KES) ---
+  function normalizeCartItems(cart){
+    return cart.map(it => ({
+      id: it.productId || it.id || it.sku || it.code || it.name,
+      sku: it.sku,
+      name: it.name || it.sku || it.id || "",
+      price: it.priceCents ? it.priceCents / 100 : Number(it.price)||0,
+      deposit: it.depositCents ? it.depositCents / 100 : Number(it.deposit)||0,
+      quantity: Number(it.quantity)||1,
+      image: it.image || it.img || it.picture || ""
+    }));
+  }
 
   async function postCheckout(payload, rawCart, customerAddress){
     // Attempt 1: ADR-001 preferred path
@@ -792,7 +804,14 @@ return; // ensure the guarded code after this does not run
     const delivery = document.getElementById('deliveryAddress')?.value || address;
     const deposit  = Number(document.getElementById('deposit')?.value || 0);
 
-    const items = await getCartItems();
+        let items = await getCartItems();
+    // normalize cents → KES if present
+    items = items.map(i => ({
+      ...i,
+      price: i.priceCents ? i.priceCents / 100 : i.price,
+      deposit: i.depositCents ? i.depositCents / 100 : i.deposit
+    }));
+
     if (!items.length) { alert("Your cart is empty."); return; }
 
     const payload = { fullName, email, phone, address, deliveryAddress: delivery, items, deposit };
