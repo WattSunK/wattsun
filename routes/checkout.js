@@ -64,11 +64,10 @@ router.post("/", async (req, res) => {
     });
 
     const totalKES   = normItems.reduce((s, it) => s + (it.price * it.quantity), 0);
-    const depositKES = Number(deposit || 0); // single total deposit per your spec
+    const depositKES = Number(deposit ?? req.body.depositCents / 100 ?? 0); // single total deposit per your spec
         if (totalKES <= 0) {
       return res.status(400).json({ success:false, message:"Invalid cart item prices" });
     }
-
 
     const orderId       = makeOrderId();
     const orderNumber   = orderId; // keep equal for now
