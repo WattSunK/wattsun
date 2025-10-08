@@ -30,6 +30,28 @@ router.get("/users", requireAdmin, (req, res) => {
 
   const where = [];
   const params = {};
+// PATCH /api/admin/users/:id/soft-delete
+router.patch("/:id/soft-delete", (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = db.prepare("SELECT id, name, email, status FROM users WHERE id=?").get(id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "User not found" } });
+    }
+
+    // mark as Deleted instead of removing
+    db.prepare("UPDATE users SET status='Deleted' WHERE id=?").run(id);
+
+    return res.json({
+      success: true,
+      message: `User ${user.email} marked as Deleted`,
+      user: { ...user, status: "Deleted" }
+    });
+  } catch (err) {
+    console.error("[admin-users][soft-delete] error:", err);
+    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: err.message } });
+  }
+});
 
   // NOTE: qualify columns with "u." (users alias)
   if (type) {
