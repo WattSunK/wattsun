@@ -167,7 +167,22 @@ router.post("/withdraw", async (req, res) => {
       );
 
       const id = insert.lastID;
-      return res.json({ success:true, withdrawal:{ id, status: "Pending" } });
+
+        // --- enqueue notification (new) ---
+        try {
+          const { enqueue } = require("./lib/notify");
+          await enqueue("withdrawal_requested", {
+            userId,
+            payload: { withdrawalId: id, accountId: account.id, points, eur: requestedEur }
+          });
+          console.log("[notify] queued withdrawal_requested", { id, userId, points });
+        } catch (e) {
+          console.warn("[notify.error.withdrawal_requested]", e.message);
+        }
+
+        // --- original response ---
+        return res.json({ success:true, withdrawal:{ id, status: "Pending" } });
+
 
         } catch (err) {
           console.error("[loyalty/withdraw]", err);
