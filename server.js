@@ -14,7 +14,6 @@ const app = express();
 // ----------------------------------------------------
 // Session middleware (must come before all /api/admin routes)
 // ----------------------------------------------------
-const session = require("express-session");
 
 app.use(session({
   secret: process.env.SESSION_SECRET || "wattsun_secret_key",
