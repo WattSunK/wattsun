@@ -53,7 +53,12 @@ function computeDedupeKey(kind, userId, payload, explicit) {
   if (explicit) return explicit;
   const obj =
     typeof payload === "string" ? JSON.parse(payload || "{}") : payload || {};
-  const specific = obj.withdrawalId ?? obj.accountId ?? obj.refId ?? "";
+  const specific =
+  obj.withdrawalId ??
+  (obj.accountId !== undefined && obj.accountId !== null ? obj.accountId : "") ??
+  obj.refId ??
+  "";
+
   return `${kind}:${userId ?? ""}:${specific}`;
 }
 
