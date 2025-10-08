@@ -12,7 +12,7 @@ const DB_PATH =
 
 const db = new sqlite3.Database(DB_PATH);
 
-// --- tiny promise helpers
+// --- tiny promise helpers ----------------------------------------------------
 const get = (sql, params = []) =>
   new Promise((resolve, reject) =>
     db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row || null)))
@@ -31,7 +31,7 @@ const run = (sql, params = []) =>
     })
   );
 
-// cache notification table shape after first check
+// Cache notification table shape after first check ----------------------------
 let _notifCols = null;
 async function notifCols() {
   if (_notifCols) return _notifCols;
@@ -54,34 +54,39 @@ function computeDedupeKey(kind, userId, payload, explicit) {
 
 /**
  * Enqueue a notification in an idempotent way (safe on double-submit).
- * Table is the legacy shape: (id, kind, user_id, email, payload, status, created_at, sent_at, error, account_id[, dedupe_key])
+ * Table shape: (id, kind, user_id, email, payload, status, created_at, sent_at, error, account_id[, dedupe_key])
  *
  * @param {string} kind - e.g. 'withdrawal_approved', 'withdrawal_paid', 'account_created'
- * @param {object} opts
- * @param {number} opts.userId
- * @param {string} opts.email
- * @param {object|string} opts.payload - JSON object or JSON string
- * @param {string} [opts.dedupeKey] - optional explicit dedupe key
+ * @param {object} options
+ * @param {number} options.userId
+ * @param {string} [options.email]
+ * @param {object|string} [options.payload]
+ * @param {number} [options.accountId]
+ * @param {string} [options.dedupeKey]
  * @returns {Promise<{success:boolean, queued:boolean, noOp:boolean, dedupeKey:string, id?:number}>}
  */
-async function enqueue(
-  kind,
-  opts = {}
-) {
-  const { userId = null, email = null, payload = {}, dedupeKey } = opts;
+async function enqueue(kind, options = {}) {
+  const {
+    userId = null,
+    email = null,
+    payload = {},
+    dedupeKey,
+    accountId = null,
+  } = options;
 
   // --- normalize payload so dedupe has accountId even if nested ---
-  if (opts.accountId && !payload.accountId) payload.accountId = opts.accountId;
+  if (accountId && !payload.accountId) payload.accountId = accountId;
 
+  // Serialize payload for DB insert
   const json =
     typeof payload === "string" ? payload : JSON.stringify(payload || {});
   const cols = await notifCols();
   const hasDedupe = cols.includes("dedupe_key");
 
-  // compute dedupe key from raw object, not JSON string
+  // Compute dedupe key from raw object, not JSON string
   const key = computeDedupeKey(kind, userId, payload, dedupeKey);
 
-  // --- Primary guard (fast path): dedupe_key unique check
+  // --- Primary guard (fast path): dedupe_key unique check --------------------
   if (hasDedupe) {
     const exists = await get(
       `SELECT 1 FROM notifications_queue WHERE dedupe_key = ? LIMIT 1`,
@@ -91,8 +96,7 @@ async function enqueue(
       return { success: true, queued: false, noOp: true, dedupeKey: key };
     }
   } else {
-    // --- Fallback guard if migration hasn't added dedupe_key yet
-    // Best-effort probe using kind + user + (withdrawalId|accountId|refId)
+    // --- Fallback guard if migration hasn't added dedupe_key yet -------------
     try {
       const obj = JSON.parse(json || "{}");
       const probeId = obj.withdrawalId ?? obj.accountId ?? obj.refId ?? null;
@@ -121,7 +125,7 @@ async function enqueue(
     }
   }
 
-  // Build insert dynamically to include account_id/dedupe_key only if columns exist
+  // --- Build insert dynamically ---------------------------------------------
   const fields = ["kind", "user_id", "email", "payload", "status"];
   const values = [String(kind), userId ?? null, email ?? null, json, "Queued"];
 
@@ -142,9 +146,12 @@ async function enqueue(
   }
 
   const qmarks = fields.map(() => "?").join(",");
-  const sql = `INSERT INTO notifications_queue (${fields.join(",")}) VALUES (${qmarks})`;
+  const sql = `INSERT INTO notifications_queue (${fields.join(
+    ","
+  )}) VALUES (${qmarks})`;
 
   const result = await run(sql, values);
+
   return {
     success: true,
     queued: true,
