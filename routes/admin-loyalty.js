@@ -148,17 +148,6 @@ function normalizeEligible(val) {
   }
   return [];
 }
-// ---- minimal admin guard (only Admin users allowed) ----------
-function requireAdmin(req, res, next) {
-  const u = req.session && req.session.user;
-  if (!u) return res.status(401).json({ success:false, error:{ code:"UNAUTHORIZED" } });
-
-  const type = String(u.type || u.role || "").toLowerCase();
-  const isAdmin = (type === "admin") || u.isAdmin === true || u.is_admin === 1;
-  if (!isAdmin) return res.status(403).json({ success:false, error:{ code:"FORBIDDEN" } });
-
-  next();
-}
 
 // Merge program rowset from JOIN into a single object
 async function getProgramByCode(code = "STAFF") {
@@ -612,36 +601,32 @@ router.post("/penalize", async (req, res) => {
     if (!userId || !Number.isInteger(p) || p < 1) {
       return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"userId and points>=1 required" } });
     }
-
     const prog = await withDb((db) => get(db, `SELECT id FROM loyalty_programs WHERE code='STAFF'`));
     if (!prog?.id) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Program not found" } });
 
     const acct = await getAccountByUser(prog.id, parseInt(userId, 10));
     if (!acct) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Account not found for user" } });
 
-    // --- 1️⃣ Ledger insert ---
-    await insertLedger(acct.id, "penalty", -p, note || "Admin penalty", req.session?.user?.id, note || null);
+    await insertLedger(
+      acct.id,
+      "penalty",
+      -p,
+      note || "Admin penalty",
+      req.session?.user?.id,
+      note || null
+    );
 
-   // --- 2️⃣ Fresh connection for enqueue (avoid DB lock) ---
-try {
-  const { enqueue } = require("./lib/notify");
+    try {
+      const updatedNow = await getAccountById(acct.id);
+      await enqueue("penalty", {
+        userId: acct.user_id,
+        accountId: acct.id,
+        payload: { points: p, note: note || "", balance: updatedNow.points_balance }
+      });
+    } catch (e) {
+      console.warn("enqueue(penalty) failed:", e.message);
+    }
 
-  // 🩹 Explicitly coerce accountId to numeric before enqueue (dedupe fix)
-  const accountId = Number(acct.id);
-  const payload = { points: p, note: note || "", accountId };
-
-  const r = await enqueue("penalty", {
-    userId: acct.user_id,
-    accountId,
-    payload
-  });
-  console.log("[notify] penalty queued", r);
-} catch (ee) {
-  console.error("[notify.error.penalty]", ee);
-}
-
-
-    // --- 3️⃣ Return updated account ---
     const updated = await getAccountById(acct.id);
     res.json({ success:true, account: updated });
   } catch (e) {
@@ -679,58 +664,6 @@ router.post("/extend", async (req, res) => {
   } catch (e) {
     console.error("[admin/loyalty/extend]", e);
     res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:e.message } });
-  }
-});
-// PATCH /api/admin/loyalty/accounts/:id/eligible-from
-router.patch("/accounts/:id/eligible-from", requireAdmin, async (req, res) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    let { eligible_from } = req.body; // expect 'YYYY-MM-DD'
-    if (!Number.isFinite(id)) {
-      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"Missing id" } });
-    }
-    if (!eligible_from || !/^\d{4}-\d{2}-\d{2}$/.test(String(eligible_from))) {
-      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"eligible_from must be YYYY-MM-DD" } });
-    }
-
-    await withDb(db => run(
-      db,
-      `UPDATE loyalty_accounts
-         SET eligible_from = ?, updated_at = datetime('now','localtime')
-       WHERE id = ?`,
-      [eligible_from, id]
-    ));
-
-    const row = await withDb(db => get(db,
-      `SELECT id, eligible_from FROM loyalty_accounts WHERE id=?`, [id]
-    ));
-    res.json({ success:true, account: row });
-  } catch (e) {
-    console.error("[admin/loyalty/accounts/:id/eligible-from]", e);
-    res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Failed to update eligible_from" } });
-  }
-});
-
-// PATCH /api/admin/loyalty/accounts/:id/end-date
-router.patch("/accounts/:id/end-date", requireAdmin, async (req, res) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    const { end_date } = req.body;                         // 'YYYY-MM-DD'
-    if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(String(end_date||""))) {
-      return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"end_date must be YYYY-MM-DD" } });
-    }
-    await withDb(db => run(
-      db,
-      `UPDATE loyalty_accounts
-          SET end_date = ?, updated_at = datetime('now','localtime')
-        WHERE id = ?`,
-      [end_date, id]
-    ));
-    const row = await withDb(db => get(db, `SELECT id, end_date FROM loyalty_accounts WHERE id=?`, [id]));
-    res.json({ success:true, account: row });
-  } catch (e) {
-    console.error("[admin/loyalty/accounts/:id/end-date]", e);
-    res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Failed to update end_date" } });
   }
 });
 
