@@ -11,6 +11,17 @@ const knex = require("knex");
 const nodemailer = require("nodemailer");
 
 const app = express();
+// ----------------------------------------------------
+// Session middleware (must come before all /api/admin routes)
+// ----------------------------------------------------
+const session = require("express-session");
+
+app.use(session({
+  secret: process.env.SESSION_SECRET || "wattsun_secret_key",
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false } // keep false since you’re using HTTP locally
+}));
 
 /* =========================
    Core DB handles
