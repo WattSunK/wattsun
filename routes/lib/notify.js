@@ -97,14 +97,13 @@ async function enqueue(kind, options = {}) {
   const cols = await notifCols();
   const hasDedupe = cols.includes("dedupe_key");
 
-  // Compute dedupe key from raw object (not serialized string)
-  const key = computeDedupeKey(
-    kind,
-    userId,
-    { ...payloadObj, accountId: normalizedAccountId },
-    dedupeKey
-  );
-
+// 🧩 Ensure dedupe key uses numeric accountId explicitly
+const key = computeDedupeKey(
+  kind,
+  userId,
+  { ...payloadObj, accountId: normalizedAccountId ?? 0 },
+  dedupeKey
+);
 
   // ---------------------------------------------------------------------------
   // Fast-path dedupe guard (modern schema)
