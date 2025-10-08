@@ -69,7 +69,8 @@ async function enqueue(kind, { userId = null, email = null, payload = {}, dedupe
   const cols = await notifCols();
   const hasDedupe = cols.includes("dedupe_key");
 
-  const key = computeDedupeKey(kind, userId, json, dedupeKey);
+  const key = computeDedupeKey(kind, userId, payload, dedupeKey);
+
 
   // --- Primary guard (fast path): dedupe_key unique check
   if (hasDedupe) {
