@@ -175,15 +175,22 @@ router.post("/loyalty/withdrawals", async (req, res) => {
       );
 
       const r = await q(
-        db,
-        `SELECT l.*, a.user_id, m.status AS raw_status, m.decided_at, m.paid_at
-           FROM loyalty_ledger l
-           JOIN loyalty_accounts a ON a.id=l.account_id
-           LEFT JOIN loyalty_withdrawal_meta m ON m.ledger_id=l.id
-          WHERE l.id=?`,
-        [id]
-      );
-      return { ...r, status: computeStatus(r) };
+  db,
+  `SELECT 
+       l.*, 
+       a.user_id, 
+       m.status AS raw_status, 
+       m.decided_at, 
+       m.paid_at, 
+       m.note AS admin_note
+     FROM loyalty_ledger l
+     JOIN loyalty_accounts a ON a.id=l.account_id
+     LEFT JOIN loyalty_withdrawal_meta m ON m.ledger_id=l.id
+    WHERE l.id=?`,
+  [id]
+);
+return { ...r, status: computeStatus(r) };
+
     });
 
     return res.json({ success: true, withdrawal: row });
