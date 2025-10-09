@@ -164,53 +164,52 @@ router.post("/loyalty/withdrawals", async (req, res) => {
       error: { code: "INVALID_INPUT", message: "accountId & points required" },
     });
 
-  try {
-    const row = await withDb(async (db) => {
-      const id = (
-        await run(
-          db,
-          `INSERT INTO loyalty_ledger
-             (account_id, kind, points_delta, note, admin_user_id, created_at)
-           VALUES (?, 'withdraw', -?, ?, ?, datetime('now','localtime'))`,
-          [accountId, points, note, adminId]
-        )
-      ).lastID;
+try {
+  const row = await withDb(async (db) => {
+    const adminUserId = adminId; // use session admin id
+    const ledgerResult = await run(
+      db,
+      `INSERT INTO loyalty_ledger
+         (account_id, kind, points_delta, note, admin_user_id, created_at)
+       VALUES (?, 'withdraw', -?, ?, ?, datetime('now','localtime'))`,
+      [accountId, points, note, adminUserId]
+    );
+    const ledgerId = ledgerResult.lastID;
 
     await run(
-  db,
-  `INSERT INTO loyalty_withdrawal_meta
-     (ledger_id, admin_user_id, status, created_at)
-   VALUES (?, ?, 'Pending', datetime('now','localtime'))`,
-  [ledgerId, adminUserId]
-);
+      db,
+      `INSERT INTO loyalty_withdrawal_meta
+         (ledger_id, admin_user_id, status, created_at)
+       VALUES (?, ?, 'Pending', datetime('now','localtime'))`,
+      [ledgerId, adminUserId]
+    );
 
-      const r = await q(
-  db,
-  `SELECT 
-       l.*, 
-       a.user_id, 
-       m.status AS raw_status, 
-       m.decided_at, 
-       m.paid_at, 
-       m.note AS admin_note
-     FROM loyalty_ledger l
-     JOIN loyalty_accounts a ON a.id=l.account_id
-     LEFT JOIN loyalty_withdrawal_meta m ON m.ledger_id=l.id
-    WHERE l.id=?`,
-  [id]
-);
-return { ...r, status: computeStatus(r) };
+    const r = await q(
+      db,
+      `SELECT 
+         l.*, 
+         a.user_id, 
+         m.status AS raw_status, 
+         m.decided_at, 
+         m.paid_at, 
+         m.note AS admin_note
+       FROM loyalty_ledger l
+       JOIN loyalty_accounts a ON a.id=l.account_id
+       LEFT JOIN loyalty_withdrawal_meta m ON m.ledger_id=l.id
+      WHERE l.id=?`,
+      [ledgerId]
+    );
+    return { ...r, status: computeStatus(r) };
+  });
 
-    });
-
-    return res.json({ success: true, withdrawal: row });
-  } catch (e) {
-    console.error("[withdrawals][POST]", e);
-    return res.status(500).json({
-      success: false,
-      error: { code: "SERVER_ERROR", message: "Create failed" },
-    });
-  }
+  return res.json({ success: true, withdrawal: row });
+} catch (e) {
+  console.error("[withdrawals][POST]", e);
+  return res.status(500).json({
+    success: false,
+    error: { code: "SERVER_ERROR", message: "Create failed" },
+  });
+}
 });
 
 // ────────────────────────────────────────────────────────────────
