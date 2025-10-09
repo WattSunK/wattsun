@@ -446,15 +446,7 @@ const disableApproveReject = st === "approved";
         <td>${esc(acct)}</td>
         <td>${esc(user)}</td>
         <td>${fmtInt(pts)}</td>
-      <td>
-    <span class="badge"
-        style="background:${badgeColor};color:#fff;padding:2px 8px;
-               border-radius:12px;font-size:12px;">
-    ${esc(st)}
-        </span>
-        <span class="badge badge--muted"
-              title="Source" style="margin-left:6px;">${src}</span>
-      </td>
+        <td>${esc(st)} <span class="badge badge--muted" title="Source" style="margin-left:6px;">${src}</span></td>
         <td>${esc(req)}</td>
         <td>${esc(dec)}</td>
         <td>${esc(paid)}</td>
