@@ -245,14 +245,14 @@ router.patch("/loyalty/withdrawals/:id/approve", async (req, res) => {
 
     // 🔸 INSERT notification
     await withDb(async (db) => {
-      await run(
-        db,
-        `INSERT INTO notifications_queue (kind, user_id, email, status, note, created_at)
-         VALUES ('withdrawal_approved', ?, ?, 'Queued', ?, datetime('now','localtime'))`,
-        [row.user_id, null, note]
-      );
+    await run(
+      db,
+      `INSERT INTO notifications_queue
+         (kind, user_id, email, payload, status, note, created_at)
+       VALUES ('withdrawal_approved', ?, ?, json(?), 'Queued', ?, datetime('now','localtime'))`,
+      [row.user_id, null, JSON.stringify({ message: note }), note]
+    );
     });
-
     res.json({ success: true, withdrawal: row });
   } catch (e) {
     console.error("[approve]", e);
@@ -273,9 +273,10 @@ router.patch("/loyalty/withdrawals/:id/mark-paid", async (req, res) => {
     await withDb(async (db) => {
       await run(
         db,
-        `INSERT INTO notifications_queue (kind, user_id, email, status, note, created_at)
-         VALUES ('withdrawal_paid', ?, ?, 'Queued', ?, datetime('now','localtime'))`,
-        [row.user_id, null, note]
+        `INSERT INTO notifications_queue
+           (kind, user_id, email, payload, status, note, created_at)
+         VALUES ('withdrawal_paid', ?, ?, json(?), 'Queued', ?, datetime('now','localtime'))`,
+        [row.user_id, null, JSON.stringify({ message: note }), note]
       );
     });
 
@@ -294,13 +295,13 @@ router.patch("/loyalty/withdrawals/:id/reject", async (req, res) => {
   try {
     const row = await updateStatus(id, "No Action", note, adminId);
 
-    // 🔸 INSERT notification
     await withDb(async (db) => {
       await run(
         db,
-        `INSERT INTO notifications_queue (kind, user_id, email, status, note, created_at)
-         VALUES ('withdrawal_rejected', ?, ?, 'Queued', ?, datetime('now','localtime'))`,
-        [row.user_id, null, note]
+        `INSERT INTO notifications_queue
+           (kind, user_id, email, payload, status, note, created_at)
+         VALUES ('withdrawal_rejected', ?, ?, json(?), 'Queued', ?, datetime('now','localtime'))`,
+        [row.user_id, null, JSON.stringify({ message: note }), note]
       );
     });
 
@@ -310,5 +311,6 @@ router.patch("/loyalty/withdrawals/:id/reject", async (req, res) => {
     res.status(500).json({ success: false, error: { message: "Reject failed" } });
   }
 });
+
 
 module.exports = router;
