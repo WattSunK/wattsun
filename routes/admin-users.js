@@ -283,14 +283,17 @@ router.delete("/users/:id", requireAdmin, (req, res) => {
     });
   }
 
-  db.run(`DELETE FROM users WHERE id = $id`, { $id: id }, function (err) {
-    if (err) {
-      return res
-        .status(500)
-        .json({ success: false, error: { code: "DB_DELETE", message: err.message } });
-    }
-    return res.json({ success: true, deleted: this.changes, id });
-  });
+ try {
+  const stmt = db.prepare("DELETE FROM users WHERE id = ?");
+  const result = stmt.run(id);
+  return res.json({ success: true, deleted: result.changes, id });
+} catch (err) {
+  console.error("[admin-users][hard-delete]", err);
+  return res
+    .status(500)
+    .json({ success: false, error: { code: "DB_DELETE", message: err.message } });
+}
+
 });
 
 module.exports = router;
