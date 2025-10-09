@@ -52,12 +52,13 @@ const q = (db, sql, p = []) =>
 const all = (db, sql, p = []) =>
   new Promise((res, rej) => db.all(sql, p, (e, r) => (e ? rej(e) : res(r))));
 const run = (db, sql, p = []) =>
-  new Promise((res, rej) =>
+  new Promise((res, rej) => {
     db.run(sql, p, function (e) {
       if (e) rej(e);
-      else res({ changes: this.changes, lastID: this.lastID });
-    })
-  );
+      else res({ lastID: this.lastID, changes: this.changes });
+    });
+  });
+
 const asInt = (v, d = 0) => (Number.isFinite(+v) ? parseInt(v, 10) : d);
 const s = (x) => (x == null ? null : String(x).trim());
 
