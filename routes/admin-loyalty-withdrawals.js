@@ -172,7 +172,7 @@ async function getUnifiedWithdrawal(db, id, sourceHint = null) {
       'ledger' AS source
      FROM loyalty_ledger l
      JOIN loyalty_accounts a ON l.account_id = a.id
-     WHERE l.id = ?`,
+     WHERE l.id = ? AND l.kind = 'withdraw'`,
     [id]
   );
 }
