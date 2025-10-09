@@ -246,6 +246,29 @@ router.patch("/loyalty/withdrawals/:id/approve", async (req, res) => {
     res.status(500).json({ success: false, error: { message: "Approve failed" } });
   }
 });
+router.patch("/loyalty/withdrawals/:id/approve", async (req, res) => {
+  const id = asInt(req.params.id);
+  const adminId = req.session?.user?.id || null;
+  const note = `Withdrawal #${id} approved`;
+  try {
+    const row = await updateStatus(id, "Approved", note, adminId);
+
+    // 🔸 INSERT notification
+    await withDb(async (db) => {
+      await run(
+        db,
+        `INSERT INTO notifications_queue (kind, user_id, email, status, note, created_at)
+         VALUES ('withdrawal_approved', ?, ?, 'Queued', ?, datetime('now','localtime'))`,
+        [row.user_id, null, note]
+      );
+    });
+
+    res.json({ success: true, withdrawal: row });
+  } catch (e) {
+    console.error("[approve]", e);
+    res.status(500).json({ success: false, error: { message: "Approve failed" } });
+  }
+});
 
 router.patch("/loyalty/withdrawals/:id/mark-paid", async (req, res) => {
   const id = asInt(req.params.id);
@@ -260,6 +283,30 @@ router.patch("/loyalty/withdrawals/:id/mark-paid", async (req, res) => {
     res.status(500).json({ success: false, error: { message: "Mark paid failed" } });
   }
 });
+router.patch("/loyalty/withdrawals/:id/mark-paid", async (req, res) => {
+  const id = asInt(req.params.id);
+  const adminId = req.session?.user?.id || null;
+  const note = s(req.body?.note) || `Withdrawal #${id} paid`;
+  const paidAt = req.body?.paidAt || new Date().toISOString();
+  try {
+    const row = await updateStatus(id, "No Action", note, adminId, { paidAt });
+
+    // 🔸 INSERT notification
+    await withDb(async (db) => {
+      await run(
+        db,
+        `INSERT INTO notifications_queue (kind, user_id, email, status, note, created_at)
+         VALUES ('withdrawal_paid', ?, ?, 'Queued', ?, datetime('now','localtime'))`,
+        [row.user_id, null, note]
+      );
+    });
+
+    res.json({ success: true, withdrawal: row });
+  } catch (e) {
+    console.error("[mark-paid]", e);
+    res.status(500).json({ success: false, error: { message: "Mark paid failed" } });
+  }
+});
 
 router.patch("/loyalty/withdrawals/:id/reject", async (req, res) => {
   const id = asInt(req.params.id);
@@ -267,6 +314,29 @@ router.patch("/loyalty/withdrawals/:id/reject", async (req, res) => {
   const note = s(req.body?.note);
   try {
     const row = await updateStatus(id, "No Action", note || "Rejected", adminId);
+    res.json({ success: true, withdrawal: row });
+  } catch (e) {
+    console.error("[reject]", e);
+    res.status(500).json({ success: false, error: { message: "Reject failed" } });
+  }
+});
+router.patch("/loyalty/withdrawals/:id/reject", async (req, res) => {
+  const id = asInt(req.params.id);
+  const adminId = req.session?.user?.id || null;
+  const note = s(req.body?.note) || `Withdrawal #${id} rejected`;
+  try {
+    const row = await updateStatus(id, "No Action", note, adminId);
+
+    // 🔸 INSERT notification
+    await withDb(async (db) => {
+      await run(
+        db,
+        `INSERT INTO notifications_queue (kind, user_id, email, status, note, created_at)
+         VALUES ('withdrawal_rejected', ?, ?, 'Queued', ?, datetime('now','localtime'))`,
+        [row.user_id, null, note]
+      );
+    });
+
     res.json({ success: true, withdrawal: row });
   } catch (e) {
     console.error("[reject]", e);
