@@ -119,7 +119,7 @@ async function addLedgerIfAvailable(db, opts) {
 async function findWithdrawalSource(db, id) {
   // Disambiguate by probing base tables directly.
   // Prefer 'admin' if both happen to have the same numeric id.
-  const inAdmin = await q(db, `SELECT id FROM withdrawals WHERE id=?`, [id]);
+  const inAdmin = await q(db, `SELECT id FROM loyalty_ledger WHERE id=? AND kind='withdraw'`, [id]);
   if (inAdmin) return "admin";
   const inCustomer = await q(db, `SELECT id FROM loyalty_withdrawals WHERE id=?`, [id]);
   if (inCustomer) return "customer";
@@ -145,9 +145,11 @@ async function getUnifiedWithdrawal(db, id, sourceHint = null) {
          w.decided_by,
          w.payout_ref,
          'admin' AS source
-       FROM withdrawals w
-       WHERE w.id = ?`,
+       FROM loyalty_ledger l
+      JOIN loyalty_accounts a ON l.account_id = a.id
+      WHERE l.id = ? AND l.kind = 'withdraw'`,
       [id]
+
     );
   }
   if (src === "customer") {
@@ -280,11 +282,12 @@ async function lookupEmailForNotification(db, { accountId, withdrawalId, source 
     const r = await q(
       db,
       `SELECT u.email, a.user_id, a.id AS account_id
-         FROM withdrawals w
-         JOIN loyalty_accounts a ON a.id = w.account_id
-         LEFT JOIN users u ON u.id = a.user_id
-        WHERE w.id = ?`,
-      [withdrawalId]
+       FROM loyalty_ledger l
+        JOIN loyalty_accounts a ON a.id = l.account_id
+        LEFT JOIN users u ON u.id = a.user_id
+        WHERE l.id = ? AND l.kind = 'withdraw'`,
+        [withdrawalId]
+
     ).catch(() => null);
     if (r?.email) return { email: r.email, userId: r.user_id, accountId: r.account_id };
   }
