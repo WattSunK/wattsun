@@ -1,15 +1,12 @@
--- 2025-10-09_fix_loyalty_triggers.sql
--- Purpose: Restore and correct loyalty triggers and ensure proper recalculation behavior.
-
+-- 2025-10-09_fix_loyalty_triggers.sql (patched)
 PRAGMA foreign_keys = ON;
 
--- Drop existing triggers if present (to avoid conflicts)
 DROP TRIGGER IF EXISTS trg_loyalty_auto_create;
 DROP TRIGGER IF EXISTS trg_ll_after_insert_recalc;
 DROP TRIGGER IF EXISTS trg_ll_after_delete_recalc;
 DROP TRIGGER IF EXISTS trg_ll_after_update_recalc;
 
--- 1️⃣ Auto-create loyalty account on new user insertion
+-- Auto-create loyalty account when a new user joins
 CREATE TRIGGER IF NOT EXISTS trg_loyalty_auto_create
 AFTER INSERT ON users
 WHEN NEW.type IN ('User','Staff','Driver')
@@ -18,28 +15,28 @@ BEGIN
   VALUES (NEW.id, 'Active', datetime('now'));
 END;
 
--- 2️⃣ Update balance after ledger insert
+-- Add points after ledger insert
 CREATE TRIGGER IF NOT EXISTS trg_ll_after_insert_recalc
 AFTER INSERT ON loyalty_ledger
-WHEN NEW.points IS NOT NULL
+WHEN NEW.points_delta IS NOT NULL
 BEGIN
   UPDATE loyalty_accounts
-  SET points_balance = COALESCE(points_balance,0) + NEW.points,
-      total_earned = COALESCE(total_earned,0) + NEW.points
+  SET points_balance = COALESCE(points_balance,0) + NEW.points_delta,
+      total_earned = COALESCE(total_earned,0) + NEW.points_delta
   WHERE id = NEW.account_id;
 END;
 
--- 3️⃣ Update balance after ledger delete
+-- Subtract points after ledger delete
 CREATE TRIGGER IF NOT EXISTS trg_ll_after_delete_recalc
 AFTER DELETE ON loyalty_ledger
-WHEN OLD.points IS NOT NULL
+WHEN OLD.points_delta IS NOT NULL
 BEGIN
   UPDATE loyalty_accounts
-  SET points_balance = COALESCE(points_balance,0) - OLD.points
+  SET points_balance = COALESCE(points_balance,0) - OLD.points_delta
   WHERE id = OLD.account_id;
 END;
 
--- 4️⃣ Optional: maintain timestamps when ledger updated
+-- Timestamp refresh on ledger update
 CREATE TRIGGER IF NOT EXISTS trg_ll_after_update_recalc
 AFTER UPDATE ON loyalty_ledger
 BEGIN
@@ -48,5 +45,5 @@ BEGIN
   WHERE id = NEW.account_id;
 END;
 
--- Verify
-SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'trg_ll%' OR name LIKE 'trg_loyalty%';
+SELECT name FROM sqlite_master
+WHERE type='trigger' AND name LIKE 'trg_ll%' OR name LIKE 'trg_loyalty%';
