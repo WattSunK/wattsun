@@ -38,7 +38,7 @@ sqlite3 $DB "SELECT * FROM loyalty_accounts WHERE user_id=$USER_ID;"
 
 echo "7️⃣ Ledger trigger test (insert/delete)..."
 ACC_ID=$(sqlite3 $DB "SELECT id FROM loyalty_accounts LIMIT 1;")
-sqlite3 $DB "INSERT INTO loyalty_ledger (account_id,kind,points) VALUES ($ACC_ID,'bonus',100);"
+sqlite3 $DB "INSERT INTO loyalty_ledger (account_id,kind,points_delta) VALUES ($ACC_ID,'bonus',100);"
 sqlite3 $DB "DELETE FROM loyalty_ledger WHERE account_id=$ACC_ID AND kind='bonus';"
 
 echo "8️⃣ View integrity check..."
