@@ -380,11 +380,15 @@
 function actionCellHtml(id, status, source) {
   const st = String(status || "").trim().toLowerCase();
 
-  // Lifecycle logic
-  const canApprove = st === "pending";
-  const canReject  = st === "pending";
-  const canPay     = st === "approved";
-  const noAction   = st === "no action" || st === "paid" || st === "rejected";
+ // Lifecycle logic
+const canApprove = st === "pending";
+const canReject  = st === "pending";
+const canPay     = st === "approved";
+const noAction   = st === "no action" || st === "paid" || st === "rejected";
+
+// Hide Approve/Reject if already approved
+const disableApproveReject = st === "approved";
+
 
   // If finalised → no interactive menu
   if (!(canApprove || canReject || canPay) || noAction) {
@@ -404,16 +408,16 @@ function actionCellHtml(id, status, source) {
       <button class="btn btn-actions" aria-haspopup="menu"
               data-id="${esc(id)}" data-source="${src}">Actions ▾</button>
       <div class="actions-menu hidden" role="menu" data-id="${esc(id)}">
-        <button class="btn btn-approve"
-                data-id="${esc(id)}" data-source="${src}"
-                ${canApprove ? "" : "disabled"}>Approve</button>
-        <button class="btn btn-reject"
-                data-id="${esc(id)}" data-source="${src}"
-                ${canReject ? "" : "disabled"}>Reject</button>
-        <button class="btn btn-mark-paid"
-                data-id="${esc(id)}" data-source="${src}"
-                ${canPay ? "" : "disabled"}>Mark Paid</button>
-      </div>
+      <button class="btn btn-approve"
+          data-id="${esc(id)}" data-source="${src}"
+          ${canApprove && !disableApproveReject ? "" : "disabled"}>Approve</button>
+      <button class="btn btn-reject"
+          data-id="${esc(id)}" data-source="${src}"
+          ${canReject && !disableApproveReject ? "" : "disabled"}>Reject</button>
+      <button class="btn btn-mark-paid"
+          data-id="${esc(id)}" data-source="${src}"
+          ${canPay ? "" : "disabled"}>Mark Paid</button>
+</div>
     </div>`;
 }
 
@@ -432,13 +436,26 @@ function actionCellHtml(id, status, source) {
       const dec  = w.decided_at ?? w.decidedAt ?? "—";
       const paid = w.paid_at ?? w.paidAt ?? "—";
       const src  = (w.source === "admin") ? "Admin" : "Customer";
+      let badgeColor = "#f5c542"; // pending → yellow
+      if (st.toLowerCase() === "approved") badgeColor = "#3b82f6"; // blue
+      if (st.toLowerCase() === "no action") badgeColor = "#16a34a"; // green
+
       const tr=document.createElement("tr"); tr.dataset.id = id;
       tr.innerHTML = `
         <td>${esc(id)}</td>
         <td>${esc(acct)}</td>
         <td>${esc(user)}</td>
         <td>${fmtInt(pts)}</td>
-        <td>${esc(st)} <span class="badge badge--muted" title="Source" style="margin-left:6px;">${src}</span></td>
+       <td>
+          <span class="badge"
+          style="background:${badgeColor};color:#fff;padding:2px 8px;
+          border-radius:12px;font-size:12px;">
+            ${esc(st)}
+            </span>
+            <span class="badge badge--muted" title="Source" style="margin-left:6px;">
+              ${src}
+            </span>
+          </td>
         <td>${esc(req)}</td>
         <td>${esc(dec)}</td>
         <td>${esc(paid)}</td>
