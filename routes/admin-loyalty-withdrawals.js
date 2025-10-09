@@ -1,6 +1,5 @@
 // routes/admin-loyalty-withdrawals.js
-// ✅ Updated Oct 2025 – Overlay + Lifecycle Aware + Admin Gated
-// Status flow: Pending → Approved → No Action (Paid / Rejected final)
+// ✅ Updated Oct 2025 – Lifecycle-aware status fix (decided_at / paid_at logic)
 
 const express = require("express");
 const path = require("path");
@@ -63,14 +62,15 @@ const asInt = (v, d = 0) => (Number.isFinite(+v) ? parseInt(v, 10) : d);
 const s = (x) => (x == null ? null : String(x).trim());
 
 // ────────────────────────────────────────────────────────────────
-// Helper: compute derived status according to overlay
+// 🔁 Updated Helper: compute derived status according to lifecycle
 // ────────────────────────────────────────────────────────────────
-function computeStatus(metaRow) {
-  if (!metaRow) return "Pending";
-  const st = metaRow.status;
+function computeStatus(r) {
+  // Determine by date fields first
+  if (r.paid_at) return "No Action"; // fully settled or rejected
+  if (r.decided_at) return "Approved"; // approved or decided, awaiting payment
+  const st = r.raw_status || "";
+  if (st === "Paid" || st === "Rejected" || st === "No Action") return "No Action";
   if (st === "Approved") return "Approved";
-  if (st === "Paid" || st === "Rejected" || st === "No Action")
-    return "No Action";
   return "Pending";
 }
 
@@ -141,7 +141,7 @@ router.get("/loyalty/withdrawals", async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────
-// POST /api/admin/loyalty/withdrawals  → create new Approved (admin-initiated)
+// POST /api/admin/loyalty/withdrawals → create new Approved (admin-initiated)
 // ────────────────────────────────────────────────────────────────
 router.post("/loyalty/withdrawals", async (req, res) => {
   const accountId = asInt(req.body?.accountId);
@@ -167,17 +167,16 @@ router.post("/loyalty/withdrawals", async (req, res) => {
         )
       ).lastID;
 
-      // Admin-initiated withdrawals start as Approved
       await run(
         db,
-        `INSERT OR IGNORE INTO loyalty_withdrawal_meta (ledger_id,status,decided_by)
-         VALUES (?, 'Approved', ?)`,
+        `INSERT OR IGNORE INTO loyalty_withdrawal_meta (ledger_id,status,decided_by,decided_at)
+         VALUES (?, 'Approved', ?, datetime('now','localtime'))`,
         [id, adminId]
       );
 
       const r = await q(
         db,
-        `SELECT l.*, a.user_id, m.status AS raw_status
+        `SELECT l.*, a.user_id, m.status AS raw_status, m.decided_at, m.paid_at
            FROM loyalty_ledger l
            JOIN loyalty_accounts a ON a.id=l.account_id
            LEFT JOIN loyalty_withdrawal_meta m ON m.ledger_id=l.id
@@ -200,23 +199,25 @@ router.post("/loyalty/withdrawals", async (req, res) => {
 // ────────────────────────────────────────────────────────────────
 // PATCH helpers (Approve / Paid / Reject)
 // ────────────────────────────────────────────────────────────────
-async function updateStatus(id, status, note, adminId) {
+async function updateStatus(id, status, note, adminId, extra = {}) {
   return withDb(async (db) => {
     await run(
       db,
-      `INSERT INTO loyalty_withdrawal_meta (ledger_id,status,decided_by,decided_at,note)
-         VALUES (?,?,?,?,?)
+      `INSERT INTO loyalty_withdrawal_meta (ledger_id,status,decided_by,decided_at,note,paid_at)
+         VALUES (?,?,?,?,?,?)
        ON CONFLICT(ledger_id)
        DO UPDATE SET 
          status=excluded.status,
          decided_by=excluded.decided_by,
          decided_at=excluded.decided_at,
-         note=excluded.note`,
-      [id, status, adminId, new Date().toISOString(), note || null]
+         note=excluded.note,
+         paid_at=COALESCE(excluded.paid_at, loyalty_withdrawal_meta.paid_at)`,
+      [id, status, adminId, new Date().toISOString(), note || null, extra.paidAt || null]
     );
+
     const r = await q(
       db,
-      `SELECT l.*, a.user_id, m.status AS raw_status, m.note AS admin_note
+      `SELECT l.*, a.user_id, m.status AS raw_status, m.decided_at, m.paid_at, m.note AS admin_note
          FROM loyalty_ledger l
          JOIN loyalty_accounts a ON a.id=l.account_id
          LEFT JOIN loyalty_withdrawal_meta m ON m.ledger_id=l.id
@@ -235,9 +236,7 @@ router.patch("/loyalty/withdrawals/:id/approve", async (req, res) => {
     res.json({ success: true, withdrawal: row });
   } catch (e) {
     console.error("[approve]", e);
-    res
-      .status(500)
-      .json({ success: false, error: { message: "Approve failed" } });
+    res.status(500).json({ success: false, error: { message: "Approve failed" } });
   }
 });
 
@@ -245,14 +244,13 @@ router.patch("/loyalty/withdrawals/:id/mark-paid", async (req, res) => {
   const id = asInt(req.params.id);
   const adminId = req.session?.user?.id || null;
   const note = s(req.body?.note);
+  const paidAt = req.body?.paidAt || new Date().toISOString();
   try {
-    const row = await updateStatus(id, "No Action", note, adminId);
+    const row = await updateStatus(id, "No Action", note, adminId, { paidAt });
     res.json({ success: true, withdrawal: row });
   } catch (e) {
     console.error("[mark-paid]", e);
-    res
-      .status(500)
-      .json({ success: false, error: { message: "Mark paid failed" } });
+    res.status(500).json({ success: false, error: { message: "Mark paid failed" } });
   }
 });
 
@@ -265,9 +263,7 @@ router.patch("/loyalty/withdrawals/:id/reject", async (req, res) => {
     res.json({ success: true, withdrawal: row });
   } catch (e) {
     console.error("[reject]", e);
-    res
-      .status(500)
-      .json({ success: false, error: { message: "Reject failed" } });
+    res.status(500).json({ success: false, error: { message: "Reject failed" } });
   }
 });
 
