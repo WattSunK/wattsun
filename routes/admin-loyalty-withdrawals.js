@@ -364,6 +364,7 @@ router.post("/loyalty/withdrawals", async (req, res) => {
       const eur = points * (Number.isFinite(eurPerPoint) ? eurPerPoint : 1);
 
       // Preserve the existing admin INSERT into its own table.
+      const adminUserId = req.session?.user?.id || null;
       const id = await lastId(
         db,
         `INSERT INTO loyalty_ledger
