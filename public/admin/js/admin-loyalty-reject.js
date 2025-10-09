@@ -91,22 +91,34 @@
   const inputNote = modal.querySelector('textarea[name="note"]');
   const errBox    = modal.querySelector(".ws-error");
 
-  // ---------- API ----------
-  async function patchReject(id, note) {
-    const res = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/reject`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ note })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data?.success === false) {
-      const msg = data?.error?.message || `HTTP ${res.status}`;
-      const code = data?.error?.code || "ERROR";
-      throw new Error(`${code}: ${msg}`);
-    }
-    return data;
-  }
+// ─────────────────────────────────────────────
+// admin-loyalty-reject.js
+// ─────────────────────────────────────────────
+async function rejectWithdrawal(id) {
+const note = `Withdrawal #${id} rejected`;
+try {
+const res = await fetch(`/api/admin/loyalty/withdrawals/${id}/reject`, {
+method: "PATCH",
+headers: { "Content-Type": "application/json" },
+credentials: "include",
+body: JSON.stringify({ note, notification: note })
+});
+const data = await res.json();
+if (data.success) {
+alert(`❌ ${note}`);
+localStorage.setItem("loyaltyUpdatedAt", Date.now());
+window.dispatchEvent(new CustomEvent("loyalty:save-success", {
+detail: { action: "reject", id }
+}));
+} else {
+console.error(data);
+alert("Error rejecting withdrawal");
+}
+} catch (err) {
+console.error(err);
+alert("Network error");
+}
+}
 
   // ---------- Modal controls ----------
   function escHandler(e) { if (e.key === "Escape") { e.preventDefault(); hide(); } }

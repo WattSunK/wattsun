@@ -17,19 +17,34 @@
     return null;
   }
 
-  async function approve(id) {
-    const resp = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/approve`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include"
-    });
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok || data?.success === false) {
-      const msg = data?.error?.message || `HTTP ${resp.status}`;
-      throw new Error(msg);
-    }
-    return data;
-  }
+ // ─────────────────────────────────────────────
+// admin-loyalty-approve.js
+// ─────────────────────────────────────────────
+async function approveWithdrawal(id) {
+const note = `Withdrawal #${id} approved`;
+try {
+const res = await fetch(`/api/admin/loyalty/withdrawals/${id}/approve`, {
+method: "PATCH",
+headers: { "Content-Type": "application/json" },
+credentials: "include",
+body: JSON.stringify({ note, notification: note })
+});
+const data = await res.json();
+if (data.success) {
+alert(`✅ ${note}`);
+localStorage.setItem("loyaltyUpdatedAt", Date.now());
+window.dispatchEvent(new CustomEvent("loyalty:save-success", {
+detail: { action: "approve", id }
+}));
+} else {
+console.error(data);
+alert("Error approving withdrawal");
+}
+} catch (err) {
+console.error(err);
+alert("Network error");
+}
+}
 
   // Single, safe delegation
   document.addEventListener("click", async (e) => {

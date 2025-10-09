@@ -111,22 +111,38 @@
     openModal(id);
   }, true);
 
-  /* ------------------------------ API call ------------------------------- */
-
-  async function patchMarkPaid(id, payload) {
-    const resp = await fetch(`/api/admin/loyalty/withdrawals/${encodeURIComponent(id)}/mark-paid`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok || data?.success === false) {
-      const msg = data?.error?.message || `HTTP ${resp.status}`;
-      throw new Error(msg);
-    }
-    return data;
-  }
+  // ─────────────────────────────────────────────
+// admin-loyalty-mark-paid.js
+// ─────────────────────────────────────────────
+async function markWithdrawalPaid(id) {
+const note = `Withdrawal #${id} paid`;
+try {
+const res = await fetch(`/api/admin/loyalty/withdrawals/${id}/mark-paid`, {
+method: "PATCH",
+headers: { "Content-Type": "application/json" },
+credentials: "include",
+body: JSON.stringify({
+note,
+notification: note,
+paidAt: new Date().toISOString()
+})
+});
+const data = await res.json();
+if (data.success) {
+alert(`💰 ${note}`);
+localStorage.setItem("loyaltyUpdatedAt", Date.now());
+window.dispatchEvent(new CustomEvent("loyalty:save-success", {
+detail: { action: "mark-paid", id }
+}));
+} else {
+console.error(data);
+alert("Error marking withdrawal as paid");
+}
+} catch (err) {
+console.error(err);
+alert("Network error");
+}
+}
 
   /* ------------------------------- Submit -------------------------------- */
 
