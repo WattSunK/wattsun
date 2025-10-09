@@ -373,31 +373,50 @@
     }finally{ addLoading(tbody,false); setRefreshDisabled(false); }
   }
 
-  function actionCellHtml(id, status, source){
-    const st = String(status || "").trim().toLowerCase();
-    const canApprove = st === "pending";
-    const canReject  = st === "pending";
-    const canPay     = st === "approved";
+ // ─────────────────────────────────────────────
+// Action Cell Builder (Lifecycle-aware)
+// Covers both Admin- and Customer-initiated withdrawals
+// ─────────────────────────────────────────────
+function actionCellHtml(id, status, source) {
+  const st = String(status || "").trim().toLowerCase();
 
-    if (!(canApprove || canReject || canPay)) {
-      return `
-        <span class="badge badge--muted" data-no-actions="1"
-              style="display:inline-block;padding:2px 8px;border-radius:12px;background:#eee;color:#666;font-size:12px;">
-          No actions
-        </span>`;
-    }
+  // Lifecycle logic
+  const canApprove = st === "pending";
+  const canReject  = st === "pending";
+  const canPay     = st === "approved";
+  const noAction   = st === "no action" || st === "paid" || st === "rejected";
 
-    const src = esc(source || "customer");
+  // If finalised → no interactive menu
+  if (!(canApprove || canReject || canPay) || noAction) {
     return `
-      <div class="ws-actions" data-has-actions="1" style="position:relative;" data-id="${esc(id)}" data-source="${src}">
-        <button class="btn btn-actions" aria-haspopup="menu" data-id="${esc(id)}" data-source="${src}">Actions ▾</button>
-        <div class="actions-menu hidden" role="menu" data-id="${esc(id)}">
-          <button class="btn btn-approve"   data-id="${esc(id)}" data-source="${src}" ${canApprove ? "" : "disabled"}>Approve</button>
-          <button class="btn btn-reject"    data-id="${esc(id)}" data-source="${src}" ${canReject  ? "" : "disabled"}>Reject</button>
-          <button class="btn btn-mark-paid" data-id="${esc(id)}" data-source="${src}" ${canPay     ? "" : "disabled"}>Mark Paid</button>
-        </div>
-      </div>`;
+      <span class="badge badge--muted" data-no-actions="1"
+            style="display:inline-block;padding:2px 8px;border-radius:12px;
+                   background:#9ca3af;color:#fff;font-size:12px;"
+            title="Already settled or finalised">
+        No actions
+      </span>`;
   }
+
+  const src = esc(source || "customer");
+  return `
+    <div class="ws-actions" data-has-actions="1" style="position:relative;"
+         data-id="${esc(id)}" data-source="${src}">
+      <button class="btn btn-actions" aria-haspopup="menu"
+              data-id="${esc(id)}" data-source="${src}">Actions ▾</button>
+      <div class="actions-menu hidden" role="menu" data-id="${esc(id)}">
+        <button class="btn btn-approve"
+                data-id="${esc(id)}" data-source="${src}"
+                ${canApprove ? "" : "disabled"}>Approve</button>
+        <button class="btn btn-reject"
+                data-id="${esc(id)}" data-source="${src}"
+                ${canReject ? "" : "disabled"}>Reject</button>
+        <button class="btn btn-mark-paid"
+                data-id="${esc(id)}" data-source="${src}"
+                ${canPay ? "" : "disabled"}>Mark Paid</button>
+      </div>
+    </div>`;
+}
+
 
   function renderWithdrawalsRows(tbody, rows){
     if (!tbody) return; tbody.innerHTML = "";
