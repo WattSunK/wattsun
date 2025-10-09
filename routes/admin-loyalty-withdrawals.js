@@ -1,12 +1,29 @@
 // routes/admin-loyalty-withdrawals.js
-// ✅ Updated Oct 2025 – Overlay + Lifecycle Aware
-// Withdrawals now draw from loyalty_ledger + loyalty_withdrawal_meta.
-// Status flow: Pending → Approved → No Action (Paid / Rejected final).
+// ✅ Updated Oct 2025 – Overlay + Lifecycle Aware + Admin Gated
+// Status flow: Pending → Approved → No Action (Paid / Rejected final)
 
 const express = require("express");
 const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 const router = express.Router();
+
+// ────────────────────────────────────────────────────────────────
+// Middleware – require admin session
+// ────────────────────────────────────────────────────────────────
+function requireAdmin(req, res, next) {
+  const u = req.session?.user;
+  if (!u || (u.type !== "Admin" && u.role !== "Admin")) {
+    return res
+      .status(403)
+      .json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Admin access required." },
+      });
+  }
+  next();
+}
+
+router.use(requireAdmin);
 
 // ────────────────────────────────────────────────────────────────
 // DB helpers
@@ -52,7 +69,8 @@ function computeStatus(metaRow) {
   if (!metaRow) return "Pending";
   const st = metaRow.status;
   if (st === "Approved") return "Approved";
-  if (st === "Paid" || st === "Rejected" || st === "No Action") return "No Action";
+  if (st === "Paid" || st === "Rejected" || st === "No Action")
+    return "No Action";
   return "Pending";
 }
 
@@ -94,13 +112,11 @@ router.get("/loyalty/withdrawals", async (req, res) => {
         )
       )?.n;
 
-      // Map lifecycle statuses
       const withdrawals = rows.map((r) => ({
         ...r,
         status: computeStatus(r),
       }));
 
-      // optional filter after mapping
       const filtered = statusFilter
         ? withdrawals.filter((w) => w.status === statusFilter)
         : withdrawals;
@@ -108,7 +124,13 @@ router.get("/loyalty/withdrawals", async (req, res) => {
       return { withdrawals: filtered, total };
     });
 
-    return res.json({ success: true, page, per, total: out.total, withdrawals: out.withdrawals });
+    return res.json({
+      success: true,
+      page,
+      per,
+      total: out.total,
+      withdrawals: out.withdrawals,
+    });
   } catch (e) {
     console.error("[withdrawals][GET]", e);
     return res.status(500).json({
@@ -119,7 +141,7 @@ router.get("/loyalty/withdrawals", async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────
-// POST /api/admin/loyalty/withdrawals  → create new Pending
+// POST /api/admin/loyalty/withdrawals  → create new Approved (admin-initiated)
 // ────────────────────────────────────────────────────────────────
 router.post("/loyalty/withdrawals", async (req, res) => {
   const accountId = asInt(req.body?.accountId);
@@ -145,11 +167,12 @@ router.post("/loyalty/withdrawals", async (req, res) => {
         )
       ).lastID;
 
+      // Admin-initiated withdrawals start as Approved
       await run(
         db,
-        `INSERT OR IGNORE INTO loyalty_withdrawal_meta (ledger_id,status)
-         VALUES (?, 'Pending')`,
-        [id]
+        `INSERT OR IGNORE INTO loyalty_withdrawal_meta (ledger_id,status,decided_by)
+         VALUES (?, 'Approved', ?)`,
+        [id, adminId]
       );
 
       const r = await q(
@@ -175,9 +198,7 @@ router.post("/loyalty/withdrawals", async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────
-// PATCH /api/admin/loyalty/withdrawals/:id/approve
-// PATCH /api/admin/loyalty/withdrawals/:id/mark-paid
-// PATCH /api/admin/loyalty/withdrawals/:id/reject
+// PATCH helpers (Approve / Paid / Reject)
 // ────────────────────────────────────────────────────────────────
 async function updateStatus(id, status, note, adminId) {
   return withDb(async (db) => {
@@ -214,7 +235,9 @@ router.patch("/loyalty/withdrawals/:id/approve", async (req, res) => {
     res.json({ success: true, withdrawal: row });
   } catch (e) {
     console.error("[approve]", e);
-    res.status(500).json({ success: false, error: { message: "Approve failed" } });
+    res
+      .status(500)
+      .json({ success: false, error: { message: "Approve failed" } });
   }
 });
 
@@ -227,7 +250,9 @@ router.patch("/loyalty/withdrawals/:id/mark-paid", async (req, res) => {
     res.json({ success: true, withdrawal: row });
   } catch (e) {
     console.error("[mark-paid]", e);
-    res.status(500).json({ success: false, error: { message: "Mark paid failed" } });
+    res
+      .status(500)
+      .json({ success: false, error: { message: "Mark paid failed" } });
   }
 });
 
@@ -240,7 +265,9 @@ router.patch("/loyalty/withdrawals/:id/reject", async (req, res) => {
     res.json({ success: true, withdrawal: row });
   } catch (e) {
     console.error("[reject]", e);
-    res.status(500).json({ success: false, error: { message: "Reject failed" } });
+    res
+      .status(500)
+      .json({ success: false, error: { message: "Reject failed" } });
   }
 });
 
