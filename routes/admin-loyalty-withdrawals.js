@@ -235,17 +235,7 @@ async function updateStatus(id, status, note, adminId, extra = {}) {
   });
 }
 
-router.patch("/loyalty/withdrawals/:id/approve", async (req, res) => {
-  const id = asInt(req.params.id);
-  const adminId = req.session?.user?.id || null;
-  try {
-    const row = await updateStatus(id, "Approved", null, adminId);
-    res.json({ success: true, withdrawal: row });
-  } catch (e) {
-    console.error("[approve]", e);
-    res.status(500).json({ success: false, error: { message: "Approve failed" } });
-  }
-});
+
 router.patch("/loyalty/withdrawals/:id/approve", async (req, res) => {
   const id = asInt(req.params.id);
   const adminId = req.session?.user?.id || null;
@@ -270,19 +260,7 @@ router.patch("/loyalty/withdrawals/:id/approve", async (req, res) => {
   }
 });
 
-router.patch("/loyalty/withdrawals/:id/mark-paid", async (req, res) => {
-  const id = asInt(req.params.id);
-  const adminId = req.session?.user?.id || null;
-  const note = s(req.body?.note);
-  const paidAt = req.body?.paidAt || new Date().toISOString();
-  try {
-    const row = await updateStatus(id, "No Action", note, adminId, { paidAt });
-    res.json({ success: true, withdrawal: row });
-  } catch (e) {
-    console.error("[mark-paid]", e);
-    res.status(500).json({ success: false, error: { message: "Mark paid failed" } });
-  }
-});
+
 router.patch("/loyalty/withdrawals/:id/mark-paid", async (req, res) => {
   const id = asInt(req.params.id);
   const adminId = req.session?.user?.id || null;
@@ -308,18 +286,7 @@ router.patch("/loyalty/withdrawals/:id/mark-paid", async (req, res) => {
   }
 });
 
-router.patch("/loyalty/withdrawals/:id/reject", async (req, res) => {
-  const id = asInt(req.params.id);
-  const adminId = req.session?.user?.id || null;
-  const note = s(req.body?.note);
-  try {
-    const row = await updateStatus(id, "No Action", note || "Rejected", adminId);
-    res.json({ success: true, withdrawal: row });
-  } catch (e) {
-    console.error("[reject]", e);
-    res.status(500).json({ success: false, error: { message: "Reject failed" } });
-  }
-});
+
 router.patch("/loyalty/withdrawals/:id/reject", async (req, res) => {
   const id = asInt(req.params.id);
   const adminId = req.session?.user?.id || null;
