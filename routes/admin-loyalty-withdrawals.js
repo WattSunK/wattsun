@@ -431,39 +431,28 @@ router.get("/loyalty/withdrawals", async (req, res) => {
 
   // Conservative UNION that avoids referencing optional admin columns
   // (prevents 500s if the admin 'withdrawals' table doesn't have some fields)
+   // Modernized query — use loyalty_ledger for withdrawals
   const unionSafe = `
     SELECT
-      lw.id,
-      lw.account_id,
-      la.user_id,
-      lw.requested_pts AS points,
-      lw.requested_eur AS eur,
-      lw.status,
-      lw.requested_at,
-      lw.decided_at,
-      lw.paid_at,
-      NULL              AS decision_note,
-      NULL              AS decided_by,
-      NULL              AS payout_ref,
-      'customer'        AS source
-    FROM loyalty_withdrawals lw
-    LEFT JOIN loyalty_accounts la ON la.id = lw.account_id
-    UNION ALL
-    SELECT
-      w.id,
-      w.account_id,
-      w.user_id,
-      w.points,
-      w.eur,
-      w.status,
-      w.requested_at,
-      w.decided_at,
-      w.paid_at,
-      NULL              AS decision_note,
-      NULL              AS decided_by,
-      NULL              AS payout_ref,
-      'admin'           AS source
-    FROM withdrawals w
+      l.id,
+      l.account_id,
+      a.user_id,
+      l.points_delta AS points,
+      NULL AS eur,
+      CASE 
+        WHEN l.points_delta < 0 THEN 'Paid'
+        ELSE 'Pending'
+      END AS status,
+      l.created_at AS requested_at,
+      NULL AS decided_at,
+      NULL AS paid_at,
+      l.note AS decision_note,
+      NULL AS decided_by,
+      NULL AS payout_ref,
+      'ledger' AS source
+    FROM loyalty_ledger l
+    JOIN loyalty_accounts a ON l.account_id = a.id
+    WHERE l.kind = 'withdraw'
   `;
 
   try {
