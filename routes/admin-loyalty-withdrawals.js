@@ -364,18 +364,19 @@ router.post("/loyalty/withdrawals", async (req, res) => {
       const eur = points * (Number.isFinite(eurPerPoint) ? eurPerPoint : 1);
 
       // Preserve the existing admin INSERT into its own table.
-      const adminUserId = req.session?.user?.id || null;
+        const adminUserId = req.session?.user?.id || null;
 
-      const id = await lastId(
-        db,
-        `INSERT INTO loyalty_ledger
-          (account_id, kind, points_delta, note, admin_user_id, created_at)
-        VALUES
-          (?, 'withdraw', -ABS(?), ?, ?, datetime('now','localtime'))`,
-        [accountId, points, note, adminUserId || userId || null]
-      );
+        const id = await lastId(
+          db,
+          `INSERT INTO loyalty_ledger
+            (account_id, kind, points_delta, note, admin_user_id, created_at)
+          VALUES
+            (?, 'withdraw', -ABS(?), ?, ?, datetime('now','localtime'))`,
+          [accountId, points, note, adminUserId || userId || null]
+        );
 
-      return getUnifiedWithdrawal(db, id); // return normalized shape (includes 'source')
+        return getUnifiedWithdrawal(db, id); // return normalized shape (includes 'source')
+
     });
     // --- enqueue notification for admin-initiated withdrawal (NEW) ---
     try {
