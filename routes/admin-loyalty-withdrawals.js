@@ -132,26 +132,26 @@ async function getUnifiedWithdrawal(db, id, sourceHint = null) {
     return q(
       db,
       `SELECT
-         w.id,
-         w.account_id,
-         w.user_id,
-         w.points,
-         w.eur,
-         w.status,
-         w.requested_at,
-         w.decided_at,
-         w.paid_at,
-         w.decision_note,
-         w.decided_by,
-         w.payout_ref,
+         l.id,
+         l.account_id,
+         a.user_id,
+         ABS(l.points_delta) AS points,
+         NULL AS eur,
+         'Completed' AS status,
+         l.created_at AS requested_at,
+         NULL AS decided_at,
+         NULL AS paid_at,
+         l.note AS decision_note,
+         l.admin_user_id AS decided_by,
+         NULL AS payout_ref,
          'admin' AS source
        FROM loyalty_ledger l
-      JOIN loyalty_accounts a ON l.account_id = a.id
-      WHERE l.id = ? AND l.kind = 'withdraw'`,
+       JOIN loyalty_accounts a ON l.account_id = a.id
+       WHERE l.id = ? AND l.kind = 'withdraw'`,
       [id]
-
     );
   }
+
   if (src === "customer") {
   return q(
     db,
