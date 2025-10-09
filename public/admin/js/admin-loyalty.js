@@ -380,14 +380,16 @@
 function actionCellHtml(id, status, source) {
   const st = String(status || "").trim().toLowerCase();
 
- // Lifecycle logic
-const canApprove = st === "pending";
-const canReject  = st === "pending";
-const canPay     = st === "approved";
-const noAction   = st === "no action" || st === "paid" || st === "rejected";
+   // Lifecycle logic
+  const canApprove = st === "pending";
+  const canReject  = st === "pending";
+  const canPay     = st === "approved";
+  const noAction   = st === "no action" || st === "paid" || st === "rejected";
 
-// Hide Approve/Reject if already approved
-const disableApproveReject = st === "approved";
+  // 🔸 Enhanced rule: disable Approve/Reject once handled
+  const disableApproveReject =
+    st === "approved" || st === "no action" || st === "rejected";
+
 
 
   // If finalised → no interactive menu
@@ -408,16 +410,28 @@ const disableApproveReject = st === "approved";
       <button class="btn btn-actions" aria-haspopup="menu"
               data-id="${esc(id)}" data-source="${src}">Actions ▾</button>
       <div class="actions-menu hidden" role="menu" data-id="${esc(id)}">
-      <button class="btn btn-approve"
-          data-id="${esc(id)}" data-source="${src}"
-          ${canApprove && !disableApproveReject ? "" : "disabled"}>Approve</button>
-      <button class="btn btn-reject"
-          data-id="${esc(id)}" data-source="${src}"
-          ${canReject && !disableApproveReject ? "" : "disabled"}>Reject</button>
-      <button class="btn btn-mark-paid"
-          data-id="${esc(id)}" data-source="${src}"
-          ${canPay ? "" : "disabled"}>Mark Paid</button>
+  <button class="btn btn-approve"
+    data-id="${esc(id)}"
+    data-source="${src}"
+    ${(canApprove && !disableApproveReject) ? "" : "disabled"}>
+    Approve
+  </button>
+
+  <button class="btn btn-reject"
+    data-id="${esc(id)}"
+    data-source="${src}"
+    ${(canReject && !disableApproveReject) ? "" : "disabled"}>
+    Reject
+  </button>
+
+  <button class="btn btn-mark-paid"
+    data-id="${esc(id)}"
+    data-source="${src}"
+    ${canPay ? "" : "disabled"}>
+    Mark Paid
+  </button>
 </div>
+  
     </div>`;
 }
 

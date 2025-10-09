@@ -167,12 +167,13 @@ router.post("/loyalty/withdrawals", async (req, res) => {
         )
       ).lastID;
 
-      await run(
-        db,
-        `INSERT OR IGNORE INTO loyalty_withdrawal_meta (ledger_id,status,decided_by,decided_at)
-         VALUES (?, 'Approved', ?, datetime('now','localtime'))`,
-        [id, adminId]
-      );
+    await run(
+  db,
+  `INSERT INTO loyalty_withdrawal_meta
+     (ledger_id, admin_user_id, status, created_at)
+   VALUES (?, ?, 'Pending', datetime('now','localtime'))`,
+  [ledgerId, adminUserId]
+);
 
       const r = await q(
   db,
