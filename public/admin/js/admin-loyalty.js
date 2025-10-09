@@ -388,7 +388,10 @@ function actionCellHtml(id, status, source) {
 
   // 🔸 Enhanced rule: disable Approve/Reject once handled
   const disableApproveReject =
-    st === "approved" || st === "no action" || st === "rejected";
+  st.toLowerCase().includes("approved") ||
+  st.toLowerCase().includes("no action") ||
+  st.toLowerCase().includes("rejected");
+
 
 
 

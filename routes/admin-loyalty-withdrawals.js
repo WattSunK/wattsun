@@ -66,13 +66,22 @@ const s = (x) => (x == null ? null : String(x).trim());
 // ────────────────────────────────────────────────────────────────
 function computeStatus(r) {
   // Determine by date fields first
-  if (r.paid_at) return "No Action"; // fully settled or rejected
-  if (r.decided_at) return "Approved"; // approved or decided, awaiting payment
-  const st = r.raw_status || "";
-  if (st === "Paid" || st === "Rejected" || st === "No Action") return "No Action";
-  if (st === "Approved") return "Approved";
+  const st = (r.raw_status || "").toLowerCase();
+
+  // Paid always takes precedence
+  if (r.paid_at) return "No Action";
+
+  // Explicit states
+  if (st.includes("approved")) return "Approved";
+  if (st.includes("rejected")) return "No Action";
+
+  // Only consider decided_at meaningful if status itself says approved
+  if (r.decided_at && st === "approved") return "Approved";
+
+  // Otherwise, still pending
   return "Pending";
 }
+
 
 // ────────────────────────────────────────────────────────────────
 // GET /api/admin/loyalty/withdrawals
