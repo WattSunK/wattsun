@@ -33,6 +33,9 @@ const DB_PATH =
   path.join(__dirname, "data", "dev", "wattsun.dev.db");
 
 const sqliteDb = new Database(DB_PATH);   // ✅ sync handle
+// ✅ Ensure foreign key constraints (like ON DELETE CASCADE) are enforced
+sqliteDb.pragma('foreign_keys = ON');
+
 console.log("Admin overlay DB (better-sqlite3):", DB_PATH);
 app.set("db", sqliteDb);
 
