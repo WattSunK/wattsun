@@ -366,11 +366,13 @@ router.post("/loyalty/withdrawals", async (req, res) => {
       // Preserve the existing admin INSERT into its own table.
       const id = await lastId(
         db,
-        `INSERT INTO withdrawals
-           (account_id, user_id, points, eur, status, requested_at, note)
-         VALUES (?, ?, ?, ?, 'Pending', datetime('now','localtime'), ?)`,
-        [accountId, userId || p.user_id || null, points, eur, note]
+        `INSERT INTO loyalty_ledger
+          (account_id, kind, points_delta, note, admin_user_id, created_at)
+        VALUES
+          (?, 'withdraw', -ABS(?), ?, ?, datetime('now','localtime'))`,
+        [accountId, points, note, adminUserId || userId || null]
       );
+
 
       return getUnifiedWithdrawal(db, id); // return normalized shape (includes 'source')
     });
