@@ -48,8 +48,8 @@ if [ -z "$ID" ]; then
   cat /tmp/withdrawal_create.json
   exit 1
 else
-  echo "✅ Created withdrawal ID: $ID"
-fi
+echo "✅ Created withdrawal ID: $ID"
+sleep 1   # 🕐 give SQLite time to unlock the file
 
 sqlite3 $DB <<'SQL'
 .headers on
