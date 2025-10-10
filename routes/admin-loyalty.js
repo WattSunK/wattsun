@@ -524,6 +524,15 @@ if (signupBonus > 0) {
   await insertLedger(accountId, "enroll", signupBonus, "Signup bonus", null, null);
   // no direct UPDATE to loyalty_accounts here
 }
+// 🩹 Recalculate account totals after enrollment (signup bonus)
+await run(
+  db,
+  `UPDATE loyalty_accounts
+     SET points_balance = points_balance + ?,
+         total_earned   = total_earned + ?
+   WHERE id = ?;`,
+  [signupBonus, signupBonus, accountId]
+);
 
 
     // Enqueue notification with deep link to Offers
