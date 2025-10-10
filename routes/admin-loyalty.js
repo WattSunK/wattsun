@@ -505,7 +505,9 @@ router.post("/accounts", async (req, res) => {
     const ymd = (d) => d.toISOString().slice(0,10);
 
     // Create account
-    const accountId = await withDb(async (db) => {
+    let accountId;
+    // Use a single DB connection for account creation and bonus update
+    await withDb(async (db) => {
       const ins = await run(db, `
         INSERT INTO loyalty_accounts
           (program_id, user_id, status, start_date, end_date, eligible_from,
@@ -515,25 +517,22 @@ router.post("/accounts", async (req, res) => {
           (?, ?, 'Active', ?, ?, ?, 0, 0, 0, 0, datetime('now','localtime'), datetime('now','localtime'), ?)`,
         [program.programId, userId, ymd(start), ymd(end), ymd(elig), durationMonths]
       );
-      return ins.lastID;
+      accountId = ins.lastID;
+
+      // Signup bonus → ledger only (triggers will recalc accounts mirror)
+      if (signupBonus > 0) {
+        await insertLedger(accountId, "enroll", signupBonus, "Signup bonus", null, null);
+        // 🩹 Recalculate account totals after enrollment (signup bonus)
+        await run(
+          db,
+          `UPDATE loyalty_accounts
+             SET points_balance = points_balance + ?,
+                 total_earned   = total_earned + ?
+           WHERE id = ?;`,
+          [signupBonus, signupBonus, accountId]
+        );
+      }
     });
-
-
-    // Signup bonus → ledger only (triggers will recalc accounts mirror)
-if (signupBonus > 0) {
-  await insertLedger(accountId, "enroll", signupBonus, "Signup bonus", null, null);
-  // no direct UPDATE to loyalty_accounts here
-}
-// 🩹 Recalculate account totals after enrollment (signup bonus)
-await run(
-  db,
-  `UPDATE loyalty_accounts
-     SET points_balance = points_balance + ?,
-         total_earned   = total_earned + ?
-   WHERE id = ?;`,
-  [signupBonus, signupBonus, accountId]
-);
-
 
     // Enqueue notification with deep link to Offers
     const deepLink = `/myaccount/offers.html?welcome=1`;
@@ -547,44 +546,52 @@ await run(
     } catch (e) {
       console.warn("[loyalty/accounts][notify] enqueue failed:", e.message);
     }
-   console.log("[loyalty/accounts] reached after account creation, accountId=", accountId);
+    console.log("[loyalty/accounts] reached after account creation, accountId=", accountId);
 
-// 🧩 Welcome message notification (email + queue)
-try {
-  console.log("[loyalty/accounts] entering welcome notification for userId=", userId);
+    // 🩹 Welcome message notification (email + queue)
+    let user, msg;
+    try {
+      user = await withDb((db) =>
+        get(db, `SELECT name, email FROM users WHERE id=?`, [userId])
+      );
+      msg = `Welcome ${user?.name || ""}! Your WattSun Loyalty account is now active for ${durationMonths} months.`;
 
-  const user = await withDb((db) =>
-    get(db, `SELECT name, email FROM users WHERE id=?`, [userId])
-  );
+      await withDb((db) =>
+        run(
+          db,
+          `INSERT INTO notifications_queue
+             (kind, user_id, email, payload, status, account_id, note, created_at)
+           VALUES ('loyalty_welcome', ?, ?, json(?), 'Queued', ?, ?, datetime('now','localtime'))`,
+          [
+            userId,
+            user?.email || "",
+            JSON.stringify({
+              subject: "Welcome to WattSun Loyalty",
+              message: msg,
+              email: user?.email,
+            }),
+            accountId,
+            msg,
+          ]
+        )
+      );
+      console.log("[loyalty/accounts] welcome notification queued for userId=", userId);
+    } catch (e) {
+      console.warn("[loyalty/accounts][welcome] notification insert failed:", e.message);
+    }
 
-  const msg = `Welcome ${user?.name || ""}! Your WattSun Loyalty account is now active for ${durationMonths} month${durationMonths>1?"s":""}.`;
+    console.log("[loyalty/accounts] welcome INSERT complete for userId=", userId);
 
-  await withDb((db) =>
-    run(
-      db,
-      `INSERT INTO notifications_queue (user_id, account_id, kind, status, note, created_at)
-       VALUES (?, ?, 'loyalty_welcome', 'Queued', ?, datetime('now','localtime'))`,
-      [userId, accountId, msg]
-    )
-  );
-
-  console.log("[loyalty/accounts] welcome INSERT complete for userId=", userId);
-
-  // Optional immediate email (if nodemailer configured)
-  try {
-    await enqueue("loyalty_welcome", {
-      userId,
-      accountId,
-      payload: { email: user?.email, subject: "Welcome to WattSun Loyalty", message: msg },
-    });
-  } catch (e) {
-    console.warn("[loyalty/accounts][welcome-email] enqueue failed:", e.message);
-  }
-
-} catch (e) {
-  console.warn("[loyalty/accounts][welcome] notification insert failed:", e);
-}
-
+    // Optional immediate email (if nodemailer configured)
+    try {
+      await enqueue("loyalty_welcome", {
+        userId,
+        accountId,
+        payload: { email: user?.email, subject: "Welcome to WattSun Loyalty", message: msg },
+      });
+    } catch (e) {
+      console.warn("[loyalty/accounts][welcome-email] enqueue failed:", e.message);
+    }
 
     res.setHeader("X-Loyalty-Updated", "create-account");
     res.setHeader("X-Loyalty-Refresh", "accounts,ledger,notifications");
