@@ -136,9 +136,9 @@ function sqlInsertAccount({ programId, userId, startDate, endDate, eligibleFrom,
         program_id, user_id, status, start_date, end_date, eligible_from,
         duration_months, points_balance, total_earned, total_penalty, total_paid
       )
-      VALUES (?, ?, 'Active', ?, ?, ?, ?, 0, 0, 0, 0)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0)
       `,
-      [programId, userId, startDate, endDate, eligibleFrom, durationMonths],
+      [programId, userId, "Active", startDate, endDate, eligibleFrom, durationMonths],
       function (err) {
         if (err) return reject(err);
         resolve({ id: this.lastID });
@@ -146,7 +146,6 @@ function sqlInsertAccount({ programId, userId, startDate, endDate, eligibleFrom,
     );
   });
 }
-
 
 function sqlInsertLedger(accountId, kind, delta, note, adminUserId = null) {
   return new Promise((resolve, reject) => {
