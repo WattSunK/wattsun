@@ -158,6 +158,7 @@ router.post("/loyalty/withdrawals", async (req, res) => {
   const points = Math.abs(asInt(req.body?.points));
   const note = s(req.body?.note);
   const adminId = req.session?.user?.id || null;
+  const source = (req.session?.user?.role === "Admin") ? "admin" : "customer";
 
   if (!accountId || !points)
     return res.status(400).json({
@@ -184,6 +185,15 @@ try {
        VALUES (?, ?, 'Pending', datetime('now','localtime'))`,
       [ledgerId, adminUserId]
     );
+    // Record initiation source for frontend (admin vs customer)
+await run(
+  db,
+  `UPDATE loyalty_withdrawal_meta
+      SET note = COALESCE(note,'') || CASE WHEN ?='admin' THEN ' [source=admin]' ELSE ' [source=customer]' END
+    WHERE ledger_id = ?`,
+  [source, ledgerId]
+);
+
     // 🔧 Adjust loyalty_accounts: subtract from balance only (not total_earned)
 await run(
   db,
@@ -206,12 +216,18 @@ await run(
     const r = await q(
       db,
       `SELECT 
-         l.*, 
-         a.user_id, 
-         m.status AS raw_status, 
-         m.decided_at, 
-         m.paid_at, 
-         m.note AS admin_note
+      l.*, 
+      a.user_id, 
+      m.status AS raw_status, 
+      m.decided_at, 
+      m.paid_at, 
+      m.note AS admin_note,
+      CASE
+        WHEN m.note LIKE '%[source=admin]%' THEN 'admin'
+        WHEN m.note LIKE '%[source=customer]%' THEN 'customer'
+        ELSE 'customer'
+      END AS source
+
        FROM loyalty_ledger l
        JOIN loyalty_accounts a ON a.id=l.account_id
        LEFT JOIN loyalty_withdrawal_meta m ON m.ledger_id=l.id
