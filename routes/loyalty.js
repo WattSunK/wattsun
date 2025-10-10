@@ -137,6 +137,8 @@ function sqlGetAccount(programId, userId) {
 
 function sqlInsertAccount({ programId, userId, startDate, endDate, eligibleFrom, durationMonths }) {
   return new Promise((resolve, reject) => {
+    console.log("[sqlInsertAccount] params:", { programId, userId, startDate, endDate, eligibleFrom, durationMonths });
+
     db.run(
       `
       INSERT INTO loyalty_accounts (
