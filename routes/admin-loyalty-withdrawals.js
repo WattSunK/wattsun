@@ -316,7 +316,17 @@ router.patch("/loyalty/withdrawals/:id/mark-paid", async (req, res) => {
   const paidAt = req.body?.paidAt || new Date().toISOString();
   try {
     const row = await updateStatus(id, "No Action", note, adminId, { paidAt });
-
+// 🔧 Update account totals on successful payout
+await withDb(async (db) => {
+  await run(
+    db,
+    `UPDATE loyalty_accounts
+       SET total_paid = COALESCE(total_paid,0) +
+         (SELECT ABS(points_delta) FROM loyalty_ledger WHERE id = ?)
+     WHERE id = (SELECT account_id FROM loyalty_ledger WHERE id = ?)`,
+    [id, id]
+  );
+});
     // 🔸 INSERT notification
     await withDb(async (db) => {
       await run(
@@ -341,17 +351,6 @@ router.patch("/loyalty/withdrawals/:id/reject", async (req, res) => {
   const note = s(req.body?.note) || `Withdrawal #${id} rejected`;
   try {
     const row = await updateStatus(id, "No Action", note, adminId);
-// 🔧 Update account totals: add to total_paid on payout confirmation
-await withDb(async (db) => {
-  await run(
-    db,
-    `UPDATE loyalty_accounts
-       SET total_paid = total_paid + ABS(l.points_delta)
-     FROM loyalty_ledger l
-     WHERE loyalty_accounts.id = l.account_id AND l.id = ?`,
-    [id]
-  );
-});
 
     await withDb(async (db) => {
       await run(
