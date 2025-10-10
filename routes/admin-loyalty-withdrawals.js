@@ -179,12 +179,16 @@ try {
     const ledgerId = ledgerResult.lastID;
 
     await run(
-      db,
-      `INSERT INTO loyalty_withdrawal_meta
-         (ledger_id, admin_user_id, status, created_at)
-       VALUES (?, ?, 'Pending', datetime('now','localtime'))`,
-      [ledgerId, adminUserId]
-    );
+  db,
+  `INSERT INTO loyalty_withdrawal_meta
+     (ledger_id, admin_user_id, status, note, created_at)
+   VALUES (
+     ?, ?, 'Pending',
+     CASE WHEN ?='admin' THEN '[source=admin]' ELSE '[source=customer]' END,
+     datetime('now','localtime')
+   )`,
+  [ledgerId, adminUserId, source]
+);
     // Record initiation source for frontend (admin vs customer)
 await run(
   db,
