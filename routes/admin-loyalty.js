@@ -490,7 +490,11 @@ router.post("/accounts", async (req, res) => {
       return res.json({ success:true, accountId: existing.id, message:"User already has an account" });
     }
 
-    const durationMonths   = Number(program.durationMonths ?? 6) || 6;
+    const durationMonths = Number(program.durationMonths);
+    if (!Number.isFinite(durationMonths) || durationMonths < 1) {
+      return res.status(400).json({ success:false, error:{ code:"BAD_PROGRAM", message:"Invalid durationMonths in program settings" } });
+    }
+
     const withdrawWaitDays = Number(program.withdrawWaitDays ?? 90) || 90;
     const signupBonus      = Number(program.signupBonus ?? 0) || 0;
 
@@ -534,6 +538,33 @@ if (signupBonus > 0) {
     } catch (e) {
       console.warn("[loyalty/accounts][notify] enqueue failed:", e.message);
     }
+// 🧩 Welcome message notification (email + queue)
+try {
+  const user = await withDb((db) =>
+    get(db, `SELECT name, email FROM users WHERE id=?`, [userId])
+  );
+  const msg = `Welcome ${user?.name || ""}! Your WattSun Loyalty account is now active for ${durationMonths} month${durationMonths>1?"s":""}.`;
+
+  await withDb((db) =>
+    run(db, `
+      INSERT INTO notifications_queue (user_id, account_id, kind, status, note, created_at)
+      VALUES (?, ?, 'loyalty_welcome', 'Queued', ?, datetime('now','localtime'))`,
+      [userId, accountId, msg])
+  );
+
+  // Optional immediate email (if nodemailer configured)
+  try {
+    await enqueue("loyalty_welcome", {
+      userId,
+      accountId,
+      payload: { email: user?.email, subject: "Welcome to WattSun Loyalty", message: msg }
+    });
+  } catch (e) {
+    console.warn("[loyalty/accounts][welcome-email] enqueue failed:", e.message);
+  }
+} catch (e) {
+  console.warn("[loyalty/accounts][welcome] notification insert failed:", e.message);
+}
 
     res.setHeader("X-Loyalty-Updated", "create-account");
     res.setHeader("X-Loyalty-Refresh", "accounts,ledger,notifications");
