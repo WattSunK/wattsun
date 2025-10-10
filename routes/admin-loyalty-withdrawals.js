@@ -189,15 +189,6 @@ try {
    )`,
   [ledgerId, adminUserId, source]
 );
-    // Record initiation source for frontend (admin vs customer)
-await run(
-  db,
-  `UPDATE loyalty_withdrawal_meta
-      SET note = COALESCE(note,'') || CASE WHEN ?='admin' THEN ' [source=admin]' ELSE ' [source=customer]' END
-    WHERE ledger_id = ?`,
-  [source, ledgerId]
-);
-
     // 🔧 Adjust loyalty_accounts: subtract from balance only (not total_earned)
 await run(
   db,
