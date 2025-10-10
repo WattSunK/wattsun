@@ -342,6 +342,17 @@ router.patch("/loyalty/withdrawals/:id/reject", async (req, res) => {
   const note = s(req.body?.note) || `Withdrawal #${id} rejected`;
   try {
     const row = await updateStatus(id, "No Action", note, adminId);
+// ♻️ Reverse deduction when withdrawal is rejected
+await withDb(async (db) => {
+  await run(
+    db,
+    `UPDATE loyalty_accounts
+        SET points_balance = points_balance +
+          (SELECT ABS(points_delta) FROM loyalty_ledger WHERE id = ?)
+      WHERE id = (SELECT account_id FROM loyalty_ledger WHERE id = ?)`,
+    [id, id]
+  );
+});
 
 
     await withDb(async (db) => {
