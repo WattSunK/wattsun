@@ -9,6 +9,7 @@ router.use(express.urlencoded({ extended: true }));
 
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
+const { enqueue } = require("../lib/notify");
 
 // Resolve DB path the same way your app does (env first, fallback)
 const DB_PATH =
@@ -67,21 +68,41 @@ function getProgramSettings(code = "STAFF") {
           eurPerPoint: 1,
           signupBonus: 100,
         };
-        for (const r of rows) {
-          if (!r || !r.key) continue;
-          const k = r.key;
-          let v = r.value;
-          try {
-            if (/^\s*\[|\{/.test(v)) v = JSON.parse(v);
-          } catch (_) {}
-          if (
-            ["durationMonths", "withdrawWaitDays", "minWithdrawPoints", "eurPerPoint", "signupBonus"].includes(k)
-          ) {
-            const n = parseInt(v, 10);
-            v = Number.isFinite(n) ? n : v;
+       for (const r of rows) {
+        if (!r || !r.key) continue;
+        const k = r.key;
+        let v = r.value;
+
+        // Try to parse JSON if stored that way
+        try {
+          if (/^\s*(\[|\{)/.test(v)) v = JSON.parse(v);
+        } catch (_) {}
+
+        // Normalize eligibleUserTypes into an array
+        if (k === "eligibleUserTypes") {
+          if (Array.isArray(v)) {
+            v = v.filter(Boolean).map(String);
+          } else if (typeof v === "string") {
+            v = v
+              .split(",")
+              .map(s => s.trim())
+              .filter(Boolean);
+          } else {
+            v = ["Staff"];
           }
-          base[k] = v;
         }
+
+        // Normalize numeric program settings
+        if (
+          ["durationMonths", "withdrawWaitDays", "minWithdrawPoints", "eurPerPoint", "signupBonus"].includes(k)
+        ) {
+          const n = Number(v);
+          v = Number.isFinite(n) && n >= 0 ? n : base[k];
+        }
+
+        base[k] = v;
+      }
+
         resolve(base);
       }
     );
@@ -89,9 +110,12 @@ function getProgramSettings(code = "STAFF") {
 }
 
 function isEligibleUser(u, eligibleUserTypes) {
-  const t = String(u?.type || u?.role || "").trim();
-  return eligibleUserTypes.map(String).includes(t);
+  const t = String(u?.type || u?.role || "").trim().toLowerCase();
+  return eligibleUserTypes
+    .map(v => String(v).toLowerCase())
+    .includes(t);
 }
+
 
 function sqlGetAccount(programId, userId) {
   return new Promise((resolve, reject) => {
@@ -239,18 +263,60 @@ router.post("/enroll", requireStaff, async (req, res) => {
       eligibleFrom,
     });
 
-    // credit signup bonus
-    const bonus = Number.isFinite(program.signupBonus) ? program.signupBonus : 100;
-    if (bonus > 0) {
-      await sqlInsertLedger(accountId, "enroll", bonus, "Signup bonus");
-    }
+   // credit signup bonus
+const bonus = Number.isFinite(program.signupBonus) ? program.signupBonus : 100;
+if (bonus > 0) {
+  await sqlInsertLedger(accountId, "enroll", bonus, "Signup bonus");
 
+  // --- FIX 1: Update account totals inline (mirrors admin behavior, no triggers) ---
+  await new Promise((resolve, reject) => {
+    db.run(
+      `UPDATE loyalty_accounts
+         SET points_balance = points_balance + ?,
+             total_earned   = total_earned   + ?,
+             updated_at = datetime('now','localtime')
+       WHERE id = ?`,
+      [bonus, bonus, accountId],
+      (err) => (err ? reject(err) : resolve())
+    );
+  });
+}
+// --- FIX 2: Queue welcome notification (mirrors admin behavior) ---
+try {
+  const payload = {
+    subject: "Welcome to the WattSun Loyalty Program!",
+    message: `Hi ${user.name || "there"}, your loyalty account is active with a ${bonus}-point signup bonus.`,
+    accountId,
+    bonus,
+    durationMonths: program.durationMonths,
+    withdrawWaitDays: program.withdrawWaitDays,
+  };
+
+  await enqueue("loyalty_welcome", {
+    userId: user.id,
+    email: user.email || "noreply@wattsun.co.ke",
+    payload,
+  });
+
+  console.log(`[loyalty/enroll] Queued welcome notification for user ${user.id}`);
+} catch (notifyErr) {
+  console.error("[loyalty/enroll][notify] Failed to enqueue welcome notification:", notifyErr.message);
+}
+
+    // fetch snapshot, recent, rank for the new account
     const [account, recent, rank] = await Promise.all([
       sqlGetAccountSnapshot(accountId),
       sqlGetRecentLedger(accountId),
       sqlGetRankForAccount(accountId),
     ]);
-    return res.json({ success: true, account, program, recent, rank, message: "Enrolled" });
+    return res.json({
+      success: true,
+      account,
+      program,
+      recent,
+      rank,
+      message: "Enrolled and credited signup bonus",
+    });
   } catch (err) {
     console.error("[loyalty/enroll]", err);
     return res
@@ -258,7 +324,6 @@ router.post("/enroll", requireStaff, async (req, res) => {
       .json({ success: false, error: { code: "SERVER_ERROR", message: "Unable to enroll" } });
   }
 });
-
 /**
  * GET /api/loyalty/me
  * Returns current account snapshot + recent ledger + program settings + rank.
