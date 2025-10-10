@@ -615,6 +615,17 @@ router.post("/penalize", async (req, res) => {
       req.session?.user?.id,
       note || null
     );
+    // 🔧 Adjust account totals explicitly (fix regression)
+    await withDb(async (db) => {
+      await run(
+        db,
+        `UPDATE loyalty_accounts
+          SET points_balance = points_balance - ?,
+              total_penalty  = total_penalty + ?
+        WHERE id = ?`,
+        [p, p, acct.id]
+      );
+    });
 
     try {
       const updatedNow = await getAccountById(acct.id);

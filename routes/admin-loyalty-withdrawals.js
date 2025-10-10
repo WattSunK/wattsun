@@ -184,6 +184,15 @@ try {
        VALUES (?, ?, 'Pending', datetime('now','localtime'))`,
       [ledgerId, adminUserId]
     );
+    // 🔧 Adjust loyalty_accounts: subtract from balance only (not total_earned)
+await run(
+  db,
+  `UPDATE loyalty_accounts
+     SET points_balance = points_balance - ?
+   WHERE id = ?`,
+  [points, accountId]
+);
+
     // 🔧 Ensure new withdrawals start undecided
     await run(
       db,
@@ -306,13 +315,23 @@ router.patch("/loyalty/withdrawals/:id/mark-paid", async (req, res) => {
   }
 });
 
-
 router.patch("/loyalty/withdrawals/:id/reject", async (req, res) => {
   const id = asInt(req.params.id);
   const adminId = req.session?.user?.id || null;
   const note = s(req.body?.note) || `Withdrawal #${id} rejected`;
   try {
     const row = await updateStatus(id, "No Action", note, adminId);
+// 🔧 Update account totals: add to total_paid on payout confirmation
+await withDb(async (db) => {
+  await run(
+    db,
+    `UPDATE loyalty_accounts
+       SET total_paid = total_paid + ABS(l.points_delta)
+     FROM loyalty_ledger l
+     WHERE loyalty_accounts.id = l.account_id AND l.id = ?`,
+    [id]
+  );
+});
 
     await withDb(async (db) => {
       await run(
