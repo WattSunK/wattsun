@@ -54,12 +54,39 @@ else
 fi
 
 # ------------------------------------------------------------
-# 3️⃣  Seed loyalty account for this user
+# 3️⃣  Seed loyalty account (program_id = 1)
 # ------------------------------------------------------------
 echo "⚙️  Creating sample loyalty account for $USER_EMAIL ..."
 sqlite3 "$DB" <<SQL
-INSERT INTO loyalty_accounts (user_id, points_balance, total_earned, status, created_at)
-VALUES ($USER_ID, 1000, 1000, 'Active', datetime('now','localtime'));
+INSERT INTO loyalty_accounts (
+  program_id,
+  user_id,
+  status,
+  start_date,
+  end_date,
+  eligible_from,
+  points_balance,
+  total_earned,
+  total_penalty,
+  total_paid,
+  created_at,
+  updated_at,
+  duration_months
+) VALUES (
+  1,
+  $USER_ID,
+  'Active',
+  date('now'),
+  date('now', '+12 months'),
+  date('now'),
+  1000,
+  1000,
+  0,
+  0,
+  datetime('now','localtime'),
+  datetime('now','localtime'),
+  12
+);
 SQL
 echo "✅ Seeded loyalty account for user ID: $USER_ID"
 
