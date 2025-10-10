@@ -244,16 +244,22 @@ router.post("/enroll", requireStaff, async (req, res) => {
       });
     }
 
-    // compute dates
-    const start = new Date();
-    const startDate = start.toISOString().slice(0, 10);
-    const end = new Date(start);
-    end.setMonth(end.getMonth() + (program.durationMonths || 6));
-    const endDate = end.toISOString().slice(0, 10);
+      // --- FIX 3b: Compute dates based on admin-defined program settings ---
+      const start = new Date();
+      const startDate = start.toISOString().slice(0, 10);
 
-    const eligible = new Date(start);
-    eligible.setDate(eligible.getDate() + (program.withdrawWaitDays || 90));
-    const eligibleFrom = eligible.toISOString().slice(0, 10);
+      // Coerce to numeric values safely
+      const durationMonths = Number(program.durationMonths) || 6;
+      const withdrawWaitDays = Number(program.withdrawWaitDays) || 90;
+
+      const end = new Date(start);
+      end.setMonth(end.getMonth() + durationMonths);
+      const endDate = end.toISOString().slice(0, 10);
+
+      const eligible = new Date(start);
+      eligible.setDate(eligible.getDate() + withdrawWaitDays);
+      const eligibleFrom = eligible.toISOString().slice(0, 10);
+
 
     // insert account
     const { id: accountId } = await sqlInsertAccount({
