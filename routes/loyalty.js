@@ -260,15 +260,15 @@ router.post("/enroll", requireStaff, async (req, res) => {
       eligible.setDate(eligible.getDate() + withdrawWaitDays);
       const eligibleFrom = eligible.toISOString().slice(0, 10);
 
-
     // insert account
-    const { id: accountId } = await sqlInsertAccount({
-      programId: program.programId,
-      userId: user.id,
-      startDate,
-      endDate,
-      eligibleFrom,
-    });
+      const { id: accountId } = await sqlInsertAccount({
+        programId: program.programId,
+        userId: user.id,
+        startDate,
+        endDate,
+        eligibleFrom,
+        durationMonths, // <--- FIX 3c: ensure correct duration stored
+      });
 
    // credit signup bonus
 const bonus = Number.isFinite(program.signupBonus) ? program.signupBonus : 100;
