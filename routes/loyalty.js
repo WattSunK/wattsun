@@ -128,17 +128,17 @@ function sqlGetAccount(programId, userId) {
   });
 }
 
-function sqlInsertAccount({ programId, userId, startDate, endDate, eligibleFrom }) {
+function sqlInsertAccount({ programId, userId, startDate, endDate, eligibleFrom, durationMonths }) {
   return new Promise((resolve, reject) => {
     db.run(
       `
       INSERT INTO loyalty_accounts (
         program_id, user_id, status, start_date, end_date, eligible_from,
-        points_balance, total_earned, total_penalty, total_paid
+        duration_months, points_balance, total_earned, total_penalty, total_paid
       )
-      VALUES (?, ?, 'Active', ?, ?, ?, 0, 0, 0, 0)
+      VALUES (?, ?, 'Active', ?, ?, ?, ?, 0, 0, 0, 0)
       `,
-      [programId, userId, startDate, endDate, eligibleFrom],
+      [programId, userId, startDate, endDate, eligibleFrom, durationMonths],
       function (err) {
         if (err) return reject(err);
         resolve({ id: this.lastID });
@@ -146,6 +146,7 @@ function sqlInsertAccount({ programId, userId, startDate, endDate, eligibleFrom 
     );
   });
 }
+
 
 function sqlInsertLedger(accountId, kind, delta, note, adminUserId = null) {
   return new Promise((resolve, reject) => {
