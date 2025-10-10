@@ -352,6 +352,7 @@ router.patch("/loyalty/withdrawals/:id/reject", async (req, res) => {
   try {
     const row = await updateStatus(id, "No Action", note, adminId);
 
+
     await withDb(async (db) => {
       await run(
         db,
