@@ -441,6 +441,118 @@ document.addEventListener("DOMContentLoaded", function () {
     } catch (e) {}
   });
 </script>
+<!-- My Account Dropdown -->
+<div id="accountDropdown" class="account-dropdown hidden">
+  <div class="account-header">
+    <div class="avatar" id="dropdownAvatar">U</div>
+    <div class="info">
+      <div id="dropdownName">User</div>
+      <div id="dropdownEmail">user@email.com</div>
+    </div>
+  </div>
+  <a href="/myaccount/userdash.html">🏠 My Dashboard</a>
+  <a href="/myaccount/myorders.html">📦 My Orders</a>
+  <a href="/myaccount/offers.html">🎁 Loyalty & Offers</a>
+  <a href="/financing.html">💳 Financing</a>
+  <button id="logoutLink">🚪 Logout</button>
+</div>
+
+<style>
+.account-dropdown {
+  position: absolute;
+  top: 60px;
+  right: 15px;
+  background: #fffbe6;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform-origin: top right;
+  animation: fadeIn .25s ease;
+  border: 1px solid #ffe481;
+  z-index: 1500;
+}
+.account-dropdown.hidden { display: none; }
+.account-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(90deg, #ffc371 0%, #ffb347 100%);
+  color: #fff;
+  padding: 10px 12px;
+}
+.account-header .avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: #fff5cc;
+  color: #b39708;
+  font-weight: bold;
+  display: flex; align-items: center; justify-content: center;
+}
+.account-header .info {
+  font-size: 0.9em;
+  line-height: 1.2;
+}
+.account-dropdown a, .account-dropdown button {
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 0.95em;
+  color: #333;
+  cursor: pointer;
+  text-decoration: none;
+}
+.account-dropdown a:hover, .account-dropdown button:hover {
+  background: #ffe481;
+  color: #b39708;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  const dropdown = document.getElementById("accountDropdown");
+  const loginBtn = document.getElementById("loginBtn");
+  const userLabel = document.getElementById("loggedInUser");
+  const logoutLink = document.getElementById("logoutLink");
+
+  // Setup avatar and dropdown for logged in users
+  const data = JSON.parse(localStorage.getItem("wattsunUser") || "null");
+  const user = data?.user;
+  if (user) {
+    loginBtn.style.display = "none";
+    userLabel.style.display = "inline";
+    userLabel.textContent = user.name.split(" ")[0];
+    userLabel.style.cursor = "pointer";
+    userLabel.style.fontWeight = "bold";
+
+    // Toggle dropdown on click
+    userLabel.addEventListener("click", () => {
+      dropdown.classList.toggle("hidden");
+      document.getElementById("dropdownAvatar").textContent = (user.name[0] || "U").toUpperCase();
+      document.getElementById("dropdownName").textContent = user.name;
+      document.getElementById("dropdownEmail").textContent = user.email;
+    });
+
+    // Logout handler
+    logoutLink.addEventListener("click", () => {
+      localStorage.removeItem("wattsunUser");
+      location.reload();
+    });
+
+    // Close dropdown on outside click
+    document.addEventListener("click", (e)=>{
+      if(!dropdown.contains(e.target) && e.target !== userLabel) dropdown.classList.add("hidden");
+    });
+  }
+});
+</script>
 
 </body>
 </html>
