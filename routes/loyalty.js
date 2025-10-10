@@ -103,6 +103,13 @@ function getProgramSettings(code = "STAFF") {
 
         base[k] = v;
       }
+        // --- PATCH 1: normalize durationMonths key (snake_case or camelCase) ---
+        if (base.duration_months && !base.durationMonths) {
+          base.durationMonths = Number(base.duration_months);
+        }
+        if (!Number.isFinite(base.durationMonths)) {
+          base.durationMonths = 12; // fallback safety
+        }
 
         resolve(base);
       }
@@ -249,7 +256,10 @@ router.post("/enroll", requireStaff, async (req, res) => {
       const startDate = start.toISOString().slice(0, 10);
 
       // Coerce to numeric values safely
-      const durationMonths = Number(program.durationMonths) || 6;
+      // --- unified PATCH 2: guarantee numeric duration before date computation ---
+      const durationMonths = Number(program.durationMonths ?? program.duration_months ?? 12);
+      console.log("[enroll] normalized durationMonths =", durationMonths);
+
       const withdrawWaitDays = Number(program.withdrawWaitDays) || 90;
 
       const end = new Date(start);
