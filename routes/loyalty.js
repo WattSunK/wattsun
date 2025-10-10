@@ -9,7 +9,8 @@ router.use(express.urlencoded({ extended: true }));
 
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
-const { enqueue } = require("../lib/notify");
+const { enqueue } = require("./lib/notify");
+
 
 // Resolve DB path the same way your app does (env first, fallback)
 const DB_PATH =
