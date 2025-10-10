@@ -4,7 +4,7 @@
 #  Location: /volume1/web/wattsun/scripts/loyalty_withdrawals_full_cycle.sh
 #  Purpose : Verify Create → Approve → Mark Paid → Reject
 #  Author  : WattSun DevOps (ChatGPT Assist)
-#  Version : 2025-10-10
+#  Version : 2025-10-10 (validated final version)
 # ================================================================
 
 set -e
@@ -52,22 +52,21 @@ else
   sleep 1   # 🕐 give SQLite time to unlock the file
 
   sqlite3 $DB <<'SQL'
-  .headers on
-  .mode column
-  SELECT id, kind, points_delta, note, created_at
-  FROM loyalty_ledger
-  WHERE kind='withdraw'
-  ORDER BY id DESC LIMIT 3;
-  SQL
-  
+.headers on
+.mode column
+SELECT id, kind, points_delta, note, created_at
+FROM loyalty_ledger
+WHERE kind='withdraw'
+ORDER BY id DESC LIMIT 3;
+SQL
 fi
-
 
 # ------------------------------------------------------------
 # 2️⃣ Approve
 # ------------------------------------------------------------
 echo -e "\n➡️  Approving withdrawal #$ID..."
 curl -s -b admin.jar -X PATCH $API/$ID/approve | tee /tmp/withdrawal_approve.json
+sleep 1
 
 sqlite3 $DB <<'SQL'
 .headers on
@@ -90,6 +89,7 @@ SQL
 # ------------------------------------------------------------
 echo -e "\n➡️  Marking withdrawal #$ID as paid..."
 curl -s -b admin.jar -X PATCH $API/$ID/mark-paid | tee /tmp/withdrawal_paid.json
+sleep 1
 
 sqlite3 $DB <<'SQL'
 .headers on
@@ -112,6 +112,7 @@ SQL
 # ------------------------------------------------------------
 echo -e "\n➡️  Rejecting withdrawal #$ID (safety check)..."
 curl -s -b admin.jar -X PATCH $API/$ID/reject | tee /tmp/withdrawal_reject.json
+sleep 1
 
 sqlite3 $DB <<'SQL'
 .headers on
@@ -133,6 +134,7 @@ SQL
 # 5️⃣ Summary
 # ------------------------------------------------------------
 echo -e "\n✅ FINAL SUMMARY"
+sleep 1
 
 sqlite3 $DB <<'SQL'
 .headers on
