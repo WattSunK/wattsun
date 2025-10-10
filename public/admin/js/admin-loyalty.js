@@ -380,20 +380,17 @@
 function actionCellHtml(id, status, source) {
   const st = String(status || "").trim().toLowerCase();
 
-   // Lifecycle logic
-  const canApprove = st === "pending";
-  const canReject  = st === "pending";
-  const canPay     = st === "approved";
-  const noAction   = st === "no action" || st === "paid" || st === "rejected";
+  // Lifecycle logic — backend returns Pending | Approved | No Action
+const stLower = st.toLowerCase();
+const isPending  = stLower === "pending";
+const isApproved = stLower === "approved";
+const isFinal    = stLower === "no action" || stLower === "paid" || stLower === "rejected";
 
-  // 🔸 Enhanced rule: disable Approve/Reject once handled
-  const disableApproveReject =
-  st.toLowerCase().includes("approved") ||
-  st.toLowerCase().includes("no action") ||
-  st.toLowerCase().includes("rejected");
-
-
-
+const canApprove = isPending;
+const canReject  = isPending;
+const canPay     = isApproved;   // enable Mark Paid only after approval
+const disableApproveReject = !isPending;  // lock Approve/Reject once decided
+const noAction = isFinal;
 
   // If finalised → no interactive menu
   if (!(canApprove || canReject || canPay) || noAction) {

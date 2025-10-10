@@ -184,6 +184,15 @@ try {
        VALUES (?, ?, 'Pending', datetime('now','localtime'))`,
       [ledgerId, adminUserId]
     );
+    // 🔧 Ensure new withdrawals start undecided
+    await run(
+      db,
+      `UPDATE loyalty_withdrawal_meta
+        SET decided_at = NULL,
+            decided_by = NULL
+      WHERE ledger_id = ?`,
+      [ledgerId]
+    );
 
     const r = await q(
       db,
