@@ -441,7 +441,7 @@ document.addEventListener("DOMContentLoaded", function () {
     } catch (e) {}
   });
 </script>
-<!-- Minimal Avatar + Dropdown -->
+<!-- Minimal Avatar (only visible after login) + Dropdown -->
 <div id="wsUserAvatar" class="ws-avatar-icon hidden">W</div>
 
 <div id="wsAccountMenu" class="ws-account-menu hidden">
@@ -453,17 +453,18 @@ document.addEventListener("DOMContentLoaded", function () {
 </div>
 
 <style>
-/* Avatar button */
+/* Avatar circle */
 .ws-avatar-icon {
   position: absolute;
   top: 18px;
   right: 20px;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: #ffda00;
   color: #000;
-  font-weight: 900;
+  font-weight: 800;
+  font-size: 1.1em;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -478,7 +479,7 @@ document.addEventListener("DOMContentLoaded", function () {
 /* Dropdown menu */
 .ws-account-menu {
   position: absolute;
-  top: 65px;
+  top: 68px;
   right: 20px;
   background: #fffbe6;
   border: 1px solid #ffe481;
@@ -492,6 +493,7 @@ document.addEventListener("DOMContentLoaded", function () {
   animation: fadeIn 0.25s ease;
 }
 .ws-account-menu.hidden { display: none; }
+
 .ws-account-menu a,
 .ws-account-menu button {
   border: none;
@@ -508,6 +510,7 @@ document.addEventListener("DOMContentLoaded", function () {
   background: #ffe481;
   color: #b39708;
 }
+
 @keyframes fadeIn {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
@@ -521,28 +524,38 @@ document.addEventListener("DOMContentLoaded", function(){
   const logout = document.getElementById("wsLogoutBtn");
   const login  = document.getElementById("loginBtn");
 
-  const userObj = JSON.parse(localStorage.getItem("wattsunUser") || "null");
-  const user = userObj?.user;
+  // Check session
+  const data = JSON.parse(localStorage.getItem("wattsunUser") || "null");
+  const user = data?.user;
+
   if (user) {
-    login.style.display = "none";
+    // Hide login button, show avatar
+    if (login) login.style.display = "none";
     avatar.classList.remove("hidden");
     avatar.textContent = (user.name?.[0] || "W").toUpperCase();
 
+    // Toggle dropdown
     avatar.addEventListener("click", () => {
       menu.classList.toggle("hidden");
     });
 
+    // Logout handler
     logout.addEventListener("click", () => {
       localStorage.removeItem("wattsunUser");
+      menu.classList.add("hidden");
       location.reload();
     });
 
-    // Close menu when clicking outside
+    // Close dropdown on outside click
     document.addEventListener("click", (e) => {
       if (!menu.contains(e.target) && e.target !== avatar) {
         menu.classList.add("hidden");
       }
     });
+  } else {
+    // Ensure avatar stays hidden if not logged in
+    avatar.classList.add("hidden");
+    if (login) login.style.display = "inline-block";
   }
 });
 </script>
