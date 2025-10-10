@@ -48,17 +48,20 @@ if [ -z "$ID" ]; then
   cat /tmp/withdrawal_create.json
   exit 1
 else
-echo "✅ Created withdrawal ID: $ID"
-sleep 1   # 🕐 give SQLite time to unlock the file
+  echo "✅ Created withdrawal ID: $ID"
+  sleep 1   # 🕐 give SQLite time to unlock the file
 
-sqlite3 $DB <<'SQL'
-.headers on
-.mode column
-SELECT id, kind, points_delta, note, created_at
-FROM loyalty_ledger
-WHERE kind='withdraw'
-ORDER BY id DESC LIMIT 3;
-SQL
+  sqlite3 $DB <<'SQL'
+  .headers on
+  .mode column
+  SELECT id, kind, points_delta, note, created_at
+  FROM loyalty_ledger
+  WHERE kind='withdraw'
+  ORDER BY id DESC LIMIT 3;
+  SQL
+  
+fi
+
 
 # ------------------------------------------------------------
 # 2️⃣ Approve
