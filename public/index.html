@@ -303,7 +303,7 @@
       const label = document.getElementById("loggedInUser");
       const logout = document.getElementById("logoutBtn");
       const login = document.getElementById("loginBtn");
-      login.style.display = "none";
+      if (login) login.style.display = "none";
       if (label) label.style.display = "none";
       if (logout) logout.style.display = "none";
       label.textContent = user.name;
