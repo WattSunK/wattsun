@@ -441,6 +441,112 @@ document.addEventListener("DOMContentLoaded", function () {
     } catch (e) {}
   });
 </script>
+<!-- WattSun Avatar Menu (safe insert, isolated) -->
+<div id="wsAvatar" class="ws-avatar hidden">W</div>
+
+<div id="wsMenu" class="ws-menu hidden">
+  <a href="/myaccount/userdash.html">🏠 My Dashboard</a>
+  <a href="/myaccount/myorders.html">📦 My Orders</a>
+  <a href="/myaccount/offers.html">🎁 Loyalty & Offers</a>
+  <a href="/financing.html">💳 Financing</a>
+  <button id="wsLogout">🚪 Logout</button>
+</div>
+<style>
+/* === WS Avatar + Menu (safe isolated styles) === */
+.ws-avatar {
+  position: absolute;
+  top: 18px;
+  right: 90px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #ffda00;
+  color: #000;
+  font-weight: 700;
+  font-size: 1em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  z-index: 999;
+  transition: transform 0.2s ease;
+}
+.ws-avatar:hover { transform: scale(1.08); }
+
+.ws-menu {
+  position: absolute;
+  top: 60px;
+  right: 80px;
+  background: #fffbe6;
+  border: 1px solid #ffe481;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 1000;
+  animation: fadeIn 0.25s ease;
+}
+.ws-menu.hidden { display: none; }
+.ws-menu a, .ws-menu button {
+  border: none;
+  background: none;
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 0.95em;
+  color: #333;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ws-menu a:hover, .ws-menu button:hover {
+  background: #ffe481;
+  color: #b39708;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+</style>
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  const avatar = document.getElementById("wsAvatar");
+  const menu = document.getElementById("wsMenu");
+  const logout = document.getElementById("wsLogout");
+  const loginBtn = document.getElementById("loginBtn");
+
+  const userObj = JSON.parse(localStorage.getItem("wattsunUser") || "null");
+  const user = userObj?.user;
+
+  if (user) {
+    // Hide login button, show avatar
+    if (loginBtn) loginBtn.style.display = "none";
+    avatar.textContent = (user.name?.[0] || "U").toUpperCase();
+    avatar.classList.remove("hidden");
+
+    // Toggle dropdown
+    avatar.addEventListener("click", () => menu.classList.toggle("hidden"));
+
+    // Logout
+    if (logout) logout.addEventListener("click", () => {
+      localStorage.removeItem("wattsunUser");
+      menu.classList.add("hidden");
+      location.reload();
+    });
+
+    // Close on outside click
+    document.addEventListener("click", (e) => {
+      if (!menu.contains(e.target) && e.target !== avatar) {
+        menu.classList.add("hidden");
+      }
+    });
+  } else {
+    avatar.classList.add("hidden");
+    if (loginBtn) loginBtn.style.display = "inline-block";
+  }
+});
+</script>
 
 </body>
 </html>
