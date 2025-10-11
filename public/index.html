@@ -306,10 +306,6 @@
       login.style.display = "none";
       if (label) label.style.display = "none";
       if (logout) logout.style.display = "none";
-
-      login.style.display = "none";
-      label.style.display = "inline";
-      logout.style.display = "inline";
       label.textContent = user.name;
       label.style.cursor = "pointer";
       label.addEventListener("click", () => {
@@ -445,42 +441,6 @@ document.addEventListener("DOMContentLoaded", function () {
     } catch (e) {}
   });
 
-document.addEventListener("DOMContentLoaded", function(){
-  const avatar = document.getElementById("wsAvatar");
-  const menu = document.getElementById("wsMenu");
-  const logout = document.getElementById("wsLogout");
-  const loginBtn = document.getElementById("loginBtn");
-
-  const userObj = JSON.parse(localStorage.getItem("wattsunUser") || "null");
-  const user = userObj?.user;
-
-  if (user) {
-    // Hide login button, show avatar
-    if (loginBtn) loginBtn.style.display = "none";
-    avatar.textContent = (user.name?.[0] || "U").toUpperCase();
-    avatar.classList.remove("hidden");
-
-    // Toggle dropdown
-    avatar.addEventListener("click", () => menu.classList.toggle("hidden"));
-
-    // Logout
-    if (logout) logout.addEventListener("click", () => {
-      localStorage.removeItem("wattsunUser");
-      menu.classList.add("hidden");
-      location.reload();
-    });
-
-    // Close on outside click
-    document.addEventListener("click", (e) => {
-      if (!menu.contains(e.target) && e.target !== avatar) {
-        menu.classList.add("hidden");
-      }
-    });
-  } else {
-    avatar.classList.add("hidden");
-    if (loginBtn) loginBtn.style.display = "inline-block";
-  }
-});
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", function(){
