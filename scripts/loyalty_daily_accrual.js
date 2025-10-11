@@ -66,6 +66,17 @@ function run(db, sql, p = []) {
            VALUES (?, 'daily', 1, ?, datetime('now','localtime'))`,
           [accountId, note]
         );
+        // 💡 Update account totals if a new daily entry was added
+        if (changes > 0) {
+          await run(
+            db,
+            `UPDATE loyalty_accounts
+                SET points_balance = COALESCE(points_balance, 0) + 1,
+                    total_earned   = COALESCE(total_earned,   0) + 1
+              WHERE id = ?`,
+            [accountId]
+          );
+        }
 
         if (changes > 0) inserted++; else skipped++;
       } catch (e) {
