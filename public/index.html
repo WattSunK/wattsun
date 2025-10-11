@@ -122,19 +122,14 @@
   WattSun Solar
 </h1>
 <div class="logo-container">
-  <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
-  <span class="brand-name">WattSun Solar</span>
+<img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
+<span class="brand-name">WattSun Solar</span>
 </div>
-
-<!-- Header right controls -->
-<div class="header-actions" style="display:flex;align-items:center;gap:10px;position:absolute;right:15px;">
-
-  <button onclick="openLogin()" id="loginBtn"
-    style="background:#f4a940;color:white;border:none;padding:7px 18px;border-radius:5px;
-    font-weight:600;font-size:1em;cursor:pointer;">Login</button>
-
+<button onclick="openLogin()" id="loginBtn" style="margin-left:15px;background:#f4a940;color:white;border:none;padding:7px 18px;border-radius:5px;font-weight:600;font-size:1em;cursor:pointer;">Login</button>
+<span id="loggedInUser" style="display:none;margin-left:15px;font-size:1em;color:#222;"></span>
+<button id="logoutBtn" style="display:none;margin-left:8px;background:#f0701a;color:white;border:none;padding:7px 14px;border-radius:5px;font-size:1em;cursor:pointer;">Logout</button>
+<button aria-label="Open menu" class="nav-toggle">☰</button>
 </div>
-
 <nav>
 <a href="index.html">Home</a>
 <a href="solutions.html">Solutions</a>
@@ -300,7 +295,7 @@
 
   <script defer src="js/auth.js"></script> <!-- ...latest reference  ... -->
 
-<!-- ...<script>
+<script>
   document.addEventListener("DOMContentLoaded", function () {
     const userObj = JSON.parse(localStorage.getItem("wattsunUser") || "null");
     const user = userObj?.user;
@@ -324,7 +319,7 @@
       });
     }
   });
-</script>... -->
+</script>
 
 <!-- Redirect to checkout only AFTER auth truly succeeds (no auth.js changes needed) -->
 <script>
@@ -445,131 +440,6 @@ document.addEventListener("DOMContentLoaded", function () {
       if (p.endsWith("/signup.html") && typeof openSignup === "function") openSignup();
     } catch (e) {}
   });
-</script>
-<!-- Minimal Avatar (only visible after login) + Dropdown -->
-<div id="wsUserAvatar" class="ws-avatar-icon hidden">W</div>
-
-<div id="wsAccountMenu" class="ws-account-menu hidden">
-  <a href="/myaccount/userdash.html">🏠 My Dashboard</a>
-  <a href="/myaccount/myorders.html">📦 My Orders</a>
-  <a href="/myaccount/offers.html">🎁 Loyalty & Offers</a>
-  <a href="/financing.html">💳 Financing</a>
-  <button id="wsLogoutBtn">🚪 Logout</button>
-</div>
-
-<style>
-/* Avatar circle */
-.ws-avatar-icon {
-  position: absolute;
-  top: 18px;
-  right: 20px;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #ffda00;
-  color: #000;
-  font-weight: 800;
-  font-size: 1.1em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: Arial, sans-serif;
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-  z-index: 1100;
-  transition: transform 0.2s ease;
-}
-.ws-avatar-icon:hover { transform: scale(1.08); }
-
-/* Dropdown menu */
-.ws-account-menu {
-  position: absolute;
-  top: 68px;
-  right: 20px;
-  background: #fffbe6;
-  border: 1px solid #ffe481;
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-  width: 210px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  z-index: 1200;
-  animation: fadeIn 0.25s ease;
-}
-.ws-account-menu.hidden { display: none; }
-
-.ws-account-menu a,
-.ws-account-menu button {
-  border: none;
-  background: none;
-  padding: 10px 14px;
-  text-align: left;
-  font-size: 0.95em;
-  color: #333;
-  cursor: pointer;
-  text-decoration: none;
-}
-.ws-account-menu a:hover,
-.ws-account-menu button:hover {
-  background: #ffe481;
-  color: #b39708;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-</style>
-
-<script>
-document.addEventListener("DOMContentLoaded", function(){
-  const avatar = document.getElementById("wsUserAvatar");
-  const menu   = document.getElementById("wsAccountMenu");
-  const logout = document.getElementById("wsLogoutBtn");
-  const login  = document.getElementById("loginBtn");
-  const oldLogout = document.getElementById("logoutBtn");
-  const oldLabel  = document.getElementById("loggedInUser");
-
-
-  // Check session
-  const data = JSON.parse(localStorage.getItem("wattsunUser") || "null");
-  const user = data?.user;
-
-  if (user) {
-    if (login) login.style.display = "none";
-    if (oldLogout) oldLogout.style.display = "none";
-    if (oldLabel) oldLabel.style.display = "none";
-
-  avatar.classList.remove("hidden");
-  avatar.textContent = (user.name?.[0] || "W").toUpperCase();
-
-    // Toggle dropdown
-    avatar.addEventListener("click", () => {
-      menu.classList.toggle("hidden");
-    });
-
-    // Logout handler
-        if (logout) {
-      logout.addEventListener("click", () => {
-        localStorage.removeItem("wattsunUser");
-        menu.classList.add("hidden");
-        location.reload();
-      });
-    }
-
-    // Close dropdown on outside click
-    document.addEventListener("click", (e) => {
-      if (!menu.contains(e.target) && e.target !== avatar) {
-        menu.classList.add("hidden");
-      }
-    });
-  } else {
-    // Ensure avatar stays hidden if not logged in
-    avatar.classList.add("hidden");
-    if (login) login.style.display = "inline-block";
-  }
-});
 </script>
 
 </body>
