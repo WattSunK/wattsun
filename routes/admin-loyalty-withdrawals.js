@@ -1,169 +1,376 @@
 // routes/admin-loyalty-withdrawals.js
-// Admin: list + decision (approve/reject) + mark-paid for withdrawals
-// Enqueues notifications via notify.enqueue
+// ✅ Updated Oct 2025 – Lifecycle-aware status fix (decided_at / paid_at logic)
 
 const express = require("express");
-const router = express.Router();
-router.use(express.json());
-router.use(express.urlencoded({ extended: true }));
-
-const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
-const { enqueue } = require("./lib/notify");
+const sqlite3 = require("sqlite3").verbose();
+const router = express.Router();
 
-const DB_PATH = process.env.DB_PATH_USERS || process.env.SQLITE_DB || path.join(process.cwd(), "data/dev/wattsun.dev.db");
-const db = new sqlite3.Database(DB_PATH);
-
+// ────────────────────────────────────────────────────────────────
+// Middleware – require admin session
+// ────────────────────────────────────────────────────────────────
 function requireAdmin(req, res, next) {
-  const u = req?.session?.user;
+  const u = req.session?.user;
   if (!u || (u.type !== "Admin" && u.role !== "Admin")) {
-    return res.status(403).json({ success:false, error:{ code:"FORBIDDEN", message:"Admin only" } });
+    return res
+      .status(403)
+      .json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Admin access required." },
+      });
   }
   next();
 }
+
 router.use(requireAdmin);
 
-// helpers
-function getWithdrawal(id) {
-  return new Promise((resolve, reject) => {
-    db.get(
-      `SELECT w.*, la.user_id, la.points_balance, la.status AS account_status
-       FROM loyalty_withdrawals w
-       JOIN loyalty_accounts la ON la.id = w.account_id
-       WHERE w.id=?`,
-      [id],
-      (err, row) => err ? reject(err) : resolve(row || null)
-    );
-  });
-}
-function listWithdrawals(status, limit=100) {
-  const params = [];
-  let where = "";
-  if (status) { where = "WHERE w.status=?"; params.push(status); }
-  return new Promise((resolve, reject) => {
-    db.all(
-      `SELECT w.id, w.account_id, w.requested_pts, w.requested_eur, w.status,
-              w.requested_at, w.decided_at, w.decided_by, w.decision_note, w.paid_at, w.payout_ref,
-              la.user_id
-       FROM loyalty_withdrawals w
-       JOIN loyalty_accounts la ON la.id = w.account_id
-       ${where}
-       ORDER BY w.id DESC
-       LIMIT ?`,
-      params.concat([limit]),
-      (err, rows) => err ? reject(err) : resolve(rows || [])
-    );
-  });
-}
-function insertLedger(accountId, kind, delta, note, adminId) {
-  return new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO loyalty_ledger (account_id, kind, points_delta, note, admin_user_id) VALUES (?,?,?,?,?)`,
-      [accountId, kind, delta, note || null, adminId || null],
-      function (err) { if (err) return reject(err); resolve(this.lastID); }
-    );
-  });
-}
-function updateWithdrawalDecision(id, status, decidedBy, note) {
-  return new Promise((resolve, reject) => {
-    db.run(
-      `UPDATE loyalty_withdrawals
-       SET status=?, decided_at=datetime('now'), decided_by=?, decision_note=?
-       WHERE id=?`,
-      [status, decidedBy || null, note || null, id],
-      function (err) { if (err) return reject(err); resolve(true); }
-    );
-  });
-}
-function markPaid(id, payoutRef) {
-  return new Promise((resolve, reject) => {
-    db.run(
-      `UPDATE loyalty_withdrawals SET status='Paid', paid_at=datetime('now'), payout_ref=? WHERE id=?`,
-      [payoutRef || null, id],
-      function (err) { if (err) return reject(err); resolve(true); }
-    );
-  });
+// ────────────────────────────────────────────────────────────────
+// DB helpers
+// ────────────────────────────────────────────────────────────────
+const DB_PATH =
+  process.env.DB_PATH_USERS ||
+  process.env.SQLITE_DB ||
+  path.join(process.cwd(), "data/dev/wattsun.dev.db");
+
+function withDb(fn) {
+  const db = new sqlite3.Database(DB_PATH);
+  return new Promise((resolve, reject) =>
+    fn(db)
+      .then((v) => {
+        db.close();
+        resolve(v);
+      })
+      .catch((e) => {
+        db.close();
+        reject(e);
+      })
+  );
 }
 
-// routes
+const q = (db, sql, p = []) =>
+  new Promise((res, rej) => db.get(sql, p, (e, r) => (e ? rej(e) : res(r))));
+const all = (db, sql, p = []) =>
+  new Promise((res, rej) => db.all(sql, p, (e, r) => (e ? rej(e) : res(r))));
+const run = (db, sql, p = []) =>
+  new Promise((res, rej) => {
+    db.run(sql, p, function (e) {
+      if (e) rej(e);
+      else res({ lastID: this.lastID, changes: this.changes });
+    });
+  });
 
-// GET /api/admin/loyalty/withdrawals?status=Pending
-router.get("/withdrawals", async (req, res) => {
+const asInt = (v, d = 0) => (Number.isFinite(+v) ? parseInt(v, 10) : d);
+const s = (x) => (x == null ? null : String(x).trim());
+
+// ────────────────────────────────────────────────────────────────
+// 🔁 Updated Helper: compute derived status according to lifecycle
+// ────────────────────────────────────────────────────────────────
+function computeStatus(r) {
+  // Determine by date fields first
+  const st = (r.raw_status || "").toLowerCase();
+
+  // Paid always takes precedence
+  if (r.paid_at) return "No Action";
+
+  // Explicit states
+  if (st.includes("approved")) return "Approved";
+  if (st.includes("rejected")) return "No Action";
+
+  // Only consider decided_at meaningful if status itself says approved
+  if (r.decided_at && st === "approved") return "Approved";
+
+  // Otherwise, still pending
+  return "Pending";
+}
+
+
+// ────────────────────────────────────────────────────────────────
+// GET /api/admin/loyalty/withdrawals
+// Unified list from ledger + overlay
+// ────────────────────────────────────────────────────────────────
+router.get("/loyalty/withdrawals", async (req, res) => {
+  const per = Math.min(100, Math.max(1, asInt(req.query?.per, 20)));
+  const page = Math.max(1, asInt(req.query?.page, 1));
+  const offset = (page - 1) * per;
+  const statusFilter = (req.query?.status || "").trim();
+
   try {
-    const status = req.query.status ? String(req.query.status) : null;
-    const rows = await listWithdrawals(status);
-    return res.json({ success:true, withdrawals: rows });
-  } catch (err) {
-    console.error("[admin/loyalty/withdrawals:list]", err);
-    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to list withdrawals" } });
+    const out = await withDb(async (db) => {
+      const sql = `
+        SELECT 
+          l.id,
+          l.account_id,
+          a.user_id,
+          ABS(l.points_delta) AS points,
+          COALESCE(m.status, 'Pending') AS raw_status,
+          l.created_at AS requested_at,
+          m.decided_at,
+          m.paid_at,
+          m.note AS admin_note
+        FROM loyalty_ledger l
+        JOIN loyalty_accounts a ON a.id = l.account_id
+        LEFT JOIN loyalty_withdrawal_meta m ON m.ledger_id = l.id
+        WHERE l.kind='withdraw'
+        ORDER BY l.id DESC
+        LIMIT ? OFFSET ?;
+      `;
+      const rows = await all(db, sql, [per, offset]);
+      const total = (
+        await q(
+          db,
+          "SELECT COUNT(*) AS n FROM loyalty_ledger WHERE kind='withdraw'"
+        )
+      )?.n;
+
+      const withdrawals = rows.map((r) => ({
+        ...r,
+        status: computeStatus(r),
+      }));
+
+      const filtered = statusFilter
+        ? withdrawals.filter((w) => w.status === statusFilter)
+        : withdrawals;
+
+      return { withdrawals: filtered, total };
+    });
+
+    return res.json({
+      success: true,
+      page,
+      per,
+      total: out.total,
+      withdrawals: out.withdrawals,
+    });
+  } catch (e) {
+    console.error("[withdrawals][GET]", e);
+    return res.status(500).json({
+      success: false,
+      error: { code: "SERVER_ERROR", message: "List failed" },
+    });
   }
 });
 
-// POST /api/admin/loyalty/withdrawals/:id/decision  { approve:boolean, note? }
-router.post("/withdrawals/:id/decision", async (req, res) => {
+// ────────────────────────────────────────────────────────────────
+// POST /api/admin/loyalty/withdrawals → create new Approved (admin-initiated)
+// ────────────────────────────────────────────────────────────────
+router.post("/loyalty/withdrawals", async (req, res) => {
+  const accountId = asInt(req.body?.accountId);
+  const points = Math.abs(asInt(req.body?.points));
+  const note = s(req.body?.note);
+  const adminId = req.session?.user?.id || null;
+  const source = (req.session?.user?.role === "Admin") ? "admin" : "customer";
+
+  if (!accountId || !points)
+    return res.status(400).json({
+      success: false,
+      error: { code: "INVALID_INPUT", message: "accountId & points required" },
+    });
+
+try {
+  const row = await withDb(async (db) => {
+    const adminUserId = adminId; // use session admin id
+    const ledgerResult = await run(
+      db,
+      `INSERT INTO loyalty_ledger
+         (account_id, kind, points_delta, note, admin_user_id, created_at)
+       VALUES (?, 'withdraw', -?, ?, ?, datetime('now','localtime'))`,
+      [accountId, points, note, adminUserId]
+    );
+    const ledgerId = ledgerResult.lastID;
+
+    await run(
+  db,
+  `INSERT INTO loyalty_withdrawal_meta
+     (ledger_id, admin_user_id, status, note, created_at)
+   VALUES (
+     ?, ?, 'Pending',
+     CASE WHEN ?='admin' THEN '[source=admin]' ELSE '[source=customer]' END,
+     datetime('now','localtime')
+   )`,
+  [ledgerId, adminUserId, source]
+);
+    // 🔧 Adjust loyalty_accounts: subtract from balance only (not total_earned)
+await run(
+  db,
+  `UPDATE loyalty_accounts
+     SET points_balance = points_balance - ?
+   WHERE id = ?`,
+  [points, accountId]
+);
+
+    // 🔧 Ensure new withdrawals start undecided
+    await run(
+      db,
+      `UPDATE loyalty_withdrawal_meta
+        SET decided_at = NULL,
+            decided_by = NULL
+      WHERE ledger_id = ?`,
+      [ledgerId]
+    );
+
+    const r = await q(
+      db,
+      `SELECT 
+      l.*, 
+      a.user_id, 
+      m.status AS raw_status, 
+      m.decided_at, 
+      m.paid_at, 
+      m.note AS admin_note,
+      CASE
+        WHEN m.note LIKE '%[source=admin]%' THEN 'admin'
+        WHEN m.note LIKE '%[source=customer]%' THEN 'customer'
+        ELSE 'customer'
+      END AS source
+
+       FROM loyalty_ledger l
+       JOIN loyalty_accounts a ON a.id=l.account_id
+       LEFT JOIN loyalty_withdrawal_meta m ON m.ledger_id=l.id
+      WHERE l.id=?`,
+      [ledgerId]
+    );
+    return { ...r, status: computeStatus(r), source };
+  });
+
+  return res.json({ success: true, withdrawal: row });
+} catch (e) {
+  console.error("[withdrawals][POST]", e);
+  return res.status(500).json({
+    success: false,
+    error: { code: "SERVER_ERROR", message: "Create failed" },
+  });
+}
+});
+
+// ────────────────────────────────────────────────────────────────
+// PATCH helpers (Approve / Paid / Reject)
+// ────────────────────────────────────────────────────────────────
+async function updateStatus(id, status, note, adminId, extra = {}) {
+  return withDb(async (db) => {
+    await run(
+      db,
+      `INSERT INTO loyalty_withdrawal_meta (ledger_id,status,decided_by,decided_at,note,paid_at)
+         VALUES (?,?,?,?,?,?)
+       ON CONFLICT(ledger_id)
+       DO UPDATE SET 
+         status=excluded.status,
+         decided_by=excluded.decided_by,
+         decided_at=excluded.decided_at,
+         note=excluded.note,
+         paid_at=COALESCE(excluded.paid_at, loyalty_withdrawal_meta.paid_at)`,
+      [id, status, adminId, new Date().toISOString(), note || null, extra.paidAt || null]
+    );
+
+    const r = await q(
+      db,
+      `SELECT l.*, a.user_id, m.status AS raw_status, m.decided_at, m.paid_at, m.note AS admin_note
+         FROM loyalty_ledger l
+         JOIN loyalty_accounts a ON a.id=l.account_id
+         LEFT JOIN loyalty_withdrawal_meta m ON m.ledger_id=l.id
+        WHERE l.id=?`,
+      [id]
+    );
+    return { ...r, status: computeStatus(r) };
+  });
+}
+
+
+router.patch("/loyalty/withdrawals/:id/approve", async (req, res) => {
+  const id = asInt(req.params.id);
+  const adminId = req.session?.user?.id || null;
+  const note = `Withdrawal #${id} approved`;
   try {
-    const id = parseInt(req.params.id, 10);
-    const approve = !!req.body?.approve;
-    const note = req.body?.note || "";
-    const w = await getWithdrawal(id);
-    if (!w) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Withdrawal not found" } });
-    if (w.status !== "Pending") {
-      return res.status(400).json({ success:false, error:{ code:"INVALID_STATE", message:`Already ${w.status}` } });
-    }
+    const row = await updateStatus(id, "Approved", note, adminId);
 
-    if (!approve) {
-      await updateWithdrawalDecision(id, "Rejected", req.session.user.id, note);
-      try {
-        await enqueue("withdrawal_update", { userId: w.user_id, payload: { status:"Rejected", points: w.requested_pts, eur: w.requested_eur, payoutRef:"" } });
-      } catch (e) { console.warn("enqueue(withdrawal_update:Rejected) failed:", e.message); }
-      const updated = await getWithdrawal(id);
-      return res.json({ success:true, withdrawal: updated });
-    }
-
-    // approving: ensure account active and has enough points at approval time
-    if (w.account_status !== "Active") {
-      return res.status(400).json({ success:false, error:{ code:"ACCOUNT_NOT_ACTIVE", message:"Account must be Active to approve" } });
-    }
-    if (w.points_balance < w.requested_pts) {
-      return res.status(400).json({ success:false, error:{ code:"INSUFFICIENT_POINTS", message:"Not enough points at approval" } });
-    }
-
-    // deduct points now via ledger
-    await insertLedger(w.account_id, "withdraw", -w.requested_pts, `Withdrawal ${w.requested_pts} pts`, req.session.user.id);
-    await updateWithdrawalDecision(id, "Approved", req.session.user.id, note);
-
-    try {
-      await enqueue("withdrawal_update", { userId: w.user_id, payload: { status:"Approved", points: w.requested_pts, eur: w.requested_eur, payoutRef:"" } });
-    } catch (e) { console.warn("enqueue(withdrawal_update:Approved) failed:", e.message); }
-
-    const updated = await getWithdrawal(id);
-    return res.json({ success:true, withdrawal: updated });
-  } catch (err) {
-    console.error("[admin/loyalty/withdrawals:decision]", err);
-    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to decide withdrawal" } });
+    // 🔸 INSERT notification
+    await withDb(async (db) => {
+    await run(
+      db,
+      `INSERT INTO notifications_queue
+         (kind, user_id, email, payload, status, note, created_at)
+       VALUES ('withdrawal_approved', ?, ?, json(?), 'Queued', ?, datetime('now','localtime'))`,
+      [row.user_id, null, JSON.stringify({ message: note }), note]
+    );
+    });
+    res.json({ success: true, withdrawal: row });
+  } catch (e) {
+    console.error("[approve]", e);
+    res.status(500).json({ success: false, error: { message: "Approve failed" } });
   }
 });
 
-// POST /api/admin/loyalty/withdrawals/:id/mark-paid  { payoutRef? }
-router.post("/withdrawals/:id/mark-paid", async (req, res) => {
+
+router.patch("/loyalty/withdrawals/:id/mark-paid", async (req, res) => {
+  const id = asInt(req.params.id);
+  const adminId = req.session?.user?.id || null;
+  const note = s(req.body?.note) || `Withdrawal #${id} paid`;
+  const paidAt = req.body?.paidAt || new Date().toISOString();
   try {
-    const id = parseInt(req.params.id, 10);
-    const payoutRef = req.body?.payoutRef || "";
-    const w = await getWithdrawal(id);
-    if (!w) return res.status(404).json({ success:false, error:{ code:"NOT_FOUND", message:"Withdrawal not found" } });
-    if (w.status !== "Approved") {
-      return res.status(400).json({ success:false, error:{ code:"INVALID_STATE", message:`Must be Approved to mark Paid (is ${w.status})` } });
-    }
-    await markPaid(id, payoutRef);
-    try {
-      await enqueue("withdrawal_update", { userId: w.user_id, payload: { status:"Paid", points: w.requested_pts, eur: w.requested_eur, payoutRef } });
-    } catch (e) { console.warn("enqueue(withdrawal_update:Paid) failed:", e.message); }
-    const updated = await getWithdrawal(id);
-    return res.json({ success:true, withdrawal: updated });
-  } catch (err) {
-    console.error("[admin/loyalty/withdrawals:mark-paid]", err);
-    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:"Unable to mark as Paid" } });
+    const row = await updateStatus(id, "No Action", note, adminId, { paidAt });
+// 🔧 Update account totals on successful payout
+await withDb(async (db) => {
+  await run(
+    db,
+    `UPDATE loyalty_accounts
+       SET total_paid = COALESCE(total_paid,0) +
+         (SELECT ABS(points_delta) FROM loyalty_ledger WHERE id = ?)
+     WHERE id = (SELECT account_id FROM loyalty_ledger WHERE id = ?)`,
+    [id, id]
+  );
+});
+    // 🔸 INSERT notification
+    await withDb(async (db) => {
+      await run(
+        db,
+        `INSERT INTO notifications_queue
+           (kind, user_id, email, payload, status, note, created_at)
+         VALUES ('withdrawal_paid', ?, ?, json(?), 'Queued', ?, datetime('now','localtime'))`,
+        [row.user_id, null, JSON.stringify({ message: note }), note]
+      );
+    });
+
+    res.json({ success: true, withdrawal: row });
+  } catch (e) {
+    console.error("[mark-paid]", e);
+    res.status(500).json({ success: false, error: { message: "Mark paid failed" } });
   }
 });
+
+router.patch("/loyalty/withdrawals/:id/reject", async (req, res) => {
+  const id = asInt(req.params.id);
+  const adminId = req.session?.user?.id || null;
+  const note = s(req.body?.note) || `Withdrawal #${id} rejected`;
+  try {
+    const row = await updateStatus(id, "No Action", note, adminId);
+// ♻️ Reverse deduction when withdrawal is rejected
+await withDb(async (db) => {
+  await run(
+    db,
+    `UPDATE loyalty_accounts
+        SET points_balance = points_balance +
+          (SELECT ABS(points_delta) FROM loyalty_ledger WHERE id = ?)
+      WHERE id = (SELECT account_id FROM loyalty_ledger WHERE id = ?)`,
+    [id, id]
+  );
+});
+
+
+    await withDb(async (db) => {
+      await run(
+        db,
+        `INSERT INTO notifications_queue
+           (kind, user_id, email, payload, status, note, created_at)
+         VALUES ('withdrawal_rejected', ?, ?, json(?), 'Queued', ?, datetime('now','localtime'))`,
+        [row.user_id, null, JSON.stringify({ message: note }), note]
+      );
+    });
+
+    res.json({ success: true, withdrawal: row });
+  } catch (e) {
+    console.error("[reject]", e);
+    res.status(500).json({ success: false, error: { message: "Reject failed" } });
+  }
+});
+
 
 module.exports = router;

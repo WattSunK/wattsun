@@ -1,0 +1,102 @@
+[
+  {
+    "orderNumber": "WATT175693470452449",
+    "fullName": "Admin",
+    "email": "skamunyu@gmail.com",
+    "phone": "+254700000000",
+    "address": "Avenue de la Paix\n19",
+    "deliveryAddress": "Avenue de la Paix\n19",
+    "cart": [
+      {
+        "id": "12kW Kit",
+        "name": "12kW Kit",
+        "price": 1150000,
+        "deposit": 115000,
+        "quantity": 1,
+        "image": ""
+      }
+    ],
+    "cart_summary": "12kW Kit (x1): Price 1150000, Deposit 115000",
+    "timestamp": "2025-09-03T21:25:04.524Z",
+    "status": "Pending",
+    "orderType": "Pending",
+    "paymentType": "",
+    "total": 0,
+    "deposit": null
+  },
+  {
+    "orderNumber": "WATT175697554346999",
+    "fullName": "Wattsun Customer",
+    "email": "kamunyus@yahoo.com",
+    "phone": "+254722761214",
+    "address": "Rue du Pré-de-la-Fontaine 1242 Satigny",
+    "deliveryAddress": "Rue du Pré-de-la-Fontaine 1242 Satigny",
+    "cart": [
+      {
+        "id": "3kW Kit",
+        "name": "3kW Kit",
+        "price": 320000,
+        "deposit": 32000,
+        "quantity": 1,
+        "image": ""
+      }
+    ],
+    "cart_summary": "3kW Kit (x1): Price 320000, Deposit 32000",
+    "timestamp": "2025-09-04T08:45:43.469Z",
+    "status": "Pending",
+    "orderType": "Pending",
+    "paymentType": "",
+    "total": 0,
+    "deposit": null
+  },
+  {
+    "orderNumber": "WATT175701784510517",
+    "fullName": "Wattsun Customer",
+    "email": "kamunyus@yahoo.com",
+    "phone": "+254722761214",
+    "address": "Avenue de la Paix\n19",
+    "deliveryAddress": "Avenue de la Paix\n19",
+    "cart": [
+      {
+        "id": "LiFePO4 battery 12V100AH ",
+        "name": "LiFePO4 battery 12V100AH ",
+        "price": 27900,
+        "deposit": 1200,
+        "quantity": 1,
+        "image": ""
+      }
+    ],
+    "cart_summary": "LiFePO4 battery 12V100AH  (x1): Price 27900, Deposit 1200",
+    "timestamp": "2025-09-04T20:30:45.105Z",
+    "status": "Pending",
+    "orderType": "Pending",
+    "paymentType": "",
+    "total": 0,
+    "deposit": null
+  },
+  {
+    "orderNumber": "WATT175725564046913",
+    "fullName": "Admin",
+    "email": "skamunyu@gmail.com",
+    "phone": "+254700000000",
+    "address": "Avenue de la Paix\n19",
+    "deliveryAddress": "Avenue de la Paix\n19",
+    "cart": [
+      {
+        "id": "LiFePO4  battery 24V200AH  ",
+        "name": "LiFePO4  battery 24V200AH  ",
+        "price": 95000,
+        "deposit": 2500,
+        "quantity": 1,
+        "image": ""
+      }
+    ],
+    "cart_summary": "LiFePO4  battery 24V200AH   (x1): Price 95000, Deposit 2500",
+    "timestamp": "2025-09-07T14:34:00.469Z",
+    "status": "Pending",
+    "orderType": "Pending",
+    "paymentType": "",
+    "total": 0,
+    "deposit": null
+  }
+]

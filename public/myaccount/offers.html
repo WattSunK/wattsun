@@ -2,140 +2,256 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>My Account — Loyalty</title>
+  <title>My Account — Offers</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- MUST match other My-Account pages -->
+  <!-- Follow existing my-account styling -->
   <link rel="stylesheet" href="/main.css"/>
+  <style>
+    .ws-shell{max-width:1180px;margin:0 auto;padding:12px;}
+    .tabs{display:flex;gap:8px;margin:8px 0 12px;}
+    .tab{padding:8px 12px;border:1px solid #eee;border-radius:10px;background:#fafafa;cursor:pointer}
+    .tab.active{background:#fff;border-color:#e2b714;box-shadow:0 4px 16px rgba(0,0,0,.06)}
+    .ws-card{background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;box-shadow:0 6px 20px rgba(0,0,0,.04)}
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+    .kpi{border:1px dashed #f0e6bf;border-radius:12px;padding:12px}
+    .kpi h4{margin:0 0 6px}
+    .muted{color:#666}
+    .pill{display:inline-block;padding:2px 8px;border-radius:9999px;background:#eee}
+    .ok{background:#e7f8ef;color:#0f6a43}.warn{background:#fff7e6;color:#8b5e00}.err{background:#fde8e8;color:#9b1c1c}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .right{text-align:right}
+    .ws-btn{border:1px solid #e2b714;background:#ffe680;padding:8px 12px;border-radius:10px;cursor:pointer}
+    .ws-btn-yellow{background:#ffe680;border-color:#e2b714}
+    .ws-btn-outline{background:#fff;border:1px solid #ddd}
+    .ws-input{border:1px solid #ddd;border-radius:10px;padding:8px}
+    .table-wrap{overflow:auto}
+    .ws-table{width:100%;border-collapse:collapse}
+    .ws-table th,.ws-table td{border-bottom:1px solid #f0f0f0;padding:8px;text-align:left}
+    #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;background:#0f766e;color:#fff;padding:8px 12px;border-radius:10px;display:none}
+  </style>
 </head>
 <body>
-  <!-- same toolbar used elsewhere -->
-  <div class="ws-toolbar" style="display:flex;justify-content:flex-end;gap:10px;margin:10px 0;">
-    <button id="wsHome" class="ws-btn ws-btn-outline" style="padding:8px 14px;border-radius:8px;">Home</button>
-    <button id="wsLogout" class="ws-btn ws-btn-yellow" style="padding:8px 14px;border-radius:8px;">Logout</button>
+
+    <!-- Tabs (Loyalty as one of many) -->
+    <div class="tabs" role="tablist">
+      <button class="tab active" id="tabLoyalty" role="tab" aria-selected="true">Loyalty</button>
+      <button class="tab" id="tabCoupons" role="tab" aria-selected="false">Coupons</button>
+      <button class="tab" id="tabReferrals" role="tab" aria-selected="false">Referrals</button>
+    </div>
+
+
+<!-- Error fallback -->
+<section class="ws-card" id="offersError" style="display:none;margin-bottom:12px;">
+  <h3 style="margin:0 0 6px;">We couldn’t load your offers</h3>
+  <p class="muted" id="offersErrorMsg">Please try again.</p>
+  <button id="offersRetry" class="ws-btn ws-btn-outline" style="margin-top:8px;">Retry</button>
+</section>
+
+<!-- Empty state (no account) -->
+<section class="ws-card" id="offersEmpty" style="display:none;margin-bottom:12px;">
+  <h3 style="margin:0 0 6px;">No loyalty account yet</h3>
+  <p class="muted">You’re not enrolled in a loyalty program at the moment.</p>
+  <div style="margin-top:8px;">
+    <button id="enrollBtn" class="ws-btn ws-btn-yellow">Enroll</button>
+  </div>
+</section>
+
+      <!-- Welcome banner (shown on first landing with ?welcome=1) -->
+      <section id="loyalty-welcome" class="ws-card" style="display:none;margin-bottom:12px;">
+        <div style="display:flex;gap:12px;align-items:center;">
+          <div style="width:10px;height:10px;border-radius:9999px;background:#16a34a;"></div>
+          <div>
+            <strong>Welcome!</strong> Your loyalty account is active. Explore your balance, earned points, and withdrawals below.
+          </div>
+        </div>
+      </section>
+
+      <!-- Program About -->
+      <section class="ws-card" style="margin-bottom:12px;">
+        <h2 style="margin:0 0 8px;">Staff Loyalty — About the Program</h2>
+        <div class="grid-2">
+          <div class="kpi">
+            <h4>How you earn</h4>
+            <ul class="muted" style="margin:0;padding-left:18px;">
+              <li><strong>+100 pts</strong> one-time upon <strong>Enroll</strong>.</li>
+              <li><strong>+1 pt/day</strong> while <strong>Active</strong>.</li>
+              <li><strong>−1 pt</strong> penalties may be applied by Admin.</li>
+            </ul>
+          </div>
+          <div class="kpi">
+            <h4>Withdrawals</h4>
+            <ul class="muted" style="margin:0;padding-left:18px;">
+              <li>Available after <strong>90 days</strong> from start.</li>
+              <li>Rate: <strong>€1</strong>/pt; minimum <strong>100 pts</strong>.</li>
+              <li>Admin reviews each request; paid → payout reference emailed.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+          <!-- ===== Loyalty Pane ===== -->
+          <section id="paneLoyalty">
+            <!-- Loading skeleton -->
+      <section class="ws-card" id="offersSkeleton" style="margin-bottom:12px;">
+        <div class="muted">Loading your loyalty info…</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:8px;">
+          <div class="kpi"><div class="muted">Balance</div><div>████</div></div>
+          <div class="kpi"><div class="muted">Earned</div><div>████</div></div>
+          <div class="kpi"><div class="muted">Penalty</div><div>████</div></div>
+          <div class="kpi"><div class="muted">Paid</div><div>████</div></div>
+        </div>
+      </section>
+      <!-- KPI Row -->
+     <section class="ws-card" id="accountCard" style="margin-bottom:12px; display:none;">
+      <div id="loadState" class="muted" style="margin-bottom:6px;">Loading…</div>
+        <div class="kpis">
+          <div class="kpi">
+            <h4>Balance</h4>
+            <div style="font-size:28px;font-weight:700;"><span id="pointsBalance">—</span> pts</div>
+            <div class="muted" id="eurBalance">€—</div>
+          </div>
+          <div class="kpi">
+            <h4>Earned</h4>
+            <div style="font-size:22px;font-weight:700;"><span id="earnedPts">—</span> pts</div>
+            <div class="muted" id="earnedEur">€—</div>
+          </div>
+          <div class="kpi">
+            <h4>Penalty</h4>
+            <div style="font-size:22px;font-weight:700;"><span id="penaltyPts">—</span> pts</div>
+            <div class="muted" id="penaltyEur">€—</div>
+          </div>
+          <div class="kpi">
+            <h4>Paid</h4>
+            <div style="font-size:22px;font-weight:700;"><span id="paidPts">—</span> pts</div>
+            <div class="muted" id="paidEur">€—</div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;">
+          <div style="flex:1 1 260px;min-width:260px;">
+            <h4 style="margin:4px 0 6px;">Status</h4>
+            <div><span id="statusTag" class="pill">—</span></div>
+            <div class="muted" id="dateInfo" style="margin-top:6px;">Start — • Eligible — • End —</div>
+          </div>
+
+          <div style="flex:1 1 260px;min-width:260px;">
+            <h4 style="margin:4px 0 6px;">Your Rank</h4>
+            <div id="rankText" style="font-size:22px;font-weight:700;">—</div>
+            <div class="muted" id="rankHint">Based on total Earned points.</div>
+          </div>
+
+          <div style="flex:1 1 260px;min-width:260px;">
+            <h4 style="margin:4px 0 6px;">Actions</h4>
+            <div class="muted" id="minInfo">Minimum withdrawal: — pts</div>
+           <div style="margin-top:8px;">
+          <!-- kept for layout, not used by JS -->
+          <button id="enrollBtnAccount" class="ws-btn ws-btn-yellow" style="display:none;">Enroll</button>
+        </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- Withdraw -->
+      <section class="ws-card" id="withdrawCard" style="display:none;margin-bottom:12px;">
+        <h3 style="margin:0 0 12px;">Withdraw</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+          <div style="min-width:220px;">
+            <label class="muted" for="withdrawPoints">Points</label><br/>
+            <input id="withdrawPoints" class="ws-input" type="number" min="100" step="1" value="100" style="width:220px;" />
+          </div>
+          <div style="min-width:180px;">
+            <div class="muted">Estimated payout</div>
+            <div style="font-size:22px;font-weight:700;" id="estimateEUR">€100</div>
+          </div>
+          <div style="min-width:200px;">
+            <button id="withdrawBtn" class="ws-btn ws-btn-yellow" disabled>Request Withdrawal</button>
+          </div>
+        </div>
+        <small id="withdrawHint" class="muted" style="margin-top:8px;display:block;"></small>
+      </section>
+
+      <!-- History -->
+      <section class="ws-card" id="historyCard" style="display:none;">
+        <h3 style="margin:0 0 12px;">Withdrawal Requests</h3>
+        <div class="table-wrap">
+          <table class="ws-table" id="historyTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Requested</th>
+                <th>Status</th>
+                <th>Requested At</th>
+                <th>Decided</th>
+                <th>Paid</th>
+                <th class="right">Reference</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody">
+              <tr><td colspan="7" class="muted">(No data yet)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <!-- ===== Placeholder panes (future) ===== -->
+    <section id="paneCoupons" style="display:none;">
+      <section class="ws-card"><h3 style="margin:0">Coupons</h3><p class="muted">Coming soon.</p></section>
+    </section>
+
+    <section id="paneReferrals" style="display:none;">
+      <section class="ws-card"><h3 style="margin:0">Referrals</h3><p class="muted">Coming soon.</p></section>
+    </section>
   </div>
 
-  <!-- IMPORTANT: use the SAME outer wrapper as your other My-Account pages -->
-  <main class="ws-loyalty" style="max-width:1180px;margin:0 auto;padding:0 10px;">
-    <!-- ===== About the Program (cards styled like the rest) ===== -->
-    <section class="ws-card" style="margin-bottom:12px;">
-      <h2 class="ws-title" style="margin-bottom:8px;">Staff Loyalty — About the Program</h2>
-      <div class="muted" style="line-height:1.6;">
-        <p><strong>What is it?</strong> A time-boxed rewards program for team members (“Staff”) that runs for
-          <strong>6 months</strong> per enrollment (extendable by Admin). You earn points automatically while
-          <strong>Active</strong> and can convert them to cash.</p>
+    <!-- Small, isolated welcome handler -->
+  <script>
+    (function(){
+      function showWelcome() {
+        var p = new URLSearchParams(window.location.search);
+        if (p.get("welcome") === "1") {
+          var card = document.getElementById("loyalty-welcome");
+          if (card) card.style.display = "";
+          // Clean the URL (no reload) so banner doesn't persist on refresh
+          p.delete("welcome");
+          var clean = window.location.pathname + (p.toString() ? "?" + p.toString() : "") + window.location.hash;
+          history.replaceState({}, "", clean);
+        }
+      }
+      // Tab wiring + basic nav
+      document.addEventListener('DOMContentLoaded', function () {
+        var home = document.getElementById('wsHome');
+        var logout = document.getElementById('wsLogout');
+        if (home) home.addEventListener('click', function(){ location.href = '/index.html'; });
+        if (logout) logout.addEventListener('click', function(){ try{localStorage.clear();}catch(_){} location.href='/index.html'; });
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:10px;">
-          <div class="ws-card" style="border:1px dashed #f0e6bf;">
-            <h3 style="margin:4px 0 6px;">How you earn</h3>
-            <ul style="margin:0;padding-left:18px;">
-              <li><strong>+100 pts</strong> one-time upon <strong>Enroll</strong>.</li>
-              <li><strong>+1 pt/day</strong> for each calendar day your account is <strong>Active</strong>.</li>
-              <li><strong>−1 pt</strong> penalties may be applied by Admin (you’ll be notified).</li>
-            </ul>
-          </div>
+        var tabs = [
+          { btn:'tabLoyalty', pane:'paneLoyalty' },
+          { btn:'tabCoupons', pane:'paneCoupons' },
+          { btn:'tabReferrals', pane:'paneReferrals' }
+        ];
+        tabs.forEach(function(t){
+          var b = document.getElementById(t.btn);
+          var p = document.getElementById(t.pane);
+          if (!b || !p) return;
+          b.addEventListener('click', function(){
+            tabs.forEach(function(x){
+              var bx = document.getElementById(x.btn);
+              var px = document.getElementById(x.pane);
+              if (bx) bx.classList.remove('active');
+              if (px) px.style.display = (x.pane === t.pane) ? '' : 'none';
+            });
+            b.classList.add('active');
+          });
+        });
 
-          <div class="ws-card" style="border:1px dashed #f0e6bf;">
-            <h3 style="margin:4px 0 6px;">Withdrawals</h3>
-            <ul style="margin:0;padding-left:18px;">
-              <li>Available <strong>after 90 days</strong> from your start date.</li>
-              <li>Rate: <strong>€1 per point</strong>; <strong>minimum 100 pts</strong> per request.</li>
-              <li>Admin reviews each request (<strong>Approved</strong> → points deducted; <strong>Paid</strong> → payout reference emailed).</li>
-            </ul>
-          </div>
-
-          <div class="ws-card" style="border:1px dashed #f0e6bf;">
-            <h3 style="margin:4px 0 6px;">Lifecycle & Notifications</h3>
-            <ul style="margin:0;padding-left:18px;">
-              <li>Enrollment lasts <strong>6 months</strong> (Admin can extend).</li>
-              <li>Admin may <strong>Pause/Deactivate</strong> the account (paused days don’t earn points).</li>
-              <li>Email notifications for penalties, status changes, weekly summaries, and withdrawal updates.</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== Summary ===== -->
-    <section class="ws-card" id="accountCard">
-      <div style="display:flex;flex-wrap:wrap;gap:12px;">
-        <div style="flex:1 1 260px;min-width:260px;">
-          <h3 style="margin:4px 0 8px;">Balance</h3>
-          <div style="font-size:28px;font-weight:700;"><span id="pointsBalance">—</span> pts</div>
-          <div class="muted" id="eurBalance">€—</div>
-        </div>
-
-        <div style="flex:1 1 260px;min-width:260px;">
-          <h3 style="margin:4px 0 8px;">Status</h3>
-          <div><span id="statusTag" class="pill">—</span></div>
-          <div class="muted" id="dateInfo" style="margin-top:6px;">Start — • Eligible — • End —</div>
-        </div>
-
-        <div style="flex:1 1 260px;min-width:260px;">
-          <h3 style="margin:4px 0 8px;">Actions</h3>
-          <div class="muted" id="minInfo">Minimum withdrawal: — pts</div>
-          <div style="margin-top:8px;">
-            <button id="enrollBtn" class="ws-btn ws-btn-yellow">Enroll</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== Withdraw ===== -->
-    <section class="ws-card" id="withdrawCard" style="display:none;">
-      <h3 style="margin:4px 0 12px;">Withdraw</h3>
-      <p class="muted" id="withdrawHelp" style="margin:0 0 10px;">You can withdraw points (min shown above) at €1/pt.</p>
-
-      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
-        <div style="min-width:220px;">
-          <label class="muted" for="withdrawPoints">Points</label><br/>
-          <input id="withdrawPoints" class="ws-input" type="number" min="100" step="1" value="100" style="width:220px;" />
-        </div>
-        <div style="min-width:180px;">
-          <div class="muted">Estimated payout</div>
-          <div style="font-size:22px;font-weight:700;" id="estimateEUR">€100</div>
-        </div>
-        <div style="min-width:200px;">
-          <button id="withdrawBtn" class="ws-btn ws-btn-yellow" disabled>Request Withdrawal</button>
-        </div>
-      </div>
-
-      <div id="withdrawMsg" class="muted" style="margin-top:8px;"></div>
-    </section>
-
-    <!-- ===== History ===== -->
-    <section class="ws-card" id="historyCard" style="display:none;">
-      <h3 style="margin:4px 0 12px;">Withdrawal Requests</h3>
-      <div class="table-wrap">
-        <table class="ws-table" id="historyTable">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Requested</th>
-              <th>Status</th>
-              <th>Requested At</th>
-              <th>Decided</th>
-              <th>Paid</th>
-              <th>Reference</th>
-            </tr>
-          </thead>
-          <tbody id="historyBody">
-            <tr><td colspan="7" class="muted">(No data yet)</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </main>
-
-  <!-- same scripts as other My-Account pages -->
+        showWelcome();
+      });
+    })();
+  </script>
+  <!-- scripts used elsewhere -->
   <script defer src="/js/auth.js"></script>
   <script defer src="/js/loyalty-offers.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const home = document.getElementById('wsHome');
-      const logout = document.getElementById('wsLogout');
-      if (home) home.addEventListener('click', () => location.href = '/index.html');
-      if (logout) logout.addEventListener('click', () => { try{localStorage.clear();}catch(_){} location.href='/index.html'; });
-    });
-  </script>
+  <div id="toast"></div>
 </body>
 </html>

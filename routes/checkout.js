@@ -1,107 +1,180 @@
-// routes/checkout.js
-// Creates a new order in orders.json and always sets status/orderType = "Pending"
-
 const express = require("express");
-const fs = require("fs");
 const path = require("path");
-const nodemailer = require("nodemailer");
-require("dotenv").config();
+const sqlite3 = require("sqlite3").verbose();
 
 const router = express.Router();
-const ordersFile = path.resolve(__dirname, "../orders.json");
 
-// Transport (matches your SMTP env)
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+// JSON only (no urlencoded fallback)
+router.use(express.json({ limit: "1mb" }));
+
+const DB_PATH =
+  process.env.WATTSUN_DB ||
+  path.join(__dirname, "../data/dev/wattsun.dev.db");
+
+const db = new sqlite3.Database(DB_PATH, (err) => {
+  if (err) console.error("[checkout] DB open error:", err);
+  else {
+    console.log("[checkout] DB connected:", DB_PATH);
+    // Enforce FKs for order_items -> orders
+    db.run("PRAGMA foreign_keys = ON;");
+  }
 });
 
-function loadOrders() {
-  try {
-    if (!fs.existsSync(ordersFile)) return [];
-    return JSON.parse(fs.readFileSync(ordersFile, "utf8"));
-  } catch (e) {
-    console.error("loadOrders error:", e);
-    return [];
-  }
-}
-function saveOrdersAtomic(list) {
-  const tmp = ordersFile + ".tmp";
-  fs.writeFileSync(tmp, JSON.stringify(list, null, 2));
-  fs.renameSync(tmp, ordersFile);
-}
-function generateOrderNumber() {
-  return "WATT" + Date.now() + (Math.floor(Math.random() * 90) + 10);
+// helpers
+const toCents = (n) => {
+  const v = Number(n);
+  return Number.isFinite(v) ? Math.round(v * 100) : 0;
+};
+
+function makeOrderId() {
+  const now = Date.now();
+  const rand = Math.floor(Math.random() * 1e6).toString().padStart(6, "0");
+  return `WATT${now}${rand}`;
 }
 
-// POST /api/checkout
+// POST /api/checkout  (SQL-only)
 router.post("/", async (req, res) => {
-  const { fullName, email, phone, address, cart, cart_summary } = req.body;
-
-  if (!fullName || !email || !phone || !address || !Array.isArray(cart) || cart.length === 0) {
-    return res.status(400).json({ status: "error", message: "Missing required fields or cart" });
-  }
-  if (!/^\+\d{10,15}$/.test(String(phone))) {
-    return res.status(400).json({ status: "error", message: "Invalid phone number format" });
-  }
-
-  const orderNumber = generateOrderNumber();
-  const order = {
-    orderNumber,
-    fullName,
-    email,
-    phone,
-    // keep both keys for compatibility
-    address,
-    deliveryAddress: address,
-    cart,
-    cart_summary: cart_summary || "",
-    timestamp: new Date().toISOString(),
-    status: "Pending",
-    orderType: "Pending",
-    paymentType: "", // set / update later in Admin
-    total: 0,
-    deposit: null,
-  };
-
-  const list = loadOrders();
-  list.push(order);
-  saveOrdersAtomic(list);
-
-  // Optional emails (best effort)
-  let emailStatus = "not sent";
-  let adminStatus = "not sent";
   try {
-    await transporter.sendMail({
-      from: `"WattSun Solar" <${process.env.SMTP_USER}>`,
-      to: email,
-      subject: "Your WattSun Solar Order",
-      text: `Thank you for your order, ${fullName}!\n\nOrder Number: ${orderNumber}\n\nWe’ll contact you soon to confirm details.`,
-    });
-    emailStatus = "sent";
-  } catch (e) {
-    console.error("customer email failed:", e.message);
-  }
+    const {
+      fullName = "", email = "", phone = "",
+      address = "", deliveryAddress = "",
+      items = [],            // [{id|sku|name, price, deposit, quantity, image}]
+      deposit = 0            // TOTAL deposit (KES) for the whole order
+    } = req.body || {};
 
-  try {
-    await transporter.sendMail({
-      from: `"WattSun Solar" <${process.env.SMTP_USER}>`,
-      to: "mainakamunyu@gmail.com",
-      subject: `New Order: ${orderNumber}`,
-      text: `New order from ${fullName} (${phone})\n\n${cart_summary || "See orders.json"}`,
-    });
-    adminStatus = "sent";
-  } catch (e) {
-    console.error("admin email failed:", e.message);
-  }
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success:false, message:"No items" });
+    }
 
-  res.json({
-    status: "success",
-    message: "Order saved successfully",
-    orderNumber,
-    emailStatus,
-    adminStatus,
-  });
+    // normalize & validate items
+    const normItems = items.map((it) => {
+    const qty = Math.max(1, Number(it.quantity || 1));
+    const price = Number(it.priceCents ? it.priceCents / 100 : it.price || 0);
+    const dep   = Number(it.depositCents ? it.depositCents / 100 : it.deposit || 0);
+
+      return {
+        id:   it.id || it.sku || it.name || "",
+        sku:  it.sku || it.id || "",
+        name: it.name || it.sku || it.id || "",
+        quantity: qty,
+        price,
+        deposit: dep,
+        image: it.image || ""
+      };
+    });
+
+    const totalKES   = normItems.reduce((s, it) => s + (it.price * it.quantity), 0);
+    const depositKES = Number(deposit ?? req.body.depositCents / 100 ?? 0); // single total deposit per your spec
+        if (totalKES <= 0) {
+      return res.status(400).json({ success:false, message:"Invalid cart item prices" });
+    }
+
+    const orderId       = makeOrderId();
+    const orderNumber   = orderId; // keep equal for now
+    const totalCents    = toCents(totalKES);
+    const depositCents  = toCents(depositKES);
+    const currency      = "KES";
+    const status        = "Pending";
+    const addr          = address || deliveryAddress || "";
+    const createdAt     = new Date().toISOString(); // ISO like imported legacy rows
+
+    db.serialize(() => {
+      db.run("BEGIN IMMEDIATE");
+
+      // orders
+      db.run(
+        `INSERT INTO orders
+           (id, orderNumber, fullName, email, phone, status, totalCents, address, depositCents, currency, createdAt)
+         VALUES
+           (?,  ?,           ?,       ?,     ?,     ?,      ?,          ?,       ?,            ?,        ?)`,
+        [
+          orderId, orderNumber, fullName, email, phone, status,
+          totalCents, addr, depositCents, currency, createdAt
+        ],
+        function (err) {
+          if (err) {
+            console.error("[checkout] insert orders error:", err);
+            db.run("ROLLBACK");
+            return res.status(500).json({ success:false, message:"DB error (orders)" });
+          }
+
+          // order_items
+          const stmt = db.prepare(
+            `INSERT INTO order_items (order_id, sku, name, qty, priceCents, depositCents, image)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`
+          );
+
+          for (const it of normItems) {
+            stmt.run(
+              orderId,
+              String(it.id || it.sku || ""),
+              String(it.name || ""),
+              it.quantity,
+              toCents(it.price),
+              toCents(it.deposit), // optional per-line deposit
+              String(it.image || "")
+            );
+          }
+
+          stmt.finalize((e2) => {
+            if (e2) {
+              console.error("[checkout] insert order_items error:", e2);
+              db.run("ROLLBACK");
+              return res.status(500).json({ success:false, message:"DB error (order_items)" });
+            }
+
+            // notifications_queue (admin + customer). SMTP will be wired later.
+            const payloadAdmin = JSON.stringify({
+              to: process.env.ADMIN_EMAIL || "admin@example.com",
+              subject: `New order ${orderNumber}`,
+              text: `New order from ${fullName || ""} (${phone || ""})
+Items: ${normItems.map(i => `${i.name} x${i.quantity}`).join(", ")}
+Total: KES ${totalKES}
+Deposit: KES ${depositKES}`
+            });
+
+            const payloadCustomer = JSON.stringify({
+              to: email || "",
+              subject: `Thanks for your order ${orderNumber}`,
+              text: `Dear ${fullName || "Customer"},
+We received your order ${orderNumber}.
+Total: KES ${totalKES}
+Deposit: KES ${depositKES}
+We’ll contact you shortly.`
+            });
+
+            const nq = db.prepare(
+              `INSERT OR IGNORE INTO notifications_queue(kind, user_id, email, payload, status, dedupe_key)
+               VALUES(?, NULL, ?, ?, 'Queued', ?)`
+            );
+            nq.run("order_created", null, payloadAdmin,    `order_created_admin_${orderNumber}`);
+            nq.run("order_created", null, payloadCustomer, `order_created_cust_${orderNumber}`);
+
+            nq.finalize((e3) => {
+              if (e3) {
+                // don't fail the order if notifications insert fails
+                console.warn("[checkout] notifications_queue warning:", e3);
+              }
+              db.run("COMMIT");
+              return res.json({
+                success: true,
+                orderNumber,
+                status,
+                total: totalKES,
+                deposit: depositKES,
+                currency,
+                createdAt
+              });
+            });
+          });
+        }
+      );
+    });
+  } catch (e) {
+    console.error("[checkout] error:", e);
+    try { db.run("ROLLBACK"); } catch {}
+    return res.status(500).json({ success:false, message:"Unexpected error" });
+  }
 });
 
 module.exports = router;

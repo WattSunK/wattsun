@@ -1,105 +1,163 @@
-// /routes/orders.js
-// GET orders from disk, and two save endpoints:
-//   POST /api/update-order                      (preferred)
-//   POST /api/orders/update-order-status        (legacy alias)
-// Writes atomically and refreshes in-memory cache for GET /api/orders.
+// routes/orders.js
+// Customer-facing SQL route for /api/orders
+// Returns { success, orders, total, page, per }
 
 const express = require("express");
-const fs = require("fs");
 const path = require("path");
+const sqlite3 = require("sqlite3").verbose();
 
 const router = express.Router();
-const ordersPath = path.join(__dirname, "../orders.json");
+const INTL_PHONE = /^\+\d{10,15}$/;
 
-function readOrders() {
+// ---- DB wiring ----
+const DB_PATH =
+  process.env.DB_PATH_ORDERS ||
+  process.env.SQLITE_DB ||
+  path.join(process.cwd(), "data/dev/wattsun.dev.db");
+
+function withDb(fn) {
+  const db = new sqlite3.Database(DB_PATH);
+  return new Promise((resolve, reject) => {
+    fn(db)
+      .then((v) => {
+        db.close();
+        resolve(v);
+      })
+      .catch((e) => {
+        db.close();
+        reject(e);
+      });
+  });
+}
+
+function toInt(v, def) {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) && n > 0 ? n : def;
+}
+
+// ---- core fetch ----
+async function fetchOrdersFromDb({ phone, status, q, page, per }) {
+  return withDb((db) => {
+    return new Promise((resolve, reject) => {
+      const where = [];
+      const args = [];
+
+      // Phone normalized to digits only (same as idx_orders_phone_digits)
+      if (phone) {
+        where.push(
+          `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(phone,''), '+',''), ' ', ''), '-', ''), '(', ''), ')', '') 
+           = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(?,'+',''),' ',''),'-',''),'(',''),')','')`
+        );
+        args.push(phone);
+      }
+
+      if (status) {
+        where.push("LOWER(status) = LOWER(?)");
+        args.push(status);
+      }
+
+      if (q) {
+        where.push(
+          "(CAST(orderNumber AS TEXT) LIKE ? OR CAST(id AS TEXT) LIKE ? OR LOWER(fullName) LIKE LOWER(?))"
+        );
+        args.push(`%${q}%`, `%${q}%`, `%${q}%`);
+      }
+
+      const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+      // Count first
+      db.get(
+        `SELECT COUNT(*) AS n FROM orders ${whereSql}`,
+        args,
+        (err, totRow) => {
+          if (err) return reject(err);
+          const total = totRow?.n || 0;
+
+          // Then fetch page
+          db.all(
+            `SELECT 
+               id,
+               orderNumber,
+               fullName,
+               email,
+               phone,
+               address,
+               status,
+               totalCents,
+               depositCents,
+               currency,
+               createdAt,
+               completed_at,
+               driverId
+             FROM orders
+             ${whereSql}
+             ORDER BY datetime(createdAt) DESC
+             LIMIT ? OFFSET ?`,
+            [...args, per, (page - 1) * per],
+            (err2, rows) => {
+              if (err2) return reject(err2);
+              resolve({ orders: rows, total, page, per });
+            }
+          );
+        }
+      );
+    });
+  });
+}
+
+// ---- Routes ----
+// GET /api/orders?phone=+254...&page=1&per=5
+router.get("/", async (req, res) => {
+  const { phone, status, q } = req.query;
+  const page = toInt(req.query.page, 1);
+  const per = Math.min(50, toInt(req.query.per, 5));
+
+  if (!phone)
+    return res.status(400).json({ success: false, message: "phone is required" });
+  if (!INTL_PHONE.test(phone)) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Invalid phone format. Use + and 10–15 digits, e.g. +254712345678",
+    });
+  }
+
   try {
-    if (!fs.existsSync(ordersPath)) return [];
-    const raw = fs.readFileSync(ordersPath, "utf8") || "[]";
-    return JSON.parse(raw);
+    const out = await fetchOrdersFromDb({ phone, status, q, page, per });
+    return res.json({ success: true, ...out });
   } catch (e) {
-    console.error("[orders] read error:", e.message);
-    return [];
+    console.error("[orders][GET] error:", e);
+    return res
+      .status(500)
+      .json({ success: false, message: "DB error", detail: e.message });
   }
-}
-
-function writeOrdersAtomic(list) {
-  try {
-    const tmp = ordersPath + ".tmp";
-    fs.writeFileSync(tmp, JSON.stringify(list, null, 2), "utf8");
-    fs.renameSync(tmp, ordersPath);
-    return true;
-  } catch (e) {
-    console.error("[orders] write error:", e.message);
-    return false;
-  }
-}
-
-function normalizeNumber(n) {
-  if (n === null || n === undefined || n === "") return undefined;
-  const num = Number(n);
-  return Number.isFinite(num) ? num : undefined;
-}
-
-function applyPatch(order, body) {
-  const status  = body.status ?? body.newStatus;
-  const payment = body.paymentType ?? body.payment;
-  const total   = normalizeNumber(body.total ?? body.amount);
-  const deposit = normalizeNumber(body.deposit);
-
-  if (status != null) {
-    order.status = String(status);
-    order.orderType = String(status); // keep legacy UI in sync
-  }
-  if (payment != null) order.paymentType = String(payment);
-  if (total   !== undefined) order.total = total;
-  if (deposit !== undefined) order.deposit = deposit;
-
-  order.updatedAt = new Date().toISOString();
-  return order;
-}
-
-// GET /api/orders -> { success, total, orders }
-router.get("/", (req, res) => {
-  const orders = readOrders();
-  // also set cache for any upstream wrapper
-  req.app.locals.orders = orders;
-  req.app.locals.ordersWrap = { success: true, total: orders.length, orders };
-  return res.json({ success: true, total: orders.length, orders });
 });
 
-function updateOrderAndPersist(req, res) {
-  const key = String(req.body.orderId || req.body.id || "").trim();
-  if (!key) {
-    return res.status(400).json({ ok: false, error: "missing order id" });
+// POST /api/orders { phone, status?, q?, page?, per? }
+router.post("/", async (req, res) => {
+  const { phone, status, q, page: pIn, per: perIn } = req.body || {};
+  const page = toInt(pIn, 1);
+  const per = Math.min(50, toInt(perIn, 5));
+
+  if (!phone)
+    return res.status(400).json({ success: false, message: "phone is required" });
+  if (!INTL_PHONE.test(phone)) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Invalid phone format. Use + and 10–15 digits, e.g. +254712345678",
+    });
   }
 
-  const list = readOrders();
-  const idx = list.findIndex(
-    (o) =>
-      String(o.orderNumber || o.id || "").trim() === key ||
-      String(o.id || "").trim() === key
-  );
-  if (idx === -1) {
-    return res.status(404).json({ ok: false, error: "order not found" });
+  try {
+    const out = await fetchOrdersFromDb({ phone, status, q, page, per });
+    return res.json({ success: true, ...out });
+  } catch (e) {
+    console.error("[orders][POST] error:", e);
+    return res
+      .status(500)
+      .json({ success: false, message: "DB error", detail: e.message });
   }
-
-  applyPatch(list[idx], req.body);
-
-  if (!writeOrdersAtomic(list)) {
-    return res.status(500).json({ ok: false, error: "persist failed" });
-  }
-
-  // refresh in-memory cache used by GET /api/orders
-  req.app.locals.orders = list;
-  req.app.locals.ordersWrap = { success: true, total: list.length, orders: list };
-
-  return res.json({ ok: true, order: list[idx] });
-}
-
-// Preferred endpoint
-router.post("/update-order", updateOrderAndPersist);
-
-// ✅ Legacy alias (fixed): now /api/orders/update-order-status
-router.post("/update-order-status", updateOrderAndPersist);
+});
 
 module.exports = router;

@@ -526,6 +526,18 @@ document.addEventListener("DOMContentLoaded", function () {
     catch { return []; }
   }
   function formatKES(n){ try { return Number(n||0).toLocaleString(); } catch { return String(n||0); } }
+  // --- Normalize cart for SQL/ADR-001 backend (priceCents → KES) ---
+  function normalizeCartItems(cart){
+    return cart.map(it => ({
+      id: it.productId || it.id || it.sku || it.code || it.name,
+      sku: it.sku,
+      name: it.name || it.sku || it.id || "",
+      price: it.priceCents ? it.priceCents / 100 : Number(it.price)||0,
+      deposit: it.depositCents ? it.depositCents / 100 : Number(it.deposit)||0,
+      quantity: Number(it.quantity)||1,
+      image: it.image || it.img || it.picture || ""
+    }));
+  }
 
   async function postCheckout(payload, rawCart, customerAddress){
     // Attempt 1: ADR-001 preferred path
@@ -761,3 +773,81 @@ return; // ensure the guarded code after this does not run
 <script src="/js/money.js"></script>
 </body>
 </html>
+<!-- SQL-only checkout override -->
+<script>
+(function(){
+  // Try to find the place-order button. Adjust selector if your button id differs.
+  const btn = document.querySelector('#placeOrderBtn, button#place-order, button.place-order, button[type="submit"]');
+  if (!btn || btn.__wsSqlBound) return;
+  btn.__wsSqlBound = true;
+
+  async function getCartItems() {
+    // Your site appears to store cart in localStorage. Adjust if your cart lives elsewhere.
+    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+    return cart.map(i => ({
+      id: i.id || i.sku || i.name || "",
+      sku: i.sku || i.id || "",
+      name: i.name || i.title || "",
+      quantity: Number(i.quantity || 1),
+      price: Number(i.price || 0),
+      deposit: Number(i.deposit || 0),
+      image: i.image || ""
+    }));
+  }
+
+  async function submitSqlOrder(e){
+    e.preventDefault();
+    const fullName = document.getElementById('fullName')?.value || document.getElementById('name')?.value || "";
+    const email    = document.getElementById('email')?.value || "";
+    const phone    = document.getElementById('phone')?.value || "";
+    const address  = document.getElementById('address')?.value || "";
+    const delivery = document.getElementById('deliveryAddress')?.value || address;
+   // Try both visible and hidden total elements
+let deposit = 0;
+const depInput = document.getElementById('deposit');
+const depTotal = document.getElementById('totalDeposit') ||
+                 document.getElementById('total-deposit-amount');
+if (depInput) deposit = Number(depInput.value || 0);
+else if (depTotal) {
+  // Extract number from text like "Total Deposit: KES 5,000"
+  const match = (depTotal.textContent || "").replace(/[^\d.]/g, "");
+  deposit = Number(match || 0);
+}
+        let items = await getCartItems();
+    // normalize cents → KES if present
+    items = items.map(i => ({
+      ...i,
+      price: i.priceCents ? i.priceCents / 100 : i.price,
+      deposit: i.depositCents ? i.depositCents / 100 : i.deposit
+    }));
+
+    if (!items.length) { alert("Your cart is empty."); return; }
+
+    const payload = { fullName, email, phone, address, deliveryAddress: delivery, items, deposit };
+
+    try {
+      const r = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(payload),
+        credentials: "same-origin"
+      });
+      const j = await r.json();
+      if (!r.ok || !j.success) {
+        alert("Checkout failed. Please try again.");
+        return;
+      }
+     // Clear cart, remember order, then go to thank you page
+      localStorage.removeItem("cart");
+      sessionStorage.setItem("lastOrderNumber", j.orderNumber || "");
+      sessionStorage.setItem("lastCustomerName", fullName || "");
+      location.href = "/thankyou.html?order=" + encodeURIComponent(j.orderNumber || "");
+    } catch(err) {
+      console.error(err);
+      alert("Network error. Please try again.");
+    }
+  }
+
+  btn.addEventListener("click", submitSqlOrder, { capture: true });
+})();
+</script>

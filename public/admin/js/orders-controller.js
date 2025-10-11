@@ -9,7 +9,7 @@
   let booted = false;
   const State = {
     page: 1,
-    pageSize: 20,
+    pageSize: 10,
     total: 0,
     rows: [],
     raw: [],
@@ -35,79 +35,73 @@
     if (tbody && !tbody.id) tbody.id = "ordersTbody";
   }
   
-// normalize cents-or-units-or-string into *cents* (integer) or null
-function toCentsMaybe(v) {
-  if (v == null || v === "") return null;
-  if (typeof v === "string") {
-    // strip non-digits except dot/comma
-    const s = v.replace(/[^\d.,-]/g, "").replace(/,/g, "");
-    if (!s) return null;
-    const n = Number(s);
-    if (!Number.isFinite(n)) return null;
-    // heuristic: if it's small, assume it's *units* and convert to cents
-    return n < 100000 ? Math.round(n * 100) : Math.round(n);
+  // normalize cents-or-units-or-string into *cents* (integer) or null
+  function toCentsMaybe(v) {
+    if (v == null || v === "") return null;
+    if (typeof v === "string") {
+      const s = v.replace(/[^\d.,-]/g, "").replace(/,/g, "");
+      if (!s) return null;
+      const n = Number(s);
+      if (!Number.isFinite(n)) return null;
+      return n < 100000 ? Math.round(n * 100) : Math.round(n);
+    }
+    if (typeof v === "number") {
+      return v < 100000 ? Math.round(v * 100) : Math.round(v);
+    }
+    return null;
   }
-  if (typeof v === "number") {
-    return v < 100000 ? Math.round(v * 100) : Math.round(v);
-  }
-  return null;
-}
 
   function renderRows() {
-  const tbody = document.getElementById("ordersTbody");
-  if (!tbody) return;
+    const tbody = document.getElementById("ordersTbody");
+    if (!tbody) return;
 
-  // pagination using your existing state keys
-  const pageStart = (State.page - 1) * State.pageSize;
-  const pageEnd   = pageStart + State.pageSize;
-  const slice     = State.rows.slice(pageStart, pageEnd);
+    const rowsHtml = State.rows.map((o) => {
+      const id     = o.orderNumber || o.id || "";
+      const name   = o.fullName || o.name || o.customerName || o.customer || "—";
+      const phone  = o.phone || o.customerPhone || o.contactPhone || "—";
+      const when   = o.createdAt ? new Date(o.createdAt).toLocaleString() : "—";
 
-  const rowsHtml = slice.map((o) => {
-    const id     = o.orderNumber || o.id || "";
-    const name   = o.fullName || o.name || o.customerName || o.customer || "—";
-    const phone  = o.phone || o.customerPhone || o.contactPhone || "—";
-    const when   = o.createdAt ? new Date(o.createdAt).toLocaleString() : "—";
-    const total  = fmtMoney(o.totalCents, o.currency);
-    const status = o.status || "Pending";
+      // --- totals (fallback aware) ---
+      const totalCents = toCentsMaybe(o.totalCents) ?? toCentsMaybe(o.totalAmountCents);
+      const total      = totalCents != null ? fmtMoney(totalCents, o.currency) : "—";
 
-// ---- deposit (robust over cents/units/strings) ----
-const depCents =
-  toCentsMaybe(o.displayDepositCents) ??
-  toCentsMaybe(o.depositCents) ??
-  toCentsMaybe(o.depositAmountCents) ??
-  toCentsMaybe(o.deposit);
+      const status = o.status || "Pending";
 
-const deposit = depCents != null
-  ? (window.formatKES ? window.formatKES(depCents) : `KES ${(depCents/100).toLocaleString()}`)
-  : "—";
+      // --- deposit (fallback aware) ---
+      const depCents =
+        toCentsMaybe(o.displayDepositCents) ??
+        toCentsMaybe(o.depositCents) ??
+        toCentsMaybe(o.depositAmountCents) ??
+        toCentsMaybe(o.deposit);
 
-    return `
-      <tr data-id="${id}">
-        <td data-col="order">${id}</td>
-        <td data-col="customer">${name}</td>
-        <td data-col="phone">${phone}</td>
-        <td data-col="status">${status}</td>
-        <td data-col="created">${when}</td>
-        <td data-col="total">${total}</td>
-        <td data-col="deposit">${deposit}</td>
-        <td data-col="action" style="text-align:center;">
-          <button type="button" class="btn btn-sm btn-view" data-oid="${id}">View</button>
-          <button type="button" class="btn btn-sm btn-edit"
-                  data-oid="${id}"
-                  data-phone="${o.phone || ""}"
-                  data-email="${o.email || ""}">Edit</button>
-        </td>
-      </tr>`;
-  }).join("");
+      const deposit = depCents != null ? fmtMoney(depCents, o.currency) : "—";
 
-  // header has 8 columns now
-  tbody.innerHTML = rowsHtml || `<tr><td colspan="8" style="text-align:center;padding:12px;">No data yet</td></tr>`;
-}
+      return `
+        <tr data-id="${id}">
+          <td data-col="order">${id}</td>
+          <td data-col="customer">${name}</td>
+          <td data-col="phone">${phone}</td>
+          <td data-col="status">${status}</td>
+          <td data-col="created">${when}</td>
+          <td data-col="total">${total}</td>
+          <td data-col="deposit">${deposit}</td>
+          <td data-col="action" style="text-align:center;">
+            <button type="button" class="btn btn-sm btn-view" data-oid="${id}">View</button>
+            <button type="button" class="btn btn-sm btn-edit"
+                    data-oid="${id}"
+                    data-phone="${o.phone || ""}"
+                    data-email="${o.email || ""}">Edit</button>
+          </td>
+        </tr>`;
+    }).join("");
+
+    tbody.innerHTML = rowsHtml || `<tr><td colspan="8" style="text-align:center;padding:12px;">No data yet</td></tr>`;
+  }
  
   function renderPager() {
     const pager = document.getElementById("ordersPager");
     if (!pager) return;
-    const pages = Math.max(1, Math.ceil(State.rows.length / State.pageSize));
+    const pages = Math.max(1, Math.ceil(State.total / State.pageSize));
     pager.innerHTML = `
       <div class="pager">
         <button class="btn prev" ${State.page <= 1 ? "disabled" : ""} data-page="prev">Prev</button>
@@ -117,91 +111,44 @@ const deposit = depCents != null
   }
 
   function applyFilters() {
-    const q = (State.filter.q || "").toLowerCase().trim();
-    const status = (State.filter.status || "").toLowerCase().trim();
-    const phone  = (State.filter.phone  || "").replace(/\D+/g, "");
-    let rows = [...State.raw];
-
-    if (q) rows = rows.filter(o =>
-      String(o.orderNumber || o.id).toLowerCase().includes(q)
-      || (o.fullName || "").toLowerCase().includes(q)
-      || (o.email || "").toLowerCase().includes(q)
-    );
-    if (status) rows = rows.filter(o => (o.status || "").toLowerCase() === status);
-    if (phone)  rows = rows.filter(o => (o.phone  || "").replace(/\D+/g, "").endsWith(phone));
-
-    const { key, dir } = State.sort;
-    rows.sort((a, b) => {
-      const av = a[key], bv = b[key];
-      if (av == null && bv == null) return 0;
-      if (av == null) return 1;
-      if (bv == null) return -1;
-      if (av > bv) return dir === "asc" ? 1 : -1;
-      if (av < bv) return dir === "asc" ? -1 : 1;
-      return 0;
-    });
-
-    State.rows = rows;
-    State.total = rows.length;
+    // For server-side filtering later; currently just re-renders local State.rows
+    State.rows = [...State.raw];
+    State.total = State.rows.length;
     State.page  = Math.min(State.page, Math.max(1, Math.ceil(State.total / State.pageSize)));
   }
 
-  // --- Data fetch (robust: supports `orders` or `rows`, with pagination) ---
-async function fetchOrders() {
-  const Data = getData();
-  if (!Data || !Data.orders) {
-    dbg("Data adapter not ready; will retry.");
-    State.raw = [];
-    return false;
-  }
-
-  // Helper: normalize one response into an array of orders
-  const normalize = (res) => {
-    if (!res) return [];
-    if (Array.isArray(res)) return res;                // plain array
-    if (Array.isArray(res.rows)) return res.rows;      // { rows: [...] }
-    if (Array.isArray(res.orders)) return res.orders;  // { orders: [...] }
-    if (Array.isArray(res.data)) return res.data;      // { data: [...] }
-    return [];
-  };
-
-  // Request as much as the adapter allows in one go
-  const PER = 200;           // safe upper bound; adjust if your API supports more/less
-  const HAS_LIST = typeof Data.orders.list === "function";
-  const HAS_GET  = typeof Data.orders.get  === "function";
-
-  let all = [];
-
-  if (HAS_LIST) {
-    // First page
-    let page = 1;
-    let per  = PER;
-
-    const first = await Data.orders.list({ page, per, q: "", status: "", phone: "" });
-    let rows    = normalize(first);
-    all.push(...rows);
-
-    // If the adapter reports totals, keep paging until we have them all
-    const total = Number(first?.total ?? rows.length);
-    const perFromApi = Number(first?.per ?? per);
-    const pages = Math.max(1, Math.ceil(total / (perFromApi || PER)));
-
-    for (page = 2; page <= pages; page++) {
-      const resp = await Data.orders.list({ page, per: perFromApi || PER, q: "", status: "", phone: "" });
-      all.push(...normalize(resp));
+  // --- Data fetch (server-side aware) ---
+  async function fetchOrders() {
+    const Data = getData();
+    if (!Data || !Data.orders) {
+      dbg("Data adapter not ready; will retry.");
+      State.raw = [];
+      return false;
     }
-  } else if (HAS_GET) {
-    // Fallback API that returns everything
-    const res = await Data.orders.get();
-    all = normalize(res);
-  } else {
-    console.warn("[orders-controller] No Data.orders.list/get available");
-  }
 
-  State.raw = all;
-  dbg("fetched rows:", State.raw.length);
-  return true;
-}
+    const normalize = (res) => {
+      if (!res) return [];
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res.orders)) return res.orders;
+      if (Array.isArray(res.rows)) return res.rows;
+      if (Array.isArray(res.data)) return res.data;
+      return [];
+    };
+
+    const perEl = document.getElementById("ordersPer");
+    const per = Number(perEl?.value || State.pageSize || 10);
+
+    const resp = await Data.orders.list({ page: State.page, per, q:"", status:"", phone:"" });
+
+    const rows = normalize(resp);
+    State.raw = rows;
+    State.rows = rows;
+    State.total = Number(resp?.total ?? rows.length);
+    State.pageSize = Number(resp?.per ?? per);
+
+    dbg("fetched rows:", State.rows.length, "total:", State.total);
+    return true;
+  }
 
   async function boot() {
     if (booted) return;
@@ -210,25 +157,22 @@ async function fetchOrders() {
 
     ensureTableHooks();
 
-    // Filters
     $("#ordersSearch") && $("#ordersSearch").addEventListener("input",  (e) => { State.filter.q      = e.target.value; applyFilters(); renderRows(); renderPager(); });
     $("#ordersStatus") && $("#ordersStatus").addEventListener("change", (e) => { State.filter.status = e.target.value; applyFilters(); renderRows(); renderPager(); });
     $("#ordersPhone")  && $("#ordersPhone").addEventListener("input",   (e) => { State.filter.phone  = e.target.value; applyFilters(); renderRows(); renderPager(); });
 
-    // Pager clicks
     document.addEventListener("click", (e) => {
       const btn = e.target.closest(".pager .btn");
       if (!btn) return;
       const dir = btn.getAttribute("data-page");
       if (dir === "prev" && State.page > 1) State.page--;
       if (dir === "next") {
-        const pages = Math.max(1, Math.ceil(State.rows.length / State.pageSize));
+        const pages = Math.max(1, Math.ceil(State.total / State.pageSize));
         if (State.page < pages) State.page++;
       }
-      renderRows(); renderPager();
+      fetchOrders().then(() => { renderRows(); renderPager(); });
     }, { passive: true });
 
-    // Actions → events
     document.addEventListener("click", (e) => {
       const viewBtn = e.target.closest(".btn-view[data-oid]");
       if (viewBtn) {
@@ -248,7 +192,6 @@ async function fetchOrders() {
 
     const ok = await fetchOrders();
     if (!ok) {
-      // retry once the adapter appears (lightweight, one-shot)
       const waitData = setInterval(async () => {
         if (getData() && getData().orders) {
           clearInterval(waitData);
@@ -261,14 +204,11 @@ async function fetchOrders() {
     applyFilters(); renderRows(); renderPager();
   }
 
-  // ---------- Robust triggers (three small ones) ----------
-  // A) Admin partial load (primary path)
   window.addEventListener("admin:partial-loaded", (e) => {
     const name = e?.detail?.partial || e?.detail?.name;
     if (name === "orders") boot();
   });
 
-  // B) If Orders DOM is already on the page when scripts load
   function isOrdersDomPresent() {
     return document.getElementById("ordersTable") || document.querySelector('table[data-role="orders-table"]');
   }
@@ -276,7 +216,6 @@ async function fetchOrders() {
     if (isOrdersDomPresent()) boot();
   });
 
-  // C) One-shot observer: boot the first time the Orders table is inserted
   const oneShotMO = new MutationObserver(() => {
     if (!booted && isOrdersDomPresent()) {
       oneShotMO.disconnect();
@@ -285,10 +224,8 @@ async function fetchOrders() {
   });
   oneShotMO.observe(document.body, { childList: true, subtree: true });
 
-  // Manual helper
   window.__WS_ORDERS_FORCE_BOOT = () => { booted = false; boot(); };
 
-  // ===== VIEW (lazy-injected partial) =====
   async function ensureModals() {
     if (document.getElementById("orderViewModal") && document.getElementById("orderEditModal")) return;
     try {
@@ -317,15 +254,17 @@ async function fetchOrders() {
     set("ov_fullName",    o.fullName || o.name || o.customerName || o.customer || "—");
     set("ov_phone",       o.phone || "—");
     set("ov_email",       o.email || "—");
-    set("ov_total",       fmtMoney(o.totalCents, o.currency));
-    
-    const depC =
-    toCentsMaybe(o.displayDepositCents) ??
-    toCentsMaybe(o.depositCents) ??
-    toCentsMaybe(o.depositAmountCents) ??
-    toCentsMaybe(o.deposit);
 
-set("ov_deposit", depC != null ? fmtMoney(depC, o.currency) : "—");
+    const totalCents = toCentsMaybe(o.totalCents) ?? toCentsMaybe(o.totalAmountCents);
+    set("ov_total", totalCents != null ? fmtMoney(totalCents, o.currency) : "—");
+
+    const depC =
+      toCentsMaybe(o.displayDepositCents) ??
+      toCentsMaybe(o.depositCents) ??
+      toCentsMaybe(o.depositAmountCents) ??
+      toCentsMaybe(o.deposit);
+
+    set("ov_deposit", depC != null ? fmtMoney(depC, o.currency) : "—");
 
     set("ov_currency",    o.currency || "—");
 
@@ -355,6 +294,35 @@ set("ov_deposit", depC != null ? fmtMoney(depC, o.currency) : "—");
     if (!o) return;
     openViewModalWithData(o);
   });
+// Listen for Add Order form submit (dispatched from orders-add.html)
+window.addEventListener("orders:add:submit", async (e) => {
+  try {
+    const formData = Object.fromEntries(e.detail.entries());
+
+    const r = await fetch("/api/admin/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(formData)
+    });
+
+    if (!r.ok) throw new Error(`Add order failed: ${r.status}`);
+    const data = await r.json();
+
+    if (data.success) {
+      console.log("[orders-controller] Order added:", data.orderNumber);
+      // Option A: reload the page to refresh the table
+      location.reload();
+      // Option B: or emit a custom event to refresh table without reload:
+      // window.dispatchEvent(new Event("orders:refresh"));
+    } else {
+      alert("Failed to add order: " + (data.error || "Unknown error"));
+    }
+  } catch (err) {
+    console.error("Add order failed", err);
+    alert("Failed to add order.");
+  }
+});
 
   document.addEventListener("click", (e) => {
     const btn = e.target.closest("#orderViewModal button, #orderViewModal [data-close]");

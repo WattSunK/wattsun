@@ -1,17 +1,31 @@
-# Tenant–Landlord Marketplace — Structure & Ops (Dev)
+# WattSun — Canonical Documentation Index
 
-## Quickstart
-```bash
-cp .env.example .env
-npm install
-./scripts/start.sh
-# open http://127.0.0.1:3101/api/health
-```
+**Status:** Living • **Date:** 2025-09-23  
+This README indexes all canonical project documents.  
+Each file is git-tracked; update this index when docs are updated.
 
-## DoD (S0-T1)
-- App listens on **3101**
-- `GET /api/health` → `{ ok: true, uptime, checks }`
-- Canonical folders exist: `/public`, `/routes`, `/scripts`, `/data/dev`, `/logs`, `/run`, `/docs`
-- `.env.example` present
-- Scripts: `start.sh`, `stop.sh`, `update.sh`, `status.sh`, `migrate.sh`, `backup_sqlite.sh`
-- FRD docs present in `/docs`
+---
+
+## Canonical Docs
+- [API Contracts V16 (Clean)](./docs/001-api-contracts%20V16%20(Clean).md)
+- [Migration Ledger V13 (Clean)](./docs/migration-ledger%20V13%20(Canonical%20Clean).md)
+- [Admin Style Guide V3 (Clean)](./docs/admin-style-guide%20V3%20(Canonical%20Clean).md)
+- [Single Source of Truth V13 (Clean)](./docs/WattSun_Single_Source_of_Truth%20V13%20(Canonical%20Clean).md)
+- [Loyalty Program V4 (Clean)](./docs/WattSun_Loyalty_Program%20V4.md)
+- [Conversation Roadmap V12 (Clean)](./docs/WattSun_Conversation_Roadmap%20V12%20(Canonical%20Clean).md)
+- [Structure & Ops V4 (Clean)](./docs/WattSun-Structure-and-Ops-README%20V4%20(Canonical%20Clean).md)
+
+---
+
+## Usage
+- All docs live under `/docs/` in the repo.  
+- Update roadmap + ledgers incrementally; cross-link when relevant.  
+- SSOT references this index.  
+- Always tag commits when a canonical doc is updated.
+
+---
+
+## Next Steps
+- Automate sync between updated docs and this README.  
+- Add diagrams (repo map, DB schema) for onboarding.
+

@@ -1,8 +1,446 @@
-<!doctype html>
-<html>
-  <head><meta charset="utf-8"><title>Marketplace Dev</title></head>
-  <body>
-    <pre>Marketplace Dev static root.
-Try: <a href="/api/health">/api/health</a></pre>
-  </body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>WattSun Solar - Home</title>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<link href="main.css" rel="stylesheet"/>
+
+<style>
+/* ...your existing styles unchanged... */
+    .cta {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-top: 24px;
+      margin-bottom: 0;
+    }
+    .cta h2 {
+      margin-bottom: 7px;
+      font-size: 1.5em;
+    }
+    .cta p {
+      margin-bottom: 16px;
+      margin-top: 0;
+      font-size: 1.07em;
+    }
+    .cta .loan-btn {
+      margin: 0 auto;
+      min-width: 230px;
+      font-size: 1.14em;
+      font-weight: bold;
+    }
+    section {
+      margin-bottom: 22px;
+      padding-top: 28px;
+      padding-bottom: 22px;
+    }
+    .feature-row, .steps-row {
+      margin-bottom: 16px !important;
+    }
+    .testimonials-list {
+      margin-bottom: 10px;
+    }
+    footer {
+      margin-top: 0 !important;
+    }
+    h2, .centered-section-title {
+      margin-top: 0;
+    }
+    /* ...rest of your original style unchanged... */
+</style>
+  
+</head>
+<body>
+
+<!-- Login Modal -->
+<div id="loginModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2000;background:rgba(0,0,0,0.36);justify-content:center;align-items:center;">
+  <div style="background:white;padding:32px 28px 22px 28px;max-width:410px;width:90vw;border-radius:10px;box-shadow:0 6px 40px rgba(0,0,0,0.16);">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h2 style="margin:0 0 12px 0;font-weight:600;">Login</h2>
+      <button onclick="closeLogin()" style="background:none;border:none;font-size:2em;line-height:1;color:#999;">×</button>
+    </div>
+    <form id="loginForm" style="display:flex;flex-direction:column;gap:14px;">
+      <input type="email" id="loginEmail" placeholder="Email" required style="padding:10px 12px;font-size:1em;border:1px solid #ddd;border-radius:6px;">
+      <input type="password" id="loginPassword" placeholder="Password" required style="padding:10px 12px;font-size:1em;border:1px solid #ddd;border-radius:6px;">
+      <button type="submit" style="margin-top:6px;background:#f4a940;color:white;font-weight:bold;border:none;padding:10px 0;border-radius:6px;font-size:1.1em;">LOGIN</button>
+    </form>
+    <div style="margin-top:10px;font-size:0.98em;text-align:center;">
+      Don't have an account? <a href="#" onclick="openSignup();closeLogin();return false;" style="color:#f4a940;">Sign up</a>
+    </div>
+    <div style="margin-top:8px;font-size:0.98em;text-align:center;">
+      <a href="#" onclick="openPasswordReset();closeLogin();return false;" style="color:#888;text-decoration:underline;">Forgot password?</a>
+    </div>
+    <div id="loginError" style="color:red;text-align:center;margin-top:7px;font-size:0.97em;display:none;"></div>
+  </div>
+</div>
+
+<!-- Signup Modal -->
+<div id="signupModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2000;background:rgba(0,0,0,0.36);justify-content:center;align-items:center;">
+  <div style="background:white;padding:32px 28px 22px 28px;max-width:410px;width:90vw;border-radius:10px;box-shadow:0 6px 40px rgba(0,0,0,0.16);">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h2 style="margin:0 0 12px 0;font-weight:600;">Sign Up</h2>
+      <button onclick="closeSignup()" style="background:none;border:none;font-size:2em;line-height:1;color:#999;">×</button>
+    </div>
+    <form id="signupForm" style="display:flex;flex-direction:column;gap:14px;">
+      <input type="text" id="signupName" placeholder="Full Name" required style="padding:10px 12px;font-size:1em;border:1px solid #ddd;border-radius:6px;">
+      <input type="email" id="signupEmail" placeholder="Email" required style="padding:10px 12px;font-size:1em;border:1px solid #ddd;border-radius:6px;">
+<input type="tel" id="signupPhone" placeholder="+254712345678" pattern="^\+\d{10,15}$" required style="padding:10px 12px;font-size:1em;border:1px solid #ddd;border-radius:6px;">
+
+      <input type="password" id="signupPassword" placeholder="Password" required style="padding:10px 12px;font-size:1em;border:1px solid #ddd;border-radius:6px;">
+      <button type="submit" style="margin-top:6px;background:#f4a940;color:white;font-weight:bold;border:none;padding:10px 0;border-radius:6px;font-size:1.1em;">SIGN UP</button>
+    </form>
+    <div style="margin-top:10px;font-size:0.98em;text-align:center;">
+      Already have an account? <a href="#" onclick="openLogin();closeSignup();return false;" style="color:#f4a940;">Login</a>
+    </div>
+    <div id="signupError" style="color:red;text-align:center;margin-top:7px;font-size:0.97em;display:none;"></div>
+    <div id="signupSuccess" style="color:green;text-align:center;margin-top:7px;font-size:0.97em;display:none;"></div>
+  </div>
+</div>
+
+<!-- Password Reset Modal -->
+<div id="resetModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2000;background:rgba(0,0,0,0.36);justify-content:center;align-items:center;">
+  <div style="background:white;padding:32px 28px 22px 28px;max-width:410px;width:90vw;border-radius:10px;box-shadow:0 6px 40px rgba(0,0,0,0.16);">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h2 style="margin:0 0 12px 0;font-weight:600;">Reset Password</h2>
+      <button onclick="closePasswordReset()" style="background:none;border:none;font-size:2em;line-height:1;color:#999;">×</button>
+    </div>
+    <form id="resetForm" style="display:flex;flex-direction:column;gap:14px;">
+      <input type="email" id="resetEmail" placeholder="Enter your email" required style="padding:10px 12px;font-size:1em;border:1px solid #ddd;border-radius:6px;">
+      <button type="submit" style="margin-top:6px;background:#f4a940;color:white;font-weight:bold;border:none;padding:10px 0;border-radius:6px;font-size:1.1em;">Send Reset Link</button>
+    </form>
+    <div id="resetError" style="color:red;text-align:center;margin-top:7px;font-size:0.97em;display:none;"></div>
+    <div id="resetSuccess" style="color:green;text-align:center;margin-top:7px;font-size:0.97em;display:none;"></div>
+  </div>
+</div>
+
+<header>
+<div class="header-bar">
+<h1 class="desktop-logo">
+<img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
+  WattSun Solar
+</h1>
+<div class="logo-container">
+<img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
+<span class="brand-name">WattSun Solar</span>
+</div>
+<button onclick="openLogin()" id="loginBtn" style="margin-left:15px;background:#f4a940;color:white;border:none;padding:7px 18px;border-radius:5px;font-weight:600;font-size:1em;cursor:pointer;">Login</button>
+<span id="loggedInUser" style="display:none;margin-left:15px;font-size:1em;color:#222;"></span>
+<button id="logoutBtn" style="display:none;margin-left:8px;background:#f0701a;color:white;border:none;padding:7px 14px;border-radius:5px;font-size:1em;cursor:pointer;">Logout</button>
+<button aria-label="Open menu" class="nav-toggle">☰</button>
+</div>
+<nav>
+<a href="index.html">Home</a>
+<a href="solutions.html">Solutions</a>
+<a href="shop.html">Shop</a>
+<a href="calculators/calculator.html">Calculator</a>
+<a href="financing.html">Financing</a>
+<a href="projects.html">Projects</a>
+<a href="myaccount/track.html">Track Order</a>
+<a href="contact.html">Contact</a>
+<!--<a href="cart.html">🛒 Cart</a>-->
+</nav>
+</header>
+<!-- ...rest of your body (unchanged) ... -->
+<div class="hero">
+<div class="hero-inner">
+<h1>Powering Kenya with Clean, Reliable Solar Energy</h1>
+<p>Affordable solar solutions for homes, businesses, and off-grid communities across Kenya.</p>
+<p>WattSun Solar is dedicated to empowering communities through clean, renewable energy. We provide tailored solar installations, financing solutions, and after-sales support nationwide.</p>
+<a class="loan-btn" href="solutions.html">Explore Solutions</a>
+</div>
+</div>
+<section>
+<h2 class="centered-section-title">Why Choose WattSun?</h2>
+<div class="feature-row">
+<div class="feature-box">
+<div class="feature-icon">☀️</div>
+<div>
+<div class="feature-title">100% Solar-Driven</div>
+<div class="feature-desc">Clean energy for homes, farms, and businesses.</div>
+</div>
+</div>
+<div class="feature-box">
+<div class="feature-icon">💰</div>
+<div>
+<div class="feature-title">Flexible Financing</div>
+<div class="feature-desc">From just 50% deposit. Up to 36 months repayment.</div>
+</div>
+</div>
+<div class="feature-box">
+<div class="feature-icon">🛠️</div>
+<div>
+<div class="feature-title">Pro Installers</div>
+<div class="feature-desc">Available across Nairobi, Kisumu, Eldoret, Naivasha.</div>
+</div>
+</div>
+<div class="feature-box">
+<div class="feature-icon">🔧</div>
+<div>
+<div class="feature-title">After-Sales Support</div>
+<div class="feature-desc">We maintain, clean, and upgrade your system.</div>
+</div>
+</div>
+</div>
+</section>
+<section>
+<h2 style="text-align:center;">Success Stories</h2>
+<div class="testimonials-list">
+<div class="testimonial-row">
+<img alt="Family Home – Karen" class="testimonial-img" src="/images/family-home-karen.jpg"/>
+<div class="testimonial-text">
+<p><strong>Family Home – Karen</strong>: 3kW rooftop + battery backup.</p>
+</div>
+</div>
+<div class="testimonial-row">
+<img alt="Nairobi Factory" class="testimonial-img" src="/images/nairobi-factory.jpg"/>
+<div class="testimonial-text">
+<p><strong>Nairobi Factory</strong>: 9kW hybrid inverter system for full-time operations.</p>
+</div>
+</div>
+<div class="testimonial-row">
+<img alt="Off-Grid Lodge – Naivasha" class="testimonial-img" src="/images/offgrid-lodge-naivasha.jpg"/>
+<div class="testimonial-text">
+<p><strong>Off-Grid Lodge – Naivasha</strong>: Complete off-grid system with storage.</p>
+</div>
+</div>
+</div>
+</section>
+<section>
+<h2 class="centered-section-title">How It Works</h2>
+<div class="steps-row">
+<div class="step-box">
+<div class="step-title">1. Choose a System</div>
+<div class="step-desc">Select the right package from our shop.</div>
+</div>
+<div class="step-box">
+<div class="step-title">2. Apply for Financing</div>
+<div class="step-desc">Pay your deposit and spread the balance.</div>
+</div>
+<div class="step-box">
+<div class="step-title">3. We Install</div>
+<div class="step-desc">Certified technicians handle the setup.</div>
+</div>
+<div class="step-box">
+<div class="step-title">4. Start Saving!</div>
+<div class="step-desc">Enjoy clean, uninterrupted solar power.</div>
+</div>
+</div>
+</section>
+<section class="cta">
+<h2>Ready to go solar?</h2>
+<p>Estimate your loan &amp; start saving today!</p>
+<a class="loan-btn" href="financing.html">Estimate My Loan</a>
+</section>
+<footer>
+<div class="footer-contacts">
+<a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>
+</div>
+<p>© 2025 WattSun Solar. All rights reserved.</p>
+</footer>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const navToggle = document.querySelector('.nav-toggle');
+      const header = document.querySelector('header');
+      const nav = header.querySelector('nav');
+
+      if (navToggle && header) {
+        navToggle.addEventListener('click', function (e) {
+          e.stopPropagation();
+          header.classList.toggle('nav-open');
+        });
+      }
+
+      document.querySelectorAll('header nav a').forEach(link => {
+        link.addEventListener('click', () => header.classList.remove('nav-open'));
+      });
+
+      document.body.addEventListener('click', function (e) {
+        if (
+          header.classList.contains('nav-open') &&
+          !nav.contains(e.target) &&
+          !navToggle.contains(e.target)
+        ) {
+          header.classList.remove('nav-open');
+        }
+      }, true);
+    });
+
+    function updateCartCountBadge() {
+      let count = 0;
+      try {
+        const cart = JSON.parse(localStorage.getItem("cart")) || [];
+        count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+      } catch (e) {}
+
+      const badge = document.getElementById('cart-count-badge');
+      const mobileCount = document.getElementById('cart-count');
+      if (badge) {
+        if (count > 0) {
+          badge.textContent = count;
+          badge.style.display = 'flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+      if (mobileCount) {
+        mobileCount.textContent = count;
+      }
+    }
+    document.addEventListener('DOMContentLoaded', updateCartCountBadge);
+    window.addEventListener('storage', updateCartCountBadge);
+</script>
+
+  <script defer src="js/auth.js"></script> <!-- ...latest reference  ... -->
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const userObj = JSON.parse(localStorage.getItem("wattsunUser") || "null");
+    const user = userObj?.user;
+    if (user) {
+      const label = document.getElementById("loggedInUser");
+      const logout = document.getElementById("logoutBtn");
+      const login = document.getElementById("loginBtn");
+      login.style.display = "none";
+      label.style.display = "inline";
+      logout.style.display = "inline";
+      label.textContent = user.name;
+      label.style.cursor = "pointer";
+      label.addEventListener("click", () => {
+        const target = user.type === "Admin" ? "/dashboard.html#system-status" : "/myaccount/userdash.html";
+        console.log("[auth] login success", data);
+            window.location.href = target;
+      });
+      logout.addEventListener("click", () => {
+        localStorage.removeItem("wattsunUser");
+        location.reload();
+      });
+    }
+  });
+</script>
+
+<!-- Redirect to checkout only AFTER auth truly succeeds (no auth.js changes needed) -->
+<script>
+(function () {
+  function isLoggedIn() {
+    try {
+      const obj = JSON.parse(localStorage.getItem("wattsunUser") || "null");
+      return !!(obj && (obj.user || obj.success));
+    } catch (e) { return false; }
+  }
+
+  function redirectNow() {
+    const sp = new URLSearchParams(location.search);
+    const urlNext = sp.get('next');
+    const sessNext = sessionStorage.getItem('redirectAfterLogin');
+    const localNext = localStorage.getItem("redirectAfterLogin");
+    const raw = sessNext || urlNext || localNext;
+    const dest = (raw && /^\/[A-Za-z0-9._\-\/?#=&]*$/.test(raw)) ? raw : "/index.html";
+
+    // cleanup (no stickiness)
+    try { sessionStorage.removeItem('redirectAfterLogin'); } catch(e){}
+    localStorage.removeItem("redirectAfterLogin");
+    localStorage.removeItem("checkoutRedirect");
+
+    console.log("[auth] login success", data);
+            window.location.href = dest;
+  }
+
+  function startAuthWatch() {
+    if (isLoggedIn()) { redirectNow(); return; }
+
+    let ticks = 0, maxTicks = 600;
+    const iv = setInterval(() => {
+      if (isLoggedIn()) { clearInterval(iv); redirectNow(); }
+      else if (++ticks >= maxTicks) clearInterval(iv);
+    }, 250);
+
+    const loginModal = document.getElementById("loginModal");
+    if (loginModal) {
+      loginModal.addEventListener("hidden.bs.modal", () => { if (isLoggedIn()) redirectNow(); });
+      const mo = new MutationObserver(() => {
+        const hidden = window.getComputedStyle(loginModal).display === "none";
+        if (hidden && isLoggedIn()) { mo.disconnect(); redirectNow(); }
+      });
+      mo.observe(loginModal, { attributes: true, attributeFilter: ["style", "class"] });
+    }
+
+    const signupSuccess = document.getElementById("signupSuccess");
+    if (signupSuccess) {
+      const mos = new MutationObserver(() => {
+        const visible = window.getComputedStyle(signupSuccess).display !== "none";
+        if (visible && isLoggedIn()) { mos.disconnect(); redirectNow(); }
+      });
+      mos.observe(signupSuccess, { attributes: true, attributeFilter: ["style", "class"] });
+    }
+  }
+
+document.addEventListener("DOMContentLoaded", function () {
+  const sp = new URLSearchParams(location.search);
+  const next = sp.get("next");
+  const sessNext = sessionStorage.getItem("redirectAfterLogin");
+
+  // ✅ B) Start the auth watcher if we have either ?next=... or a saved session next
+  if (next || sessNext) {
+    sessionStorage.setItem("redirectAfterLogin", next || sessNext);
+    startAuthWatch();
+  }
+
+  // If already logged in and carrying next in session, jump immediately
+  if (isLoggedIn() && sessNext) {
+    redirectNow();
+  }
+
+  const loginForm = document.getElementById("loginForm");
+  if (loginForm) loginForm.addEventListener("submit", () => setTimeout(startAuthWatch, 0));
+  const signupForm = document.getElementById("signupForm");
+  if (signupForm) signupForm.addEventListener("submit", () => setTimeout(startAuthWatch, 0));
+});
+})();
+</script>
+<script>
+/* Safe fallbacks if auth.js didn't define these globally */
+(function () {
+  function show(id) { var m = document.getElementById(id); if (m) m.style.display = 'flex'; }
+  function hide(id) { var m = document.getElementById(id); if (m) m.style.display = 'none'; }
+
+  if (typeof window.openLogin !== 'function')  window.openLogin  = function () { show('loginModal'); setTimeout(function(){ try{document.getElementById('loginEmail')?.focus();}catch(e){} }, 0); };
+  if (typeof window.closeLogin !== 'function') window.closeLogin = function () { hide('loginModal'); };
+
+  if (typeof window.openSignup !== 'function')  window.openSignup  = function () { show('signupModal'); };
+  if (typeof window.closeSignup !== 'function') window.closeSignup = function () { hide('signupModal'); };
+
+  if (typeof window.openPasswordReset !== 'function')  window.openPasswordReset  = function () { show('resetModal'); };
+  if (typeof window.closePasswordReset !== 'function') window.closePasswordReset = function () { hide('resetModal'); };
+})();
+</script>
+
+<script>
+  // If URL carries ?next=..., remember it for this tab and auto-open login
+  document.addEventListener("DOMContentLoaded", function () {
+    try {
+      const sp = new URLSearchParams(location.search);
+      const next = sp.get('next');
+      const safeNext = (next && /^\/[A-Za-z0-9._\-\/?#=&]*$/.test(next)) ? next : null;
+      if (safeNext) {
+        sessionStorage.setItem('redirectAfterLogin', safeNext);
+        if (typeof openLogin === 'function') openLogin();
+      }
+    } catch (e) {}
+  });
+</script>
+<script>
+  // Also treat /login.html and /signup.html as modal entry points
+  document.addEventListener("DOMContentLoaded", function () {
+    try {
+      const p = location.pathname.toLowerCase();
+      if (p.endsWith("/login.html") && typeof openLogin === "function") openLogin();
+      if (p.endsWith("/signup.html") && typeof openSignup === "function") openSignup();
+    } catch (e) {}
+  });
+</script>
+
+</body>
 </html>

@@ -1,0 +1,32 @@
+
+# --- WattSun Environment ---
+
+# Bootstrap an admin on first run (many builds read these and create if missing)
+ADMIN_BOOTSTRAP_EMAIL=skamunyu@gmail.com
+ADMIN_BOOTSTRAP_PASSWORD=Pass123
+
+# Force all routes to the unified dev DB
+DB_PATH_USERS=/volume1/web/wattsun/data/dev/wattsun.dev.db
+DB_PATH_ADMIN=/volume1/web/wattsun/data/dev/wattsun.dev.db
+SQLITE_DB=/volume1/web/wattsun/data/dev/wattsun.dev.db
+
+# --- SMTP (notifications worker) ---
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=mainakamunyu@gmail.com
+SMTP_PASS=oura etrv fasb lzgy
+SMTP_FROM="WattSun <mainakamunyu@gmail.com>"
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=mainakamunyu@gmail.com
+SMTP_PASS=oura etrv fasb lzgy
+SMTP_FROM="WattSun <mainakamunyu@gmail.com>"
+
+# Session secret 
+SESSION_SECRET=dev-local-secret
+
+# Node server port
+PORT=3001
+NODE_ENV=development

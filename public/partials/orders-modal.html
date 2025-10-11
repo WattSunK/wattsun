@@ -150,7 +150,11 @@
         <div class="row">
           <label for="orderCurrency">Currency</label>
           <div>
-            <input id="orderCurrency" name="currency" type="text" class="input" maxlength="3" placeholder="KES" />
+            <!-- PATCHED: was input, now select -->
+            <select id="orderCurrency" name="currency" class="input">
+              <option value="KES" selected>KES</option>
+              <option value="USD">USD</option>
+            </select>
           </div>
         </div>
 

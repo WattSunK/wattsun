@@ -1,69 +1,184 @@
-<section class="card">
-  <div class="card-header card-header--tight">
-    <h2 class="h2">Items</h2>
+<section id="items-root" class="card">
+  <!-- HEADER: title + Add Item (left only) -->
+  <div class="card-header card-header--tight items-header">
+    <div class="items-header__left">
+      <h2 class="h2">Items</h2>
+      <button id="btn-add-item" class="btn btn-primary">+ Add Item</button>
+    </div>
     <div class="spacer"></div>
-    <button id="btnAddItem" class="btn btn-primary">Add Item</button>
   </div>
 
-  <div class="filters-bar">
-    <div class="group">
-      <label>Status</label>
-      <select id="itemsStatus" class="input">
-        <option value="">All</option>
-        <option>Active</option>
-        <option>Out of stock</option>
-        <option>Archived</option>
+  <!-- FILTERS ROW (Category on the left; all controls on the far right) -->
+  <div class="filters-row">
+    <div class="filters-row__left">
+      <select id="category-filter" class="input">
+        <option value="">All Categories</option>
       </select>
     </div>
 
-    <div class="spacer"></div>
-
-    <div class="group">
-      <label>Search</label>
-      <input id="itemsSearch" class="input" type="search" placeholder="Find item…">
+    <div class="filters-row__right">
+      <input id="search-text" class="input" placeholder="Search by name/SKU/category" />
+      <button id="items-search-btn" class="btn">Search</button>
+      <button id="items-clear-btn" class="btn">Clear</button>
+      <select id="items-per-page" class="input perpage">
+        <option value="15" selected>15</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+      </select>
+      <button id="btn-manage-categories" class="btn">Manage Categories</button>
     </div>
-
-    <button id="itemsSearchBtn" class="btn">Search</button>
-    <button id="itemsClearBtn" class="btn btn-ghost">Clear</button>
   </div>
 
+  <!-- TABLE -->
   <div class="card-body card-body--tight">
     <div class="table-wrap">
-      <table class="table">
+      <table id="items-table" class="table">
         <thead>
           <tr>
+            <th>SL NO.</th>
+            <th>IMAGE</th>
+            <th>ITEM NAME</th>
             <th>SKU</th>
-            <th>Title</th>
-            <th>Price</th>
-            <th>Stock</th>
-            <th>Updated</th>
-            <th style="text-align:center;">Action</th>
+            <th>CATEGORY</th>
+            <th>STOCK</th>
+            <th>UNIT PRICE</th>
+            <th>PRIORITY</th>
+            <th>STATUS</th>
+            <th style="text-align:center;">ACTION</th>
           </tr>
         </thead>
-        <tbody id="itemsRows">
-          <tr><td colspan="5" class="muted">(No data yet)</td></tr>
+        <tbody id="items-table-body">
+          <tr><td colspan="10" class="muted text-center">Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
+  <!-- PAGER + INFO (bottom row) -->
   <div class="filters-bar">
-    <div id="itemsMeta" class="group">Showing 0 of 0 entries</div>
+    <div id="items-pagination" class="pager"></div>
     <div class="spacer"></div>
-    <div class="pager" id="items-pagination">
-      <button class="btn" id="itemsFirst">First</button>
-      <button class="btn" id="itemsPrev">Previous</button>
-      <span class="page-indicator" id="itemsPageNum">1</span>
-      <button class="btn" id="itemsNext">Next</button>
-      <button class="btn" id="itemsLast">Last</button>
-    </div>
+    <div id="items-table-info" class="muted">Loading…</div>
   </div>
+
+<script defer src="/admin/js/admin-items-hotfix.js"></script>
 </section>
 
-<script>
-(function(){
-  document.getElementById('btnAddItem')?.addEventListener('click', () => {
-    window.dispatchEvent(new CustomEvent('admin:create', { detail: { type: 'item', source: 'items' } }));
-  });
-})();
-</script>
+<style>
+  /* Overlay modal visuals (true pop-up) */
+  .modal-bg{position:fixed;inset:0;display:none;background:rgba(0,0,0,.35);z-index:1000}
+  .modal{background:#fff;border-radius:10px;max-width:900px;width:min(92vw,900px);
+         margin:6vh auto;padding:16px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+  .modal-header{display:flex;align-items:center;justify-content:space-between}
+  .modal-footer{display:flex;gap:8px;justify-content:flex-end}
+  .modal-close{font-size:20px;line-height:1}
+}
+</style>
+
+<!-- Hotfix that augments admin-items.js (no breaking changes) -->
+
+<!-- === Styles for the two top rows only === -->
+<style>
+  .items-header{display:flex;align-items:center;gap:12px}
+  .items-header__left{display:flex;align-items:center;gap:12px}
+
+  .filters-row{
+    display:flex;align-items:center;gap:12px;
+    padding:10px 16px; border-top:1px solid #f2f2f2;
+  }
+  .filters-row__left{display:flex;align-items:center;gap:8px}
+  .filters-row__right{
+    margin-left:auto; /* push to far right */
+    display:flex;align-items:center;gap:8px;
+  }
+  .filters-row__right #search-text{min-width:280px}
+  .filters-row__right .perpage{width:auto;min-width:70px}
+  @media (max-width: 980px){
+    .filters-row{flex-wrap:wrap;gap:10px}
+    .filters-row__right{margin-left:0;flex-wrap:wrap}
+  }
+</style>
+
+<!-- Keep the rest of your file exactly as-is: modals, helpers, scripts -->
+<!-- If your previous items.html had modals/scripts below, paste/keep them here: -->
+
+<!-- Add Item Modal -->
+<div id="add-item-modal-bg" class="modal-bg" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add Item</h3>
+      <button class="btn btn-ghost modal-close">×</button>
+    </div>
+    <form id="add-item-form" class="modal-body">
+      <div class="grid-2">
+        <label>SKU <input id="add-sku" class="input" required /></label>
+        <label>Name <input id="add-name" class="input" required /></label>
+        <label>Description <textarea id="add-description" class="input" rows="3" required></textarea></label>
+        <label>Price (KES) <input id="add-price" class="input" type="number" min="0" step="1" required /></label>
+        <label>Category <select id="add-category" class="input" required></select></label>
+        <label>Image filename <input id="add-image" class="input" placeholder="photo.jpg" /></label>
+        <label>Warranty <input id="add-warranty" class="input" placeholder="e.g. 1y" /></label>
+        <label>Stock <input id="add-stock" class="input" type="number" min="0" step="1" value="0" /></label>
+        <label>Priority <input id="add-priority" class="input prio" type="number" step="1" value="0" /></label>
+        <label class="checkbox"><input id="add-active" type="checkbox" checked /> Active</label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn modal-close">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Item Modal -->
+<div id="edit-item-modal-bg" class="modal-bg" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Edit Item</h3>
+      <button class="btn btn-ghost modal-close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="grid-2">
+        <label>SKU <input id="edit-sku" class="input" readonly /></label>
+        <label>Name <input id="edit-name" class="input" /></label>
+        <label>Description <textarea id="edit-description" class="input" rows="3"></textarea></label>
+        <label>Price (KES) <input id="edit-price" class="input" type="number" min="0" step="1" /></label>
+        <label>Category <select id="edit-category" class="input"></select></label>
+        <label>Image filename <input id="edit-image" class="input" /></label>
+        <label>Warranty <input id="edit-warranty" class="input" /></label>
+        <label>Stock <input id="edit-stock" class="input" type="number" min="0" step="1" /></label>
+        <label>Priority <input id="edit-priority" class="input prio" type="number" step="1" /></label>
+        <label class="checkbox"><input id="edit-status" type="checkbox" /> Active</label>
+      </div>
+      <div class="modal-footer">
+        <button id="edit-delete" class="btn btn-danger">Delete</button>
+        <div class="spacer"></div>
+        <button type="button" class="btn modal-close">Close</button>
+        <button id="edit-save" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Manage Categories Modal -->
+<div id="manage-categories-modal" class="modal-bg" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Categories</h3>
+      <button class="btn btn-ghost modal-close">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="categories-list" class="list" style="margin-bottom:12px;"></div>
+      <div class="grid-2" style="align-items:end;">
+        <label>New category name <input id="new-category-name" class="input" /></label>
+        <div class="modal-footer" style="padding:0;border:none;justify-content:flex-start;">
+          <button id="save-category" class="btn">Add</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- (Keep your existing scripts/helpers) -->
+<script src="/admin/js/data-adapter.js"></script>
+<script src="/admin/js/admin-items.js"></script>

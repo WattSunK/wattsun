@@ -1,10 +1,10 @@
 // /public/js/myorders.js
-// Stable build: same-origin API, GET→POST fallback, locked to session phone.
-// NOW also passes user email silently so the backend can fall back if phone finds 0.
+// Stable build: same-origin API, SQL mode (GET /api/orders)
+// Uses session phone; parses { success, orders, total, page, per }.
 // Links send ?order=<id>&status=Pending to /myaccount/track.html
 
 (function () {
-  const PAGE_SIZE = 5;
+  const DEFAULT_PER = 5;
 
   // ---- DOM refs (match myorders.html) ----
   const $ = (id) => document.getElementById(id);
@@ -28,6 +28,8 @@
   let all = [];
   let filtered = [];
   let page = 1;
+  let per = DEFAULT_PER;
+  let total = 0;
 
   // ---- Helpers ----
   function getSession() {
@@ -72,7 +74,7 @@
   // Normalize backend fields to our table columns
   function norm(o = {}, idx = 0) {
     return {
-      _sl: idx + 1,
+      _sl: (page - 1) * per + idx + 1,
       id: o.orderNumber || o.id || o.orderId || o.order_id || '—',
       customerName: o.fullName || o.name || o.customer || '',
       orderType: o.orderType || o.type || o.status || '',
@@ -80,43 +82,37 @@
       dateDelivered: o.deliveredAt || o.dateDelivered || null,
       address: o.deliveryAddress || o.address || '',
       paymentType: o.paymentType || o.paymentMethod || o.payment || '—',
-      netValue: o.netValue || o.total || o.amount || 0,
+      netValue: (o.totalCents != null) ? (o.totalCents / 100) : (o.netValue || o.total || o.amount || 0),
       raw: o,
     };
   }
 
-  // ---- Fetch ----
+  // ---- Fetch (SQL endpoint) ----
   async function fetchOrders() {
     const phone = getUserPhone();
-    const email = getUserEmail();
-    if (!phone) { all = []; return; }
+    if (!phone) { all = []; total = 0; return; }
 
     let data = null;
-
-    // Try GET first — include email for fallback on the server
     try {
       const res = await fetch(
-        `/api/track?phone=${encodeURIComponent(phone)}&email=${encodeURIComponent(email)}`
+        `/api/orders?phone=${encodeURIComponent(phone)}&page=${page}&per=${per}`
       );
       if (res.ok) data = await res.json();
-    } catch {}
-
-    // Fallback to POST — include email + header for fallback
-    if (!Array.isArray(data) && !(data && Array.isArray(data.orders))) {
-      try {
-        const res2 = await fetch(`/api/track`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-WS-Email': email || ''
-          },
-          body: JSON.stringify({ phone, email })
-        });
-        if (res2.ok) data = await res2.json();
-      } catch {}
+    } catch (e) {
+      console.error('[myorders] fetchOrders failed', e);
     }
 
-    const list = Array.isArray(data) ? data : (data && data.orders) ? data.orders : [];
+    if (!data || !data.success) {
+      all = [];
+      total = 0;
+      return;
+    }
+
+    total = data.total || 0;
+    page = data.page || 1;
+    per = data.per || DEFAULT_PER;
+
+    const list = Array.isArray(data.orders) ? data.orders : [];
     all = list.map((o, i) => norm(o, i));
 
     // (Re)build order type dropdown
@@ -148,21 +144,14 @@
       }
       return true;
     });
-
-    page = 1;
   }
 
   function render() {
-    const total = filtered.length;
-    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    page = Math.min(page, totalPages);
-
-    const start = (page - 1) * PAGE_SIZE;
-    const rows = filtered.slice(start, start + PAGE_SIZE);
+    const rows = filtered;
 
     if (els.tbody) {
       els.tbody.innerHTML = rows.map((o, i) => {
-        const sl = start + i + 1;
+        const sl = o._sl || (i + 1);
         const link = getTrackHref(o.id);
         return `
           <tr>
@@ -182,9 +171,13 @@
       }).join('') || `<tr><td colspan="10">No orders found.</td></tr>`;
     }
 
-    if (els.count)   els.count.textContent = `Showing ${rows.length || 0} of ${total || 0} entries`;
+    if (els.count) {
+      const showing = rows.length;
+      els.count.textContent = `Showing ${showing} of ${total || 0} entries`;
+    }
     if (els.pageNum) els.pageNum.textContent = String(page);
 
+    const totalPages = Math.max(1, Math.ceil(total / per));
     if (els.first) els.first.disabled = page <= 1;
     if (els.prev)  els.prev.disabled  = page <= 1;
     if (els.next)  els.next.disabled  = page >= totalPages;
@@ -202,10 +195,10 @@
     });
     els.query?.addEventListener('input', () => { applyFilters(); render(); });
 
-    els.first?.addEventListener('click', () => { page = 1; render(); });
-    els.prev ?.addEventListener('click', () => { page = Math.max(1, page - 1); render(); });
-    els.next ?.addEventListener('click', () => { page = page + 1; render(); });
-    els.last ?.addEventListener('click', () => { page = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)); render(); });
+    els.first?.addEventListener('click', async () => { page = 1; await fetchOrders(); applyFilters(); render(); });
+    els.prev ?.addEventListener('click', async () => { page = Math.max(1, page - 1); await fetchOrders(); applyFilters(); render(); });
+    els.next ?.addEventListener('click', async () => { page = page + 1; await fetchOrders(); applyFilters(); render(); });
+    els.last ?.addEventListener('click', async () => { page = Math.max(1, Math.ceil(total / per)); await fetchOrders(); applyFilters(); render(); });
 
     els.tbody?.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-view]');
@@ -233,7 +226,7 @@
     els.clearBtn = $('wsClearBtn');
 
     bind();
-    try { await fetchOrders(); } catch (e) { console.error('[myorders] fetch failed', e); all = []; }
+    try { await fetchOrders(); } catch (e) { console.error('[myorders] fetch failed', e); all = []; total = 0; }
     applyFilters();
     render();
   };
@@ -266,10 +259,6 @@
         if (els.query) els.query.value = prev.query || '';
       }
       if (typeof applyFilters==='function') applyFilters();
-      if (typeof filtered!=='undefined' && typeof PAGE_SIZE!=='undefined' && typeof page!=='undefined'){
-        const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-        page = Math.max(1, Math.min(prev.page || 1, totalPages));
-      }
       if (typeof render==='function') render();
     }catch(e){ console.warn('myorders live refresh failed', e); }
   }

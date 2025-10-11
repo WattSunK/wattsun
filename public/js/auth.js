@@ -1,6 +1,6 @@
 // public/js/auth.js
 
-// Modal controls
+// ---------- Modal controls ----------
 function openLogin() {
   document.getElementById('loginModal').style.display = 'flex';
 }
@@ -20,10 +20,10 @@ function closePasswordReset() {
   document.getElementById('resetModal').style.display = 'none';
 }
 
-// Session utility
+// ---------- Session utility ----------
 function getCurrentUser() {
   try {
-    const raw = localStorage.getItem('wattsunUser'); // ✅ fixed key only
+    const raw = localStorage.getItem('wattsunUser'); // ✅ fixed key
     const parsed = JSON.parse(raw);
     return parsed?.success ? parsed.user : null;
   } catch {
@@ -31,10 +31,10 @@ function getCurrentUser() {
   }
 }
 
-// Login handler
+// ---------- Login handler ----------
 const loginForm = document.getElementById('loginForm');
 if (loginForm) {
-  loginForm.addEventListener('submit', async function(e) {
+  loginForm.addEventListener('submit', async function (e) {
     e.preventDefault();
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
@@ -44,14 +44,20 @@ if (loginForm) {
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // 🔑 ensure cookie is set
         body: JSON.stringify({ email, password })
       });
       const data = await res.json();
-      if (!res.ok) {
-        errorDiv.textContent = data.error || "Login failed";
+       if (!res.ok || data.success === false) {
+        const msg =
+          typeof data.error === "object"
+            ? data.error.message || JSON.stringify(data.error)
+            : data.error || "Login failed";
+        errorDiv.textContent = msg;
         errorDiv.style.display = 'block';
         return;
       }
+
       localStorage.setItem('wattsunUser', JSON.stringify({ success: true, user: data.user }));
       updateLoginUI();
       closeLogin();
@@ -63,10 +69,10 @@ if (loginForm) {
   });
 }
 
-// Signup handler
+// ---------- Signup handler ----------
 const signupForm = document.getElementById('signupForm');
 if (signupForm) {
-  signupForm.addEventListener('submit', async function(e) {
+  signupForm.addEventListener('submit', async function (e) {
     e.preventDefault();
     const name = document.getElementById('signupName').value;
     const email = document.getElementById('signupEmail').value;
@@ -80,10 +86,11 @@ if (signupForm) {
       const res = await fetch('/api/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // 🔑 consistency
         body: JSON.stringify({ name, email, phone, password })
       });
       const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok || data.success === false) {
         errorDiv.textContent = data.error || "Signup failed";
         errorDiv.style.display = 'block';
         return;
@@ -101,10 +108,10 @@ if (signupForm) {
   });
 }
 
-// Password reset handler
+// ---------- Password reset handler ----------
 const resetForm = document.getElementById('resetForm');
 if (resetForm) {
-  resetForm.addEventListener('submit', async function(e) {
+  resetForm.addEventListener('submit', async function (e) {
     e.preventDefault();
     const email = document.getElementById('resetEmail').value;
     const errorDiv = document.getElementById('resetError');
@@ -115,10 +122,11 @@ if (resetForm) {
       const res = await fetch('/api/reset-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // 🔑 add for consistency
         body: JSON.stringify({ email })
       });
       const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok || data.success === false) {
         errorDiv.textContent = data.error || "Failed to send reset email";
         errorDiv.style.display = 'block';
         return;
@@ -132,7 +140,7 @@ if (resetForm) {
   });
 }
 
-// Login/logout UI logic
+// ---------- Login/logout UI logic ----------
 function updateLoginUI() {
   const user = getCurrentUser();
 
@@ -156,7 +164,7 @@ function updateLoginUI() {
 
 const logoutBtn = document.getElementById('logoutBtn');
 if (logoutBtn) {
-  logoutBtn.onclick = function() {
+  logoutBtn.onclick = function () {
     localStorage.removeItem('wattsunUser');
     updateLoginUI();
     location.reload();

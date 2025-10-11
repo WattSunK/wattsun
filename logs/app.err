@@ -1,0 +1,1747 @@
+node:internal/modules/cjs/loader:1051
+  throw err;
+  ^
+
+Error: Cannot find module 'sqlite3'
+Require stack:
+- /volume1/web/wattsun/server.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1048:15)
+    at Module._load (node:internal/modules/cjs/loader:901:27)
+    at Module.require (node:internal/modules/cjs/loader:1115:19)
+    at require (node:internal/modules/helpers:130:18)
+    at Object.<anonymous> (/volume1/web/wattsun/server.js:9:17)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+    at Module.load (node:internal/modules/cjs/loader:1091:32)
+    at Module._load (node:internal/modules/cjs/loader:938:12)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:83:12) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ '/volume1/web/wattsun/server.js' ]
+}
+
+Node.js v20.9.0
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'skamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[reset] request error: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+[reset] request error: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+[reset] request error: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+[reset] request error: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+[reset] request error: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'skamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'skamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'skamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'skamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'skamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'skamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'skamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'skamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'skamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'skamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'skamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'skamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'mainakamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[reset] request error: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+[login] query error: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT id,name,email,phone,type,status,password_hash\n' +
+  '       FROM users\n' +
+  '      WHERE LOWER(email)=LOWER(?)\n' +
+  '      LIMIT 1', [ 'skamunyu@gmail.com' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/login.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at urlencodedParser (/volume1/web/wattsun/node_modules/body-parser/lib/types/urlencoded.js:85:7) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` where `items`.`active` = 1 order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` where `items`.`active` = 1 order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` where `items`.`active` = 1 order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` where `items`.`active` = 1 order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` where `items`.`active` = 1 order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` where `items`.`active` = 1 order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` where `items`.`active` = 1 order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` where `items`.`active` = 1 order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+customer email failed: Missing credentials for "PLAIN"
+admin email failed: Missing credentials for "PLAIN"
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch categories: [Error: select `id`, `name` from `categories` - SQLITE_ERROR: no such table: categories] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` where `items`.`active` = 1 order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` where `items`.`active` = 1 order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+customer email failed: Missing credentials for "PLAIN"
+admin email failed: Missing credentials for "PLAIN"
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` where `items`.`active` = 1 order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+❌ Failed to fetch items: [Error: select `items`.`sku`, `items`.`name`, `items`.`description`, `items`.`price`, `items`.`warranty`, `items`.`stock`, `items`.`image`, `items`.`active`, `items`.`priority`, `categories`.`name` as `category` from `items` left join `categories` on `items`.`category_id` = `categories`.`id` where `items`.`active` = 1 order by `items`.`priority` desc, `items`.`name` asc - SQLITE_ERROR: no such table: items] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: Error: SQLITE_ERROR: no such table: users
+--> in Database#all('SELECT * FROM users', [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:13:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at Function.handle (/volume1/web/wattsun/node_modules/express/lib/router/index.js:175:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+Failed to fetch users: Error: SQLITE_ERROR: no such table: users
+--> in Database#all('SELECT * FROM users', [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:13:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at Function.handle (/volume1/web/wattsun/node_modules/express/lib/router/index.js:175:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+Failed to fetch users: Error: SQLITE_ERROR: no such table: users
+--> in Database#all('SELECT * FROM users', [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:13:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at Function.handle (/volume1/web/wattsun/node_modules/express/lib/router/index.js:175:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+Failed to fetch users: Error: SQLITE_ERROR: no such table: users
+--> in Database#all('SELECT * FROM users', [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:13:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at Function.handle (/volume1/web/wattsun/node_modules/express/lib/router/index.js:175:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+customer email failed: Missing credentials for "PLAIN"
+admin email failed: Missing credentials for "PLAIN"
+Failed to fetch users: Error: SQLITE_ERROR: no such table: users
+--> in Database#all('SELECT * FROM users', [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:13:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at Function.handle (/volume1/web/wattsun/node_modules/express/lib/router/index.js:175:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+Failed to fetch users: Error: SQLITE_ERROR: no such table: users
+--> in Database#all('SELECT * FROM users', [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:13:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at Function.handle (/volume1/web/wattsun/node_modules/express/lib/router/index.js:175:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+Failed to fetch users: Error: SQLITE_ERROR: no such table: users
+--> in Database#all('SELECT * FROM users', [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:13:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at Function.handle (/volume1/web/wattsun/node_modules/express/lib/router/index.js:175:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+Failed to fetch users: Error: SQLITE_ERROR: no such table: users
+--> in Database#all('SELECT * FROM users', [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:13:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at Function.handle (/volume1/web/wattsun/node_modules/express/lib/router/index.js:175:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+Failed to fetch users: Error: SQLITE_ERROR: no such table: users
+--> in Database#all('SELECT * FROM users', [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:13:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at Function.handle (/volume1/web/wattsun/node_modules/express/lib/router/index.js:175:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+Failed to fetch users: Error: SQLITE_ERROR: no such table: users
+--> in Database#all('SELECT * FROM users', [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:13:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:346:12)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/index.js:280:10)
+    at Function.handle (/volume1/web/wattsun/node_modules/express/lib/router/index.js:175:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+customer email failed: Missing credentials for "PLAIN"
+admin email failed: Missing credentials for "PLAIN"
+customer email failed: Missing credentials for "PLAIN"
+admin email failed: Missing credentials for "PLAIN"
+Failed to fetch user: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT * FROM users WHERE id = ?', [ 'me' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at param (/volume1/web/wattsun/node_modules/express/lib/router/index.js:365:14)
+    at param (/volume1/web/wattsun/node_modules/express/lib/router/index.js:376:14)
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:421:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+Failed to fetch user: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT * FROM users WHERE id = ?', [ 'me' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at param (/volume1/web/wattsun/node_modules/express/lib/router/index.js:365:14)
+    at param (/volume1/web/wattsun/node_modules/express/lib/router/index.js:376:14)
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:421:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+Failed to fetch user: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT * FROM users WHERE id = ?', [ 'me' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at param (/volume1/web/wattsun/node_modules/express/lib/router/index.js:365:14)
+    at param (/volume1/web/wattsun/node_modules/express/lib/router/index.js:376:14)
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:421:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+customer email failed: Missing credentials for "PLAIN"
+admin email failed: Missing credentials for "PLAIN"
+/volume1/web/wattsun/routes/admin-dispatch.js:222
+    document.addEventListener("admin:partial-loaded", (ev) => {
+    ^
+
+ReferenceError: document is not defined
+    at bootDispatch (/volume1/web/wattsun/routes/admin-dispatch.js:222:5)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:235:5
+    at Object.<anonymous> (/volume1/web/wattsun/routes/admin-dispatch.js:236:3)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+    at Module.load (node:internal/modules/cjs/loader:1091:32)
+    at Module._load (node:internal/modules/cjs/loader:938:12)
+    at Module.require (node:internal/modules/cjs/loader:1115:19)
+    at require (node:internal/modules/helpers:130:18)
+    at Object.<anonymous> (/volume1/web/wattsun/server.js:108:34)
+
+Node.js v20.9.0
+/volume1/web/wattsun/routes/admin-dispatch.js:222
+    document.addEventListener("admin:partial-loaded", (ev) => {
+    ^
+
+ReferenceError: document is not defined
+    at bootDispatch (/volume1/web/wattsun/routes/admin-dispatch.js:222:5)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:235:5
+    at Object.<anonymous> (/volume1/web/wattsun/routes/admin-dispatch.js:236:3)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+    at Module.load (node:internal/modules/cjs/loader:1091:32)
+    at Module._load (node:internal/modules/cjs/loader:938:12)
+    at Module.require (node:internal/modules/cjs/loader:1115:19)
+    at require (node:internal/modules/helpers:130:18)
+    at Object.<anonymous> (/volume1/web/wattsun/server.js:108:34)
+
+Node.js v20.9.0
+[admin-dispatch:update] Error: SQLITE_RANGE: column index out of range
+--> in Statement#run([ 'Assigned', null, 'Status -> Assigned', null, '1' ], [Function: replacement])
+    at Database.<anonymous> (/volume1/web/wattsun/node_modules/sqlite3/lib/sqlite3.js:76:19)
+    at Database.<anonymous> (/volume1/web/wattsun/node_modules/sqlite3/lib/sqlite3.js:20:19)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:27:8
+    at new Promise (<anonymous>)
+    at runAsync (/volume1/web/wattsun/routes/admin-dispatch.js:26:10)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:335:11 {
+  errno: 25,
+  code: 'SQLITE_RANGE',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: role
+--> in Database#get('SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1', [ 6 ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:17:8
+    at new Promise (<anonymous>)
+    at getAsync (/volume1/web/wattsun/routes/admin-dispatch.js:16:10)
+    at ensureDriverValidIfProvided (/volume1/web/wattsun/routes/admin-dispatch.js:71:19)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:320:13 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: role
+--> in Database#get('SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1', [ 2 ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:17:8
+    at new Promise (<anonymous>)
+    at getAsync (/volume1/web/wattsun/routes/admin-dispatch.js:16:10)
+    at ensureDriverValidIfProvided (/volume1/web/wattsun/routes/admin-dispatch.js:71:19)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:320:13 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: role
+--> in Database#get('SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1', [ 2 ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:17:8
+    at new Promise (<anonymous>)
+    at getAsync (/volume1/web/wattsun/routes/admin-dispatch.js:16:10)
+    at ensureDriverValidIfProvided (/volume1/web/wattsun/routes/admin-dispatch.js:71:19)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:320:13 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: role
+--> in Database#get('SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1', [ 2 ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:17:8
+    at new Promise (<anonymous>)
+    at getAsync (/volume1/web/wattsun/routes/admin-dispatch.js:16:10)
+    at ensureDriverValidIfProvided (/volume1/web/wattsun/routes/admin-dispatch.js:71:19)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:320:13 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: role
+--> in Database#get('SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1', [ 2 ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:17:8
+    at new Promise (<anonymous>)
+    at getAsync (/volume1/web/wattsun/routes/admin-dispatch.js:16:10)
+    at ensureDriverValidIfProvided (/volume1/web/wattsun/routes/admin-dispatch.js:71:19)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:320:13 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: role
+--> in Database#get('SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1', [ 2 ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:17:8
+    at new Promise (<anonymous>)
+    at getAsync (/volume1/web/wattsun/routes/admin-dispatch.js:16:10)
+    at ensureDriverValidIfProvided (/volume1/web/wattsun/routes/admin-dispatch.js:71:19)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:320:13 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: role
+--> in Database#get('SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1', [ 2 ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:17:8
+    at new Promise (<anonymous>)
+    at getAsync (/volume1/web/wattsun/routes/admin-dispatch.js:16:10)
+    at ensureDriverValidIfProvided (/volume1/web/wattsun/routes/admin-dispatch.js:71:19)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:320:13 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: role
+--> in Database#get('SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1', [ 2 ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:17:8
+    at new Promise (<anonymous>)
+    at getAsync (/volume1/web/wattsun/routes/admin-dispatch.js:16:10)
+    at ensureDriverValidIfProvided (/volume1/web/wattsun/routes/admin-dispatch.js:71:19)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:320:13 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: role
+--> in Database#get('SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1', [ 2 ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:17:8
+    at new Promise (<anonymous>)
+    at getAsync (/volume1/web/wattsun/routes/admin-dispatch.js:16:10)
+    at ensureDriverValidIfProvided (/volume1/web/wattsun/routes/admin-dispatch.js:71:19)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:320:13 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: role
+--> in Database#get('SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1', [ 2 ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:17:8
+    at new Promise (<anonymous>)
+    at getAsync (/volume1/web/wattsun/routes/admin-dispatch.js:16:10)
+    at ensureDriverValidIfProvided (/volume1/web/wattsun/routes/admin-dispatch.js:71:19)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:320:13 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: role
+--> in Database#get('SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1', [ 2 ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:17:8
+    at new Promise (<anonymous>)
+    at getAsync (/volume1/web/wattsun/routes/admin-dispatch.js:16:10)
+    at ensureDriverValidIfProvided (/volume1/web/wattsun/routes/admin-dispatch.js:71:19)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:320:13 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: role
+--> in Database#get('SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1', [ 2 ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:17:8
+    at new Promise (<anonymous>)
+    at getAsync (/volume1/web/wattsun/routes/admin-dispatch.js:16:10)
+    at ensureDriverValidIfProvided (/volume1/web/wattsun/routes/admin-dispatch.js:71:19)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:380:13 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: role
+--> in Database#get('SELECT id, type, role, status FROM users WHERE id = ? LIMIT 1', [ 4 ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:17:8
+    at new Promise (<anonymous>)
+    at getAsync (/volume1/web/wattsun/routes/admin-dispatch.js:16:10)
+    at ensureDriverValidIfProvided (/volume1/web/wattsun/routes/admin-dispatch.js:71:19)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:380:13 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: delivered_at
+--> in Database#run("UPDATE dispatches SET status = COALESCE(?, status), notes = COALESCE(?, notes), planned_date = COALESCE(?, planned_date), updated_at = datetime('now'), delivered_at = NULL WHERE id = ?", [ 'InTransit', null, null, '1' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:27:8
+    at new Promise (<anonymous>)
+    at runAsync (/volume1/web/wattsun/routes/admin-dispatch.js:26:10)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:488:11 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: delivered_at
+--> in Database#run("UPDATE dispatches SET status = COALESCE(?, status), notes = COALESCE(?, notes), planned_date = COALESCE(?, planned_date), updated_at = datetime('now'), delivered_at = NULL WHERE id = ?", [ 'InTransit', null, null, '1' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:27:8
+    at new Promise (<anonymous>)
+    at runAsync (/volume1/web/wattsun/routes/admin-dispatch.js:26:10)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:488:11 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: delivered_at
+--> in Database#run("UPDATE dispatches SET status = COALESCE(?, status), notes = COALESCE(?, notes), planned_date = COALESCE(?, planned_date), updated_at = datetime('now'), delivered_at = NULL WHERE id = ?", [ 'InTransit', null, null, '1' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:27:8
+    at new Promise (<anonymous>)
+    at runAsync (/volume1/web/wattsun/routes/admin-dispatch.js:26:10)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:488:11 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: delivered_at
+--> in Database#run("UPDATE dispatches SET status = COALESCE(?, status), notes = COALESCE(?, notes), planned_date = COALESCE(?, planned_date), updated_at = datetime('now'), delivered_at = NULL WHERE id = ?", [ 'InTransit', null, null, '1' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:27:8
+    at new Promise (<anonymous>)
+    at runAsync (/volume1/web/wattsun/routes/admin-dispatch.js:26:10)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:488:11 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: no such column: delivered_at
+--> in Database#run("UPDATE dispatches SET status = COALESCE(?, status), notes = COALESCE(?, notes), planned_date = COALESCE(?, planned_date), updated_at = datetime('now'), delivered_at = NULL WHERE id = ?", [ 'InTransit', null, null, '1' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:27:8
+    at new Promise (<anonymous>)
+    at runAsync (/volume1/web/wattsun/routes/admin-dispatch.js:26:10)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:488:11 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: table order_status_history has no column named old_order_status
+--> in Database#run('INSERT INTO order_status_history\n' +
+  '               (order_id, old_order_status, new_order_status,\n' +
+  '                old_dispatch_status, new_dispatch_status,\n' +
+  '                source, reason, note, changed_by, changed_at)\n' +
+  "             VALUES (?, ?, ?, ?, ?, 'dispatch', NULL, ?, ?, datetime('now'))", [
+  'WATT175725672247897',
+  'InProgress',
+  'Completed',
+  'InTransit',
+  'Delivered',
+  '5.6 test into Delivered',
+  1
+], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:27:8
+    at new Promise (<anonymous>)
+    at runAsync (/volume1/web/wattsun/routes/admin-dispatch.js:26:10)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:588:17 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: table order_status_history has no column named old_order_status
+--> in Database#run('INSERT INTO order_status_history\n' +
+  '               (order_id, old_order_status, new_order_status,\n' +
+  '                old_dispatch_status, new_dispatch_status,\n' +
+  '                source, reason, note, changed_by, changed_at)\n' +
+  "             VALUES (?, ?, ?, ?, ?, 'dispatch', NULL, ?, ?, datetime('now'))", [
+  'WATT175725672247897',
+  'Completed',
+  'InProgress',
+  'Delivered',
+  'InTransit',
+  '5.6 test out of Delivered',
+  1
+], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:27:8
+    at new Promise (<anonymous>)
+    at runAsync (/volume1/web/wattsun/routes/admin-dispatch.js:26:10)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:588:17 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: table order_status_history has no column named old_order_status
+--> in Database#run('INSERT INTO order_status_history\n' +
+  '               (order_id, old_order_status, new_order_status,\n' +
+  '                old_dispatch_status, new_dispatch_status,\n' +
+  '                source, reason, note, changed_by, changed_at)\n' +
+  "             VALUES (?, ?, ?, ?, ?, 'dispatch', NULL, ?, ?, datetime('now'))", [
+  'WATT175725672247897',
+  'InProgress',
+  'Completed',
+  'InTransit',
+  'Delivered',
+  '5.6 test into Delivered',
+  1
+], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:27:8
+    at new Promise (<anonymous>)
+    at runAsync (/volume1/web/wattsun/routes/admin-dispatch.js:26:10)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:588:17 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+[admin-dispatch:update] Error: SQLITE_ERROR: table order_status_history has no column named old_order_status
+--> in Database#run('INSERT INTO order_status_history\n' +
+  '               (order_id, old_order_status, new_order_status,\n' +
+  '                old_dispatch_status, new_dispatch_status,\n' +
+  '                source, reason, note, changed_by, changed_at)\n' +
+  "             VALUES (?, ?, ?, ?, ?, 'dispatch', NULL, ?, ?, datetime('now'))", [
+  'WATT175725672247897',
+  'Completed',
+  'InProgress',
+  'Delivered',
+  'InTransit',
+  '5.6 test out of Delivered',
+  1
+], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/admin-dispatch.js:27:8
+    at new Promise (<anonymous>)
+    at runAsync (/volume1/web/wattsun/routes/admin-dispatch.js:26:10)
+    at /volume1/web/wattsun/routes/admin-dispatch.js:588:17 {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+customer email failed: Missing credentials for "PLAIN"
+admin email failed: Missing credentials for "PLAIN"
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+node:internal/modules/cjs/loader:1051
+  throw err;
+  ^
+
+Error: Cannot find module '../middleware/requireAdmin'
+Require stack:
+- /volume1/web/wattsun/routes/admin-dispatch.js
+- /volume1/web/wattsun/server.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1048:15)
+    at Module._load (node:internal/modules/cjs/loader:901:27)
+    at Module.require (node:internal/modules/cjs/loader:1115:19)
+    at require (node:internal/modules/helpers:130:18)
+    at Object.<anonymous> (/volume1/web/wattsun/routes/admin-dispatch.js:8:26)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+    at Module.load (node:internal/modules/cjs/loader:1091:32)
+    at Module._load (node:internal/modules/cjs/loader:938:12)
+    at Module.require (node:internal/modules/cjs/loader:1115:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/volume1/web/wattsun/routes/admin-dispatch.js',
+    '/volume1/web/wattsun/server.js'
+  ]
+}
+
+Node.js v20.9.0
+node:internal/modules/cjs/loader:1051
+  throw err;
+  ^
+
+Error: Cannot find module './middleware/requireAdmin'
+Require stack:
+- /volume1/web/wattsun/routes/admin-dispatch.js
+- /volume1/web/wattsun/server.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1048:15)
+    at Module._load (node:internal/modules/cjs/loader:901:27)
+    at Module.require (node:internal/modules/cjs/loader:1115:19)
+    at require (node:internal/modules/helpers:130:18)
+    at Object.<anonymous> (/volume1/web/wattsun/routes/admin-dispatch.js:8:26)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+    at Module.load (node:internal/modules/cjs/loader:1091:32)
+    at Module._load (node:internal/modules/cjs/loader:938:12)
+    at Module.require (node:internal/modules/cjs/loader:1115:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/volume1/web/wattsun/routes/admin-dispatch.js',
+    '/volume1/web/wattsun/server.js'
+  ]
+}
+
+Node.js v20.9.0
+node:internal/modules/cjs/loader:1051
+  throw err;
+  ^
+
+Error: Cannot find module './middleware/requireAdmin'
+Require stack:
+- /volume1/web/wattsun/routes/admin-dispatch.js
+- /volume1/web/wattsun/server.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1048:15)
+    at Module._load (node:internal/modules/cjs/loader:901:27)
+    at Module.require (node:internal/modules/cjs/loader:1115:19)
+    at require (node:internal/modules/helpers:130:18)
+    at Object.<anonymous> (/volume1/web/wattsun/routes/admin-dispatch.js:8:26)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+    at Module.load (node:internal/modules/cjs/loader:1091:32)
+    at Module._load (node:internal/modules/cjs/loader:938:12)
+    at Module.require (node:internal/modules/cjs/loader:1115:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/volume1/web/wattsun/routes/admin-dispatch.js',
+    '/volume1/web/wattsun/server.js'
+  ]
+}
+
+Node.js v20.9.0
+node:internal/modules/cjs/loader:1051
+  throw err;
+  ^
+
+Error: Cannot find module './middleware/requireAdmin'
+Require stack:
+- /volume1/web/wattsun/routes/admin-dispatch.js
+- /volume1/web/wattsun/server.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1048:15)
+    at Module._load (node:internal/modules/cjs/loader:901:27)
+    at Module.require (node:internal/modules/cjs/loader:1115:19)
+    at require (node:internal/modules/helpers:130:18)
+    at Object.<anonymous> (/volume1/web/wattsun/routes/admin-dispatch.js:8:26)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+    at Module.load (node:internal/modules/cjs/loader:1091:32)
+    at Module._load (node:internal/modules/cjs/loader:938:12)
+    at Module.require (node:internal/modules/cjs/loader:1115:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/volume1/web/wattsun/routes/admin-dispatch.js',
+    '/volume1/web/wattsun/server.js'
+  ]
+}
+
+Node.js v20.9.0
+node:internal/modules/cjs/loader:1051
+  throw err;
+  ^
+
+Error: Cannot find module './middleware/requireAdmin'
+Require stack:
+- /volume1/web/wattsun/routes/admin-dispatch.js
+- /volume1/web/wattsun/server.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1048:15)
+    at Module._load (node:internal/modules/cjs/loader:901:27)
+    at Module.require (node:internal/modules/cjs/loader:1115:19)
+    at require (node:internal/modules/helpers:130:18)
+    at Object.<anonymous> (/volume1/web/wattsun/routes/admin-dispatch.js:8:26)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+    at Module.load (node:internal/modules/cjs/loader:1091:32)
+    at Module._load (node:internal/modules/cjs/loader:938:12)
+    at Module.require (node:internal/modules/cjs/loader:1115:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/volume1/web/wattsun/routes/admin-dispatch.js',
+    '/volume1/web/wattsun/server.js'
+  ]
+}
+
+Node.js v20.9.0
+[admin-dispatch:update] Error: driver_id must reference an active Driver
+    at ensureDriverValidIfProvided (/volume1/web/wattsun/routes/admin-dispatch.js:90:17)
+    at async /volume1/web/wattsun/routes/admin-dispatch.js:418:7 {
+  http: 400,
+  code: 'NOT_DRIVER'
+}
+customer email failed: Missing credentials for "PLAIN"
+admin email failed: Missing credentials for "PLAIN"
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+[auto-sync] 2.3-C: history insert failed for dispatch 1 Error: SQLITE_CONSTRAINT: CHECK constraint failed: new_status IN ('Created','Assigned','InTransit','Delivered','Canceled')
+--> in Statement#run([ 1, 'Created', 1, 'auto due to order -> Pending' ], [Function: replacement])
+    at Database.<anonymous> (/volume1/web/wattsun/node_modules/sqlite3/lib/sqlite3.js:76:19)
+    at Database.<anonymous> (/volume1/web/wattsun/node_modules/sqlite3/lib/sqlite3.js:20:19)
+    at Database.<anonymous> (/volume1/web/wattsun/routes/admin-orders.js:207:16)
+    at /volume1/web/wattsun/routes/admin-orders.js:203:14
+    at Array.forEach (<anonymous>)
+    at Statement.<anonymous> (/volume1/web/wattsun/routes/admin-orders.js:202:14) {
+  errno: 19,
+  code: 'SQLITE_CONSTRAINT',
+  __augmented: true
+}
+[auto-sync] 2.3-C: history insert failed for dispatch 2 Error: SQLITE_CONSTRAINT: CHECK constraint failed: new_status IN ('Created','Assigned','InTransit','Delivered','Canceled')
+--> in Statement#run([ 2, 'Assigned', 1, 'auto due to order -> Pending' ], [Function: replacement])
+    at Database.<anonymous> (/volume1/web/wattsun/node_modules/sqlite3/lib/sqlite3.js:76:19)
+    at Database.<anonymous> (/volume1/web/wattsun/node_modules/sqlite3/lib/sqlite3.js:20:19)
+    at Database.<anonymous> (/volume1/web/wattsun/routes/admin-orders.js:208:16)
+    at /volume1/web/wattsun/routes/admin-orders.js:204:14
+    at Array.forEach (<anonymous>)
+    at Statement.<anonymous> (/volume1/web/wattsun/routes/admin-orders.js:203:14) {
+  errno: 19,
+  code: 'SQLITE_CONSTRAINT',
+  __augmented: true
+}
+[auto-sync] 2.3-C: history insert failed for dispatch 2 Error: SQLITE_CONSTRAINT: CHECK constraint failed: new_status IN ('Created','Assigned','InTransit','Delivered','Canceled')
+--> in Statement#run([ 2, 'Canceled', 1, 'auto due to order -> Pending' ], [Function: replacement])
+    at Database.<anonymous> (/volume1/web/wattsun/node_modules/sqlite3/lib/sqlite3.js:76:19)
+    at Database.<anonymous> (/volume1/web/wattsun/node_modules/sqlite3/lib/sqlite3.js:20:19)
+    at Database.<anonymous> (/volume1/web/wattsun/routes/admin-orders.js:208:16)
+    at /volume1/web/wattsun/routes/admin-orders.js:204:14
+    at Array.forEach (<anonymous>)
+    at Statement.<anonymous> (/volume1/web/wattsun/routes/admin-orders.js:203:14) {
+  errno: 19,
+  code: 'SQLITE_CONSTRAINT',
+  __augmented: true
+}
+[auto-sync] 2.3-C: history insert failed for dispatch 1 Error: SQLITE_CONSTRAINT: CHECK constraint failed: new_status IN ('Created','Assigned','InTransit','Delivered','Canceled')
+--> in Statement#run([ 1, 'Created', 1, 'auto due to order -> Pending' ], [Function: replacement])
+    at Database.<anonymous> (/volume1/web/wattsun/node_modules/sqlite3/lib/sqlite3.js:76:19)
+    at Database.<anonymous> (/volume1/web/wattsun/node_modules/sqlite3/lib/sqlite3.js:20:19)
+    at Database.<anonymous> (/volume1/web/wattsun/routes/admin-orders.js:208:16)
+    at /volume1/web/wattsun/routes/admin-orders.js:204:14
+    at Array.forEach (<anonymous>)
+    at Statement.<anonymous> (/volume1/web/wattsun/routes/admin-orders.js:203:14) {
+  errno: 19,
+  code: 'SQLITE_CONSTRAINT',
+  __augmented: true
+}
+/volume1/web/wattsun/routes/admin-orders.js:709
+router.delete("/:id/meta", requireAdmin, async (req, res) => {
+                           ^
+
+ReferenceError: requireAdmin is not defined
+    at Object.<anonymous> (/volume1/web/wattsun/routes/admin-orders.js:709:28)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+    at Module.load (node:internal/modules/cjs/loader:1091:32)
+    at Module._load (node:internal/modules/cjs/loader:938:12)
+    at Module.require (node:internal/modules/cjs/loader:1115:19)
+    at require (node:internal/modules/helpers:130:18)
+    at Object.<anonymous> (/volume1/web/wattsun/server.js:107:30)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+
+Node.js v20.9.0
+/volume1/web/wattsun/routes/admin-orders.js:709
+router.delete("/:id/meta", requireAdmin, async (req, res) => {
+                           ^
+
+ReferenceError: requireAdmin is not defined
+    at Object.<anonymous> (/volume1/web/wattsun/routes/admin-orders.js:709:28)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+    at Module.load (node:internal/modules/cjs/loader:1091:32)
+    at Module._load (node:internal/modules/cjs/loader:938:12)
+    at Module.require (node:internal/modules/cjs/loader:1115:19)
+    at require (node:internal/modules/helpers:130:18)
+    at Object.<anonymous> (/volume1/web/wattsun/server.js:107:30)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+
+Node.js v20.9.0
+/volume1/web/wattsun/routes/admin-orders.js:709
+router.delete("/:id/meta", requireAdmin, async (req, res) => {
+                           ^
+
+ReferenceError: requireAdmin is not defined
+    at Object.<anonymous> (/volume1/web/wattsun/routes/admin-orders.js:709:28)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+    at Module.load (node:internal/modules/cjs/loader:1091:32)
+    at Module._load (node:internal/modules/cjs/loader:938:12)
+    at Module.require (node:internal/modules/cjs/loader:1115:19)
+    at require (node:internal/modules/helpers:130:18)
+    at Object.<anonymous> (/volume1/web/wattsun/server.js:107:30)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+
+Node.js v20.9.0
+Failed to fetch users: [Error: SQLITE_ERROR: no such table: users] {
+  errno: 1,
+  code: 'SQLITE_ERROR'
+}
+[admin-orders:PUT status] ReferenceError: rollbackSet is not defined
+    at /volume1/web/wattsun/routes/admin-orders.js:581:26
+[admin-orders:PUT status] ReferenceError: rollbackSet is not defined
+    at /volume1/web/wattsun/routes/admin-orders.js:581:26
+Failed to fetch user: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT * FROM users WHERE id = ?', [ 'me' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at param (/volume1/web/wattsun/node_modules/express/lib/router/index.js:365:14)
+    at param (/volume1/web/wattsun/node_modules/express/lib/router/index.js:376:14)
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:421:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+Failed to fetch user: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT * FROM users WHERE id = ?', [ 'me' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at param (/volume1/web/wattsun/node_modules/express/lib/router/index.js:365:14)
+    at param (/volume1/web/wattsun/node_modules/express/lib/router/index.js:376:14)
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:421:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+Failed to fetch user: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT * FROM users WHERE id = ?', [ 'me' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at param (/volume1/web/wattsun/node_modules/express/lib/router/index.js:365:14)
+    at param (/volume1/web/wattsun/node_modules/express/lib/router/index.js:376:14)
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:421:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+Failed to fetch user: Error: SQLITE_ERROR: no such table: users
+--> in Database#get('SELECT * FROM users WHERE id = ?', [ 'me' ], [Function (anonymous)])
+    at /volume1/web/wattsun/routes/users.js:25:6
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at next (/volume1/web/wattsun/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/volume1/web/wattsun/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/volume1/web/wattsun/node_modules/express/lib/router/layer.js:95:5)
+    at /volume1/web/wattsun/node_modules/express/lib/router/index.js:284:15
+    at param (/volume1/web/wattsun/node_modules/express/lib/router/index.js:365:14)
+    at param (/volume1/web/wattsun/node_modules/express/lib/router/index.js:376:14)
+    at Function.process_params (/volume1/web/wattsun/node_modules/express/lib/router/index.js:421:3) {
+  errno: 1,
+  code: 'SQLITE_ERROR',
+  __augmented: true
+}
+node:internal/modules/cjs/loader:1051
+  throw err;
+  ^
+
+Error: Cannot find module '../lib/notify'
+Require stack:
+- /volume1/web/wattsun/routes/admin-loyalty.js
+- /volume1/web/wattsun/server.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1048:15)
+    at Module._load (node:internal/modules/cjs/loader:901:27)
+    at Module.require (node:internal/modules/cjs/loader:1115:19)
+    at require (node:internal/modules/helpers:130:18)
+    at Object.<anonymous> (/volume1/web/wattsun/routes/admin-loyalty.js:13:21)
+    at Module._compile (node:internal/modules/cjs/loader:1241:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1295:10)
+    at Module.load (node:internal/modules/cjs/loader:1091:32)
+    at Module._load (node:internal/modules/cjs/loader:938:12)
+    at Module.require (node:internal/modules/cjs/loader:1115:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/volume1/web/wattsun/routes/admin-loyalty.js',
+    '/volume1/web/wattsun/server.js'
+  ]
+}
+
+Node.js v20.9.0
