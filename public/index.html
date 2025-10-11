@@ -306,13 +306,7 @@
       if (login) login.style.display = "none";
       if (label) label.style.display = "none";
       if (logout) logout.style.display = "none";
-      label.textContent = user.name;
-      label.style.cursor = "pointer";
-      label.addEventListener("click", () => {
-        const target = user.type === "Admin" ? "/dashboard.html#system-status" : "/myaccount/userdash.html";
-        console.log("[auth] login success", data);
-            window.location.href = target;
-      });
+      
       logout.addEventListener("click", () => {
         localStorage.removeItem("wattsunUser");
         location.reload();
