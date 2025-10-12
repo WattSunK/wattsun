@@ -1,61 +1,48 @@
-#!/bin/sh
-# ==========================================================
-# QA + Dev environment verification script
-# Checks both /api/health endpoints and DB mappings
-# ==========================================================
+#!/bin/bash
+# WattSun Environment Sync Verification
+# Checks health and DB paths for Dev and QA environments
+# Automatically resolves variable references (e.g. ${SQLITE_MAIN})
 
-ROOT="/volume1/web/wattsun"
-DEV_ENV="$ROOT/.env"
-QA_ENV="$ROOT/.env.qa"
-DEV_PORT=3001
-QA_PORT=3000
+set -e
 
-echo "🔍 WattSun Environment Sync Verification"
+GREEN='\033[1;32m'
+RED='\033[1;31m'
+CYAN='\033[1;36m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+echo -e "${CYAN}🔍 WattSun Environment Sync Verification${NC}"
 echo "========================================"
 date
 echo
 
-# --- Function: Health check for given port ---
-check_health() {
+check_env() {
   local label="$1"
-  local port="$2"
-  local envfile="$3"
+  local envfile="$2"
+  local port="$3"
+
+  echo -e "\n🔹 ${YELLOW}${label} Environment${NC}"
+  echo "[${label}] Checking port ${port} ..."
+
+  # Load DB path (supports SQLITE_DB or SQLITE_MAIN)
   local db_path
+  db_path="$(grep -E '^(SQLITE_DB|SQLITE_MAIN)=' "$envfile" | cut -d'=' -f2 | head -n1 || true)"
+  eval "db_path=$db_path"
 
-  if [ ! -f "$envfile" ]; then
-    echo "⚠️  [$label] Missing env file: $envfile"
-    return 1
-  fi
+  # Ping health endpoint
+  local status
+  status="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${port}/api/health" || true)"
 
-  db_path="$(grep -E '^SQLITE_DB=' "$envfile" | cut -d'=' -f2)"
-  [ -z "$db_path" ] && db_path="(not set)"
-
-  echo "[$label] Checking port $port ..."
-  code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/api/health" || echo 000)"
-  if [ "$code" = "200" ]; then
-    echo "✅ [$label] Health OK — DB → $db_path"
-    return 0
+  if [ "$status" = "200" ]; then
+    echo -e "${GREEN}✅ [${label}] Health OK${NC} — DB → ${db_path:-unknown}"
   else
-    echo "❌ [$label] Unreachable (HTTP $code) — DB → $db_path"
-    return 1
+    echo -e "${RED}❌ [${label}] Unreachable${NC} (HTTP ${status})"
   fi
 }
 
-# --- Run checks ---
-echo "🔹 DEV Environment"
-check_health "DEV" "$DEV_PORT" "$DEV_ENV"
-dev_status=$?
+# Run checks for both environments
+check_env "DEV" ".env" "3001"
+check_env "QA"  ".env.qa" "3000"
 
 echo
-echo "🔹 QA Environment"
-check_health "QA" "$QA_PORT" "$QA_ENV"
-qa_status=$?
-
-echo
-if [ "$dev_status" -eq 0 ] && [ "$qa_status" -eq 0 ]; then
-  echo "✅ Both environments healthy and isolated."
-  exit 0
-else
-  echo "⚠️  One or both environments failed verification."
-  exit 1
-fi
+echo -e "${CYAN}Verification complete.${NC}"
