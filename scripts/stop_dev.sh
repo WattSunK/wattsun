@@ -1,15 +1,15 @@
 #!/bin/bash
 # ===========================================
-# 🟥 WattSun QA Environment Stopper
+# 🟥 WattSun Dev Environment Stopper
 # ===========================================
 
-PIDFILE="run/qa/app.pid"
+PIDFILE="run/dev/app.pid"
 if [ -f "$PIDFILE" ]; then
   PID=$(cat "$PIDFILE")
-  echo "[qa] Stopping WattSun QA server (PID $PID)..."
+  echo "[dev] Stopping WattSun Dev server (PID $PID)..."
   kill $PID 2>/dev/null || true
   rm -f "$PIDFILE"
-  echo "[qa] WattSun QA stopped."
+  echo "[dev] WattSun Dev stopped."
 else
-  echo "[qa] PID file not found — is QA running?"
+  echo "[dev] PID file not found — is Dev running?"
 fi
