@@ -6,7 +6,10 @@
 set -e
 
 ROOT="/volume1/web/wattsun"
-LOGFILE="$ROOT/logs/qa/restart_cycle.log"
+LOGDIR="$ROOT/logs/qa"
+LOGFILE="$LOGDIR/restart_cycle.log"
+
+mkdir -p "$LOGDIR"
 
 echo "========================================" | tee -a "$LOGFILE"
 echo "🔁 WattSun QA Restart Cycle — $(date)" | tee -a "$LOGFILE"
@@ -36,10 +39,13 @@ scripts/start_qa.sh >> "$LOGFILE" 2>&1
 
 # --- VERIFY HEALTH ---
 echo "🔍 Verifying both environments..." | tee -a "$LOGFILE"
-scripts/qa_sync_verify.sh | tee -a "$LOGFILE"
+if scripts/qa_sync_verify.sh | tee -a "$LOGFILE"; then
+  echo "✅ QA Restart successful — environments verified" | tee -a "$LOGFILE"
+else
+  echo "❌ QA Restart failed — check logs: $LOGFILE" | tee -a "$LOGFILE"
+fi
 
 echo | tee -a "$LOGFILE"
-echo "✅ Restart cycle complete at $(date)" | tee -a "$LOGFILE"
 echo "🌐 QA available at: http://127.0.0.1:3000/api/health" | tee -a "$LOGFILE"
 echo "📦 Logs: $LOGFILE"
 echo "========================================" | tee -a "$LOGFILE"
