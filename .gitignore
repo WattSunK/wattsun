@@ -1,6 +1,21 @@
+# === Runtime & Environment Protection ===
+data/
+logs/
+run/
 .env
-/run/*.pid
-/logs/*.log
-logs/*.gz
-/data/dev/*.db
-node_modules
+.env.*
+public/uploads/
+public/images/products/
+*.sqlite
+*.db
+
+# === Node & build system ===
+node_modules/
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# === Temporary files ===
+*.tmp
+*.bak
+*.swp
