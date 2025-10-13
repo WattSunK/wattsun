@@ -3,13 +3,11 @@
 # ♻️ WattSun Full Environment Restart (Dev + QA)
 # =====================================================
 
-# Always run from project root to avoid ESM bleed
 cd /volume1/web/wattsun || {
   echo "❌ Failed to enter /volume1/web/wattsun"
   exit 1
 }
 
-SCRIPTS_DIR="$(pwd)/scripts"
 LOG_DIR="$(pwd)/logs"
 mkdir -p "$LOG_DIR"
 
@@ -18,12 +16,11 @@ echo "🔁 Restarting WattSun environments — $(date)"
 echo "============================================================"
 
 # -------------------------------------------------
-# Step 1 — Stop any existing WattSun Node processes
+# Step 1 — Stop *all* Node processes bound to 3000/3001
 # -------------------------------------------------
 echo "🛑 Stopping existing WattSun Node processes..."
 
-PIDS=$(ps -ef | grep "node /volume1/web/wattsun/server.js" | grep -v grep | awk '{print $2}')
-
+PIDS=$(ps -ef | grep "[n]ode.*server\.js" | grep -E "3000|3001" | awk '{print $2}')
 if [ -n "$PIDS" ]; then
   echo "Found running processes: $PIDS"
   kill -9 $PIDS 2>/dev/null || true
@@ -33,6 +30,15 @@ else
   echo "No running WattSun Node processes found."
 fi
 
+# Safety double-check: free ports 3000/3001
+for PORT in 3000 3001; do
+  PROC=$(netstat -tlnp 2>/dev/null | grep ":$PORT" | awk '{print $7}' | cut -d'/' -f1)
+  if [ -n "$PROC" ]; then
+    echo "⚠️  Port $PORT still in use by PID $PROC — forcing kill"
+    kill -9 "$PROC" 2>/dev/null || true
+  fi
+done
+
 # -------------------------------------------------
 # Step 2 — Clean logs
 # -------------------------------------------------
@@ -41,7 +47,7 @@ echo "🧹 Cleaning old logs..."
 : > "$LOG_DIR/qa.log"
 
 # -------------------------------------------------
-# Step 3 — Helper to start one environment
+# Step 3 — Start helpers
 # -------------------------------------------------
 start_instance() {
   local NAME="$1"
@@ -49,10 +55,10 @@ start_instance() {
   local LOG_FILE="$LOG_DIR/${NAME}.log"
 
   echo "▶️  Launching ${NAME^^} (port $PORT)..."
-  nohup node server.js --port="$PORT" > "$LOG_FILE" 2>&1 &
+  nohup node server.js --port="$PORT" >"$LOG_FILE" 2>&1 &
   sleep 2
 
-  if ps -ef | grep "node server.js --port=$PORT" | grep -v grep >/dev/null; then
+  if netstat -tlnp 2>/dev/null | grep -q ":$PORT"; then
     echo "✅ ${NAME^^} running on port $PORT"
   else
     echo "❌ Failed to start ${NAME^^} — check $LOG_FILE"
