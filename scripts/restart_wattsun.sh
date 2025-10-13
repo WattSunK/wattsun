@@ -55,7 +55,7 @@ start_instance() {
   local LOG_FILE="$LOG_DIR/${NAME}.log"
 
   echo "▶️  Launching ${NAME^^} (port $PORT)..."
-  nohup node server.js --port="$PORT" >"$LOG_FILE" 2>&1 &
+  PORT=$PORT nohup node server.js >"$LOG_FILE" 2>&1 &
   sleep 2
 
   if netstat -tlnp 2>/dev/null | grep -q ":$PORT"; then
