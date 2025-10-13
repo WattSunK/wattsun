@@ -3,7 +3,7 @@
 # ♻️ WattSun Full Environment Restart (Dev + QA)
 # =====================================================
 
-# Always run from the WattSun project root to prevent ESM bleed from /web/marketplace
+# Always run from project root to avoid ESM bleed
 cd /volume1/web/wattsun || {
   echo "❌ Failed to enter /volume1/web/wattsun"
   exit 1
@@ -11,46 +11,67 @@ cd /volume1/web/wattsun || {
 
 SCRIPTS_DIR="$(pwd)/scripts"
 LOG_DIR="$(pwd)/logs"
-
 mkdir -p "$LOG_DIR"
 
-echo "🔄 Restarting WattSun environments..."
+echo "============================================================"
+echo "🔁 Restarting WattSun environments — $(date)"
+echo "============================================================"
 
-# -----------------------------
-# Helper: restart one instance
-# -----------------------------
-restart_instance() {
+# -------------------------------------------------
+# Step 1 — Stop any existing WattSun Node processes
+# -------------------------------------------------
+echo "🛑 Stopping existing WattSun Node processes..."
+
+PIDS=$(ps -ef | grep "node /volume1/web/wattsun/server.js" | grep -v grep | awk '{print $2}')
+
+if [ -n "$PIDS" ]; then
+  echo "Found running processes: $PIDS"
+  kill -9 $PIDS 2>/dev/null || true
+  sleep 2
+  echo "✅ All previous WattSun Node processes stopped."
+else
+  echo "No running WattSun Node processes found."
+fi
+
+# -------------------------------------------------
+# Step 2 — Clean logs
+# -------------------------------------------------
+echo "🧹 Cleaning old logs..."
+: > "$LOG_DIR/dev.log"
+: > "$LOG_DIR/qa.log"
+
+# -------------------------------------------------
+# Step 3 — Helper to start one environment
+# -------------------------------------------------
+start_instance() {
   local NAME="$1"
   local PORT="$2"
   local LOG_FILE="$LOG_DIR/${NAME}.log"
 
-  echo "🟩 Restarting ${NAME^} environment..."
-
-  PID=$(pgrep -f "server.js.*${PORT}" || true)
-  if [ -n "$PID" ]; then
-    echo "[${NAME}] Stopping PID $PID ..."
-    kill "$PID" 2>/dev/null || true
-    sleep 2
-  else
-    echo "[${NAME}] PID file not found — is ${NAME} running?"
-  fi
-
-  echo "[${NAME}] Starting WattSun ${NAME^} server on port $PORT ..."
+  echo "▶️  Launching ${NAME^^} (port $PORT)..."
   nohup node server.js --port="$PORT" > "$LOG_FILE" 2>&1 &
   sleep 2
 
-  if pgrep -f "server.js.*${PORT}" >/dev/null; then
-    echo "[${NAME}] WattSun ${NAME^} server running on port $PORT"
+  if ps -ef | grep "node server.js --port=$PORT" | grep -v grep >/dev/null; then
+    echo "✅ ${NAME^^} running on port $PORT"
   else
-    echo "[${NAME}] ❌ Failed to start on port $PORT — check $LOG_FILE"
+    echo "❌ Failed to start ${NAME^^} — check $LOG_FILE"
   fi
 }
 
-# -----------------------------
-# Restart both environments
-# -----------------------------
-restart_instance "dev" 3001
-restart_instance "qa" 3000
+# -------------------------------------------------
+# Step 4 — Start both environments
+# -------------------------------------------------
+start_instance "dev" 3001
+start_instance "qa" 3000
 
-echo "✅ WattSun restart cycle complete."
+# -------------------------------------------------
+# Step 5 — Verify
+# -------------------------------------------------
+echo "============================================================"
+echo "✅ Active Node processes (showing ports):"
+netstat -tlnp 2>/dev/null | grep -E ':3000|:3001' || echo "⚠️ No open WattSun ports detected"
+echo "============================================================"
 echo "Logs: $LOG_DIR/dev.log , $LOG_DIR/qa.log"
+echo "============================================================"
+echo "Done."
