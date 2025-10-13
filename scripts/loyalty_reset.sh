@@ -1,97 +1,78 @@
 #!/bin/bash
 # ============================================================
-# 🧹 Loyalty Reset Script — Full Clean + Seed One Test Account
-# Location: /volume1/web/wattsun/scripts/loyalty_reset.sh
+# 🔄 WattSun Loyalty Reset Utility
+# ------------------------------------------------------------
+# Resets user, order, dispatch, and loyalty data for QA or DEV
 # ============================================================
 
 set -e
-DB="/volume1/web/wattsun/data/dev/wattsun.dev.db"
-USER_EMAIL="wattsun1@gmail.com"
 
-echo "============================"
-echo "🧹 START: Loyalty Reset Script"
-echo "============================"
+# 1️⃣ Detect environment
+ENV="${1:-qa}"
+case "$ENV" in
+  qa|QA)
+    DB="/volume1/web/wattsun/data/qa/wattsun.qa.db"
+    ;;
+  dev|DEV)
+    DB="/volume1/web/wattsun/data/dev/wattsun.dev.db"
+    ;;
+  *)
+    echo "❌ Invalid environment. Use: qa or dev"
+    exit 1
+    ;;
+esac
 
-# ------------------------------------------------------------
-# 0️⃣  Clear all queued notifications before reset
-# ------------------------------------------------------------
+echo "============================================================"
+echo "🧩 WattSun Loyalty Reset Utility"
+echo "Target environment: ${ENV^^}"
+echo "Database: $DB"
+echo "============================================================"
+
+# 2️⃣ Check DB existence
+if [ ! -f "$DB" ]; then
+  echo "⚠️  Database not found at $DB — creating new empty file."
+  sqlite3 "$DB" "VACUUM;"
+fi
+
+# 3️⃣ Clean up data
+echo "🧹 Cleaning tables..."
 sqlite3 "$DB" <<'SQL'
-DELETE FROM notifications_queue WHERE status='Queued';
-DELETE FROM sqlite_sequence WHERE name='notifications_queue';
-SQL
-echo "🧹 Cleared all queued notifications."
-
-# ------------------------------------------------------------
-# 1️⃣  Clear loyalty tables
-# ------------------------------------------------------------
-sqlite3 "$DB" <<'SQL'
+DELETE FROM notifications_queue;
 DELETE FROM loyalty_ledger;
 DELETE FROM loyalty_accounts;
 DELETE FROM loyalty_withdrawal_meta;
-DELETE FROM sqlite_sequence WHERE name IN (
-  'loyalty_ledger',
-  'loyalty_accounts',
-  'loyalty_withdrawal_meta'
-);
+DELETE FROM orders;
+DELETE FROM dispatches;
+DELETE FROM users WHERE email LIKE 'wattsun%@gmail.com';
 SQL
-echo "✅ Loyalty tables cleared."
+echo "✅ Data cleanup complete."
 
-# ------------------------------------------------------------
-# 2️⃣  Create or reuse test user
-# ------------------------------------------------------------
-USER_ID=$(sqlite3 "$DB" "SELECT id FROM users WHERE email='$USER_EMAIL' LIMIT 1;")
+# 4️⃣ Create / update test user
+echo "👤 Creating test user wattsun1@gmail.com ..."
+HASH='$2b$10$fkDIkORHuXSjY27fd4WPE.0PJbeVvybjXxo2UKA362ZAh.ojodetS'  # Pass123 bcrypt hash
 
-if [ -z "$USER_ID" ]; then
-  echo "⚙️  Seeding user $USER_EMAIL ..."
-  sqlite3 "$DB" <<SQL
-  INSERT INTO users (name, email, phone, type, status, password_hash, created_at)
-  VALUES ('Wattsun Loyalty Tester', '$USER_EMAIL', '+254700000001', 'Customer', 'Active', '', datetime('now','localtime'));
-SQL
-  USER_ID=$(sqlite3 "$DB" "SELECT id FROM users WHERE email='$USER_EMAIL' LIMIT 1;")
-  echo "✅ Created user ID: $USER_ID"
-else
-  echo "ℹ️  Reusing existing user ID: $USER_ID"
-fi
-
-# ------------------------------------------------------------
-# 3️⃣  Seed loyalty account (program_id = 1)
-# ------------------------------------------------------------
-echo "⚙️  Creating sample loyalty account for $USER_EMAIL ..."
 sqlite3 "$DB" <<SQL
-INSERT INTO loyalty_accounts (
-  program_id,
-  user_id,
-  status,
-  start_date,
-  end_date,
-  eligible_from,
-  points_balance,
-  total_earned,
-  total_penalty,
-  total_paid,
-  created_at,
-  updated_at,
-  duration_months
-) VALUES (
-  1,
-  $USER_ID,
-  'Active',
-  date('now'),
-  date('now', '+12 months'),
-  date('now'),
-  1000,
-  1000,
-  0,
-  0,
-  datetime('now','localtime'),
-  datetime('now','localtime'),
-  12
-);
+INSERT INTO users (name, email, phone, type, role, status, password_hash)
+VALUES ('WattSun QA Admin', 'wattsun1@gmail.com', '+254722761215', 'Admin', 'Admin', 'Active', '$HASH')
+ON CONFLICT(email) DO UPDATE SET password_hash='$HASH', status='Active';
 SQL
-echo "✅ Seeded loyalty account for user ID: $USER_ID"
+echo "✅ Test user ready (email: wattsun1@gmail.com / password: Pass123)"
 
-# ------------------------------------------------------------
-# ✅ Done
-# ------------------------------------------------------------
-echo "🏁 END OF RESET – One seeded account ready for testing."
-echo "============================"
+# 5️⃣ Create loyalty account
+echo "💎 Seeding loyalty account with 1000 points ..."
+sqlite3 "$DB" <<'SQL'
+INSERT INTO loyalty_accounts (user_id, program_id, status, start_date, end_date, eligible_from, points_balance, total_earned)
+SELECT id, 1, 'Active', date('now'), date('now','+12 months'), date('now'), 1000, 1000
+FROM users WHERE email='wattsun1@gmail.com';
+INSERT INTO loyalty_ledger (account_id, kind, points_delta, note, created_at)
+SELECT id, 'seed', 1000, 'Initial seed for QA testing', datetime('now')
+FROM loyalty_accounts WHERE user_id=(SELECT id FROM users WHERE email='wattsun1@gmail.com');
+SQL
+echo "✅ Loyalty account seeded (1000 points)."
+
+# 6️⃣ Completion summary
+echo "============================================================"
+echo "🏁 QA/DEV Loyalty Reset Complete"
+sqlite3 "$DB" "SELECT id, email, phone, status FROM users WHERE email='wattsun1@gmail.com';"
+sqlite3 "$DB" "SELECT id, points_balance, total_earned FROM loyalty_accounts;"
+echo "============================================================"
