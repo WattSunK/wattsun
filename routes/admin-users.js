@@ -17,12 +17,21 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-const DB_PATH =
-  process.env.DB_PATH_USERS ||
-  process.env.SQLITE_DB ||
-  path.join(__dirname, "..", "data", "dev", "wattsun.dev.db");
+// ✅ Environment-aware DB path (surgical insert)
+const env = process.env.NODE_ENV || "dev";
+let DB_PATH;
+if (env === "qa") {
+  DB_PATH = path.join(__dirname, "..", "data/qa/wattsun.qa.db");
+} else {
+  DB_PATH =
+    process.env.DB_PATH_USERS ||
+    process.env.SQLITE_DB ||
+    path.join(__dirname, "..", "data/dev/wattsun.dev.db");
+}
 
 const db = new sqlite3.Database(DB_PATH);
+console.log(`[admin-users] Using DB at ${DB_PATH}`);
+
 
 // ============================================================
 // GET /api/admin/users  — list users with per-user orders count

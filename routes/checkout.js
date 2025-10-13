@@ -7,9 +7,16 @@ const router = express.Router();
 // JSON only (no urlencoded fallback)
 router.use(express.json({ limit: "1mb" }));
 
-const DB_PATH =
-  process.env.WATTSUN_DB ||
-  path.join(__dirname, "../data/dev/wattsun.dev.db");
+// ✅ Environment-aware DB path (surgical insert)
+const env = process.env.NODE_ENV || "dev";
+let DB_PATH;
+if (env === "qa") {
+  DB_PATH = path.join(__dirname, "../data/qa/wattsun.qa.db");
+} else {
+  DB_PATH =
+    process.env.WATTSUN_DB ||
+    path.join(__dirname, "../data/dev/wattsun.dev.db");
+}
 
 const db = new sqlite3.Database(DB_PATH, (err) => {
   if (err) console.error("[checkout] DB open error:", err);
@@ -48,9 +55,9 @@ router.post("/", async (req, res) => {
 
     // normalize & validate items
     const normItems = items.map((it) => {
-    const qty = Math.max(1, Number(it.quantity || 1));
-    const price = Number(it.priceCents ? it.priceCents / 100 : it.price || 0);
-    const dep   = Number(it.depositCents ? it.depositCents / 100 : it.deposit || 0);
+      const qty = Math.max(1, Number(it.quantity || 1));
+      const price = Number(it.priceCents ? it.priceCents / 100 : it.price || 0);
+      const dep   = Number(it.depositCents ? it.depositCents / 100 : it.deposit || 0);
 
       return {
         id:   it.id || it.sku || it.name || "",
@@ -64,19 +71,19 @@ router.post("/", async (req, res) => {
     });
 
     const totalKES   = normItems.reduce((s, it) => s + (it.price * it.quantity), 0);
-    const depositKES = Number(deposit ?? req.body.depositCents / 100 ?? 0); // single total deposit per your spec
-        if (totalKES <= 0) {
+    const depositKES = Number(deposit ?? req.body.depositCents / 100 ?? 0);
+    if (totalKES <= 0) {
       return res.status(400).json({ success:false, message:"Invalid cart item prices" });
     }
 
     const orderId       = makeOrderId();
-    const orderNumber   = orderId; // keep equal for now
+    const orderNumber   = orderId;
     const totalCents    = toCents(totalKES);
     const depositCents  = toCents(depositKES);
     const currency      = "KES";
     const status        = "Pending";
     const addr          = address || deliveryAddress || "";
-    const createdAt     = new Date().toISOString(); // ISO like imported legacy rows
+    const createdAt     = new Date().toISOString();
 
     db.serialize(() => {
       db.run("BEGIN IMMEDIATE");
@@ -111,7 +118,7 @@ router.post("/", async (req, res) => {
               String(it.name || ""),
               it.quantity,
               toCents(it.price),
-              toCents(it.deposit), // optional per-line deposit
+              toCents(it.deposit),
               String(it.image || "")
             );
           }
@@ -123,7 +130,6 @@ router.post("/", async (req, res) => {
               return res.status(500).json({ success:false, message:"DB error (order_items)" });
             }
 
-            // notifications_queue (admin + customer). SMTP will be wired later.
             const payloadAdmin = JSON.stringify({
               to: process.env.ADMIN_EMAIL || "admin@example.com",
               subject: `New order ${orderNumber}`,
@@ -152,7 +158,6 @@ We’ll contact you shortly.`
 
             nq.finalize((e3) => {
               if (e3) {
-                // don't fail the order if notifications insert fails
                 console.warn("[checkout] notifications_queue warning:", e3);
               }
               db.run("COMMIT");

@@ -263,10 +263,15 @@ app.put("/api/admin/email", async (req, res) => {
 
 app.get("/api/health", (_req, res) => res.status(200).send("OK"));
 app.get("/api/test", (_req, res) => res.send("✅ Test route works"));
+
+// ✅ Add this small block here — before the root index.html route
+app.get("/api/env", (_req, res) => {
+  res.json({ env: process.env.NODE_ENV || "dev" });
+});
+
 app.get("/", (_req, res) =>
   res.sendFile(path.join(__dirname, "public", "index.html"))
 );
-
 /* =========================
    Boot
    ========================= */

@@ -52,6 +52,37 @@
 </style>
   
 </head>
+<!-- Environment Banner -->
+<script>
+(async () => {
+  let env = "DEV";
+  try {
+    const res = await fetch("/api/env");
+    const data = await res.json();
+    env = (data.env || "DEV").toUpperCase();
+  } catch {
+    env = location.hostname.includes("qa") ? "QA" : "DEV";
+  }
+
+  const banner = document.createElement("div");
+  banner.style.cssText = `
+    background: ${env === "QA" ? "#ffeb3b" : "#4caf50"};
+    color: ${env === "QA" ? "#000" : "#fff"};
+    text-align: center;
+    padding: 6px;
+    font-weight: bold;
+    font-size: 14px;
+  `;
+  banner.textContent =
+    env === "QA"
+      ? "QA Environment — Build v2025.10.13"
+      : "DEV Environment — Build v2025.10.13";
+  document.body.prepend(banner);
+})();
+</script>
+<!-- End Environment Banner -->
+
+
 <body>
 
 <!-- Login Modal -->
