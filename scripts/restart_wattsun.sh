@@ -1,83 +1,66 @@
+# ==========================================
+# 🟩 restart_wattsun.sh (patched)
+# ==========================================
 #!/bin/bash
-# =====================================================
-# ♻️ WattSun Full Environment Restart (Dev + QA)
-# =====================================================
+# Restart both DEV and QA environments for WattSun
 
-cd /volume1/web/wattsun || {
-  echo "❌ Failed to enter /volume1/web/wattsun"
-  exit 1
-}
 
-LOG_DIR="$(pwd)/logs"
-mkdir -p "$LOG_DIR"
-
-echo "============================================================"
-echo "🔁 Restarting WattSun environments — $(date)"
-echo "============================================================"
-
-# -------------------------------------------------
-# Step 1 — Stop *all* Node processes bound to 3000/3001
-# -------------------------------------------------
-echo "🛑 Stopping existing WattSun Node processes..."
-
-PIDS=$(ps -ef | grep "[n]ode.*server\.js" | grep -E "3000|3001" | awk '{print $2}')
-if [ -n "$PIDS" ]; then
-  echo "Found running processes: $PIDS"
-  kill -9 $PIDS 2>/dev/null || true
-  sleep 2
-  echo "✅ All previous WattSun Node processes stopped."
-else
-  echo "No running WattSun Node processes found."
-fi
-
-# Safety double-check: free ports 3000/3001
-for PORT in 3000 3001; do
-  PROC=$(netstat -tlnp 2>/dev/null | grep ":$PORT" | awk '{print $7}' | cut -d'/' -f1)
-  if [ -n "$PROC" ]; then
-    echo "⚠️  Port $PORT still in use by PID $PROC — forcing kill"
-    kill -9 "$PROC" 2>/dev/null || true
-  fi
-done
-
-# -------------------------------------------------
-# Step 2 — Clean logs
-# -------------------------------------------------
-echo "🧹 Cleaning old logs..."
-: > "$LOG_DIR/dev.log"
-: > "$LOG_DIR/qa.log"
-
-# -------------------------------------------------
-# Step 3 — Start helpers
-# -------------------------------------------------
 start_instance() {
-  local NAME="$1"
-  local PORT="$2"
-  local LOG_FILE="$LOG_DIR/${NAME}.log"
+local NAME="$1"
+local PORT="$2"
+local ROOT="/volume1/web/wattsun"
+local LOG_FILE="$ROOT/logs/${NAME}.log"
 
-  echo "▶️  Launching ${NAME^^} (port $PORT)..."
-  PORT=$PORT nohup node server.js >"$LOG_FILE" 2>&1 &
-  sleep 2
 
-  if netstat -tlnp 2>/dev/null | grep -q ":$PORT"; then
-    echo "✅ ${NAME^^} running on port $PORT"
-  else
-    echo "❌ Failed to start ${NAME^^} — check $LOG_FILE"
-  fi
+echo "==========================================================="
+echo "▶️ Launching ${NAME^^} Environment"
+echo "PORT=$PORT"
+echo "==========================================================="
+
+
+# --- Environment context per instance ---
+export NODE_ENV=$NAME
+export DB_PATH_USERS="$ROOT/data/$NAME/wattsun.$NAME.db"
+export DB_PATH_INVENTORY="$ROOT/data/$NAME/inventory.$NAME.db"
+export SQLITE_DB="$ROOT/data/$NAME/wattsun.$NAME.db"
+
+
+echo "🌐 Environment for ${NAME^^}:"
+echo "NODE_ENV=$NODE_ENV"
+echo "DB_PATH_USERS=$DB_PATH_USERS"
+echo "SQLITE_DB=$SQLITE_DB"
+echo "------------------------------------------------------------"
+
+
+nohup env NODE_ENV=$NODE_ENV \
+DB_PATH_USERS=$DB_PATH_USERS \
+DB_PATH_INVENTORY=$DB_PATH_INVENTORY \
+SQLITE_DB=$SQLITE_DB \
+PORT=$PORT \
+node server.js > "$LOG_FILE" 2>&1 &
+
+
+echo $! > "/volume1/web/wattsun/run/${NAME}/app.pid"
+sleep 2
+
+
+if netstat -tlnp 2>/dev/null | grep -q ":$PORT"; then
+echo "✅ ${NAME^^} running on port $PORT"
+else
+echo "❌ Failed to start ${NAME^^} — check $LOG_FILE"
+fi
 }
 
-# -------------------------------------------------
-# Step 4 — Start both environments
-# -------------------------------------------------
-start_instance "dev" 3001
-start_instance "qa" 3000
 
-# -------------------------------------------------
-# Step 5 — Verify
-# -------------------------------------------------
-echo "============================================================"
-echo "✅ Active Node processes (showing ports):"
-netstat -tlnp 2>/dev/null | grep -E ':3000|:3001' || echo "⚠️ No open WattSun ports detected"
-echo "============================================================"
-echo "Logs: $LOG_DIR/dev.log , $LOG_DIR/qa.log"
-echo "============================================================"
-echo "Done."
+echo "♻️ Restarting WattSun DEV and QA environments..."
+
+
+sudo pkill -f "node server.js" || true
+sleep 2
+
+
+start_instance dev 3001
+start_instance qa 3000
+
+
+echo "♻️ All environments restarted."
