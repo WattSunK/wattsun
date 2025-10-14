@@ -42,8 +42,9 @@ read -p "⚠️  This will ERASE all user, order, dispatch, and loyalty data for
 
 # 4️⃣ Schema verification
 echo "🔍 Verifying schema..."
-sqlite3 "$DB" "
-CREATE TABLE IF NOT EXISTS users (
+echo "🔍 Verifying schema..."
+
+sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT,
   email TEXT UNIQUE,
@@ -53,16 +54,15 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT,
   status TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-"
+);"
+
 HAS_ROLE=$(sqlite3 "$DB" "PRAGMA table_info(users);" | grep -c '|role|')
 if [ "$HAS_ROLE" -eq 0 ]; then
   sqlite3 "$DB" "ALTER TABLE users ADD COLUMN role TEXT;"
   echo "🧱 Added missing column 'role' to users table."
 fi
 
-sqlite3 "$DB" "
-CREATE TABLE IF NOT EXISTS loyalty_accounts (
+sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS loyalty_accounts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER,
   program_id INTEGER,
@@ -72,31 +72,35 @@ CREATE TABLE IF NOT EXISTS loyalty_accounts (
   eligible_from TEXT,
   points_balance INTEGER DEFAULT 0,
   total_earned INTEGER DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS loyalty_ledger (
+);"
+
+sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS loyalty_ledger (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   account_id INTEGER,
   kind TEXT,
   points_delta INTEGER,
   note TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS loyalty_withdrawal_meta (
+);"
+
+sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS loyalty_withdrawal_meta (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   account_id INTEGER,
   points INTEGER,
   status TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS notifications_queue (
+);"
+
+sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS notifications_queue (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   kind TEXT,
   user_id INTEGER,
   account_id INTEGER,
   status TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS orders (
+);"
+
+sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   orderNumber TEXT,
   user_id INTEGER,
@@ -105,29 +109,32 @@ CREATE TABLE IF NOT EXISTS orders (
   currency TEXT,
   status TEXT,
   createdAt TEXT DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS order_items (
+);"
+
+sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS order_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   order_id INTEGER,
   product_id INTEGER,
   quantity INTEGER,
   priceCents INTEGER
-);
-CREATE TABLE IF NOT EXISTS dispatches (
+);"
+
+sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS dispatches (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   order_id INTEGER,
   driver_id INTEGER,
   status TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS dispatch_status_history (
+);"
+
+sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS dispatch_status_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   dispatch_id INTEGER,
   status TEXT,
   note TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-"
+);"
+
 echo "✅ Schema verified."
 
 # 5️⃣ Clean up data
