@@ -62,7 +62,7 @@ echo "✅ Data cleanup complete."
 # 4️⃣ Seeding Phase
 # ============================================================
 echo "👤 Creating test admin user (wattsun1@gmail.com) ..."
-HASH='$2b$10$oudaFNw74GFgCCbP9BmGQeUJBhOAK3FK9sWHBWFZWRbCX.4QbE.Oe'
+HASH='$2b$10$Wh1kGGTja8uQWLp9DZhdQusf5Yc4HZAbiOkVdqOzWrM.kSnJDfHLu'
 sqlite3 "$DB" <<SQL
 INSERT INTO users (name, email, phone, type, status, password_hash)
 VALUES ('WattSun Admin', 'wattsun1@gmail.com', '+254722761215', 'Admin', 'Active', '$HASH')
