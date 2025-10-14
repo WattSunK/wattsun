@@ -28,8 +28,8 @@ echo -e "============================================================${NC}"
 echo -e "${YELLOW}🧩 Pulling latest code from GitHub main...${NC}"
 cd "$ROOT" || exit 1
 if [ -d .git ]; then
-  sudo git fetch --all
-  sudo git reset --hard origin/main
+  sudo -u 53Bret git fetch --all
+  sudo -u 53Bret git reset --hard origin/main
   CURRENT_SHA=$(git rev-parse --short HEAD)
   echo -e "${GREEN}✅ Code synced to commit: ${CURRENT_SHA}${NC}"
 else
