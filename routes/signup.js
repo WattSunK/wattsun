@@ -35,9 +35,7 @@ router.post(["/", "/signup"], (req, res) => {
 
   const now = new Date().toISOString().replace("T"," ").replace("Z","");
   const bcrypt = require("bcryptjs");
-  const hash = bcrypt.hashSync(password, 10);
-
-
+  const hash = bcrypt.hashSync(password, 10).trim();
   withDb(db => {
     // Pre-check (best-effort); insert also guards with UNIQUE handling
     db.get(
