@@ -3,12 +3,7 @@ const express = require("express");
 const path = require("path");
 const Database = require("better-sqlite3");   // ✅ use same sync API as rest of app
 
-let bcrypt;
-try {
-  bcrypt = require("bcryptjs");
-} catch {
-  bcrypt = null;
-}
+const bcrypt = require("bcrypt");
 
 const router = express.Router();
 router.use(express.json());
