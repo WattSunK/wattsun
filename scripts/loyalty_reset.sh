@@ -1,16 +1,13 @@
 #!/bin/bash
 # ============================================================
-# ðŸ”„ WattSun Loyalty Reset Utility
+# WattSun Loyalty Reset Utility
 # ------------------------------------------------------------
 # Resets user, order, dispatch, and loyalty data for QA or DEV
 # ============================================================
 
-set -x
-trap 'echo "❌ Script stopped at line $LINENO (exit $?)"' ERR
-set +e
+set -e
 
-
-# 1ï¸âƒ£ Detect environment
+# Detect environment
 ENV="${1:-qa}"
 case "$ENV" in
   qa|QA)
