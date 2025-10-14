@@ -30,9 +30,11 @@ echo "============================================================"
 
 # 2️⃣ Check DB existence
 if [ ! -f "$DB" ]; then
-  echo "⚠️  Database not found at $DB — creating new empty file."
-  sqlite3 "$DB" "VACUUM;"
+  echo "❌ Database not found at $DB"
+  echo "Aborting — reset script only works on existing databases."
+  exit 1
 fi
+
 
 # 3️⃣ Confirmation prompt
 read -p "⚠️  This will ERASE all user, order, dispatch, and loyalty data for '$ENV'. Continue? (y/N): " CONFIRM
