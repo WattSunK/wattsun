@@ -2,11 +2,11 @@
 set -e
 
 # ============================================================
-# 🧩 WattSun Loyalty Reset Utility
+# 🧩 WattSun Loyalty Reset Utility (Data-Only)
 # ------------------------------------------------------------
-# Cleans all data from user, order, dispatch, and loyalty tables
-# for the selected environment (qa or dev), then seeds one
-# admin user and one loyalty account.
+# Cleans all data from key tables (users, orders, dispatches,
+# loyalty, notifications) and reseeds one Admin user with a
+# loyalty account (1000 pts).
 # ============================================================
 
 ENV="${1:-qa}"
@@ -25,7 +25,7 @@ case "$ENV" in
 esac
 
 echo "============================================================"
-echo "🧩 WattSun Loyalty Reset Utility"
+echo "🧩 WattSun Loyalty Reset Utility (Data-Only)"
 echo "Target environment: ${ENV^^}"
 echo "Database: $DB"
 echo "============================================================"
@@ -42,102 +42,7 @@ read -p "⚠️  This will ERASE all user, order, dispatch, and loyalty data for
 [[ "$CONFIRM" =~ ^[Yy]$ ]] || { echo "❌ Aborted."; exit 1; }
 
 # ============================================================
-# 3️⃣ Schema verification
-# ============================================================
-echo "🔍 Verifying schema..."
-
-sqlite3 "$DB" <<'SQL' || true
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT,
-  email TEXT UNIQUE,
-  phone TEXT,
-  password_hash TEXT,
-  type TEXT,
-  role TEXT,
-  status TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-SQL
-
-HAS_ROLE=$(sqlite3 "$DB" "PRAGMA table_info(users);" | grep -c '|role|')
-if [ "$HAS_ROLE" -eq 0 ]; then
-  sqlite3 "$DB" "ALTER TABLE users ADD COLUMN role TEXT;"
-  echo "🧱 Added missing column 'role' to users table."
-fi
-
-sqlite3 "$DB" <<'SQL'
-CREATE TABLE IF NOT EXISTS loyalty_accounts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER,
-  program_id INTEGER,
-  status TEXT,
-  start_date TEXT,
-  end_date TEXT,
-  eligible_from TEXT,
-  points_balance INTEGER DEFAULT 0,
-  total_earned INTEGER DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS loyalty_ledger (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  account_id INTEGER,
-  kind TEXT,
-  points_delta INTEGER,
-  note TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS loyalty_withdrawal_meta (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  account_id INTEGER,
-  points INTEGER,
-  status TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS notifications_queue (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind TEXT,
-  user_id INTEGER,
-  account_id INTEGER,
-  status TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS orders (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  orderNumber TEXT,
-  user_id INTEGER,
-  totalCents INTEGER,
-  depositCents INTEGER,
-  currency TEXT,
-  status TEXT,
-  createdAt TEXT DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS order_items (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  order_id INTEGER,
-  product_id INTEGER,
-  quantity INTEGER,
-  priceCents INTEGER
-);
-CREATE TABLE IF NOT EXISTS dispatches (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  order_id INTEGER,
-  driver_id INTEGER,
-  status TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS dispatch_status_history (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  dispatch_id INTEGER,
-  status TEXT,
-  note TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-SQL
-
-echo "✅ Schema verified."
-
-# ============================================================
-# 4️⃣ Cleanup Phase
+# 3️⃣ Cleanup Phase
 # ============================================================
 echo "🧹 Cleaning tables..."
 sqlite3 "$DB" <<'SQL'
@@ -154,14 +59,14 @@ SQL
 echo "✅ Data cleanup complete."
 
 # ============================================================
-# 5️⃣ Seeding Phase
+# 4️⃣ Seeding Phase
 # ============================================================
 echo "👤 Creating test admin user (wattsun1@gmail.com) ..."
 HASH='$2b$10$oudaFNw74GFgCCbP9BmGQeUJBhOAK3FK9sWHBWFZWRbCX.4QbE.Oe'
 sqlite3 "$DB" <<SQL
-INSERT INTO users (name, email, phone, type, role, status, password_hash)
-VALUES ('WattSun Admin', 'wattsun1@gmail.com', '+254722761215', 'Admin', 'Admin', 'Active', '$HASH')
-ON CONFLICT(email) DO UPDATE SET password_hash='$HASH', status='Active', role='Admin';
+INSERT INTO users (name, email, phone, type, status, password_hash)
+VALUES ('WattSun Admin', 'wattsun1@gmail.com', '+254722761215', 'Admin', 'Active', '$HASH')
+ON CONFLICT(email) DO UPDATE SET password_hash='$HASH', status='Active';
 SQL
 echo "✅ Test admin user ready (email: wattsun1@gmail.com / password: Pass123)"
 
@@ -175,7 +80,7 @@ SQL
 echo "✅ Loyalty account seeded (1000 points)."
 
 # ============================================================
-# 6️⃣ Summary Output
+# 5️⃣ Summary Output
 # ============================================================
 echo "============================================================"
 echo "🏁 ${ENV^^} Loyalty Reset Complete"
@@ -187,6 +92,6 @@ for T in users orders order_items dispatches dispatch_status_history loyalty_acc
 done
 
 echo "============================================================"
-sqlite3 "$DB" "SELECT id, email, phone, role, status FROM users WHERE email='wattsun1@gmail.com';"
+sqlite3 "$DB" "SELECT id, email, phone, status FROM users WHERE email='wattsun1@gmail.com';"
 sqlite3 "$DB" "SELECT id, points_balance, total_earned FROM loyalty_accounts;"
 echo "============================================================"
