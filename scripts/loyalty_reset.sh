@@ -1,14 +1,16 @@
 #!/bin/bash
-# ============================================================
-# WattSun Loyalty Reset Utility
-# ------------------------------------------------------------
-# Resets user, order, dispatch, and loyalty data for QA or DEV
-# ============================================================
-
 set -e
 
-# Detect environment
+# ============================================================
+# 🧩 WattSun Loyalty Reset Utility
+# ------------------------------------------------------------
+# Cleans all data from user, order, dispatch, and loyalty tables
+# for the selected environment (qa or dev), then seeds one
+# admin user and one loyalty account.
+# ============================================================
+
 ENV="${1:-qa}"
+
 case "$ENV" in
   qa|QA)
     DB="/volume1/web/wattsun/data/qa/wattsun.qa.db"
@@ -17,31 +19,34 @@ case "$ENV" in
     DB="/volume1/web/wattsun/data/dev/wattsun.dev.db"
     ;;
   *)
-    echo "âŒ Invalid environment. Use: qa or dev"
+    echo "Usage: $0 [dev|qa]"
     exit 1
     ;;
 esac
 
 echo "============================================================"
-echo "ðŸ§© WattSun Loyalty Reset Utility"
+echo "🧩 WattSun Loyalty Reset Utility"
 echo "Target environment: ${ENV^^}"
 echo "Database: $DB"
 echo "============================================================"
 
-# 2️⃣ Check DB existence
+# 1️⃣ Verify database exists
 if [ ! -f "$DB" ]; then
   echo "❌ Database not found at $DB"
   echo "Aborting — reset script only works on existing databases."
   exit 1
 fi
 
-# Confirmation prompt
-read -p "This will ERASE all user, order, dispatch, and loyalty data for '$ENV'. Continue? (y/N): " CONFIRM
+# 2️⃣ Confirm action
+read -p "⚠️  This will ERASE all user, order, dispatch, and loyalty data for '$ENV'. Continue? (y/N): " CONFIRM
 [[ "$CONFIRM" =~ ^[Yy]$ ]] || { echo "❌ Aborted."; exit 1; }
 
-# Schema verification
+# ============================================================
+# 3️⃣ Schema verification
+# ============================================================
 echo "🔍 Verifying schema..."
-sqlite3 "$DB" "
+
+sqlite3 "$DB" <<'SQL' || true
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT,
@@ -52,14 +57,16 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT,
   status TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);" || true
+);
+SQL
+
 HAS_ROLE=$(sqlite3 "$DB" "PRAGMA table_info(users);" | grep -c '|role|')
 if [ "$HAS_ROLE" -eq 0 ]; then
   sqlite3 "$DB" "ALTER TABLE users ADD COLUMN role TEXT;"
-  echo "ðŸ§± Added missing column 'role' to users table."
+  echo "🧱 Added missing column 'role' to users table."
 fi
 
-sqlite3 "$DB" "
+sqlite3 "$DB" <<'SQL'
 CREATE TABLE IF NOT EXISTS loyalty_accounts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER,
@@ -125,11 +132,14 @@ CREATE TABLE IF NOT EXISTS dispatch_status_history (
   note TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
-"
-echo "âœ… Schema verified."
+SQL
 
-#  Clean up data
-echo "ðŸ§¹ Cleaning tables..."
+echo "✅ Schema verified."
+
+# ============================================================
+# 4️⃣ Cleanup Phase
+# ============================================================
+echo "🧹 Cleaning tables..."
 sqlite3 "$DB" <<'SQL'
 DELETE FROM notifications_queue;
 DELETE FROM loyalty_ledger;
@@ -141,39 +151,41 @@ DELETE FROM dispatch_status_history;
 DELETE FROM dispatches;
 DELETE FROM users;
 SQL
-echo "âœ… Data cleanup complete."
+echo "✅ Data cleanup complete."
 
-# Create / update test user
-echo "ðŸ‘¤ Creating test admin user (wattsun1@gmail.com) ..."
-HASH='$2b$10$oudaFNw74GFgCCbP9BmGQeUJBhOAK3FK9sWHBWFZWRbCX.4QbE.Oe'  # Pass123 bcrypt hash
-
+# ============================================================
+# 5️⃣ Seeding Phase
+# ============================================================
+echo "👤 Creating test admin user (wattsun1@gmail.com) ..."
+HASH='$2b$10$oudaFNw74GFgCCbP9BmGQeUJBhOAK3FK9sWHBWFZWRbCX.4QbE.Oe'
 sqlite3 "$DB" <<SQL
 INSERT INTO users (name, email, phone, type, role, status, password_hash)
 VALUES ('WattSun Admin', 'wattsun1@gmail.com', '+254722761215', 'Admin', 'Admin', 'Active', '$HASH')
 ON CONFLICT(email) DO UPDATE SET password_hash='$HASH', status='Active', role='Admin';
 SQL
-echo "âœ… Test admin user ready (email: wattsun1@gmail.com / password: Pass123)"
+echo "✅ Test admin user ready (email: wattsun1@gmail.com / password: Pass123)"
 
-#  Create loyalty account
-echo "ðŸ’Ž Seeding loyalty account with 1000 points ..."
+echo "💎 Seeding loyalty account with 1000 points ..."
 sqlite3 "$DB" <<'SQL'
-INSERT INTO loyalty_accounts (user_id, program_id, status, start_date, end_date, eligible_from, points_balance, total_earned)
-SELECT id, 1, 'Active', date('now'), date('now','+12 months'), date('now'), 1000, 1000
-FROM users WHERE email='wattsun1@gmail.com';
-INSERT INTO loyalty_ledger (account_id, kind, points_delta, note, created_at)
-SELECT id, 'enroll', 1000, 'Enrollment seed for QA/DEV testing', datetime('now')
-FROM loyalty_accounts WHERE user_id=(SELECT id FROM users WHERE email='wattsun1@gmail.com');
+INSERT INTO loyalty_accounts (user_id, points_balance, total_earned, status)
+VALUES (1, 1000, 1000, 'Active');
+INSERT INTO loyalty_ledger (account_id, kind, points_delta, note)
+VALUES (1, 'enroll', 1000, 'Initial enrollment bonus');
 SQL
-echo "âœ… Loyalty account seeded (1000 points)."
+echo "✅ Loyalty account seeded (1000 points)."
 
-#  Completion summary
+# ============================================================
+# 6️⃣ Summary Output
+# ============================================================
 echo "============================================================"
-echo "ðŸ ${ENV^^} Loyalty Reset Complete"
-echo "ðŸ“Š Table counts after reset:"
+echo "🏁 ${ENV^^} Loyalty Reset Complete"
+echo "📊 Table counts after reset:"
+
 for T in users orders order_items dispatches dispatch_status_history loyalty_accounts loyalty_ledger notifications_queue; do
   CNT=$(sqlite3 "$DB" "SELECT COUNT(*) FROM $T;")
   printf " - %-28s %s\n" "$T" "$CNT"
 done
+
 echo "============================================================"
 sqlite3 "$DB" "SELECT id, email, phone, role, status FROM users WHERE email='wattsun1@gmail.com';"
 sqlite3 "$DB" "SELECT id, points_balance, total_earned FROM loyalty_accounts;"
