@@ -4,8 +4,6 @@ const express = require("express");
 const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 
-let bcrypt; try { bcrypt = require("bcryptjs"); } catch { bcrypt = null; }
-
 const router = express.Router();
 
 // Accept both JSON and URL-encoded payloads
