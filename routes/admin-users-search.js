@@ -9,7 +9,12 @@ const sqlite3 = require('sqlite3').verbose();
 const router = express.Router();
 
 // Resolve DB path (unified dev/prod env)
-const dbPath = process.env.WATTSUN_DB || path.join(process.cwd(), 'data', 'dev', 'wattsun.dev.db');
+const env = process.env.NODE_ENV || 'dev';
+const dbPath =
+  process.env.WATTSUN_DB ||
+  (env === 'qa'
+    ? '/volume1/web/wattsun/data/qa/wattsun.qa.db'
+    : path.join(process.cwd(), 'data', 'dev', 'wattsun.dev.db'));
 const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
   if (err) {
     console.error('[admin-users-search] Failed to open DB at', dbPath, err);
