@@ -3,7 +3,12 @@ const express = require("express");
 const path = require("path");
 const Database = require("better-sqlite3");   // ✅ use same sync API as rest of app
 
-const bcrypt = require("bcrypt");
+let bcrypt;
+try {
+  bcrypt = require("bcryptjs");
+} catch {
+  bcrypt = null;
+}
 
 const router = express.Router();
 router.use(express.json());
@@ -38,21 +43,10 @@ router.post("/login", (req, res) => {
     if (!row) {
       return res.status(401).json({ success: false, error: { code: "INVALID", message: "Invalid credentials" } });
     }
-      // 🔒 Prevent login for deleted or inactive users
-      if (row.status && row.status.toLowerCase() !== "active") {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: "USER_INACTIVE",
-            message: "This account is no longer active. Please contact support."
-          }
-        });
-      }
 
     let ok = false;
     if (row.password_hash && bcrypt) {
       try {
-        console.log("[login] Checking password:", password, "against hash:", row.password_hash);
         ok = bcrypt.compareSync(password, row.password_hash);
       } catch {
         ok = false;

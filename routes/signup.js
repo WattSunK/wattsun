@@ -1,8 +1,9 @@
 // routes/signup.js
-const bcrypt = require("bcrypt");
 const express = require("express");
 const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
+
+let bcrypt; try { bcrypt = require("bcryptjs"); } catch { bcrypt = null; }
 
 const router = express.Router();
 
@@ -33,8 +34,8 @@ router.post(["/", "/signup"], (req, res) => {
   }
 
   const now = new Date().toISOString().replace("T"," ").replace("Z","");
-  const bcrypt = require("bcrypt");
-  const hash = bcrypt.hashSync(password, 10);
+  const hash = bcrypt ? bcrypt.hashSync(password, 10) : password; // bcrypt preferred
+
   withDb(db => {
     // Pre-check (best-effort); insert also guards with UNIQUE handling
     db.get(

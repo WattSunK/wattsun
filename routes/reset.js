@@ -4,7 +4,7 @@ const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 const crypto = require("crypto");
 
-const bcrypt = require("bcrypt");
+let bcrypt; try { bcrypt = require("bcryptjs"); } catch { bcrypt = null; }
 
 const router = express.Router();
 router.use(express.json());
