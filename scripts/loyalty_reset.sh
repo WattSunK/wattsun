@@ -5,7 +5,10 @@
 # Resets user, order, dispatch, and loyalty data for QA or DEV
 # ============================================================
 
-set -e
+set -x
+trap 'echo "❌ Script stopped at line $LINENO (exit $?)"' ERR
+set +e
+
 
 # 1ï¸âƒ£ Detect environment
 ENV="${1:-qa}"
@@ -35,11 +38,11 @@ if [ ! -f "$DB" ]; then
   exit 1
 fi
 
-# 3ï¸âƒ£ Confirmation prompt
+# Confirmation prompt
 read -p "âš ï¸  This will ERASE all user, order, dispatch, and loyalty data for '$ENV'. Continue? (y/N): " CONFIRM
 [[ "$CONFIRM" =~ ^[Yy]$ ]] || { echo "âŒ Aborted."; exit 1; }
 
-# 4ï¸âƒ£ Schema verification
+# Schema verification
 echo "ðŸ” Verifying schema..."
 sqlite3 "$DB" "
 CREATE TABLE IF NOT EXISTS users (
@@ -129,7 +132,7 @@ CREATE TABLE IF NOT EXISTS dispatch_status_history (
 "
 echo "âœ… Schema verified."
 
-# 5ï¸âƒ£ Clean up data
+#  Clean up data
 echo "ðŸ§¹ Cleaning tables..."
 sqlite3 "$DB" <<'SQL'
 DELETE FROM notifications_queue;
@@ -144,7 +147,7 @@ DELETE FROM users;
 SQL
 echo "âœ… Data cleanup complete."
 
-# 6ï¸âƒ£ Create / update test user
+# Create / update test user
 echo "ðŸ‘¤ Creating test admin user (wattsun1@gmail.com) ..."
 HASH='$2b$10$oudaFNw74GFgCCbP9BmGQeUJBhOAK3FK9sWHBWFZWRbCX.4QbE.Oe'  # Pass123 bcrypt hash
 
@@ -155,7 +158,7 @@ ON CONFLICT(email) DO UPDATE SET password_hash='$HASH', status='Active', role='A
 SQL
 echo "âœ… Test admin user ready (email: wattsun1@gmail.com / password: Pass123)"
 
-# 7ï¸âƒ£ Create loyalty account
+#  Create loyalty account
 echo "ðŸ’Ž Seeding loyalty account with 1000 points ..."
 sqlite3 "$DB" <<'SQL'
 INSERT INTO loyalty_accounts (user_id, program_id, status, start_date, end_date, eligible_from, points_balance, total_earned)
@@ -167,7 +170,7 @@ FROM loyalty_accounts WHERE user_id=(SELECT id FROM users WHERE email='wattsun1@
 SQL
 echo "âœ… Loyalty account seeded (1000 points)."
 
-# 8ï¸âƒ£ Completion summary
+#  Completion summary
 echo "============================================================"
 echo "ðŸ ${ENV^^} Loyalty Reset Complete"
 echo "ðŸ“Š Table counts after reset:"
