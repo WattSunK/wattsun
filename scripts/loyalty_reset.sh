@@ -2,11 +2,11 @@
 set -e
 
 # ============================================================
-# 🧩 WattSun Loyalty Reset Utility (Data-Only)
+# 🧩 WattSun Loyalty Reset Utility (Data-Only, Final)
 # ------------------------------------------------------------
-# Cleans all data from key tables (users, orders, dispatches,
+# Cleans data in key tables (users, orders, dispatches,
 # loyalty, notifications) and reseeds one Admin user with a
-# loyalty account (1000 pts).
+# 1000-point loyalty account.
 # ============================================================
 
 ENV="${1:-qa}"
@@ -25,7 +25,7 @@ case "$ENV" in
 esac
 
 echo "============================================================"
-echo "🧩 WattSun Loyalty Reset Utility (Data-Only)"
+echo "🧩 WattSun Loyalty Reset Utility (Data-Only, Final)"
 echo "Target environment: ${ENV^^}"
 echo "Database: $DB"
 echo "============================================================"
@@ -72,8 +72,27 @@ echo "✅ Test admin user ready (email: wattsun1@gmail.com / password: Pass123)"
 
 echo "💎 Seeding loyalty account with 1000 points ..."
 sqlite3 "$DB" <<'SQL'
-INSERT INTO loyalty_accounts (user_id, points_balance, total_earned, status)
-VALUES (1, 1000, 1000, 'Active');
+INSERT INTO loyalty_accounts (
+  user_id,
+  program_id,
+  status,
+  start_date,
+  end_date,
+  eligible_from,
+  points_balance,
+  total_earned
+)
+VALUES (
+  1,
+  1,
+  'Active',
+  date('now'),
+  date('now', '+12 months'),
+  date('now'),
+  1000,
+  1000
+);
+
 INSERT INTO loyalty_ledger (account_id, kind, points_delta, note)
 VALUES (1, 'enroll', 1000, 'Initial enrollment bonus');
 SQL
@@ -93,5 +112,5 @@ done
 
 echo "============================================================"
 sqlite3 "$DB" "SELECT id, email, phone, status FROM users WHERE email='wattsun1@gmail.com';"
-sqlite3 "$DB" "SELECT id, points_balance, total_earned FROM loyalty_accounts;"
+sqlite3 "$DB" "SELECT id, points_balance, total_earned, program_id, start_date, end_date FROM loyalty_accounts;"
 echo "============================================================"
