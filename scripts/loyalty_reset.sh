@@ -36,11 +36,11 @@ if [ ! -f "$DB" ]; then
 fi
 
 # Confirmation prompt
-read -p "âš ï¸  This will ERASE all user, order, dispatch, and loyalty data for '$ENV'. Continue? (y/N): " CONFIRM
-[[ "$CONFIRM" =~ ^[Yy]$ ]] || { echo "âŒ Aborted."; exit 1; }
+read -p "This will ERASE all user, order, dispatch, and loyalty data for '$ENV'. Continue? (y/N): " CONFIRM
+[[ "$CONFIRM" =~ ^[Yy]$ ]] || { echo "❌ Aborted."; exit 1; }
 
 # Schema verification
-echo "ðŸ” Verifying schema..."
+echo "🔍 Verifying schema..."
 sqlite3 "$DB" "
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,8 +52,7 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT,
   status TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-"
+);" || true
 HAS_ROLE=$(sqlite3 "$DB" "PRAGMA table_info(users);" | grep -c '|role|')
 if [ "$HAS_ROLE" -eq 0 ]; then
   sqlite3 "$DB" "ALTER TABLE users ADD COLUMN role TEXT;"
