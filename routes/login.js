@@ -57,6 +57,7 @@ router.post("/login", (req, res) => {
     let ok = false;
     if (row.password_hash && bcrypt) {
       try {
+        console.log("[login] Checking password:", password, "against hash:", row.password_hash);
         ok = bcrypt.compareSync(password, row.password_hash);
       } catch {
         ok = false;
