@@ -42,7 +42,6 @@ read -p "⚠️  This will ERASE all user, order, dispatch, and loyalty data for
 
 # 4️⃣ Schema verification
 echo "🔍 Verifying schema..."
-echo "🔍 Verifying schema..."
 
 sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
