@@ -103,25 +103,26 @@ router.post(["/", "/signup"], (req, res) => {
     type: "User",
     status: "Active",
   };
-
-  // ✅ Safety: skip loyalty creation if program paused or user ineligible
   try {
-    const program = db
-      .prepare("SELECT active, eligible_types FROM loyalty_program WHERE id=1")
-      .get();
-    const eligible = program && program.active === 1 &&
-      (program.eligible_types || "").split(",").includes("User");
-    if (eligible) {
-      db.prepare(
-        `INSERT OR IGNORE INTO loyalty_accounts (user_id, program_id, status, start_date, end_date, eligible_from, points_balance, total_earned)
-         VALUES (?, 1, 'Active', date('now'), date('now','+12 months'), date('now'), 0, 0)`
-      ).run(this.lastID);
-    } else {
-      console.log("[signup] loyalty skipped — program paused or ineligible type");
-    }
-  } catch (loyErr) {
-    console.warn("[signup] loyalty auto-create skipped:", loyErr.message);
+  const program = db.prepare("SELECT active, eligible_types FROM loyalty_program WHERE id=1").get();
+  const eligible =
+    program &&
+    program.active === 1 &&
+    (program.eligible_types || "").split(",").includes("Staff") &&
+    newUser.type === "Staff"; // ensure only staff auto-enrolled
+
+  if (eligible) {
+    db.prepare(`
+      INSERT OR IGNORE INTO loyalty_accounts
+      (user_id, program_id, status, start_date, end_date, eligible_from, points_balance, total_earned)
+      VALUES (?, 1, 'Active', date('now'), date('now','+12 months'), date('now'), 0, 0)
+    `).run(this.lastID);
+  } else {
+    console.log("[signup] loyalty auto-create skipped (manual enrollment required)");
   }
+} catch (loyErr) {
+  console.warn("[signup] loyalty auto-create skipped due to error:", loyErr.message);
+}
 
   return res.json({ success: true, user: newUser, message: "Signup successful" });
 });
