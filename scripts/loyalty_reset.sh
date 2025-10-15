@@ -113,6 +113,8 @@ SQL
 
 # 🧩 Safety re-link: ensure loyalty account matches correct admin
 admin_id=$(sqlite3 "$DB" "SELECT id FROM users WHERE email='wattsun1@gmail.com' LIMIT 1;")
+export DB
+export admin_id
 sqlite3 "$DB" <<SQL
 UPDATE loyalty_accounts
 SET user_id = $admin_id
