@@ -15,9 +15,11 @@ router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
 
 const DB_PATH =
+  process.env.SQLITE_MAIN ||
   process.env.DB_PATH_USERS ||
   process.env.SQLITE_DB ||
   path.join(__dirname, "../data/dev/wattsun.dev.db");
+
 
 // open once (sync DB handle)
 const db = new Database(DB_PATH);

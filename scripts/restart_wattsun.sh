@@ -23,6 +23,8 @@ export NODE_ENV=$NAME
 export DB_PATH_USERS="$ROOT/data/$NAME/wattsun.$NAME.db"
 export DB_PATH_INVENTORY="$ROOT/data/$NAME/inventory.$NAME.db"
 export SQLITE_DB="$ROOT/data/$NAME/wattsun.$NAME.db"
+export SQLITE_MAIN="$ROOT/data/$NAME/wattsun.$NAME.db"
+
 
 
 echo "🌐 Environment for ${NAME^^}:"
@@ -33,6 +35,7 @@ echo "------------------------------------------------------------"
 
 
 nohup env NODE_ENV=$NODE_ENV \
+SQLITE_MAIN=$SQLITE_MAIN \
 DB_PATH_USERS=$DB_PATH_USERS \
 DB_PATH_INVENTORY=$DB_PATH_INVENTORY \
 SQLITE_DB=$SQLITE_DB \
@@ -50,7 +53,6 @@ else
 echo "❌ Failed to start ${NAME^^} — check $LOG_FILE"
 fi
 }
-
 
 echo "♻️ Restarting WattSun DEV and QA environments..."
 

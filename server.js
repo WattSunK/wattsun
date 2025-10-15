@@ -6,6 +6,11 @@
 const path = require("path");
 const dotenvPath = "/volume1/web/wattsun/.env";
 require("dotenv").config({ path: dotenvPath });
+console.log("[env-check]", {
+  SQLITE_MAIN: process.env.SQLITE_MAIN,
+  SQLITE_DB: process.env.SQLITE_DB,
+  DB_PATH_USERS: process.env.DB_PATH_USERS
+});
 
 console.log(`[env] loaded from ${dotenvPath}`);
 console.log(`[env] Active DB: ${process.env.SQLITE_MAIN}`);
@@ -20,22 +25,11 @@ const nodemailer = require("nodemailer");
 
 const app = express();
 
-// ----------------------------------------------------
-// Session middleware (must come before all /api/admin routes)
-// ----------------------------------------------------
-
-app.use(session({
-  secret: process.env.SESSION_SECRET || "wattsun_secret_key",
-  resave: false,
-  saveUninitialized: true,
-  cookie: { secure: false } // keep false since you’re using HTTP locally
-}));
-
 // Normalize log output for missing env
 if (!process.env.SQLITE_MAIN) {
   process.env.SQLITE_MAIN = process.env.SQLITE_DB ||
-                            process.env.DB_PATH_USERS ||
-                            path.join(__dirname, "data", "dev", "wattsun.dev.db");
+    process.env.DB_PATH_USERS ||
+    path.join(__dirname, "data", "dev", "wattsun.dev.db");
 }
 
 /* =========================

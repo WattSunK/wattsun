@@ -12,6 +12,7 @@ export WATTSUN_DB_ROOT="$ROOT/data/qa"
 export DB_PATH_USERS="$WATTSUN_DB_ROOT/wattsun.qa.db"
 export DB_PATH_INVENTORY="$WATTSUN_DB_ROOT/inventory.qa.db"
 export SQLITE_DB="$DB_PATH_USERS"
+export SQLITE_MAIN="$DB_PATH_USERS"
 export LOG_FILE="$ROOT/logs/qa/app.out"
 export RUN_DIR="$ROOT/run/qa"
 
@@ -61,6 +62,7 @@ find node_modules -type f -name "*.node" -exec chmod 755 {} \; 2>/dev/null || tr
 # 🟢 Launch backend
 echo "[qa] 🚀 Starting WattSun QA backend..."
 nohup env NODE_ENV=$NODE_ENV \
+  SQLITE_MAIN=$SQLITE_MAIN \
   DB_PATH_USERS=$DB_PATH_USERS \
   DB_PATH_INVENTORY=$DB_PATH_INVENTORY \
   SQLITE_DB=$SQLITE_DB \
@@ -69,3 +71,9 @@ nohup env NODE_ENV=$NODE_ENV \
 
 echo $! > "$RUN_DIR/app.pid"
 echo "[qa] ✅ WattSun QA running (port $PORT) — logs: $LOG_FILE"
+
+# 🩺 Health check
+sleep 2
+code=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}/api/health" || true)
+echo "[qa] Health check → HTTP ${code}"
+

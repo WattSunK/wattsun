@@ -65,6 +65,7 @@ export DB_PATH_USERS="$QA_DB"
 export SQLITE_DB="$QA_DB"
 export DB_PATH_INVENTORY="$ROOT/data/qa/inventory.qa.db"
 
+export SQLITE_MAIN="$QA_DB"
 sudo bash "$ROOT/scripts/start_qa.sh"
 sleep 5
 
