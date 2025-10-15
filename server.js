@@ -33,11 +33,15 @@ if (!process.env.SQLITE_MAIN) {
    Core DB handles
    ========================= */
 
-// Users / admin overlay DB (better-sqlite3)
+// Unified database path (main + overlay)
 const DB_PATH =
+  process.env.SQLITE_MAIN ||
   process.env.SQLITE_DB ||
-  process.env.DB_PATH || // legacy env alias (still supported)
+  process.env.DB_PATH_USERS ||
   path.join(__dirname, "data", "dev", "wattsun.dev.db");
+
+process.env.SQLITE_MAIN = DB_PATH; // normalize for downstream logs and routes
+
 
 const sqliteDb = new Database(DB_PATH);   // ✅ sync handle
 // ✅ Ensure foreign key constraints (like ON DELETE CASCADE) are enforced
