@@ -70,6 +70,16 @@ router.post("/login", (req, res) => {
     if (req.session.save) {
       req.session.save(() => {
         console.log("[login] session saved:", req.session.user);
+        // 🧩 Sanity: ensure no unintended loyalty account creation at login
+        try {
+          const chk = db.prepare(
+            "SELECT COUNT(*) AS cnt FROM loyalty_accounts WHERE user_id=?"
+          ).get(req.session.user.id);
+          if (chk.cnt > 1) console.warn("[login] duplicate loyalty accounts detected for user:", req.session.user.id);
+        } catch (e) {
+          console.warn("[login] loyalty check skipped:", e.message);
+        }
+
         return res.json({
           success: true,
           user: req.session.user,

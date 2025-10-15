@@ -124,6 +124,20 @@ echo "🧩 Re-linked loyalty account to admin ID $admin_id (email: wattsun1@gmai
 echo "✅ Loyalty account seeded with 1000 points."
 
 # ============================================================
+# 4b️⃣ Safety Trigger: prevent auto-loyalty creation if program inactive
+# ============================================================
+echo "🧩 Installing trigger to skip loyalty creation when program inactive ..."
+sqlite3 "$DB" <<'SQL'
+CREATE TRIGGER IF NOT EXISTS trg_loyalty_skip_inactive
+BEFORE INSERT ON loyalty_accounts
+WHEN (SELECT active FROM loyalty_programs WHERE id=NEW.program_id) = 0
+BEGIN
+  SELECT RAISE(IGNORE);
+END;
+SQL
+echo "✅ Trigger installed (trg_loyalty_skip_inactive)."
+
+# ============================================================
 # 5️⃣ Summary Output
 # ============================================================
 echo "============================================================"

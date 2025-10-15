@@ -76,38 +76,56 @@ router.post(["/", "/signup"], (req, res) => {
         const vals = [name, email, phone, "User", "Active", hash, now];
 
         db.run(sql, vals, function (e2) {
-          if (e2) {
-            const msg = String(e2 && e2.message || "");
-            if (
-              (e2.code === "SQLITE_CONSTRAINT" || /constraint/i.test(msg)) &&
-              /users.*email/i.test(msg)
-            ) {
-              console.warn("[signup] unique email constraint:", msg);
-              return res.status(409).json({
-                success: false,
-                error: { code: "DUPLICATE_EMAIL", message: "Email already registered" },
-              });
-            }
-            console.error("[signup] insert error:", e2, "\nSQL:", sql, "\nVALS:", vals);
-            return res.status(500).json({
-              success: false,
-              error: { code: "DB_INSERT", message: "Database error" },
-            });
-          }
+  if (e2) {
+    const msg = String(e2 && e2.message || "");
+    if (
+      (e2.code === "SQLITE_CONSTRAINT" || /constraint/i.test(msg)) &&
+      /users.*email/i.test(msg)
+    ) {
+      console.warn("[signup] unique email constraint:", msg);
+      return res.status(409).json({
+        success: false,
+        error: { code: "DUPLICATE_EMAIL", message: "Email already registered" },
+      });
+    }
+    console.error("[signup] insert error:", e2, "\nSQL:", sql, "\nVALS:", vals);
+    return res.status(500).json({
+      success: false,
+      error: { code: "DB_INSERT", message: "Database error" },
+    });
+  }
 
-          return res.json({
-            success: true,
-            user: {
-              id: this.lastID,
-              name,
-              email,
-              phone,
-              type: "User",
-              status: "Active",
-            },
-            message: "Signup successful",
-          });
-        });
+  const newUser = {
+    id: this.lastID,
+    name,
+    email,
+    phone,
+    type: "User",
+    status: "Active",
+  };
+
+  // ✅ Safety: skip loyalty creation if program paused or user ineligible
+  try {
+    const program = db
+      .prepare("SELECT active, eligible_types FROM loyalty_program WHERE id=1")
+      .get();
+    const eligible = program && program.active === 1 &&
+      (program.eligible_types || "").split(",").includes("User");
+    if (eligible) {
+      db.prepare(
+        `INSERT OR IGNORE INTO loyalty_accounts (user_id, program_id, status, start_date, end_date, eligible_from, points_balance, total_earned)
+         VALUES (?, 1, 'Active', date('now'), date('now','+12 months'), date('now'), 0, 0)`
+      ).run(this.lastID);
+    } else {
+      console.log("[signup] loyalty skipped — program paused or ineligible type");
+    }
+  } catch (loyErr) {
+    console.warn("[signup] loyalty auto-create skipped:", loyErr.message);
+  }
+
+  return res.json({ success: true, user: newUser, message: "Signup successful" });
+});
+
       }
     );
   });

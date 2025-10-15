@@ -137,22 +137,28 @@ function sqlGetAccount(programId, userId) {
 
 function sqlInsertAccount({ programId, userId, startDate, endDate, eligibleFrom, durationMonths }) {
   return new Promise((resolve, reject) => {
-    console.log("[sqlInsertAccount] params:", { programId, userId, startDate, endDate, eligibleFrom, durationMonths });
-
-    db.run(
-      `
-      INSERT INTO loyalty_accounts (
-        program_id, user_id, status, start_date, end_date, eligible_from,
-        duration_months, points_balance, total_earned, total_penalty, total_paid
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0)
-      `,
-      [programId, userId, "Active", startDate, endDate, eligibleFrom, durationMonths],
-      function (err) {
-        if (err) return reject(err);
-        resolve({ id: this.lastID });
+    // 🧩 New: Prevent creation if program paused or misconfigured
+    db.get("SELECT active FROM loyalty_programs WHERE id=? LIMIT 1", [programId], (chkErr, row) => {
+      if (chkErr) return reject(chkErr);
+      if (!row || row.active !== 1) {
+        console.warn("[sqlInsertAccount] skipped — program inactive or missing");
+        return resolve({ id: null, skipped: true });
       }
-    );
+
+      console.log("[sqlInsertAccount] params:", { programId, userId, startDate, endDate, eligibleFrom, durationMonths });
+      db.run(
+        `INSERT INTO loyalty_accounts (
+           program_id, user_id, status, start_date, end_date, eligible_from,
+           duration_months, points_balance, total_earned, total_penalty, total_paid
+         )
+         VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0)`,
+        [programId, userId, "Active", startDate, endDate, eligibleFrom, durationMonths],
+        function (err) {
+          if (err) return reject(err);
+          resolve({ id: this.lastID });
+        }
+      );
+    });
   });
 }
 
@@ -236,6 +242,12 @@ router.post("/enroll", requireStaff, async (req, res) => {
         .status(403)
         .json({ success: false, error: { code: "NOT_ELIGIBLE", message: "User not eligible" } });
     }
+// 🧩 Prevent enrollment if program paused or no eligible user types
+if (!program.active || !Array.isArray(program.eligibleUserTypes) || program.eligibleUserTypes.length === 0) {
+  return res
+    .status(400)
+    .json({ success: false, error: { code: "PROGRAM_INACTIVE", message: "Program paused or not configured" } });
+}
 
     const existing = await sqlGetAccount(program.programId, user.id);
     if (existing) {
