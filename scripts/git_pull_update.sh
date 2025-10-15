@@ -1,11 +1,12 @@
 #!/bin/sh
 # =====================================================
-# 🔁 WattSun Monorepo Updater (Environment-Aware, Patched)
+# 🔁 WattSun Monorepo Updater (Environment-Aware, Final)
 # -----------------------------------------------------
 # Detects environment (Dev or QA)
 # Pulls and resets current branch
 # Runs env-specific stop/start scripts
 # Verifies dependencies non-destructively
+# ✅ Includes native module permission safeguard
 # =====================================================
 
 set -eu
@@ -94,13 +95,20 @@ if [ -n "$OLD_SHA" ]; then
   LOCK_CHANGED="$(git diff --name-only "$OLD_SHA" "$NEW_SHA" | grep -c '^package-lock\\.json$' || true)"
 fi
 
-# ✅ Patched section: non-destructive dependency verification
 if [ ! -d node_modules ] || [ -z "$OLD_SHA" ] || [ "$LOCK_CHANGED" -gt 0 ]; then
   echo "[step] verifying dependencies"
   npm install --omit=dev
 else
   echo "[skip] deps unchanged"
 fi
+
+# -----------------------------------------------------
+# 🧩 Native module permission safeguard
+# -----------------------------------------------------
+echo "[step] fixing native module permissions (better-sqlite3, etc.)"
+find node_modules -type f -name "*.node" -exec chmod 755 {} \; 2>/dev/null || true
+chown -R 53Bret:users node_modules 2>/dev/null || true
+echo "[ok] permissions verified on native modules"
 
 # -----------------------------------------------------
 # 🧩 Start environment
