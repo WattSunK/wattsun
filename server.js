@@ -45,6 +45,9 @@ const DB_PATH =
 
 process.env.SQLITE_MAIN = DB_PATH; // normalize for downstream logs and routes
 
+// Make sure all legacy routes see the same absolute DB path
+process.env.SQLITE_DB = DB_PATH;
+process.env.DB_PATH_USERS = DB_PATH;
 
 const sqliteDb = new Database(DB_PATH);   // ✅ sync handle
 // ✅ Ensure foreign key constraints (like ON DELETE CASCADE) are enforced
