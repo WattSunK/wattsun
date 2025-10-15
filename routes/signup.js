@@ -104,7 +104,7 @@ router.post(["/", "/signup"], (req, res) => {
     status: "Active",
   };
   try {
-  const program = db.prepare("SELECT active, eligible_types FROM loyalty_program WHERE id=1").get();
+  const program = db.prepare("SELECT active, eligible_types FROM loyalty_programs WHERE id=1").get();
   const eligible =
     program &&
     program.active === 1 &&
