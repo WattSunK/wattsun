@@ -3,7 +3,12 @@ const express = require("express");
 const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 
-let bcrypt; try { bcrypt = require("bcryptjs"); } catch { bcrypt = null; }
+let bcrypt;
+try {
+  bcrypt = require("bcryptjs");
+} catch {
+  bcrypt = null;
+}
 
 const router = express.Router();
 
@@ -21,52 +26,87 @@ function withDb(cb) {
   db.serialize(() => cb(db));
 }
 
+/**
+ * Unified signup endpoint
+ * Shape:
+ *  success:true  → { success:true, user:{...}, message:"Signup successful" }
+ *  success:false → { success:false, error:{ code,message } }
+ */
 router.post(["/", "/signup"], (req, res) => {
   const body = req.body || {};
-  // allow a few common aliases from forms
-  const name  = (body.name ?? body.username ?? "").toString().trim();
+  const name = (body.name ?? body.username ?? "").toString().trim();
   const email = (body.email ?? "").toString().trim().toLowerCase();
   const phone = (body.phone ?? body.phoneNumber ?? "").toString().trim() || null;
   const password = (body.password ?? body.pass ?? "").toString();
 
   if (!name || !email || !password) {
-    return res.status(400).json({ ok:false, error:"Missing name, email or password" });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        error: { code: "MISSING_FIELDS", message: "Missing name, email or password" },
+      });
   }
 
-  const now = new Date().toISOString().replace("T"," ").replace("Z","");
-  const hash = bcrypt ? bcrypt.hashSync(password, 10) : password; // bcrypt preferred
+  const now = new Date().toISOString().replace("T", " ").replace("Z", "");
+  const hash = bcrypt ? bcrypt.hashSync(password, 10) : password;
 
-  withDb(db => {
-    // Pre-check (best-effort); insert also guards with UNIQUE handling
+  withDb((db) => {
     db.get(
       "SELECT id FROM users WHERE LOWER(email)=LOWER(?) LIMIT 1",
       [email],
-      (e1,row) => {
+      (e1, row) => {
         if (e1) {
           console.error("[signup] select error:", e1);
-          return res.status(500).json({ ok:false, error:"Database error" });
+          return res.status(500).json({
+            success: false,
+            error: { code: "DB_SELECT", message: "Database error" },
+          });
         }
-        if (row) return res.status(409).json({ ok:false, error:"Email already registered" });
+
+        if (row) {
+          return res.status(409).json({
+            success: false,
+            error: { code: "DUPLICATE_EMAIL", message: "Email already registered" },
+          });
+        }
 
         const sql = `INSERT INTO users
           (name,email,phone,type,status,password_hash,created_at)
           VALUES (?,?,?,?,?,?,?)`;
         const vals = [name, email, phone, "User", "Active", hash, now];
 
-        db.run(sql, vals, function(e2){
+        db.run(sql, vals, function (e2) {
           if (e2) {
-            // Downgrade UNIQUE email to 409
             const msg = String(e2 && e2.message || "");
-            if ((e2.code === "SQLITE_CONSTRAINT" || /constraint/i.test(msg)) && /users.*email/i.test(msg)) {
+            if (
+              (e2.code === "SQLITE_CONSTRAINT" || /constraint/i.test(msg)) &&
+              /users.*email/i.test(msg)
+            ) {
               console.warn("[signup] unique email constraint:", msg);
-              return res.status(409).json({ ok:false, error:"Email already registered" });
+              return res.status(409).json({
+                success: false,
+                error: { code: "DUPLICATE_EMAIL", message: "Email already registered" },
+              });
             }
-            console.error("[signup] insert error:", e2, "\n[signup] SQL:", sql, "\n[signup] VALS:", vals);
-            return res.status(500).json({ ok:false, error:"Database error" });
+            console.error("[signup] insert error:", e2, "\nSQL:", sql, "\nVALS:", vals);
+            return res.status(500).json({
+              success: false,
+              error: { code: "DB_INSERT", message: "Database error" },
+            });
           }
+
           return res.json({
-            ok:true,
-            user:{ id:this.lastID, name, email, phone, type:"User", status:"Active" }
+            success: true,
+            user: {
+              id: this.lastID,
+              name,
+              email,
+              phone,
+              type: "User",
+              status: "Active",
+            },
+            message: "Signup successful",
           });
         });
       }
