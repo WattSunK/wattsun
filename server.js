@@ -22,6 +22,13 @@ app.use(session({
   cookie: { secure: false } // keep false since you’re using HTTP locally
 }));
 
+// Normalize log output for missing env
+if (!process.env.SQLITE_MAIN) {
+  process.env.SQLITE_MAIN = process.env.SQLITE_DB ||
+                            process.env.DB_PATH_USERS ||
+                            path.join(__dirname, "data", "dev", "wattsun.dev.db");
+}
+
 /* =========================
    Core DB handles
    ========================= */
@@ -48,6 +55,7 @@ const db = knex({
       process.env.DB_PATH_USERS ||
       path.join(__dirname, "data", "dev", "wattsun.dev.db"),
   },
+   useNullAsDefault: true,  // ✅ suppresses default-value warning
 });
 
 
