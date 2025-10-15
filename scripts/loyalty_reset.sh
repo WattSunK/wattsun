@@ -111,6 +111,15 @@ INSERT INTO loyalty_ledger (account_id, kind, points_delta, note)
 VALUES (1, 'enroll', 1000, 'Initial enrollment bonus');
 SQL
 
+# 🧩 Safety re-link: ensure loyalty account matches correct admin
+sqlite3 "$DB" <<'SQL'
+UPDATE loyalty_accounts
+SET user_id = (
+  SELECT id FROM users WHERE email='wattsun1@gmail.com' LIMIT 1
+)
+WHERE id = 1;
+SQL
+
 echo "✅ Loyalty account seeded for admin ID $admin_id (1000 points)."
 
 # ============================================================
