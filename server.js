@@ -44,12 +44,12 @@ const db = knex({
   client: "sqlite3",
   connection: {
     filename:
-      process.env.SQLITE_INVENTORY ||
-      path.join(process.cwd(), "data/dev/inventory.dev.db") ||
-      path.join(__dirname, "inventory.db"),
+      process.env.SQLITE_DB ||
+      process.env.DB_PATH_USERS ||
+      path.join(__dirname, "data", "dev", "wattsun.dev.db"),
   },
-  useNullAsDefault: true,
 });
+
 
 /* =========================
    Mail transport (safe)
