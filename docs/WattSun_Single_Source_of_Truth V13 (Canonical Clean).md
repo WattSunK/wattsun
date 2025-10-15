@@ -91,3 +91,11 @@ This V13 replaces **all prior versions** and is the authoritative baseline.
 - **V12:** Added Loyalty Program alignment.  
 - **V13 (this):** Clean consolidation, supersedes all, cross-links to canonical docs.
 
+### 2025-10-15 — Auth Stability Baseline (auth-stable-2025-10-15)
+
+- Verified unified signup/login routes across DEV (3001) and QA (3000)
+- Added hardened startup scripts: `start_dev.sh`, `start_qa.sh`
+- Introduced automated verification scripts: `verify_dev_auth.sh`, `verify_qa_auth.sh`
+- Both environments passed all verification tests ✅
+- Created branch: `post-auth-hardening` for continued development
+- Tag: `auth-stable-2025-10-15` — rollback point for authentication module stability

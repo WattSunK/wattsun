@@ -71,7 +71,16 @@ SQL
 echo "✅ Test admin user ready (email: wattsun1@gmail.com / password: Pass123)"
 
 echo "💎 Seeding loyalty account with 1000 points ..."
-sqlite3 "$DB" <<'SQL'
+
+# Detect actual admin ID dynamically
+admin_id=$(sqlite3 "$DB" "SELECT id FROM users WHERE email='wattsun1@gmail.com' LIMIT 1;")
+
+if [ -z "$admin_id" ]; then
+  echo "❌ No admin user found; cannot seed loyalty account."
+  exit 1
+fi
+
+sqlite3 "$DB" <<SQL
 INSERT INTO loyalty_accounts (
   user_id,
   program_id,
@@ -83,7 +92,7 @@ INSERT INTO loyalty_accounts (
   total_earned
 )
 VALUES (
-  1,
+  $admin_id,
   1,
   'Active',
   date('now'),
@@ -93,10 +102,16 @@ VALUES (
   1000
 );
 
+-- ensure correct user linkage if pre-seeded
+UPDATE loyalty_accounts
+SET user_id = $admin_id
+WHERE id = 1;
+
 INSERT INTO loyalty_ledger (account_id, kind, points_delta, note)
 VALUES (1, 'enroll', 1000, 'Initial enrollment bonus');
 SQL
-echo "✅ Loyalty account seeded (1000 points)."
+
+echo "✅ Loyalty account seeded for admin ID $admin_id (1000 points)."
 
 # ============================================================
 # 5️⃣ Summary Output
