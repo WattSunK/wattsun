@@ -1,10 +1,11 @@
 #!/bin/sh
 # =====================================================
-# 🔁 WattSun Monorepo Updater (Environment-Aware)
-# - Detects environment (Dev or QA)
-# - Pulls and resets current branch
-# - Runs env-specific stop/start scripts
-# - Preserves all NAS-safe behaviors
+# 🔁 WattSun Monorepo Updater (Environment-Aware, Patched)
+# -----------------------------------------------------
+# Detects environment (Dev or QA)
+# Pulls and resets current branch
+# Runs env-specific stop/start scripts
+# Verifies dependencies non-destructively
 # =====================================================
 
 set -eu
@@ -83,7 +84,7 @@ NEW_SHA="$(git rev-parse HEAD)"
 OLD_SHA="$(cat run/last_sha 2>/dev/null || echo '')"
 
 # -----------------------------------------------------
-# 🧩 Normalize scripts + install deps if needed
+# 🧩 Normalize scripts + verify dependencies
 # -----------------------------------------------------
 sed -i 's/\r$//' scripts/*.sh 2>/dev/null || true
 chmod +x scripts/*.sh 2>/dev/null || true
@@ -93,9 +94,10 @@ if [ -n "$OLD_SHA" ]; then
   LOCK_CHANGED="$(git diff --name-only "$OLD_SHA" "$NEW_SHA" | grep -c '^package-lock\\.json$' || true)"
 fi
 
+# ✅ Patched section: non-destructive dependency verification
 if [ ! -d node_modules ] || [ -z "$OLD_SHA" ] || [ "$LOCK_CHANGED" -gt 0 ]; then
-  echo "[step] installing/refreshing dependencies"
-  ( npm ci --omit=dev ) || npm install --omit=dev
+  echo "[step] verifying dependencies"
+  npm install --omit=dev
 else
   echo "[skip] deps unchanged"
 fi
