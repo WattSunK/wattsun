@@ -1,6 +1,6 @@
 #!/bin/bash
 # ===========================================
-# 🟨 WattSun QA Environment Startup (Patched)
+# 🟨 WattSun QA Environment Startup (Final)
 # ===========================================
 
 export NODE_ENV=qa
@@ -24,16 +24,28 @@ echo "SQLITE_DB=$SQLITE_DB"
 echo "LOG_FILE=$LOG_FILE"
 echo "==========================================================="
 
+# 🧩 Kill existing process on port 3000 to avoid EADDRINUSE
+EXISTING_PID=$(netstat -tlnp 2>/dev/null | grep ":${PORT}" | awk '{print $7}' | cut -d'/' -f1 || true)
+if [ -n "$EXISTING_PID" ]; then
+  echo "[qa] 🧹 Port $PORT already in use by PID $EXISTING_PID — stopping it..."
+  kill "$EXISTING_PID" 2>/dev/null || sudo kill -9 "$EXISTING_PID" 2>/dev/null || true
+  sleep 1
+fi
+
 # 🧩 Auto-verify dependencies
 if [ ! -d node_modules ] || [ ! -f node_modules/better-sqlite3/package.json ]; then
   echo "[qa] ⚙️ node_modules missing or incomplete — reinstalling..."
-  npm ci --omit=dev || npm install
+  npm ci --omit=dev || npm install --omit=dev
   echo "[qa] ✅ Dependencies verified."
 else
-  echo "[qa] 🧱 Dependencies OK — proceeding to start server."
+  echo "[qa] 🧱 Dependencies OK — proceeding."
 fi
 
-# Launch server
+# 🧩 Fix native module permissions
+find node_modules -type f -name "*.node" -exec chmod 755 {} \; 2>/dev/null || true
+chown -R 53Bret:users node_modules 2>/dev/null || true
+
+# 🟢 Launch server
 nohup env NODE_ENV=$NODE_ENV \
 DB_PATH_USERS=$DB_PATH_USERS \
 DB_PATH_INVENTORY=$DB_PATH_INVENTORY \
