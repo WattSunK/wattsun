@@ -45,7 +45,7 @@ read -p "⚠️  This will ERASE all user, order, dispatch, and loyalty data for
 # 3️⃣ Cleanup Phase
 # ============================================================
 echo "🧹 Cleaning tables..."
-sqlite3 "$DB" <<'SQL'
+sqlite3 "$DB" << SQL
 DELETE FROM notifications_queue;
 DELETE FROM loyalty_ledger;
 DELETE FROM loyalty_accounts;
@@ -112,15 +112,14 @@ VALUES (1, 'enroll', 1000, 'Initial enrollment bonus');
 SQL
 
 # 🧩 Safety re-link: ensure loyalty account matches correct admin
-sqlite3 "$DB" << SQL
+admin_id=$(sqlite3 "$DB" "SELECT id FROM users WHERE email='wattsun1@gmail.com' LIMIT 1;")
+sqlite3 "$DB" <<SQL
 UPDATE loyalty_accounts
-SET user_id = (
-  SELECT id FROM users WHERE email='wattsun1@gmail.com' LIMIT 1
-)
-WHERE id = 1;
+SET user_id = $admin_id
+WHERE user_id != $admin_id;
 SQL
-
-echo "✅ Loyalty account seeded for admin ID $admin_id (1000 points)."
+echo "🧩 Re-linked loyalty account to admin ID $admin_id (email: wattsun1@gmail.com)"
+echo "✅ Loyalty account seeded with 1000 points."
 
 # ============================================================
 # 5️⃣ Summary Output
