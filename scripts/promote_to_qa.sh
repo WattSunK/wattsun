@@ -55,7 +55,7 @@ if [ ! -x "$ROOT/scripts/loyalty_reset.sh" ]; then
   exit 1
 fi
 echo -e "${YELLOW}🧹 Running loyalty_reset.sh qa ...${NC}"
-sudo bash "$ROOT/scripts/loyalty_reset.sh" qa <<<'y'
+sudo --preserve-env=DB,admin_id bash "$ROOT/scripts/loyalty_reset.sh" qa <<<'y'
 echo -e "${GREEN}✅ QA loyalty tables cleaned and reseeded.${NC}"
 
 # --- Step 4️⃣: Restart QA backend ---
