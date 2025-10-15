@@ -1,5 +1,16 @@
 // server.js — SQL-only, admin gate fixed, session normalized
 
+// ============================================================
+// ✅ Ensure environment variables always load (even under sudo)
+// ============================================================
+const path = require("path");
+const dotenvPath = "/volume1/web/wattsun/.env";
+require("dotenv").config({ path: dotenvPath });
+
+console.log(`[env] Loaded from ${dotenvPath}`);
+console.log(`[env] Active DB: ${process.env.SQLITE_MAIN}`);
+
+
 require("dotenv").config();
 
 const path = require("path");
