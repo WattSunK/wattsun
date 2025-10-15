@@ -25,7 +25,7 @@ const DB_PATH =
   process.env.SQLITE_DB ||        // generic fallback
   path.join(process.cwd(), "data/dev/wattsun.dev.db");
 
-console.log("📂 Loyalty router DB path:", DB_PATH);
+console.log("📂 Loyalty router DB path:", process.env.SQLITE_MAIN);
 
 // ---- small per-call DB helpers (safe + simple) ----
 function withDb(fn) {

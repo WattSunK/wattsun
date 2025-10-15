@@ -30,7 +30,7 @@ if (env === "qa") {
 }
 
 const db = new sqlite3.Database(DB_PATH);
-console.log(`[admin-users] Using DB at ${DB_PATH}`);
+console.log("[admin-users] Using DB at", process.env.SQLITE_MAIN);
 
 
 // ============================================================
