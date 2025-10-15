@@ -56,14 +56,13 @@ router.post(["/", "/signup"], (req, res) => {
       "SELECT id FROM users WHERE LOWER(email)=LOWER(?) LIMIT 1",
       [email],
       (e1, row) => {
-        if (e1) {
-          console.error("[signup] select error:", e1);
-          return res.status(500).json({
-            success: false,
-            error: { code: "DB_SELECT", message: "Database error" },
-          });
-        }
-
+       if (e1) {
+  console.error("[signup] select error:", e1.message || e1);
+  return res.status(500).json({
+    success: false,
+    error: { code: "DB_SELECT", message: e1.message || "Database error" },
+  });
+}
         if (row) {
           return res.status(409).json({
             success: false,
