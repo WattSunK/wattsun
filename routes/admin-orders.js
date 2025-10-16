@@ -89,7 +89,7 @@ const rows = db
       COALESCE(a.total_cents,   o.totalCents)      AS totalCents,
       COALESCE(a.deposit_cents, o.depositCents)    AS depositCents,
       COALESCE(a.currency,      o.currency)        AS currency,
-      COALESCE(a.notes,         o.notes)           AS notes,
+      a.notes                                      AS notes,
       COALESCE(a.driver_id,     o.driverId)        AS driverId,
       o.address
     FROM orders o
