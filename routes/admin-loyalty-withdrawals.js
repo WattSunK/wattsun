@@ -112,6 +112,16 @@ function createWithdrawal(req, res) {
       VALUES (?, 'withdraw', ?, ?, ?, datetime('now','localtime'))
     `).run(accountId, -Math.abs(points), note, adminId);
 
+    // Immediately deduct balance from the account (logical reservation)
+    try {
+      db.prepare(`UPDATE loyalty_accounts
+                    SET points_balance = MAX(0, COALESCE(points_balance,0) - ?),
+                        updated_at     = datetime('now','localtime')
+                  WHERE id = ?`).run(points, accountId);
+    } catch (e) {
+      console.warn("[admin-loyalty-withdrawals:create][balance]", e.message);
+    }
+
     // Create meta row as Pending for this withdrawal
     try {
       db.prepare(`INSERT OR IGNORE INTO loyalty_withdrawal_meta (ledger_id, status, decided_by, decided_at, note)
@@ -189,16 +199,15 @@ function markPaid(req, res) {
     const paidAt = req.body?.paidAt || new Date().toISOString();
     const row = updateStatus(id, "No Action", note, adminId, { paidAt });
 
-    // Update account totals on successful payout (deduct balance, add paid)
+    // Increment paid total only (balance was deducted at create time)
     const amtRow = db.prepare(`SELECT ABS(points_delta) AS amt, account_id AS acct FROM loyalty_ledger WHERE id = ?`).get(id);
     const amt = Number(amtRow?.amt || 0);
     const acctId = amtRow?.acct;
     if (Number.isFinite(amt) && acctId != null) {
       db.prepare(`UPDATE loyalty_accounts
-                    SET points_balance = MAX(0, COALESCE(points_balance,0) - ?),
-                        total_paid     = COALESCE(total_paid,0) + ?,
-                        updated_at     = datetime('now','localtime')
-                  WHERE id = ?`).run(amt, amt, acctId);
+                    SET total_paid = COALESCE(total_paid,0) + ?,
+                        updated_at = datetime('now','localtime')
+                  WHERE id = ?`).run(amt, acctId);
     }
 
     try {
