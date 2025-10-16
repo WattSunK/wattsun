@@ -1,27 +1,29 @@
 // routes/reset.js
 const express = require("express");
-const path = require("path");
 const crypto = require("crypto");
 
-// ✅ Shared persistent users DB handle
-const db = require("../db_users");
+// Shared persistent users DB handle (better-sqlite3)
+const db = require("./db_users");
 
-let bcrypt;
-try { bcrypt = require("bcryptjs"); } catch { bcrypt = null; }
+// Optional bcrypt (prefer bcryptjs, fallback to bcrypt)
+let bcrypt = null;
+try { bcrypt = require("bcryptjs"); } catch (_) { try { bcrypt = require("bcrypt"); } catch (_) { bcrypt = null; } }
 
 const router = express.Router();
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
 
-// ⚙️ Removed old sqlite3 wrapper (transient connections)
-// const sqlite3 = require("sqlite3").verbose();
-// const DB_PATH =
-//   process.env.DB_PATH_USERS ||
-//   process.env.SQLITE_DB ||
-//   path.join(__dirname, "../data/dev/wattsun.dev.db");
-// function withDb(cb){ const db=new sqlite3.Database(DB_PATH); db.serialize(()=>cb(db)); }
-
 const tokenTTL = 60 * 60; // 1 hour
+
+function hashPassword(password) {
+  try {
+    if (bcrypt) return bcrypt.hashSync(password, 10);
+  } catch (err) {
+    console.warn("[reset] bcrypt hash failed:", err?.message || err);
+  }
+  // Explicit fallback compatible with login verifier
+  return "sha256:" + crypto.createHash("sha256").update(password).digest("hex");
+}
 
 function requestReset(req, res) {
   const email = (req.body?.email ?? "").toString().trim().toLowerCase();
@@ -30,19 +32,18 @@ function requestReset(req, res) {
   const token = crypto.randomBytes(24).toString("hex");
   const expiry = Math.floor(Date.now() / 1000) + tokenTTL;
 
-  db.run(
-    `UPDATE users SET reset_token=?, reset_expiry=? WHERE LOWER(email)=LOWER(?)`,
-    [token, expiry, email],
-    function (e) {
-      if (e) {
-        console.error("[reset] request error:", e);
-        return res.status(500).json({ ok: false, error: "Database error" });
-      }
-      if (this.changes === 0)
-        return res.status(404).json({ ok: false, error: "Email not found" });
-      return res.json({ ok: true, token, expires: expiry }); // dev: token included
+  try {
+    const info = db
+      .prepare(`UPDATE users SET reset_token=?, reset_expiry=? WHERE LOWER(email)=LOWER(?)`)
+      .run(token, expiry, email);
+    if (info.changes === 0) {
+      return res.status(404).json({ ok: false, error: "Email not found" });
     }
-  );
+    return res.json({ ok: true, token, expires: expiry }); // dev: token included
+  } catch (e) {
+    console.error("[reset] request error:", e);
+    return res.status(500).json({ ok: false, error: "Database error" });
+  }
 }
 
 function confirmReset(req, res) {
@@ -51,51 +52,34 @@ function confirmReset(req, res) {
   if (!token || !password)
     return res.status(400).json({ ok: false, error: "Missing token or password" });
 
-  db.get(
-    `SELECT id, reset_expiry FROM users WHERE reset_token=? LIMIT 1`,
-    [token],
-    (e, row) => {
-      if (e) {
-        console.error("[reset] lookup error:", e);
-        return res.status(500).json({ ok: false, error: "Database error" });
-      }
-      if (!row)
-        return res.status(400).json({ ok: false, error: "Invalid token" });
-      if (
-        !row.reset_expiry ||
-        row.reset_expiry < Math.floor(Date.now() / 1000)
-      ) {
-        return res.status(400).json({ ok: false, error: "Token expired" });
-      }
-
-      const hash = bcrypt ? bcrypt.hashSync(password, 10) : password;
-
-      db.run(
-        `UPDATE users
-            SET password_hash=?, reset_token=NULL, reset_expiry=NULL
-          WHERE id=?`,
-        [hash, row.id],
-        function (e2) {
-          if (e2) {
-            console.error("[reset] update error:", e2);
-            return res
-              .status(500)
-              .json({ ok: false, error: "Database error" });
-          }
-          return res.json({ ok: true });
-        }
-      );
+  try {
+    const row = db
+      .prepare(`SELECT id, reset_expiry FROM users WHERE reset_token=? LIMIT 1`)
+      .get(token);
+    if (!row) return res.status(400).json({ ok: false, error: "Invalid token" });
+    if (!row.reset_expiry || row.reset_expiry < Math.floor(Date.now() / 1000)) {
+      return res.status(400).json({ ok: false, error: "Token expired" });
     }
-  );
+
+    const hash = hashPassword(password);
+    db.prepare(
+      `UPDATE users SET password_hash=?, reset_token=NULL, reset_expiry=NULL WHERE id=?`
+    ).run(hash, row.id);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[reset] update error:", e);
+    return res.status(500).json({ ok: false, error: "Database error" });
+  }
 }
 
-// Legacy + your UI aliases
+// Legacy + UI aliases
 router.post("/reset", (req, res) =>
   req.body && req.body.token ? confirmReset(req, res) : requestReset(req, res)
 );
 router.post("/reset/request", requestReset);
 router.post("/reset/confirm", confirmReset);
-router.post("/reset-request", requestReset); // UI uses this
-router.post("/reset-confirm", confirmReset); // UI may use this next
+router.post("/reset-request", requestReset);
+router.post("/reset-confirm", confirmReset);
 
 module.exports = router;
+
