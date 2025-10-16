@@ -308,6 +308,11 @@ app.get("/", (_req, res) =>
    ========================= */
 
 const PORT = Number(process.env.PORT) || 3001;
-http.createServer(app).listen(PORT, () => {
-  console.log(`✅ WattSun backend running on HTTP port ${PORT}`);
+
+// Force IPv4 binding (0.0.0.0) so both 127.0.0.1 and ::1 work
+const HOST = "0.0.0.0";
+
+http.createServer(app).listen(PORT, HOST, () => {
+  console.log(`✅ WattSun backend running on HTTP port ${PORT} (IPv4+IPv6 compatible)`);
 });
+
