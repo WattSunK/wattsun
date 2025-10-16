@@ -61,6 +61,45 @@ router.get("/loyalty/withdrawals", (req, res) => {
   }
 });
 
+// Create a new withdrawal (admin-initiated)
+router.post("/loyalty/withdrawals", (req, res) => {
+  try {
+    const adminId = req.session?.user?.id || null;
+    const accountId = asInt(req.body?.account_id ?? req.body?.accountId);
+    const points = asInt(req.body?.points);
+    const note = s(req.body?.note);
+
+    if (!Number.isFinite(accountId) || accountId <= 0) {
+      return res.status(400).json({ success: false, error: { code: "BAD_ACCOUNT", message: "Valid account_id is required" } });
+    }
+    if (!Number.isFinite(points) || points <= 0) {
+      return res.status(400).json({ success: false, error: { code: "BAD_POINTS", message: "points must be a positive integer" } });
+    }
+
+    const acct = db.prepare("SELECT id FROM loyalty_accounts WHERE id=?").get(accountId);
+    if (!acct) {
+      return res.status(404).json({ success: false, error: { code: "ACCOUNT_NOT_FOUND", message: "Loyalty account not found" } });
+    }
+
+    // Insert ledger entry as a negative delta (withdraw request)
+    const info = db.prepare(`
+      INSERT INTO loyalty_ledger (account_id, kind, points_delta, note, admin_user_id, created_at)
+      VALUES (?, 'withdraw', ?, ?, ?, datetime('now','localtime'))
+    `).run(accountId, -Math.abs(points), note, adminId);
+
+    // Return created entry (basic shape)
+    const row = db.prepare(`
+      SELECT l.id, l.account_id, ABS(l.points_delta) AS points, l.created_at AS requested_at
+        FROM loyalty_ledger l WHERE l.id=?
+    `).get(info.lastInsertRowid);
+
+    return res.json({ success: true, withdrawal: row });
+  } catch (e) {
+    console.error("[admin-loyalty-withdrawals:create]", e);
+    return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: e.message } });
+  }
+});
+
 function updateStatus(id, status, note, adminId, extra = {}) {
   const decidedAt = new Date().toISOString();
   db.prepare(`INSERT INTO loyalty_withdrawal_meta (ledger_id,status,decided_by,decided_at,note,paid_at)
@@ -156,4 +195,3 @@ router.patch("/loyalty/withdrawals/:id/reject", (req, res) => {
 });
 
 module.exports = router;
-
