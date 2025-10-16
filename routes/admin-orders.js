@@ -73,11 +73,33 @@ router.get("/", (req, res) => {
     const per = parseInt(req.query.per || "10", 10);
     const offset = (page - 1) * per;
 
-    const total = db.prepare("SELECT COUNT(*) AS n FROM orders").get().n;
-    const rows = db
-      .prepare("SELECT * FROM orders ORDER BY datetime(createdAt) DESC LIMIT ? OFFSET ?")
-      .all(per, offset);
+    // --- revised query: include overlay + left join to ensure pending orders appear ---
+const total = db.prepare("SELECT COUNT(*) AS n FROM orders").get().n;
 
+const rows = db
+  .prepare(`
+    SELECT 
+      o.id,
+      o.orderNumber,
+      o.fullName,
+      o.phone,
+      o.email,
+      COALESCE(a.status, o.status)                 AS status,
+      o.createdAt,
+      COALESCE(a.total_cents,   o.totalCents)      AS totalCents,
+      COALESCE(a.deposit_cents, o.depositCents)    AS depositCents,
+      COALESCE(a.currency,      o.currency)        AS currency,
+      COALESCE(a.notes,         o.notes)           AS notes,
+      COALESCE(a.driver_id,     o.driverId)        AS driverId,
+      o.address
+    FROM orders o
+    LEFT JOIN admin_order_meta a
+      ON a.order_id = o.orderNumber
+    WHERE o.status != 'Deleted'
+    ORDER BY datetime(o.createdAt) DESC
+    LIMIT ? OFFSET ?
+  `)
+  .all(per, offset);
     res.json({
       success: true,
       page,
