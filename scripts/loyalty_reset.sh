@@ -63,6 +63,15 @@ SQL
 echo "✅ Data cleanup complete."
 
 # ============================================================
+# 3b️⃣ Ensure password reset columns exist (for recovery routes)
+# ============================================================
+echo "🧩 Ensuring reset_token and reset_expiry columns exist in users table ..."
+sqlite3 "$DB" "ALTER TABLE users ADD COLUMN reset_token TEXT;" 2>/dev/null || true
+sqlite3 "$DB" "ALTER TABLE users ADD COLUMN reset_expiry INTEGER;" 2>/dev/null || true
+echo "✅ Password reset columns verified."
+
+
+# ============================================================
 # 4️⃣ Seeding Phase
 # ============================================================
 echo "👤 Creating test admin user (wattsun1@gmail.com) ..."
