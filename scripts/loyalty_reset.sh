@@ -73,11 +73,11 @@ echo "✅ Test admin user ready (email: wattsun1@gmail.com / password: Pass123)"
 
 echo "💎 Seeding loyalty account with 1000 points ..."
 
-# Detect actual admin ID dynamically
-admin_id=$(sqlite3 "$DB" "SELECT id FROM users WHERE email='wattsun1@gmail.com' LIMIT 1;")
+# --- Determine existing admin ID dynamically ---
+ADMIN_ID=$(sqlite3 "$DB" "SELECT id FROM users WHERE email='wattsun1@gmail.com' LIMIT 1;")
 
-if [ -z "$admin_id" ]; then
-  echo "❌ No admin user found; cannot seed loyalty account."
+if [ -z "$ADMIN_ID" ]; then
+  echo "❌ No admin user found — cannot seed loyalty account."
   exit 1
 fi
 
@@ -93,7 +93,7 @@ INSERT INTO loyalty_accounts (
   total_earned
 )
 VALUES (
-  $admin_id,
+  $ADMIN_ID,
   1,
   'Active',
   date('now'),
@@ -103,14 +103,24 @@ VALUES (
   1000
 );
 
--- ensure correct user linkage if pre-seeded
-UPDATE loyalty_accounts
-SET user_id = $admin_id
-WHERE id = 1;
-
 INSERT INTO loyalty_ledger (account_id, kind, points_delta, note)
 VALUES (1, 'enroll', 1000, 'Initial enrollment bonus');
 SQL
+
+echo "🧩 Linked loyalty account to admin ID $ADMIN_ID (email: wattsun1@gmail.com)"
+echo "✅ Loyalty account seeded with 1000 points."
+
+# ============================================================
+# 🧩 Recreate admin_order_meta overlay if missing
+# ============================================================
+echo "🧩 Rebuilding admin_order_meta overlay (if needed)..."
+sqlite3 "$DB" <<SQL
+INSERT INTO admin_order_meta (order_id, status, notes)
+SELECT id, 'Pending', '' FROM orders
+WHERE id NOT IN (SELECT order_id FROM admin_order_meta);
+SQL
+echo "✅ Overlay rebuild complete."
+
 
 # 🧩 Safety re-link: ensure loyalty account matches correct admin
 admin_id=$(sqlite3 "$DB" "SELECT id FROM users WHERE email='wattsun1@gmail.com' LIMIT 1;")

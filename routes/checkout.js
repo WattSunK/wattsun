@@ -100,6 +100,16 @@ router.post("/", async (req, res) => {
         ],
         function (err) {
           if (err) {
+           // --- Ensure admin_order_meta entry is created ---
+          db.run(
+            `INSERT OR IGNORE INTO admin_order_meta (order_id, status, notes)
+            VALUES (?, ?, ?)`,
+            [orderId, "Pending", ""],
+            (metaErr) => {
+              if (metaErr) console.warn("[checkout] admin_order_meta warning:", metaErr);
+            }
+          );
+ 
             console.error("[checkout] insert orders error:", err);
             db.run("ROLLBACK");
             return res.status(500).json({ success:false, message:"DB error (orders)" });
