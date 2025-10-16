@@ -45,8 +45,11 @@ read -p "⚠️  This will ERASE all user, order, dispatch, and loyalty data for
 # 3️⃣ Cleanup Phase
 # ============================================================
 echo "🧹 Cleaning tables..."
+# (Optional) Safety check – confirm DB header is readable
+if ! sqlite3 "$DB" "PRAGMA user_version;" >/dev/null 2>&1; then
+  echo "❌ Database $DB is not accessible or locked – aborting."; exit 1;
+fi
 sqlite3 "$DB" << SQL
-check_db_safety "$DB_PATH" "$DB_PATH"
 DELETE FROM notifications_queue;
 DELETE FROM loyalty_ledger;
 DELETE FROM loyalty_accounts;
