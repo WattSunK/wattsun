@@ -150,9 +150,11 @@ app.use("/api/checkout", require("./routes/checkout"));
 app.use("/api/orders", require("./routes/orders"));
 app.use("/api/track", require("./routes/track"));
 
-// Catalog (uses Knex)
-app.use("/api/items", require("./routes/items")(db));
-app.use("/api/categories", require("./routes/categories")(db));
+
+// Catalog (inventory DB via inline Knex in routes)
+app.use("/api/items", require("./routes/items"));
+app.use("/api/categories", require("./routes/categories"));
+
 
 /* =========================
    Loyalty routes
