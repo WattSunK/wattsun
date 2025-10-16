@@ -28,8 +28,8 @@ function computeStatus(r) {
 
 function rowWithStatus(row) { return { ...row, status: computeStatus(row) }; }
 
-// List withdrawals (unified view from ledger + meta)
-router.get("/loyalty/withdrawals", (req, res) => {
+// Internal handler: list withdrawals (unified view from ledger + meta)
+function listWithdrawals(req, res) {
   try {
     const per = Math.min(100, Math.max(1, asInt(req.query?.per, 20)));
     const page = Math.max(1, asInt(req.query?.page, 1));
@@ -59,10 +59,15 @@ router.get("/loyalty/withdrawals", (req, res) => {
     console.error("[admin-loyalty-withdrawals:list]", e);
     return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: e.message } });
   }
-});
+}
+
+// Register list routes (new canonical, plus legacy alias)
+router.get("/withdrawals", listWithdrawals);
+router.get("/loyalty/withdrawals", listWithdrawals);
 
 // Create a new withdrawal (admin-initiated)
-router.post("/loyalty/withdrawals", (req, res) => {
+// Internal handler: create a withdraw request
+function createWithdrawal(req, res) {
   try {
     const adminId = req.session?.user?.id || null;
     const accountId = asInt(req.body?.account_id ?? req.body?.accountId);
@@ -76,9 +81,29 @@ router.post("/loyalty/withdrawals", (req, res) => {
       return res.status(400).json({ success: false, error: { code: "BAD_POINTS", message: "points must be a positive integer" } });
     }
 
-    const acct = db.prepare("SELECT id FROM loyalty_accounts WHERE id=?").get(accountId);
+    const acct = db.prepare("SELECT id, program_id FROM loyalty_accounts WHERE id=?").get(accountId);
     if (!acct) {
       return res.status(404).json({ success: false, error: { code: "ACCOUNT_NOT_FOUND", message: "Loyalty account not found" } });
+    }
+
+    // Enforce program minWithdrawPoints (default 0 when not set)
+    let minPts = 0;
+    try {
+      const r = db.prepare(`SELECT value FROM loyalty_program_settings WHERE program_id=? AND key='minWithdrawPoints'`).get(acct.program_id);
+      if (r && r.value !== undefined && r.value !== null && String(r.value).trim() !== "") {
+        const n = Number(r.value);
+        if (Number.isFinite(n) && n >= 0) minPts = Math.trunc(n);
+      }
+    } catch (_) {}
+    if (points < minPts) {
+      return res.status(400).json({ success: false, error: { code: "BELOW_MIN", message: `Minimum withdrawal is ${minPts} points` } });
+    }
+
+    // Check live available points from ledger
+    const availRow = db.prepare(`SELECT COALESCE(SUM(points_delta),0) AS net FROM loyalty_ledger WHERE account_id=?`).get(accountId);
+    const available = Number(availRow?.net || 0);
+    if (points > available) {
+      return res.status(400).json({ success: false, error: { code: "INSUFFICIENT_POINTS", message: `Available points: ${available}` } });
     }
 
     // Insert ledger entry as a negative delta (withdraw request)
@@ -86,6 +111,15 @@ router.post("/loyalty/withdrawals", (req, res) => {
       INSERT INTO loyalty_ledger (account_id, kind, points_delta, note, admin_user_id, created_at)
       VALUES (?, 'withdraw', ?, ?, ?, datetime('now','localtime'))
     `).run(accountId, -Math.abs(points), note, adminId);
+
+    // Create meta row as Pending for this withdrawal
+    try {
+      db.prepare(`INSERT OR IGNORE INTO loyalty_withdrawal_meta (ledger_id, status, decided_by, decided_at, note)
+                  VALUES (?, 'Pending', NULL, NULL, ?)`)
+        .run(info.lastInsertRowid, note);
+    } catch (e) {
+      console.warn("[admin-loyalty-withdrawals:create][meta]", e.message);
+    }
 
     // Return created entry (basic shape)
     const row = db.prepare(`
@@ -98,7 +132,11 @@ router.post("/loyalty/withdrawals", (req, res) => {
     console.error("[admin-loyalty-withdrawals:create]", e);
     return res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: e.message } });
   }
-});
+}
+
+// Register create routes (new canonical, plus legacy alias)
+router.post("/withdrawals", createWithdrawal);
+router.post("/loyalty/withdrawals", createWithdrawal);
 
 function updateStatus(id, status, note, adminId, extra = {}) {
   const decidedAt = new Date().toISOString();
@@ -121,7 +159,7 @@ function updateStatus(id, status, note, adminId, extra = {}) {
   return rowWithStatus(r);
 }
 
-router.patch("/loyalty/withdrawals/:id/approve", (req, res) => {
+function approveWithdrawal(req, res) {
   try {
     const id = asInt(req.params.id);
     const adminId = req.session?.user?.id || null;
@@ -139,9 +177,11 @@ router.patch("/loyalty/withdrawals/:id/approve", (req, res) => {
     console.error("[approve]", e);
     return res.status(500).json({ success: false, error: { message: "Approve failed" } });
   }
-});
+}
+router.patch("/withdrawals/:id/approve", approveWithdrawal);
+router.patch("/loyalty/withdrawals/:id/approve", approveWithdrawal);
 
-router.patch("/loyalty/withdrawals/:id/mark-paid", (req, res) => {
+function markPaid(req, res) {
   try {
     const id = asInt(req.params.id);
     const adminId = req.session?.user?.id || null;
@@ -149,11 +189,17 @@ router.patch("/loyalty/withdrawals/:id/mark-paid", (req, res) => {
     const paidAt = req.body?.paidAt || new Date().toISOString();
     const row = updateStatus(id, "No Action", note, adminId, { paidAt });
 
-    // Update account totals on successful payout
-    db.prepare(`UPDATE loyalty_accounts
-                  SET total_paid = COALESCE(total_paid,0) + (SELECT ABS(points_delta) FROM loyalty_ledger WHERE id = ?)
-                WHERE id = (SELECT account_id FROM loyalty_ledger WHERE id = ?)`)
-      .run(id, id);
+    // Update account totals on successful payout (deduct balance, add paid)
+    const amtRow = db.prepare(`SELECT ABS(points_delta) AS amt, account_id AS acct FROM loyalty_ledger WHERE id = ?`).get(id);
+    const amt = Number(amtRow?.amt || 0);
+    const acctId = amtRow?.acct;
+    if (Number.isFinite(amt) && acctId != null) {
+      db.prepare(`UPDATE loyalty_accounts
+                    SET points_balance = MAX(0, COALESCE(points_balance,0) - ?),
+                        total_paid     = COALESCE(total_paid,0) + ?,
+                        updated_at     = datetime('now','localtime')
+                  WHERE id = ?`).run(amt, amt, acctId);
+    }
 
     try {
       db.prepare(`INSERT INTO notifications_queue (kind, user_id, email, payload, status, note, created_at)
@@ -166,9 +212,11 @@ router.patch("/loyalty/withdrawals/:id/mark-paid", (req, res) => {
     console.error("[mark-paid]", e);
     return res.status(500).json({ success: false, error: { message: "Mark paid failed" } });
   }
-});
+}
+router.patch("/withdrawals/:id/mark-paid", markPaid);
+router.patch("/loyalty/withdrawals/:id/mark-paid", markPaid);
 
-router.patch("/loyalty/withdrawals/:id/reject", (req, res) => {
+function rejectWithdrawal(req, res) {
   try {
     const id = asInt(req.params.id);
     const adminId = req.session?.user?.id || null;
@@ -192,6 +240,8 @@ router.patch("/loyalty/withdrawals/:id/reject", (req, res) => {
     console.error("[reject]", e);
     return res.status(500).json({ success: false, error: { message: "Reject failed" } });
   }
-});
+}
+router.patch("/withdrawals/:id/reject", rejectWithdrawal);
+router.patch("/loyalty/withdrawals/:id/reject", rejectWithdrawal);
 
 module.exports = router;
