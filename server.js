@@ -155,6 +155,17 @@ app.use("/api/track", require("./routes/track"));
 app.use("/api/items", require("./routes/items"));
 app.use("/api/categories", require("./routes/categories"));
 
+/* =========================================================
+   🧭 Database Path Summary — Startup Log
+   ========================================================= */
+console.log("------------------------------------------------------------");
+console.log("🌞  WattSun Database Path Summary");
+console.log("------------------------------------------------------------");
+console.log("🔹 Main / Users DB      :", process.env.DB_PATH_USERS || process.env.SQLITE_MAIN);
+console.log("🔹 Inventory DB         :", process.env.DB_PATH_INVENTORY || "Not set");
+console.log("🔹 Admin Overlay (meta) :", process.env.DB_PATH_OVERLAY || "(using main)");
+console.log("------------------------------------------------------------");
+
 
 /* =========================
    Loyalty routes
