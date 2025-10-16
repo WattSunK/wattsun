@@ -104,16 +104,7 @@ router.post("/", async (req, res) => {
             db.run("ROLLBACK");
             return res.status(500).json({ success:false, message:"DB error (orders)" });
           }
-        // --- Ensure admin_order_meta entry is created ---
-          db.run(
-            `INSERT OR IGNORE INTO admin_order_meta (order_id, status, notes)
-            VALUES (?, ?, ?)`,
-            [orderId, "Pending", ""],
-            (metaErr) => {
-              if (metaErr) console.warn("[checkout] admin_order_meta warning:", metaErr);
-            }
-          );
-          // order_items
+                  // order_items
           const stmt = db.prepare(
             `INSERT INTO order_items (order_id, sku, name, qty, priceCents, depositCents, image)
              VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -132,6 +123,15 @@ router.post("/", async (req, res) => {
           }
 
           stmt.finalize((e2) => {
+            // --- Ensure admin_order_meta entry is created ---
+          db.run(
+            `INSERT OR IGNORE INTO admin_order_meta (order_id, status, notes)
+            VALUES (?, ?, ?)`,
+            [orderId, "Pending", ""],
+            (metaErr) => {
+              if (metaErr) console.warn("[checkout] admin_order_meta warning:", metaErr);
+            }
+          );
             if (e2) {
               console.error("[checkout] insert order_items error:", e2);
               db.run("ROLLBACK");
@@ -142,19 +142,19 @@ router.post("/", async (req, res) => {
               to: process.env.ADMIN_EMAIL || "admin@example.com",
               subject: `New order ${orderNumber}`,
               text: `New order from ${fullName || ""} (${phone || ""})
-Items: ${normItems.map(i => `${i.name} x${i.quantity}`).join(", ")}
-Total: KES ${totalKES}
-Deposit: KES ${depositKES}`
-            });
+            Items: ${normItems.map(i => `${i.name} x${i.quantity}`).join(", ")}
+            Total: KES ${totalKES}
+            Deposit: KES ${depositKES}`
+                        });
 
-            const payloadCustomer = JSON.stringify({
-              to: email || "",
-              subject: `Thanks for your order ${orderNumber}`,
-              text: `Dear ${fullName || "Customer"},
-We received your order ${orderNumber}.
-Total: KES ${totalKES}
-Deposit: KES ${depositKES}
-We’ll contact you shortly.`
+                        const payloadCustomer = JSON.stringify({
+                          to: email || "",
+                          subject: `Thanks for your order ${orderNumber}`,
+                          text: `Dear ${fullName || "Customer"},
+            We received your order ${orderNumber}.
+            Total: KES ${totalKES}
+            Deposit: KES ${depositKES}
+            We’ll contact you shortly.`
             });
 
             const nq = db.prepare(
