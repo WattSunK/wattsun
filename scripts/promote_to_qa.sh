@@ -9,6 +9,37 @@
 # ============================================================
 
 set -e
+# ----------------------------------------------------------------------
+# 🧩 SAFEGUARD: verify source vs target database versions before overwrite
+# ----------------------------------------------------------------------
+check_db_safety() {
+  local SRC="$1"
+  local DST="$2"
+  local src_ver dst_ver src_date dst_date
+
+  if [ ! -f "$SRC" ]; then
+    echo "❌ Source DB not found: $SRC"
+    exit 1
+  fi
+  if [ ! -f "$DST" ]; then
+    echo "⚠️ Target DB does not exist yet: $DST (first-time copy allowed)"
+    return 0
+  fi
+
+  src_ver=$(sqlite3 "$SRC" "PRAGMA user_version;" 2>/dev/null || echo 0)
+  dst_ver=$(sqlite3 "$DST" "PRAGMA user_version;" 2>/dev/null || echo 0)
+  src_date=$(stat -c %y "$SRC" 2>/dev/null | cut -d'.' -f1)
+  dst_date=$(stat -c %y "$DST" 2>/dev/null | cut -d'.' -f1)
+
+  echo "🔍 Source: $SRC (user_version=$src_ver, modified=$src_date)"
+  echo "🔍 Target: $DST (user_version=$dst_ver, modified=$dst_date)"
+
+  if [ "$src_ver" -lt "$dst_ver" ]; then
+    echo "❌ Aborting: source DB user_version ($src_ver) is older than target ($dst_ver)."
+    exit 1
+  fi
+}
+
 
 ROOT="/volume1/web/wattsun"
 DEV_DB="$ROOT/data/dev/wattsun.dev.db"
@@ -43,11 +74,25 @@ if [ ! -f "$DEV_DB" ]; then
   echo -e "${RED}❌ DEV DB not found at $DEV_DB${NC}"
   exit 1
 fi
+if [ ! -f "$QA_DB" ]; then
+  echo -e "${YELLOW}⚠️  QA DB not found — it will be created fresh.${NC}"
+else
+  # 🧩 Backup QA DB before overwrite
+  BACKUP_FILE="${QA_DB}.bak_$(date +%F_%H-%M-%S)"
+  echo -e "${YELLOW}🗄️  Creating backup: ${BACKUP_FILE}${NC}"
+  sudo cp "$QA_DB" "$BACKUP_FILE"
+  sudo chown 53Bret:users "$BACKUP_FILE"
+fi
 
+# 🧩 Safeguard: ensure source DB is not older than target
+check_db_safety "$DEV_DB" "$QA_DB"
+
+# ✅ Safe copy after checks
 sudo cp "$DEV_DB" "$QA_DB"
 sudo chown 53Bret:users "$QA_DB"
 sudo chmod 664 "$QA_DB"
 echo -e "${GREEN}✅ QA database replaced from DEV baseline.${NC}"
+
 
 # --- Step 3️⃣: Run loyalty reset for QA ---
 if [ ! -x "$ROOT/scripts/loyalty_reset.sh" ]; then

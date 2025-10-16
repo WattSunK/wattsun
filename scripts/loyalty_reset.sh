@@ -46,6 +46,7 @@ read -p "⚠️  This will ERASE all user, order, dispatch, and loyalty data for
 # ============================================================
 echo "🧹 Cleaning tables..."
 sqlite3 "$DB" << SQL
+check_db_safety "$DB_PATH" "$DB_PATH"
 DELETE FROM notifications_queue;
 DELETE FROM loyalty_ledger;
 DELETE FROM loyalty_accounts;
