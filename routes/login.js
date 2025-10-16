@@ -1,34 +1,17 @@
 // routes/login.js
 const express = require("express");
 const path = require("path");
-const Database = require("better-sqlite3"); // Use same sync API as rest of app
 
-// Try to load a bcrypt implementation; fall back gracefully if missing
+// Use shared DB connection for users to ensure fresh visibility across routes
+const db = require("./db_users");
+
+// Bcrypt (optional): try bcryptjs, then bcrypt; allow graceful absence
 let bcrypt = null;
-try {
-  // Preferred lightweight, pure JS implementation
-  bcrypt = require("bcryptjs");
-} catch (_) {
-  try {
-    // Fallback to native module if present
-    bcrypt = require("bcrypt");
-  } catch (_) {
-    bcrypt = null;
-  }
-}
+try { bcrypt = require("bcryptjs"); } catch (_) { try { bcrypt = require("bcrypt"); } catch (_) { bcrypt = null; } }
 
 const router = express.Router();
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
-
-const DB_PATH =
-  process.env.SQLITE_MAIN ||
-  process.env.DB_PATH_USERS ||
-  process.env.SQLITE_DB ||
-  path.join(__dirname, "../data/dev/wattsun.dev.db");
-
-// Open once (sync DB handle)
-const db = new Database(DB_PATH);
 
 // Password verification helpers
 const crypto = require("crypto");
@@ -146,4 +129,3 @@ router.post("/login", (req, res) => {
 });
 
 module.exports = router;
-
