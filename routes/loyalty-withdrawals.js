@@ -8,8 +8,8 @@ const router = express.Router();
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
 
-const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
+const db = require("./db_users"); // shared better-sqlite3
 
 // ---- Auth guard ------------------------------------------------------------
 let requireUser;
@@ -34,20 +34,23 @@ try {
 }
 
 
-// ---- DB --------------------------------------------------------------------
-const DB_PATH = process.env.DB_PATH_USERS || process.env.SQLITE_DB || path.join(process.cwd(), "data/dev/wattsun.dev.db");
-const db = new sqlite3.Database(DB_PATH);
-
-// Small Promise helpers
-const get = (sql, params=[]) => new Promise((resolve, reject) => {
-  db.get(sql, params, (err, row) => err ? reject(err) : resolve(row || null));
-});
-const all = (sql, params=[]) => new Promise((resolve, reject) => {
-  db.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows || []));
-});
-const run = (sql, params=[]) => new Promise((resolve, reject) => {
-  db.run(sql, params, function(err) { err ? reject(err) : resolve(this); });
-});
+// ---- DB helpers (sync under the hood, promise API) -------------------------
+const get = async (sql, params=[]) => {
+  const stmt = db.prepare(sql);
+  const row = Array.isArray(params) ? stmt.get(...params) : stmt.get(params);
+  return row || null;
+};
+const all = async (sql, params=[]) => {
+  const stmt = db.prepare(sql);
+  const rows = Array.isArray(params) ? stmt.all(...params) : stmt.all(params);
+  return rows || [];
+};
+const run = async (sql, params=[]) => {
+  const stmt = db.prepare(sql);
+  const info = Array.isArray(params) ? stmt.run(...params) : stmt.run(params);
+  // provide both shapes for compatibility
+  return { changes: info.changes, lastID: info.lastInsertRowid };
+};
 
 // ---- Utils -----------------------------------------------------------------
 function bad(res, code, message, status=400) {

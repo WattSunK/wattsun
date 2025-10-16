@@ -18,24 +18,20 @@ router.get("/users/me", (req, res) => {
     return res.status(401).json({ success: false, error: "Not logged in" });
   }
 
-  console.log("[users/me] session user:", u);
-
-  db.get(
-    "SELECT id, name, email, phone, type, status, created_at FROM users WHERE id = ?",
-    [u.id],
-    (err, row) => {
-      if (err) {
-        console.error("Failed to fetch current user:", err.message);
-        return res.status(500).json({
-          error: "Failed to fetch user",
-          detail: err.message,
-          id: u.id
-        });
-      }
-      if (!row) return res.status(404).json({ error: "User not found" });
-      res.json({ success: true, user: row });
-    }
-  );
+  try {
+    const row = db
+      .prepare("SELECT id, name, email, phone, type, status, created_at FROM users WHERE id = ?")
+      .get(u.id);
+    if (!row) return res.status(404).json({ error: "User not found" });
+    res.json({ success: true, user: row });
+  } catch (err) {
+    console.error("Failed to fetch current user:", err.message);
+    return res.status(500).json({
+      error: "Failed to fetch user",
+      detail: err.message,
+      id: u.id,
+    });
+  }
 });
 
 // ===========================
@@ -43,16 +39,15 @@ router.get("/users/me", (req, res) => {
 // ===========================
 router.get("/users", (req, res) => {
   const db = req.app.get("db");
-  db.all(
-    "SELECT id, name, email, phone, type, status, created_at FROM users",
-    (err, rows) => {
-      if (err) {
-        console.error("Failed to fetch users:", err.message);
-        return res.status(500).json({ error: "Failed to fetch users", detail: err.message });
-      }
-      res.json({ success: true, users: rows });
-    }
-  );
+  try {
+    const rows = db
+      .prepare("SELECT id, name, email, phone, type, status, created_at FROM users")
+      .all();
+    res.json({ success: true, users: rows });
+  } catch (err) {
+    console.error("Failed to fetch users:", err.message);
+    return res.status(500).json({ error: "Failed to fetch users", detail: err.message });
+  }
 });
 
 // ===========================
@@ -60,18 +55,16 @@ router.get("/users", (req, res) => {
 // ===========================
 router.get("/users/:id(\\d+)", (req, res) => {
   const db = req.app.get("db");
-  db.get(
-    "SELECT id, name, email, phone, type, status, created_at FROM users WHERE id = ?",
-    [req.params.id],
-    (err, row) => {
-      if (err) {
-        console.error("Failed to fetch user:", err.message);
-        return res.status(500).json({ error: "Failed to fetch user", detail: err.message });
-      }
-      if (!row) return res.status(404).json({ error: "User not found" });
-      res.json({ success: true, user: row });
-    }
-  );
+  try {
+    const row = db
+      .prepare("SELECT id, name, email, phone, type, status, created_at FROM users WHERE id = ?")
+      .get(req.params.id);
+    if (!row) return res.status(404).json({ error: "User not found" });
+    res.json({ success: true, user: row });
+  } catch (err) {
+    console.error("Failed to fetch user:", err.message);
+    return res.status(500).json({ error: "Failed to fetch user", detail: err.message });
+  }
 });
 
 module.exports = router;

@@ -9,7 +9,7 @@ const router = express.Router();
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
 
-const sqlite3 = require("sqlite3").verbose();
+const db = require("./db_users");
 const path = require("path");
 const fs = require("fs");
 
@@ -28,38 +28,30 @@ const DB_PATH =
 console.log("📂 Loyalty router DB path:", process.env.SQLITE_MAIN);
 
 // ---- small per-call DB helpers (safe + simple) ----
-function withDb(fn) {
-  return new Promise((resolve, reject) => {
-    const db = new sqlite3.Database(DB_PATH, (err) => {
-      if (err) return reject(err);
-      db.serialize(async () => {
-        try {
-          const out = await fn(db);
-          db.close(() => resolve(out));
-        } catch (e) {
-          db.close(() => reject(e));
-        }
-      });
-    });
-  });
+function withDb(fn) { return Promise.resolve(fn(db)); }
+function run(dbHandle, sql, params = []) {
+  try {
+    const info = Array.isArray(params) ? db.prepare(sql).run(...params) : db.prepare(sql).run(params);
+    return Promise.resolve({ changes: info.changes, lastID: info.lastInsertRowid });
+  } catch (err) {
+    return Promise.reject(err);
+  }
 }
-function run(db, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) return reject(err);
-      resolve({ changes: this.changes, lastID: this.lastID });
-    });
-  });
+function all(dbHandle, sql, params = []) {
+  try {
+    const rows = Array.isArray(params) ? db.prepare(sql).all(...params) : db.prepare(sql).all(params);
+    return Promise.resolve(rows);
+  } catch (err) {
+    return Promise.reject(err);
+  }
 }
-function all(db, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
-  });
-}
-function get(db, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)));
-  });
+function get(dbHandle, sql, params = []) {
+  try {
+    const row = Array.isArray(params) ? db.prepare(sql).get(...params) : db.prepare(sql).get(params);
+    return Promise.resolve(row);
+  } catch (err) {
+    return Promise.reject(err);
+  }
 }
 
 // ---- memoized schema/seed + WAL (runs once per process) ----

@@ -4,31 +4,12 @@
 
 const express = require("express");
 const path = require("path");
-const sqlite3 = require("sqlite3").verbose();
+const db = require("./db_users");
 
 const router = express.Router();
 const INTL_PHONE = /^\+\d{10,15}$/;
 
-// ---- DB wiring ----
-const DB_PATH =
-  process.env.DB_PATH_ORDERS ||
-  process.env.SQLITE_DB ||
-  path.join(process.cwd(), "data/dev/wattsun.dev.db");
-
-function withDb(fn) {
-  const db = new sqlite3.Database(DB_PATH);
-  return new Promise((resolve, reject) => {
-    fn(db)
-      .then((v) => {
-        db.close();
-        resolve(v);
-      })
-      .catch((e) => {
-        db.close();
-        reject(e);
-      });
-  });
-}
+// Shared DB handle via better-sqlite3
 
 function toInt(v, def) {
   const n = parseInt(v, 10);
@@ -36,73 +17,52 @@ function toInt(v, def) {
 }
 
 // ---- core fetch ----
-async function fetchOrdersFromDb({ phone, status, q, page, per }) {
-  return withDb((db) => {
-    return new Promise((resolve, reject) => {
-      const where = [];
-      const args = [];
+function fetchOrdersFromDb({ phone, status, q, page, per }) {
+  const where = [];
+  const args = [];
 
-      // Phone normalized to digits only (same as idx_orders_phone_digits)
-      if (phone) {
-        where.push(
-          `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(phone,''), '+',''), ' ', ''), '-', ''), '(', ''), ')', '') 
-           = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(?,'+',''),' ',''),'-',''),'(',''),')','')`
-        );
-        args.push(phone);
-      }
+  if (phone) {
+    where.push(
+      `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(phone,''), '+',''), ' ', ''), '-', ''), '(', ''), ')', '')
+       = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(?,'+',''),' ',''),'-',''),'(',''),')','')`
+    );
+    args.push(phone);
+  }
+  if (status) {
+    where.push("LOWER(status) = LOWER(?)");
+    args.push(status);
+  }
+  if (q) {
+    where.push("(CAST(orderNumber AS TEXT) LIKE ? OR CAST(id AS TEXT) LIKE ? OR LOWER(fullName) LIKE LOWER(?))");
+    args.push(`%${q}%`, `%${q}%`, `%${q}%`);
+  }
 
-      if (status) {
-        where.push("LOWER(status) = LOWER(?)");
-        args.push(status);
-      }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const countSql = `SELECT COUNT(*) AS n FROM orders ${whereSql}`;
+  const total = (db.prepare(countSql).get(...args)?.n) || 0;
 
-      if (q) {
-        where.push(
-          "(CAST(orderNumber AS TEXT) LIKE ? OR CAST(id AS TEXT) LIKE ? OR LOWER(fullName) LIKE LOWER(?))"
-        );
-        args.push(`%${q}%`, `%${q}%`, `%${q}%`);
-      }
+  const rows = db.prepare(`
+    SELECT 
+      id,
+      orderNumber,
+      fullName,
+      email,
+      phone,
+      address,
+      status,
+      totalCents,
+      depositCents,
+      currency,
+      createdAt,
+      completed_at,
+      driverId
+    FROM orders
+    ${whereSql}
+    ORDER BY datetime(createdAt) DESC
+    LIMIT ? OFFSET ?
+  `).all(...args, per, (page - 1) * per);
 
-      const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-
-      // Count first
-      db.get(
-        `SELECT COUNT(*) AS n FROM orders ${whereSql}`,
-        args,
-        (err, totRow) => {
-          if (err) return reject(err);
-          const total = totRow?.n || 0;
-
-          // Then fetch page
-          db.all(
-            `SELECT 
-               id,
-               orderNumber,
-               fullName,
-               email,
-               phone,
-               address,
-               status,
-               totalCents,
-               depositCents,
-               currency,
-               createdAt,
-               completed_at,
-               driverId
-             FROM orders
-             ${whereSql}
-             ORDER BY datetime(createdAt) DESC
-             LIMIT ? OFFSET ?`,
-            [...args, per, (page - 1) * per],
-            (err2, rows) => {
-              if (err2) return reject(err2);
-              resolve({ orders: rows, total, page, per });
-            }
-          );
-        }
-      );
-    });
-  });
+  return { orders: rows, total, page, per };
 }
 
 // ---- Routes ----
@@ -123,7 +83,7 @@ router.get("/", async (req, res) => {
   }
 
   try {
-    const out = await fetchOrdersFromDb({ phone, status, q, page, per });
+    const out = fetchOrdersFromDb({ phone, status, q, page, per });
     return res.json({ success: true, ...out });
   } catch (e) {
     console.error("[orders][GET] error:", e);
@@ -150,7 +110,7 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    const out = await fetchOrdersFromDb({ phone, status, q, page, per });
+    const out = fetchOrdersFromDb({ phone, status, q, page, per });
     return res.json({ success: true, ...out });
   } catch (e) {
     console.error("[orders][POST] error:", e);

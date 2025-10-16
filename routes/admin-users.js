@@ -1,7 +1,7 @@
 // routes/admin-users.js
-const path = require("path");
 const express = require("express");
-const sqlite3 = require("sqlite3").verbose();
+const path = require("path");
+const db = require("./db_users");
 
 const router = express.Router();
 
@@ -17,24 +17,8 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// ✅ Environment-aware DB path (surgical insert)
-const env = process.env.NODE_ENV || "dev";
-let DB_PATH;
-if (env === "qa") {
-  DB_PATH = path.join(__dirname, "..", "data/qa/wattsun.qa.db");
-} else {
-  DB_PATH =
-    process.env.DB_PATH_USERS ||
-    process.env.SQLITE_DB ||
-    path.join(__dirname, "..", "data/dev/wattsun.dev.db");
-}
-
-const db = new sqlite3.Database(DB_PATH);
-console.log("[admin-users] Using DB at", process.env.SQLITE_MAIN);
-
-
 // ============================================================
-// GET /api/admin/users  — list users with per-user orders count
+// GET /api/admin/users  – list users with per-user orders count
 // ============================================================
 router.get("/users", requireAdmin, (req, res) => {
   let { page = "1", per = "10", q = "", type, status } = req.query;
@@ -128,27 +112,19 @@ router.get("/users", requireAdmin, (req, res) => {
   LIMIT $per OFFSET $offset
   `;
 
-  db.get(countSQL, params, (err, row) => {
-    if (err) {
-      return res
-        .status(500)
-        .json({ success: false, error: { code: "DB_COUNT", message: err.message } });
-    }
-    const total = row?.total ?? 0;
-
-    db.all(listSQL, { ...params, $per: per, $offset: offset }, (err2, rows) => {
-      if (err2) {
-        return res
-          .status(500)
-          .json({ success: false, error: { code: "DB_LIST", message: err2.message } });
-      }
-      return res.json({ success: true, page, per, total, users: rows });
-    });
-  });
+  try {
+    const total = db.prepare(countSQL).get(params).total ?? 0;
+    const rows = db.prepare(listSQL).all({ ...params, $per: per, $offset: offset });
+    return res.json({ success: true, page, per, total, users: rows });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ success: false, error: { code: "DB_LIST", message: err.message } });
+  }
 });
 
 // ============================================================
-// POST /api/admin/users  — create user
+// POST /api/admin/users  – create user
 // ============================================================
 router.post("/users", requireAdmin, express.json(), (req, res) => {
   const { name, email, phone, type, status } = req.body || {};
@@ -165,77 +141,47 @@ router.post("/users", requireAdmin, express.json(), (req, res) => {
       CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
   `;
   const params = {
-    $name: name.trim(),
-    $email: email.trim(),
-    $phone: phone.trim(),
+    $name: String(name).trim(),
+    $email: String(email).trim(),
+    $phone: String(phone).trim(),
     $type: type,
     $status: status,
   };
 
-  db.run(sql, params, function (err) {
-    if (err) {
-      return res
-        .status(500)
-        .json({ success: false, error: { code: "DB_INSERT", message: err.message } });
-    }
-    const id = this.lastID;
-    db.get(
+  try {
+    const info = db.prepare(sql).run(params);
+    const id = info.lastInsertRowid;
+    const row = db.prepare(
       `SELECT id, name, email, phone, type, status, created_at AS createdAt, updated_at AS updatedAt
-       FROM users WHERE id = $id`,
-      { $id: id },
-      (err2, row) => {
-        if (err2)
-          return res
-            .status(500)
-            .json({ success: false, error: { code: "DB_READ", message: err2.message } });
-        return res.json({ success: true, user: row });
-      }
-    );
-  });
+       FROM users WHERE id = $id`
+    ).get({ $id: id });
+    return res.json({ success: true, user: row });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ success: false, error: { code: "DB_INSERT", message: err.message } });
+  }
 });
 
 // ============================================================
-// PATCH /api/admin/users/:id/soft-delete  — mark user as Deleted
+// PATCH /api/admin/users/:id/soft-delete  – mark user as Deleted
 // ============================================================
 router.patch("/users/:id/soft-delete", requireAdmin, (req, res) => {
   const { id } = req.params;
-
-  // Step 1: read user
-  db.get("SELECT id, name, email, status FROM users WHERE id=?", [id], (err, user) => {
-    if (err) {
-      return res.status(500).json({
-        success: false,
-        error: { code: "DB_READ", message: err.message }
-      });
-    }
+  try {
+    const user = db.prepare("SELECT id, name, email, status FROM users WHERE id=?").get(id);
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        error: { code: "NOT_FOUND", message: "User not found" }
-      });
+      return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "User not found" } });
     }
-
-    // Step 2: mark as Deleted
-    db.run("UPDATE users SET status='Deleted' WHERE id=?", [id], function (err2) {
-      if (err2) {
-        return res.status(500).json({
-          success: false,
-          error: { code: "DB_UPDATE", message: err2.message }
-        });
-      }
-
-      // Step 3: respond
-      return res.json({
-        success: true,
-        message: `User ${user.email} marked as Deleted`,
-        user: { ...user, status: "Deleted" }
-      });
-    });
-  });
+    db.prepare("UPDATE users SET status='Deleted' WHERE id=?").run(id);
+    return res.json({ success: true, message: `User ${user.email} marked as Deleted`, user: { ...user, status: "Deleted" } });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: { code: "DB_UPDATE", message: err.message } });
+  }
 });
 
 // ============================================================
-// PATCH /api/admin/users/:id  — update user fields
+// PATCH /api/admin/users/:id  – update user fields
 // ============================================================
 router.patch("/users/:id", requireAdmin, express.json(), (req, res) => {
   const id = parseInt(req.params.id, 10);
@@ -252,36 +198,29 @@ router.patch("/users/:id", requireAdmin, express.json(), (req, res) => {
   if (!fields.length) return res.json({ success: true, user: null });
 
   const sql = `UPDATE users SET ${fields.join(", ")}, updated_at=CURRENT_TIMESTAMP WHERE id=$id`;
-  db.run(sql, params, function (err) {
-    if (err)
-      return res
-        .status(500)
-        .json({ success: false, error: { code: "DB_UPDATE", message: err.message } });
-
-    db.get(
+  try {
+    db.prepare(sql).run(params);
+    const row = db.prepare(
       `SELECT id, name, email, phone, type, status, created_at AS createdAt, updated_at AS updatedAt
-       FROM users WHERE id=$id`,
-      { $id: id },
-      (err2, row) => {
-        if (err2)
-          return res
-            .status(500)
-            .json({ success: false, error: { code: "DB_READ", message: err2.message } });
-        res.json({ success: true, user: row });
-      }
-    );
-  });
+       FROM users WHERE id=$id`
+    ).get({ $id: id });
+    res.json({ success: true, user: row });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ success: false, error: { code: "DB_UPDATE", message: err.message } });
+  }
 });
 
 // ============================================================
-// POST /api/admin/users/:id/send-reset — stub (future mailer)
+// POST /api/admin/users/:id/send-reset – stub (future mailer)
 // ============================================================
 router.post("/users/:id/send-reset", requireAdmin, (req, res) => {
   return res.json({ success: true });
 });
 
 // ============================================================
-// DELETE /api/admin/users/:id  — hard delete (fallback only)
+// DELETE /api/admin/users/:id  – hard delete (fallback only)
 // ============================================================
 router.delete("/users/:id", requireAdmin, (req, res) => {
   const id = parseInt(req.params.id, 10);
@@ -292,17 +231,17 @@ router.delete("/users/:id", requireAdmin, (req, res) => {
     });
   }
 
- try {
-  const stmt = db.prepare("DELETE FROM users WHERE id = ?");
-  const result = stmt.run(id);
-  return res.json({ success: true, deleted: result.changes, id });
-} catch (err) {
-  console.error("[admin-users][hard-delete]", err);
-  return res
-    .status(500)
-    .json({ success: false, error: { code: "DB_DELETE", message: err.message } });
-}
-
+  try {
+    const stmt = db.prepare("DELETE FROM users WHERE id = ?");
+    const result = stmt.run(id);
+    return res.json({ success: true, deleted: result.changes, id });
+  } catch (err) {
+    console.error("[admin-users][hard-delete]", err);
+    return res
+      .status(500)
+      .json({ success: false, error: { code: "DB_DELETE", message: err.message } });
+  }
 });
 
 module.exports = router;
+

@@ -3,13 +3,11 @@
 
 const express = require("express");
 const path = require("path");
-const sqlite3 = require("sqlite3").verbose();
+const db = require("./db_users");
 
 const router = express.Router();
 
-const DB_PATH =
-  process.env.WATTSUN_DB ||
-  path.join(__dirname, "../data/dev/wattsun.dev.db");
+// Shared DB via better-sqlite3
 
 function toInt(v, def) {
   const n = parseInt(v, 10);
@@ -56,50 +54,22 @@ router.get("/", (req, res) => {
     args.push(statusLower);
   }
 
-  const db = new sqlite3.Database(DB_PATH, (err) => {
-    if (err) {
-      console.error("[track] DB open error:", err);
-      return res.status(500).json({ success: false, message: "DB error" });
-    }
-  });
-
-  // Count
-  db.get(`SELECT COUNT(*) AS n FROM orders ${where}`, args, (err, row) => {
-    if (err) {
-      console.error("[track] count error", err);
-      db.close();
-      return res.status(500).json({ success: false, message: "DB error" });
-    }
-    const total = row?.n || 0;
-
-    db.all(
-      `SELECT 
+  try {
+    const total = db.prepare(`SELECT COUNT(*) AS n FROM orders ${where}`).get(...args)?.n || 0;
+    const rows = db.prepare(`
+      SELECT 
          id, orderNumber, status, totalCents, depositCents, currency,
          createdAt, fullName, email, phone, address
        FROM orders
        ${where}
        ORDER BY datetime(createdAt) DESC
-       LIMIT ? OFFSET ?`,
-      [...args, per, (page - 1) * per],
-      (err2, rows) => {
-        db.close();
-        if (err2) {
-          console.error("[track] fetch error", err2);
-          return res
-            .status(500)
-            .json({ success: false, message: "DB error", detail: err2.message });
-        }
+       LIMIT ? OFFSET ?`).all(...args, per, (page - 1) * per);
 
-        return res.json({
-          success: true,
-          total,
-          page,
-          per,
-          orders: rows,
-        });
-      }
-    );
-  });
+    return res.json({ success: true, total, page, per, orders: rows });
+  } catch (e) {
+    console.error("[track] query error", e);
+    return res.status(500).json({ success: false, message: "DB error", detail: e.message });
+  }
 });
 
 module.exports = router;

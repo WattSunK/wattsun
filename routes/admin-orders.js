@@ -1,11 +1,7 @@
 // routes/admin-orders.js
 const express = require("express");
 const router = express.Router();
-const Database = require("better-sqlite3");
-
-// === DB path (adjust if needed) ===
-const DB_PATH = "/volume1/web/wattsun/data/dev/wattsun.dev.db";
-const db = new Database(DB_PATH, { fileMustExist: true });
+const db = require("./db_users");
 
 // === Debug identifier / version endpoint ===
 const ROUTE_VERSION = "admin-orders:v4-watt-key-conditional-2025-10-02T20:25Z";
@@ -16,7 +12,7 @@ router.get("/__version", (req, res) => {
     ok: true,
     version: ROUTE_VERSION,
     file: __filename,
-    dbPath: DB_PATH,
+    dbPath: process.env.SQLITE_MAIN || process.env.SQLITE_DB || process.env.DB_PATH_USERS || null,
     pid: process.pid,
   });
 });

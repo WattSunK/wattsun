@@ -4,24 +4,13 @@
 
 const express = require('express');
 const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
+// Use shared better-sqlite3 handle
+const db = require('./db_users');
 
 const router = express.Router();
 
 // Resolve DB path (unified dev/prod env)
-const env = process.env.NODE_ENV || 'dev';
-const dbPath =
-  process.env.WATTSUN_DB ||
-  (env === 'qa'
-    ? '/volume1/web/wattsun/data/qa/wattsun.qa.db'
-    : path.join(process.cwd(), 'data', 'dev', 'wattsun.dev.db'));
-const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
-  if (err) {
-    console.error('[admin-users-search] Failed to open DB at', dbPath, err);
-  } else {
-    console.log('[admin-users-search] Using DB at', dbPath);
-  }
-});
+// Note: DB path selection handled by db_users / server
 
 function toLikeTerm(q) {
   if (!q) return '%';
@@ -71,13 +60,8 @@ ORDER BY u.name ASC
 LIMIT 25;
 `;
 
-    db.all(sql, { $term: like }, (err, rows) => {
-      if (err) {
-        console.error('[admin-users-search] query error:', err);
-        return res.status(500).json({ success: false, error: { code: 'SEARCH_FAILED', message: 'Failed to search users' } });
-      }
-      return res.json({ success: true, results: rows || [] });
-    });
+    const rows = db.prepare(sql).all({ $term: like });
+    return res.json({ success: true, results: rows || [] });
   } catch (e) {
     console.error('[admin-users-search] handler error:', e);
     return res.status(500).json({ success: false, error: { code: 'SEARCH_FAILED', message: 'Failed to search users' } });
