@@ -94,7 +94,7 @@ const rows = db
       o.address
     FROM orders o
     LEFT JOIN admin_order_meta a
-      ON a.order_id = o.orderNumber
+    ON a.order_id = o.id
     WHERE o.status != 'Deleted'
     ORDER BY datetime(o.createdAt) DESC
     LIMIT ? OFFSET ?
