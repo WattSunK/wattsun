@@ -1,8 +1,20 @@
 const express = require("express");
 const router = express.Router();
+const knexLib = require("knex");
+const path = require("path");
 
-// Pass knex instance from app.js/server.js
-module.exports = (knex) => {
+// ✅ Use inventory DB directly (no external helper)
+const inventoryDbPath =
+  process.env.DB_PATH_INVENTORY ||
+  path.join(__dirname, "../data/dev/inventory.dev.db");
+
+const knex = knexLib({
+  client: "sqlite3",
+  connection: { filename: inventoryDbPath },
+  useNullAsDefault: true,
+});
+console.log("[items] Connected to inventory DB:", inventoryDbPath);
+
    // --- GET /api/items (all items) ---  [FINAL: read real stock/priority/warranty]
 router.get("/", async (req, res) => {
   try {
@@ -215,5 +227,4 @@ router.post("/", async (req, res) => {
   }
 });
 
-  return router;
-};
+module.exports = router;
