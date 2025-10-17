@@ -156,7 +156,18 @@
       const user=getUser();
       if(!user){ window.location.href='/'; return; }
       applyHeader(user);
-      loadSection('orders'); // default tab
+
+      // Read desired tab from query or hash
+      const params = new URLSearchParams(location.search);
+      let tab = params.get('tab');
+      if (!tab && location.hash) {
+        const h = location.hash.replace(/^#/, '');
+        const m = /tab=([^&]+)/.exec(h);
+        tab = m ? m[1] : h;
+      }
+      const allowed = ['profile','orders','addresses','payments','favorites','offers','help'];
+      if (!allowed.includes(String(tab))) tab = 'orders';
+      loadSection(tab);
     });
   </script>
 

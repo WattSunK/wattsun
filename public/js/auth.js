@@ -55,6 +55,8 @@ if (loginForm) {
       );
       updateLoginUI();
       closeLogin();
+      // Ensure avatar and drawer render immediately without hard reload
+      try { (window.updateLoginUI || window.wsOverrideUpdateLoginUI)?.(); } catch(e){}
       // Avoid full page reload to prevent flicker; UI already updated
     } catch (err) {
       console.error("[login] error:", err);
@@ -181,6 +183,7 @@ if (logoutBtn) {
     localStorage.removeItem("wattsunUser");
     updateLoginUI();
     // Avoid full page reload to prevent flicker
+    try { (window.updateLoginUI || window.wsOverrideUpdateLoginUI)?.(); } catch(e){}
   };
 }
 
@@ -195,10 +198,9 @@ window.addEventListener("DOMContentLoaded", updateLoginUI);
         style.id = 'wsAccountStyles';
         style.textContent = `
           .ws-avatar-btn{ display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; background:#fadb14; color:#000; font-weight:800; cursor:pointer; border:none; margin-left:12px; }
-          .ws-drawer-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .18s ease; z-index:2200; }
-          .ws-drawer{ position:fixed; top:0; right:-340px; width:320px; height:100vh; background:#fff; box-shadow:-6px 0 22px rgba(0,0,0,.12); transition:right .22s ease; z-index:2201; display:flex; flex-direction:column; }
-          .ws-open .ws-drawer-backdrop{ opacity:1; pointer-events:auto; }
-          .ws-open #wsAccountPanel{ right:0; }
+          /* Compact drawer: only as tall/wide as needed */
+          #wsAccountPanel{ position:fixed; top:64px; right:12px; width:280px; max-height:calc(100vh - 88px); height:auto; background:#fff; border:1px solid #eee; border-radius:12px; box-shadow:-6px 10px 24px rgba(0,0,0,.14); transform:translateX(16px); opacity:0; pointer-events:none; z-index:2201; display:flex; flex-direction:column; overflow:hidden; transition:transform .18s ease, opacity .18s ease; }
+          .ws-open #wsAccountPanel{ transform:none; opacity:1; pointer-events:auto; }
           .ws-drawer-header{ display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid #eee; font-weight:800; font-size:18px; }
           .ws-drawer-close{ background:none; border:none; font-size:22px; line-height:1; cursor:pointer; color:#777; }
           .ws-drawer-content{ padding:12px 18px; overflow:auto; flex:1; }
@@ -222,10 +224,7 @@ window.addEventListener("DOMContentLoaded", updateLoginUI);
       avatarBtn.textContent = (user?.name?.[0] || 'U').toUpperCase();
       avatarBtn.style.display = 'inline-flex';
 
-      if (!document.getElementById('wsAccountDrawer')){
-        const backdrop = document.createElement('div');
-        backdrop.id = 'wsAccountDrawer';
-        backdrop.className = 'ws-drawer-backdrop';
+      if (!document.getElementById('wsAccountPanel')){
         const panel = document.createElement('aside');
         panel.id = 'wsAccountPanel';
         panel.className = 'ws-drawer';
@@ -235,19 +234,17 @@ window.addEventListener("DOMContentLoaded", updateLoginUI);
             <button class="ws-drawer-close" aria-label="Close" id="wsDrawerClose">×</button>
           </div>
           <div class="ws-drawer-content">
-            <a class="ws-drawer-item" href="/myaccount/userdash.html">My account</a>
-            <a class="ws-drawer-item" href="/myaccount/userdash.html">Orders</a>
-            <a class="ws-drawer-item" href="/myaccount/userdash.html">Addresses</a>
-            <a class="ws-drawer-item" href="/myaccount/userdash.html">Payments</a>
-            <a class="ws-drawer-item" href="/myaccount/userdash.html">Offers</a>
+            <a class="ws-drawer-item" href="/myaccount/userdash.html?tab=profile">My account</a>
+            <a class="ws-drawer-item" href="/myaccount/userdash.html?tab=orders">Orders</a>
+            <a class="ws-drawer-item" href="/myaccount/userdash.html?tab=addresses">Addresses</a>
+            <a class="ws-drawer-item" href="/myaccount/userdash.html?tab=payments">Payments</a>
+            <a class="ws-drawer-item" href="/myaccount/userdash.html?tab=offers">Offers</a>
           </div>
           <div class="ws-drawer-footer">
             <button id="wsDrawerSignOut">Sign out</button>
           </div>`;
-        document.body.appendChild(backdrop);
         document.body.appendChild(panel);
 
-        backdrop.addEventListener('click', closeAccountDrawer);
         document.getElementById('wsDrawerClose').addEventListener('click', closeAccountDrawer);
         document.getElementById('wsDrawerSignOut').addEventListener('click', function(){
           localStorage.removeItem('wattsunUser');
@@ -255,6 +252,16 @@ window.addEventListener("DOMContentLoaded", updateLoginUI);
           wsOverrideUpdateLoginUI();
         });
         document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeAccountDrawer(); });
+
+        // Click outside to close
+        document.addEventListener('click', (evt)=>{
+          const p = document.getElementById('wsAccountPanel');
+          const b = document.getElementById('wsAvatarBtn');
+          if (!p) return;
+          const isInside = p.contains(evt.target) || b?.contains(evt.target);
+          const isOpen = document.documentElement.classList.contains('ws-open');
+          if (isOpen && !isInside) closeAccountDrawer();
+        });
       }
 
       const hello = document.getElementById('wsDrawerHello');
@@ -264,17 +271,13 @@ window.addEventListener("DOMContentLoaded", updateLoginUI);
 
   function openAccountDrawer(){
     document.documentElement.classList.add('ws-open');
-    const backdrop = document.getElementById('wsAccountDrawer');
     const panel = document.getElementById('wsAccountPanel');
-    if (backdrop) backdrop.style.opacity = '1', backdrop.style.pointerEvents = 'auto';
-    if (panel) panel.style.right = '0';
+    if (panel) { /* visible via CSS class on html */ }
   }
   function closeAccountDrawer(){
     document.documentElement.classList.remove('ws-open');
-    const backdrop = document.getElementById('wsAccountDrawer');
     const panel = document.getElementById('wsAccountPanel');
-    if (backdrop) backdrop.style.opacity = '0', backdrop.style.pointerEvents = 'none';
-    if (panel) panel.style.right = '-340px';
+    if (panel) { /* hidden via CSS removal */ }
   }
 
   function wsOverrideUpdateLoginUI(){
@@ -295,13 +298,14 @@ window.addEventListener("DOMContentLoaded", updateLoginUI);
       if (logoutBtn) logoutBtn.style.display = 'none';
       const avatarBtn = document.getElementById('wsAvatarBtn');
       if (avatarBtn) avatarBtn.style.display = 'none';
-      const drawer = document.getElementById('wsAccountDrawer');
-      if (drawer){ drawer.style.opacity='0'; drawer.style.pointerEvents='none'; }
+      closeAccountDrawer();
     }
   }
 
   // Expose and run
   window.wsOverrideUpdateLoginUI = wsOverrideUpdateLoginUI;
+  // Replace original updateLoginUI calls with the enhanced one
+  window.updateLoginUI = wsOverrideUpdateLoginUI;
   document.addEventListener('DOMContentLoaded', wsOverrideUpdateLoginUI);
   // Run immediately in case DOM is already ready
   try{ wsOverrideUpdateLoginUI(); }catch{}
