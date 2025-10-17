@@ -157,6 +157,10 @@ if (resetForm) {
 
 // ---------- Login/logout UI logic ----------
 function updateLoginUI() {
+  // Delegate to enhanced handler if available to prevent legacy UI showing
+  if (typeof window !== 'undefined' && typeof window.wsOverrideUpdateLoginUI === 'function') {
+    return window.wsOverrideUpdateLoginUI();
+  }
   const user = getCurrentUser();
   const userSpan = document.getElementById("loggedInUser");
   const loginBtn = document.getElementById("loginBtn");
