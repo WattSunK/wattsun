@@ -133,6 +133,14 @@
   let USERS_BASE = null;
 
   async function resolveUsersBase() {
+    // In admin dashboard, always prefer the admin users API to avoid 404s on POST/PATCH
+    try {
+      if (document.body && document.body.classList.contains('admin-shell')) {
+        USERS_BASE = "/api/admin/users";
+        try { localStorage.setItem("wsUsersBase", USERS_BASE); } catch {}
+        return USERS_BASE;
+      }
+    } catch {}
     if (USERS_BASE) return USERS_BASE;
     USERS_BASE = localStorage.getItem("wsUsersBase") || null;
 
@@ -600,19 +608,39 @@ const UsersModal = (() => {
         });
       }
 
-      const ct = r.headers.get("content-type") || "";
-      const body = ct.includes("json") ? await r.json() : {};
+      let ct = r.headers.get("content-type") || "";
+      let body = ct.includes("json") ? await r.json() : {};
       if (!r.ok || body.success === false) {
-        // Try to surface inline errors (e.g., duplicate email)
-        const msg = (body && (body.error?.message || body.message)) || `Request failed (${r.status})`;
-        // crude inline hook for email
-        if (/email/i.test(msg)) {
-          emailErr.textContent = msg;
-          emailErr.style.display = "";
+        // If we accidentally hit a non-admin base, retry once against /api/admin/users
+        if (r.status === 404 && base !== '/api/admin/users') {
+          try {
+            const adminBase = '/api/admin/users';
+            localStorage.setItem('wsUsersBase', adminBase);
+            const retryUrl = isAdd ? adminBase : `${adminBase}/${encodeURIComponent(id)}`;
+            const retry = await fetch(retryUrl, {
+              method: isAdd ? 'POST' : 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify(payload)
+            });
+            ct = retry.headers.get('content-type') || '';
+            body = ct.includes('json') ? await retry.json() : {};
+            if (!retry.ok || body.success === false) throw new Error(body?.error?.message || `Request failed (${retry.status})`);
+            r = retry;
+          } catch (re) {
+            alert(re?.message || 'Request failed (retry)');
+            return;
+          }
         } else {
-          alert(msg);
+          const msg = (body && (body.error?.message || body.message)) || `Request failed (${r.status})`;
+          if (/email/i.test(msg)) {
+            emailErr.textContent = msg;
+            emailErr.style.display = '';
+          } else {
+            alert(msg);
+          }
+          return;
         }
-        return;
       }
 
       // success; body may contain the new/updated row
