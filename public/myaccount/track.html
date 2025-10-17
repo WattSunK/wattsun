@@ -13,6 +13,8 @@
     .pill{display:inline-block;padding:4px 10px;border-radius:999px;border:1px solid #fadb14;background:#fffbe6;font-weight:700;font-size:12px;}
     .logo-img{height:28px;object-fit:contain;margin-right:10px;}
     header.site-header .topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#ffd666;}
+    /* hide legacy mobile footer icon links before JS rewrites footer */
+    footer a[aria-label]{display:none}
   </style>
 </head>
 <body>
@@ -99,6 +101,14 @@
   <a aria-label="Cart" href="/cart.html">🛒<span id="cart-count">0</span></a>
   <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('nav').classList.toggle('nav-open')">☰</a>
 </footer>
+<script>
+  document.addEventListener('DOMContentLoaded', function(){
+    const f = document.querySelector('footer');
+    if (f) {
+      f.innerHTML = '<div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div><p>© 2025 WattSun Solar. All rights reserved.</p>';
+    }
+  });
+</script>
 
 <script>
 /* tiny cart badge refresh (unified with index.html) */
