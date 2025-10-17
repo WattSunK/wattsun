@@ -2,7 +2,6 @@
 (() => {
   const VERSION = (window.__ADMIN_VERSION__ || "0");
   const contentEl = document.getElementById("admin-content");
-  const WS_DIAG = /[?&]__diag=1\b/.test(location.search || "");
   const navLinks = Array.from(document.querySelectorAll(".admin-nav .nav-link"));
   const hardRefreshBtn = document.getElementById("hard-refresh");
 
@@ -17,15 +16,11 @@
   function executeInlineScripts(scope) {
     const scripts = Array.from(scope.querySelectorAll("script"));
     for (const old of scripts) {
-      try {
-        const s = document.createElement("script");
-        for (const attr of old.attributes) s.setAttribute(attr.name, attr.value);
-        s.textContent = old.textContent;
-        (document.body || document.documentElement).appendChild(s);
-        old.remove();
-      } catch (e) {
-        console.error("[admin-skin] inline script error", e);
-      }
+      const s = document.createElement("script");
+      for (const attr of old.attributes) s.setAttribute(attr.name, attr.value);
+      s.textContent = old.textContent;
+      (document.body || document.documentElement).appendChild(s);
+      old.remove();
     }
   }
 
@@ -39,69 +34,8 @@
     return navLinks.find(a => a.getAttribute("data-partial") === id) || null;
   }
 
-  async function fetchWithTimeout(url, options = {}, ms = 10000) {
-    return Promise.race([
-      fetch(url, options),
-      new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms))
-    ]);
-  }
-
-  function forceCloseAllModals(removeOrders = false){
-    try {
-      // Close native dialogs
-      Array.from(document.querySelectorAll('dialog')).forEach(d => {
-        try { d.close(); } catch(_) {}
-        d.removeAttribute('open');
-        d.setAttribute('aria-hidden','true');
-        d.style.display = 'none';
-      });
-      // Hide any custom modal containers
-      Array.from(document.querySelectorAll('.modal')).forEach(m => {
-        m.classList.remove('show');
-        m.setAttribute('aria-hidden','true');
-        m.style.display = 'none';
-      });
-      // Hide app-specific overlays/backdrops
-      Array.from(document.querySelectorAll('.ws-modal,.modal-backdrop,.modal-overlay')).forEach(n => {
-        n.classList.remove('is-open');
-        n.classList.remove('show');
-        n.setAttribute('aria-hidden','true');
-        n.style.display = 'none';
-      });
-      // IDs used by items module
-      ;['edit-item-modal-bg','add-item-modal-bg','manage-categories-modal'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) { el.style.display = 'none'; el.setAttribute('aria-hidden','true'); }
-      });
-      document.documentElement.classList.remove('ws-modal-open');
-      document.body.classList.remove('ws-modal-open');
-
-      if (removeOrders) {
-        ['#orderViewModal','#orderEditModal','#orderAddModal'].forEach(sel => {
-          const n = document.querySelector(sel);
-          if (n && n.parentNode) n.parentNode.removeChild(n);
-        });
-      }
-    } catch(_){}
-  }
-
-  function anyOverlayPresent(){
-    try{
-      if (document.querySelector('dialog[open]')) return true;
-      if (document.querySelector('.modal.show, .modal[aria-hidden="false"]')) return true;
-      if (document.querySelector('.ws-modal.is-open')) return true;
-      if (['edit-item-modal-bg','add-item-modal-bg','manage-categories-modal'].some(id => {
-        const el = document.getElementById(id); return el && getComputedStyle(el).display !== 'none';
-      })) return true;
-      if (document.querySelector('.modal-backdrop.is-open, .modal-overlay[style*="display: block"]')) return true;
-      return false;
-    }catch{ return false; }
-  }
-
   async function loadPartial(id, url) {
     if (!contentEl) return;
-    // Proactively close and, if leaving Orders, remove order modals so they cannot overlay
-    forceCloseAllModals(id !== 'orders');
     contentEl.setAttribute("aria-busy", "true");
     contentEl.innerHTML = `<div class="loading"><span class="spinner"></span><span>Loading…</span></div>`;
 
@@ -109,17 +43,12 @@
     const finalUrl = `${url}${bust}`;
 
     try {
-      const res = await fetchWithTimeout(finalUrl, { credentials: "same-origin" }, 12000);
+      const res = await fetch(finalUrl, { credentials: "same-origin" });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const html = await res.text();
       contentEl.innerHTML = html;
-      // Execute inline scripts contained in the partial (guards inside executeInlineScripts)
-      if (!WS_DIAG) {
-        executeInlineScripts(contentEl);
-      }
+      executeInlineScripts(contentEl);
       contentEl.removeAttribute("aria-busy");
-      // Once the new view is in place, ensure no legacy modal remains
-      forceCloseAllModals(id !== 'orders');
       window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { id } }));
     } catch (err) {
       console.error("[admin-skin] failed to load partial", id, err);
@@ -129,14 +58,10 @@
           <div class="card-body">
             <p>Could not load <code>${id}</code>. Please check the Network tab.</p>
             <pre style="white-space:pre-wrap;color:#b91c1c;">${String(err)}</pre>
-            <div style="margin-top:10px;">
-              <button id="retry-partial" class="btn">Retry</button>
-            </div>
           </div>
         </div>
       `;
       contentEl.removeAttribute("aria-busy");
-      document.getElementById('retry-partial')?.addEventListener('click', () => loadPartial(id, url));
     }
   }
 
@@ -149,8 +74,6 @@
   navLinks.forEach(link => {
     link.addEventListener("click", (e) => {
       e.preventDefault();
-      // Make sure no overlays block navigation
-      forceCloseAllModals(true);
       const id = link.getAttribute("data-partial");
       const url = link.getAttribute("data-url");
       setActive(link);
@@ -161,7 +84,6 @@
 
   if (hardRefreshBtn) {
     hardRefreshBtn.addEventListener("click", () => {
-      forceCloseAllModals(true);
       const active = document.querySelector(".admin-nav .nav-link.is-active");
       const id = active?.getAttribute("data-partial") || "system-status";
       const url = active?.getAttribute("data-url") || "/partials/system-status.html";
@@ -178,17 +100,6 @@
   if (initialLink) {
     setActive(initialLink);
     loadPartial(initialLink.getAttribute("data-partial"), initialLink.getAttribute("data-url"));
-    // Safety: if still busy after 4s, retry once
-    setTimeout(() => {
-      try {
-        if (contentEl && contentEl.getAttribute("aria-busy") === "true") {
-          const id = initialLink.getAttribute("data-partial");
-          const url = initialLink.getAttribute("data-url");
-          console.warn("[admin-skin] retrying initial partial load", id);
-          loadPartial(id, url);
-        }
-      } catch(_){/* ignore */}
-    }, 4000);
   }
 
   // ============================================================
@@ -290,15 +201,6 @@
       pendingCreateIntent = null;
     }
 
-    if (pendingCreateIntent.type === 'view-order' && id === 'orders') {
-      const orderId = pendingCreateIntent.id;
-      setTimeout(() => {
-        try {
-          window.dispatchEvent(new CustomEvent('orders:view', { detail: { id: orderId } }));
-        } finally { pendingCreateIntent = null; }
-      }, 0);
-    }
-
     if (pendingCreateIntent?.type === "item" && id === "items") {
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent("items:create"));
@@ -333,13 +235,10 @@
 
     if (typeof window.toast === "function") window.toast(`Unknown create type: ${type}`, "error");
   });
-
-  // Cross-section order hijacking removed; each module owns its own actions.
 })();
 
 // --- Topbar Home/Logout: resilient injector (idempotent) ---
 (function(){
-  if (typeof WS_DIAG !== 'undefined' && WS_DIAG) return; // disable in diagnostic mode
   function ensureTopbarButtons(root){
     try {
       var bar = root && root.querySelector ? root.querySelector('.topbar-actions') : document.querySelector('.topbar-actions');
@@ -447,32 +346,17 @@
       return false;
     } catch { return false; }
   }
-  let rafPending = false;
   function syncLock(){
-    if (rafPending) return; // throttle bursts
-    rafPending = true;
-    requestAnimationFrame(() => {
-      rafPending = false;
-      const open = anyModalOpen();
-      const root = document.documentElement;
-      if (open) { root.classList.add('ws-modal-open'); document.body.classList.add('ws-modal-open'); }
-      else { root.classList.remove('ws-modal-open'); document.body.classList.remove('ws-modal-open'); }
-    });
+    const open = anyModalOpen();
+    const root = document.documentElement;
+    if (open) { root.classList.add('ws-modal-open'); document.body.classList.add('ws-modal-open'); }
+    else { root.classList.remove('ws-modal-open'); document.body.classList.remove('ws-modal-open'); }
   }
   try {
     const mo = new MutationObserver(syncLock);
-    // Only observe attribute changes related to dialogs/modals; avoid childList churn
-    mo.observe(document.body, { attributes:true, subtree:true, attributeFilter:['open','aria-hidden','class'] });
+    mo.observe(document.body, { attributes:true, childList:true, subtree:true, attributeFilter:['open','aria-hidden','class','style'] });
     document.addEventListener('close', syncLock, true);
     document.addEventListener('keydown', function(e){ if (e.key==='Escape') setTimeout(syncLock,0); }, true);
-    // If any overlay is present and user clicks outside a modal, force close
-    document.addEventListener('pointerdown', function(e){
-      try{
-        if (!anyOverlayPresent()) return;
-        const insideModal = e.target.closest('dialog,.modal,.ws-modal__card,.modal-card,.modal-sheet');
-        if (!insideModal) forceCloseAllModals(true);
-      }catch(_){/* ignore */}
-    }, true);
     // initial
     syncLock();
   } catch(_){}
