@@ -613,3 +613,28 @@ footer a {
     font-size: 1.3em;
   }
 }
+
+/* === Compact Header Sizing (trim logo/spacing so header doesn't stretch) === */
+/* These overrides gently reduce the header height without changing layout. */
+header .header-bar {
+  padding: 6px 12px !important;               /* tighter vertical padding */
+  min-height: 56px;                            /* stable height on desktop */
+}
+header .header-bar h1 {
+  font-size: 2.2em !important;                 /* smaller than 3em */
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  line-height: 1.1;
+}
+/* Cap the raster logo height and avoid width-stretching */
+header .desktop-logo img {
+  max-height: 44px !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain;
+  vertical-align: middle;
+}
+/* Mobile logo already constrained; keep consistent on small screens */
+@media (max-width: 768px) {
+  header .desktop-logo img { max-height: 36px !important; }
+}
