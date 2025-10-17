@@ -34,6 +34,21 @@
     return navLinks.find(a => a.getAttribute("data-partial") === id) || null;
   }
 
+  // Close any open <dialog> or known overlay before navigation/refresh
+  function wsCloseAllDialogs() {
+    try {
+      document.querySelectorAll('dialog[open]').forEach(d => {
+        try { d.close(); } catch { d.removeAttribute('open'); }
+      });
+      // If custom overlays are present, hide them too (non-destructive)
+      document.querySelectorAll('.ws-modal,.modal.show,.modal[aria-hidden="false"]').forEach(n => {
+        n.classList.remove('show');
+        n.setAttribute('aria-hidden','true');
+        n.style.display = 'none';
+      });
+    } catch(_) {}
+  }
+
   async function loadPartial(id, url) {
     if (!contentEl) return;
     contentEl.setAttribute("aria-busy", "true");
@@ -74,6 +89,7 @@
   navLinks.forEach(link => {
     link.addEventListener("click", (e) => {
       e.preventDefault();
+      wsCloseAllDialogs();
       const id = link.getAttribute("data-partial");
       const url = link.getAttribute("data-url");
       setActive(link);
@@ -84,6 +100,7 @@
 
   if (hardRefreshBtn) {
     hardRefreshBtn.addEventListener("click", () => {
+      wsCloseAllDialogs();
       const active = document.querySelector(".admin-nav .nav-link.is-active");
       const id = active?.getAttribute("data-partial") || "system-status";
       const url = active?.getAttribute("data-url") || "/partials/system-status.html";
