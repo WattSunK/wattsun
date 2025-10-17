@@ -78,7 +78,7 @@
 
       return `
         <tr data-id="${id}">
-          <td data-col="order">${id}</td>
+          <td data-col="order"><a href="/myaccount/track.html?order=${encodeURIComponent(id)}&status=${encodeURIComponent(status)}" target="_blank" rel="noopener">${id}</a></td>
           <td data-col="customer">${name}</td>
           <td data-col="phone">${phone}</td>
           <td data-col="status">${status}</td>

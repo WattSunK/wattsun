@@ -156,6 +156,8 @@ app.use("/api/track", require("./routes/track"));
 // Catalog (inventory DB via inline Knex in routes)
 app.use("/api/items", require("./routes/items"));
 app.use("/api/categories", require("./routes/categories"));
+// Profile resources (addresses, payments, email prefs)
+app.use("/api", require("./routes/profile"));
 
 /* =========================================================
    🧭 Database Path Summary — Startup Log
