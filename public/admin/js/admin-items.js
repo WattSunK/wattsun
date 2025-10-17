@@ -434,6 +434,11 @@
     if ($('items-root') && $('items-table-body')) init();
   });
   mo.observe(document.documentElement, { childList:true, subtree:true });
+  // If the partial is already in the DOM when this script executes (first open), run once.
+  if ($('items-root') && $('items-table-body')) {
+    // Defer to allow styles/layout settle; then init
+    setTimeout(() => init(), 0);
+  }
 
   // Also expose a manual hook for the dashboard loader (optional)
   window.AdminItems = window.AdminItems || {};
