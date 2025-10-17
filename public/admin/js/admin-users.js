@@ -650,10 +650,18 @@ const UsersModal = (() => {
     ensureEls();
     setMode(nextMode);
     fill(user);
+    // Ensure no other global dialogs are masking us
+    try {
+      document.querySelectorAll('dialog[open]').forEach(d => {
+        if (d !== el) { try { d.close(); } catch { d.removeAttribute('open'); } }
+      });
+    } catch(_){}
     visible(true);
 
     document.body.classList.add("ws-modal-open");
     try { document.documentElement.classList.add('ws-modal-open'); } catch {}
+    // Bring to top in case another overlay left z-index behind
+    try { el.style.zIndex = '2205'; } catch {}
     try { (window.toast||console.log)(`Users modal: ${nextMode}`,'info'); } catch {}
 
     docKeyHandler = (e) => {
