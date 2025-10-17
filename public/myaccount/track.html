@@ -17,20 +17,51 @@
 </head>
 <body>
 
-<header class="site-header">
-  <div class="topbar">
-    <h1 class="logo"><img class="logo-img" src="/assets/logo/Wattsun Solar log2.png" alt="">WattSun Solar</h1>
+<header>
+  <div class="header-bar">
+    <h1 class="desktop-logo">
+      <img src="/assets/logo/Wattsun Solar log2.png" alt="WattSun Solar Logo" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
+      WattSun Solar
+    </h1>
+    <div class="logo-container">
+      <img class="site-logo" src="/assets/logo/Wattsun Solar log2.png" alt="WattSun Solar Logo"/>
+      <span class="brand-name">WattSun Solar</span>
+    </div>
     <button aria-label="Toggle Menu" class="nav-toggle" onclick="document.querySelector('nav').classList.toggle('nav-open')">☰</button>
   </div>
   <nav>
     <a href="/index.html">Home</a>
+    <a href="/solutions.html">Solutions</a>
     <a href="/shop.html">Shop</a>
     <a href="/calculators/calculator.html">Calculator</a>
     <a href="/financing.html">Financing</a>
     <a href="/projects.html">Projects</a>
+    <a href="/myaccount/track.html">Track Order</a>
     <a href="/contact.html">Contact</a>
   </nav>
 </header>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const navToggle = document.querySelector('.nav-toggle');
+    const header = document.querySelector('header');
+    const nav = header.querySelector('nav');
+    if (navToggle && header) {
+      navToggle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        header.classList.toggle('nav-open');
+      });
+    }
+    document.querySelectorAll('header nav a').forEach(link => {
+      link.addEventListener('click', () => header.classList.remove('nav-open'));
+    });
+    document.body.addEventListener('click', function (e) {
+      if (header.classList.contains('nav-open') && !nav.contains(e.target) && !navToggle.contains(e.target)) {
+        header.classList.remove('nav-open');
+      }
+    }, true);
+  });
+</script>
 
 <div class="account-section">
   <h2>Track Your WattSun Order</h2>
@@ -62,7 +93,7 @@
   <p><a href="/contact.html">Contact Page</a></p>
 </div>
 
-<footer class="mobile-nav">
+<footer style="text-align:center; padding: 18px 8px;">
   <a aria-label="Home" href="/index.html">🏠</a>
   <a aria-label="Account" href="/myaccount/track.html">👤</a>
   <a aria-label="Cart" href="/cart.html">🛒<span id="cart-count">0</span></a>
@@ -70,10 +101,12 @@
 </footer>
 
 <script>
-/* tiny cart badge refresh */
+/* tiny cart badge refresh (unified with index.html) */
 function updateCartCountBadge(){
   let c=0; try{const cart=JSON.parse(localStorage.getItem("cart"))||[];c=cart.reduce((s,i)=>s+(i.quantity||1),0);}catch(e){}
-  const b=document.getElementById('cart-count'); if(b) b.textContent=c;
+  const mobileCount=document.getElementById('cart-count'); if(mobileCount) mobileCount.textContent=c;
+  const badge=document.getElementById('cart-count-badge');
+  if (badge) { if(c>0){ badge.textContent=c; badge.style.display='flex'; } else { badge.style.display='none'; } }
 }
 document.addEventListener('DOMContentLoaded', updateCartCountBadge);
 window.addEventListener('storage', updateCartCountBadge);
