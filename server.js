@@ -142,9 +142,11 @@ function requireAdmin(req, res, next) {
    Public / customer routes
    ========================= */
 
-app.use("/api", require("./routes/signup"));
-app.use("/api", require("./routes/login"));
-app.use("/api", require("./routes/reset"));
+ app.use("/api", require("./routes/signup"));
+ app.use("/api", require("./routes/login"));
+ app.use("/api", require("./routes/reset"));
+ // Current user + users listing
+ app.use("/api", require("./routes/users"));
 
 app.use("/api/checkout", require("./routes/checkout"));
 app.use("/api/orders", require("./routes/orders"));
@@ -315,4 +317,3 @@ const HOST = "0.0.0.0";
 http.createServer(app).listen(PORT, HOST, () => {
   console.log(`✅ WattSun backend running on HTTP port ${PORT} (IPv4+IPv6 compatible)`);
 });
-

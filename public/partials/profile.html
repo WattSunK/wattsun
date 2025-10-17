@@ -14,20 +14,20 @@
       <div class="card-header">My Account</div>
       <div class="card-body">
         <div class="form-group">
-          <label for="profName"><strong>Name</strong></label>
-          <input id="profName" class="input" type="text" placeholder="Your name">
+          <label for="pf-name"><strong>Name</strong></label>
+          <input id="pf-name" class="input" type="text" placeholder="Your name">
         </div>
         <div class="form-group">
-          <label for="profEmail"><strong>Email</strong></label>
-          <input id="profEmail" class="input" type="email" placeholder="you@example.com">
+          <label for="pf-email"><strong>Email</strong></label>
+          <input id="pf-email" class="input" type="email" placeholder="you@example.com">
         </div>
         <div class="form-group">
-          <label for="profPhone"><strong>Phone</strong></label>
-          <input id="profPhone" class="input" type="tel" placeholder="+254...">
+          <label for="pf-phone"><strong>Phone</strong></label>
+          <input id="pf-phone" class="input" type="tel" placeholder="+254...">
         </div>
         <div class="actions">
-          <button id="btnSaveProfile" class="btn btn-primary" type="button">Save Changes</button>
-          <button class="btn" type="button">Cancel</button>
+          <button id="btnSave" class="btn btn-primary" type="button">Save Changes</button>
+          <button id="btnCancel" class="btn" type="button">Cancel</button>
           <a class="btn btn-ghost" href="#" onclick="toast && toast('Password flow TBD','info');return false;">Change Password &gt;</a>
         </div>
       </div>
@@ -109,7 +109,7 @@
     });
 
     // Lightweight profile save stub (wire to /api/users/me later)
-    const save = document.getElementById('btnSaveProfile');
+    const save = document.getElementById('btnSave');
     if (save) {
       save.addEventListener('click', async () => {
         save.classList.add('is-loading'); save.disabled = true;
@@ -174,5 +174,28 @@
     const initial = new URL(location.href).searchParams.get('tab') || 'profile';
     activateLocal(initial);
     if (initial === 'orders') loadOrdersIntoPanel();
+
+    // --- Minimal hydration (localStorage) ---
+    function getUserFromStorage(){
+      try{
+        const raw = localStorage.getItem('wattsunUser') || localStorage.getItem('ws_user');
+        if (!raw) return null;
+        const o = JSON.parse(raw);
+        return o.user ? o.user : o;
+      }catch{ return null; }
+    }
+    function hydrate(u){
+      const name  = u?.name  || u?.fullName || '';
+      const email = u?.email || '';
+      const phone = u?.phone || '';
+      const fName  = document.getElementById('pf-name');
+      const fEmail = document.getElementById('pf-email');
+      const fPhone = document.getElementById('pf-phone');
+      if (fName && !fName.value)  fName.value  = name;
+      if (fEmail && !fEmail.value) fEmail.value = email;
+      if (fPhone && !fPhone.value) fPhone.value = phone;
+    }
+    const u0 = getUserFromStorage(); if (u0) hydrate(u0);
+    window.addEventListener('storage', (e)=>{ if (e.key==='wattsunUser') { const u = getUserFromStorage(); if (u) hydrate(u); }});
   })();
 </script>
