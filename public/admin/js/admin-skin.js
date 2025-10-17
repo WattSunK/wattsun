@@ -61,6 +61,18 @@
         m.setAttribute('aria-hidden','true');
         m.style.display = 'none';
       });
+      // Hide app-specific overlays/backdrops
+      Array.from(document.querySelectorAll('.ws-modal,.modal-backdrop,.modal-overlay')).forEach(n => {
+        n.classList.remove('is-open');
+        n.classList.remove('show');
+        n.setAttribute('aria-hidden','true');
+        n.style.display = 'none';
+      });
+      // IDs used by items module
+      ;['edit-item-modal-bg','add-item-modal-bg','manage-categories-modal'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.style.display = 'none'; el.setAttribute('aria-hidden','true'); }
+      });
       document.documentElement.classList.remove('ws-modal-open');
       document.body.classList.remove('ws-modal-open');
 
@@ -71,6 +83,19 @@
         });
       }
     } catch(_){}
+  }
+
+  function anyOverlayPresent(){
+    try{
+      if (document.querySelector('dialog[open]')) return true;
+      if (document.querySelector('.modal.show, .modal[aria-hidden="false"]')) return true;
+      if (document.querySelector('.ws-modal.is-open')) return true;
+      if (['edit-item-modal-bg','add-item-modal-bg','manage-categories-modal'].some(id => {
+        const el = document.getElementById(id); return el && getComputedStyle(el).display !== 'none';
+      })) return true;
+      if (document.querySelector('.modal-backdrop.is-open, .modal-overlay[style*="display: block"]')) return true;
+      return false;
+    }catch{ return false; }
   }
 
   async function loadPartial(id, url) {
@@ -124,6 +149,8 @@
   navLinks.forEach(link => {
     link.addEventListener("click", (e) => {
       e.preventDefault();
+      // Make sure no overlays block navigation
+      forceCloseAllModals(true);
       const id = link.getAttribute("data-partial");
       const url = link.getAttribute("data-url");
       setActive(link);
@@ -134,6 +161,7 @@
 
   if (hardRefreshBtn) {
     hardRefreshBtn.addEventListener("click", () => {
+      forceCloseAllModals(true);
       const active = document.querySelector(".admin-nav .nav-link.is-active");
       const id = active?.getAttribute("data-partial") || "system-status";
       const url = active?.getAttribute("data-url") || "/partials/system-status.html";
@@ -262,6 +290,15 @@
       pendingCreateIntent = null;
     }
 
+    if (pendingCreateIntent.type === 'view-order' && id === 'orders') {
+      const orderId = pendingCreateIntent.id;
+      setTimeout(() => {
+        try {
+          window.dispatchEvent(new CustomEvent('orders:view', { detail: { id: orderId } }));
+        } finally { pendingCreateIntent = null; }
+      }, 0);
+    }
+
     if (pendingCreateIntent?.type === "item" && id === "items") {
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent("items:create"));
@@ -296,6 +333,31 @@
 
     if (typeof window.toast === "function") window.toast(`Unknown create type: ${type}`, "error");
   });
+
+  // --- Cross-section order actions from other partials ---
+  // Capture clicks that indicate an order action from anywhere (e.g., Users table)
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    // View Order triggers: data-oid, data-order-id, or [data-open-order]
+    const viewBtn = t.closest?.('[data-oid],[data-order-id],[data-open-order]');
+    if (viewBtn) {
+      const id = viewBtn.getAttribute('data-oid') || viewBtn.getAttribute('data-order-id') || viewBtn.getAttribute('data-open-order');
+      if (id) {
+        e.preventDefault();
+        pendingCreateIntent = { type: 'view-order', id };
+        navigateTo('orders');
+        return;
+      }
+    }
+    // Add Order triggers from other sections
+    const addBtn = t.closest?.('[data-action="add-order"], [data-modal-target="#orderAddModal"], [data-open="order-add"]');
+    if (addBtn) {
+      e.preventDefault();
+      pendingCreateIntent = { type: 'order', source: 'cross' };
+      navigateTo('orders');
+      return;
+    }
+  }, true);
 })();
 
 // --- Topbar Home/Logout: resilient injector (idempotent) ---
@@ -426,6 +488,14 @@
     mo.observe(document.body, { attributes:true, subtree:true, attributeFilter:['open','aria-hidden','class'] });
     document.addEventListener('close', syncLock, true);
     document.addEventListener('keydown', function(e){ if (e.key==='Escape') setTimeout(syncLock,0); }, true);
+    // If any overlay is present and user clicks outside a modal, force close
+    document.addEventListener('pointerdown', function(e){
+      try{
+        if (!anyOverlayPresent()) return;
+        const insideModal = e.target.closest('dialog,.modal,.ws-modal__card,.modal-card,.modal-sheet');
+        if (!insideModal) forceCloseAllModals(true);
+      }catch(_){/* ignore */}
+    }, true);
     // initial
     syncLock();
   } catch(_){}
