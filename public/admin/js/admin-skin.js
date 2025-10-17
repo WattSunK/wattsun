@@ -38,6 +38,13 @@
     return navLinks.find(a => a.getAttribute("data-partial") === id) || null;
   }
 
+  async function fetchWithTimeout(url, options = {}, ms = 10000) {
+    return Promise.race([
+      fetch(url, options),
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms))
+    ]);
+  }
+
   async function loadPartial(id, url) {
     if (!contentEl) return;
     contentEl.setAttribute("aria-busy", "true");
@@ -47,7 +54,7 @@
     const finalUrl = `${url}${bust}`;
 
     try {
-      const res = await fetch(finalUrl, { credentials: "same-origin" });
+      const res = await fetchWithTimeout(finalUrl, { credentials: "same-origin" }, 12000);
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const html = await res.text();
       contentEl.innerHTML = html;
@@ -62,10 +69,14 @@
           <div class="card-body">
             <p>Could not load <code>${id}</code>. Please check the Network tab.</p>
             <pre style="white-space:pre-wrap;color:#b91c1c;">${String(err)}</pre>
+            <div style="margin-top:10px;">
+              <button id="retry-partial" class="btn">Retry</button>
+            </div>
           </div>
         </div>
       `;
       contentEl.removeAttribute("aria-busy");
+      document.getElementById('retry-partial')?.addEventListener('click', () => loadPartial(id, url));
     }
   }
 
