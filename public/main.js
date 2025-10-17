@@ -35,3 +35,13 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   });
 });
+
+// Bootstrap account/avatar widget across pages that include this file.
+// This gracefully no-ops if auth.js isn’t loaded on the page.
+try {
+  document.addEventListener('DOMContentLoaded', function(){
+    try {
+      (window.wsOverrideUpdateLoginUI || window.updateLoginUI)?.();
+    } catch (e) {}
+  });
+} catch (e) {}
