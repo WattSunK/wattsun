@@ -744,6 +744,53 @@ document.addEventListener("keydown", docKeyHandler, true);
     form?.addEventListener("submit", (e) => { e.preventDefault(); onSave(); });
   }
 
+  // Robust rebind: if DOM was replaced by partial navigation, refresh cached nodes
+  try {
+    ensureEls = function(){
+      const current = document.getElementById('users-modal');
+      const need = !el || !el.isConnected || (current && current !== el);
+      if (!need) return;
+
+      el      = q('users-modal');
+      form    = q('usersForm');
+      titleEl = q('usersModalTitle');
+      closeBtn= q('usersModalClose');
+      cancelBtn= q('usersModalCancel');
+      saveBtn = q('usersModalSave');
+
+      idEl    = q('userId');
+      nameEl  = q('userName');
+      emailEl = q('userEmail');
+      phoneEl = q('userPhone');
+      typeEl  = q('userTypeField');
+      typeCustomEl = q('userTypeCustom');
+      statusEl= q('userStatusField');
+      resetChk= q('sendResetEmail');
+      emailErr= q('err-userEmail');
+
+      if (typeEl && !typeEl.dataset.bound) {
+        typeEl.dataset.bound = '1';
+        typeEl.addEventListener('change', () => {
+          const isCustom = typeEl.value === '__custom__';
+          if (typeCustomEl) typeCustomEl.style.display = isCustom ? '' : 'none';
+          if (!isCustom && typeCustomEl) typeCustomEl.value = '';
+        });
+      }
+      if (emailEl && !emailEl.dataset.bound) {
+        emailEl.dataset.bound = '1';
+        emailEl.addEventListener('input', () => {
+          if (!emailErr) return;
+          emailErr.style.display = 'none';
+          emailErr.textContent = '';
+        });
+      }
+      if (closeBtn && !closeBtn.dataset.bound) { closeBtn.dataset.bound='1'; closeBtn.addEventListener('click', onClose); }
+      if (cancelBtn && !cancelBtn.dataset.bound){ cancelBtn.dataset.bound='1'; cancelBtn.addEventListener('click', onCancel); }
+      if (saveBtn && !saveBtn.dataset.bound)  { saveBtn.dataset.bound='1'; saveBtn.addEventListener('click', (e)=>{ e.preventDefault(); onSave(); }); }
+      if (form && !form.dataset.bound)       { form.dataset.bound='1'; form.addEventListener('submit', (e)=>{ e.preventDefault(); onSave(); }); }
+    };
+  } catch(_){}
+
   return { open, close };
 })();
 
