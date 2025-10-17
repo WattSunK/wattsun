@@ -70,17 +70,6 @@
 
   <div id="toasts" class="toasts" aria-live="polite" aria-atomic="true"></div>
 
-  <dialog id="confirmModal" class="modal">
-    <form method="dialog" class="modal-card">
-      <div class="modal-title" id="confirmTitle">Confirm</div>
-      <div class="modal-body" id="confirmBody">Are you sure?</div>
-      <div class="modal-actions">
-        <button id="confirmCancel" class="btn small" value="cancel">Cancel</button>
-        <button id="confirmOk" class="btn small" value="ok">OK</button>
-      </div>
-    </form>
-  </dialog>
-
   <!-- Add Order modal include -->
   <!--#include file="/public/partials/orders-add.html" -->
 
@@ -95,16 +84,7 @@
       requestAnimationFrame(() => el.classList.add("show"));
       setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 250); }, ms);
     };
-    window.askConfirm = (title, body) => new Promise((resolve) => {
-      const dlg = document.getElementById('confirmModal');
-      const onClose = (e) => { dlg.removeEventListener('close', onClose); resolve(dlg.returnValue === 'ok'); };
-      const onCancel = (e) => { dlg.returnValue = 'cancel'; };
-      document.getElementById('confirmTitle').textContent = title || 'Confirm';
-      document.getElementById('confirmBody').textContent = body || 'Are you sure?';
-      dlg.addEventListener('close', onClose, { once: true });
-      dlg.addEventListener('cancel', onCancel);
-      dlg.showModal();
-    });
+    // Removed custom askConfirm + dialog. Use native window.confirm() in section code when needed.
   </script>
 
 <!-- Wire Home + Logout (Home does NOT log out) -->
