@@ -60,6 +60,7 @@
 </div>
 <p>© 2025 WattSun Solar. All rights reserved.</p>
 </footer>
+<script>(function(){try{document.querySelectorAll('footer.mobile-nav').forEach(el=>el.remove());var st=document.createElement('style');st.textContent='footer:not(.mobile-nav){display:block !important;}';document.head.appendChild(st);}catch(e){}})();</script>
 <script>
   const navToggle = document.querySelector('.nav-toggle');
   const header = document.querySelector('header');
@@ -72,7 +73,7 @@
 </script>
 <script src="../main.js"></script>
 
-<footer class="mobile-nav">
+<footer class="mobile-nav" style="display:none">
 <a aria-label="Home" href="../../index.html">🏠</a>
 <a aria-label="Account" href="../../account.html">👤</a>
 <a aria-label="Cart" href="../../cart.html">🛒<span id="cart-count">0</span></a>
