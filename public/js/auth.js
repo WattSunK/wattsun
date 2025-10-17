@@ -55,7 +55,7 @@ if (loginForm) {
       );
       updateLoginUI();
       closeLogin();
-      setTimeout(() => location.reload(), 300);
+      // Avoid full page reload to prevent flicker; UI already updated
     } catch (err) {
       console.error("[login] error:", err);
       errorDiv.textContent = err.message || "Login error";
@@ -180,7 +180,7 @@ if (logoutBtn) {
   logoutBtn.onclick = function () {
     localStorage.removeItem("wattsunUser");
     updateLoginUI();
-    location.reload();
+    // Avoid full page reload to prevent flicker
   };
 }
 
