@@ -143,12 +143,13 @@ router.post("/users", requireAdmin, express.json(), (req, res) => {
     VALUES ($name, $email, $phone, COALESCE($type,'User'), COALESCE($status,'Active'),
       CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
   `;
+  // For better-sqlite3, named bindings use keys WITHOUT the prefix
   const params = {
-    $name: String(name).trim(),
-    $email: String(email).trim(),
-    $phone: String(phone).trim(),
-    $type: type,
-    $status: status,
+    name: String(name).trim(),
+    email: String(email).trim(),
+    phone: String(phone).trim(),
+    type,
+    status,
   };
 
   try {
@@ -157,7 +158,7 @@ router.post("/users", requireAdmin, express.json(), (req, res) => {
     const row = db.prepare(
       `SELECT id, name, email, phone, type, status, created_at AS createdAt, updated_at AS updatedAt
        FROM users WHERE id = $id`
-    ).get({ $id: id });
+    ).get({ id });
     return res.json({ success: true, user: row });
   } catch (err) {
     return res
@@ -191,12 +192,12 @@ router.patch("/users/:id", requireAdmin, express.json(), (req, res) => {
   const { name, email, phone, type, status } = req.body || {};
 
   const fields = [];
-  const params = { $id: id };
-  if (name != null)  { fields.push("name = $name"); params.$name = name; }
-  if (email != null) { fields.push("email = $email"); params.$email = email; }
-  if (phone != null) { fields.push("phone = $phone"); params.$phone = phone; }
-  if (type != null)  { fields.push("type = $type"); params.$type = type; }
-  if (status != null){ fields.push("status = $status"); params.$status = status; }
+  const params = { id };
+  if (name != null)  { fields.push("name = $name");   params.name = name; }
+  if (email != null) { fields.push("email = $email"); params.email = email; }
+  if (phone != null) { fields.push("phone = $phone"); params.phone = phone; }
+  if (type != null)  { fields.push("type = $type");   params.type = type; }
+  if (status != null){ fields.push("status = $status"); params.status = status; }
 
   if (!fields.length) return res.json({ success: true, user: null });
 
@@ -206,7 +207,7 @@ router.patch("/users/:id", requireAdmin, express.json(), (req, res) => {
     const row = db.prepare(
       `SELECT id, name, email, phone, type, status, created_at AS createdAt, updated_at AS updatedAt
        FROM users WHERE id=$id`
-    ).get({ $id: id });
+    ).get({ id });
     res.json({ success: true, user: row });
   } catch (err) {
     return res
