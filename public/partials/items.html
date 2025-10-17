@@ -67,12 +67,14 @@
 <style>
   /* Overlay modal visuals (true pop-up) */
   .modal-bg{position:fixed;inset:0;display:none;background:rgba(0,0,0,.35);z-index:1000}
-  .modal{background:#fff;border-radius:10px;max-width:900px;width:min(92vw,900px);
-         margin:6vh auto;padding:16px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
-  .modal-header{display:flex;align-items:center;justify-content:space-between}
-  .modal-footer{display:flex;gap:8px;justify-content:flex-end}
+  .modal{background:#fff;border-radius:12px;width:min(92vw,720px);max-height:90vh;
+         margin:6vh auto;box-shadow:0 10px 40px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden}
+  .modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px}
+  .modal-body{flex:1 1 auto;overflow:auto;padding:16px 20px}
+  .modal-footer{display:flex;gap:8px;justify-content:flex-end;padding:12px 20px;border-top:1px solid #eee}
   .modal-close{font-size:20px;line-height:1}
-}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width: 760px){ .grid-2{grid-template-columns:1fr} }
 </style>
 
 <!-- Hotfix that augments admin-items.js (no breaking changes) -->
