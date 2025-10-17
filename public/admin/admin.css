@@ -56,6 +56,7 @@ body.admin-shell {
 .admin-content { padding:18px;overflow:auto;}
 /* When a modal is open, freeze background containers to prevent double scroll */
 body.ws-modal-open .admin-content { overflow: hidden !important; }
+html.ws-modal-open, body.ws-modal-open { touch-action: none; overscroll-behavior: contain; }
 
 /* ==================================================================
    Globals: buttons, focus, helpers
@@ -514,6 +515,18 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 }
 .modal .modal-body::-webkit-scrollbar { width: 0; height: 0; } /* WebKit */
 
+/* Generic dialog/container fallbacks for custom shells */
+dialog > form,
+dialog > div {
+  /* Ensure inner content, not the page, is the scroll boundary */
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+dialog .card-body { flex:1 1 auto; overflow:auto; -ms-overflow-style:none; scrollbar-width:none; }
+dialog .card-body::-webkit-scrollbar { width:0; height:0; }
+
 /* Support dialog.modal with a direct .modal-body form (Dispatch create) */
 .modal > .modal-body { display:flex; flex-direction:column; width: min(96vw, 760px); max-height: 90vh; overflow: hidden; border-radius: 12px; background:#fff; }
 
@@ -567,6 +580,15 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 .modal-sheet { width: min(96vw, 760px); max-height: 90vh; display:flex; flex-direction:column; background:#fff; border-radius:12px; padding:16px; box-shadow: var(--shadow); }
 .modal-sheet { -ms-overflow-style: none; scrollbar-width: none; }
 .modal-sheet::-webkit-scrollbar { width: 0; height: 0; }
+
+/* Fallback: any visible custom modal toggling aria-hidden */
+.modal[aria-hidden="false"] { display: block; }
+.modal[aria-hidden="false"] .card-body,
+.modal[aria-hidden="false"] .modal-body,
+.modal[aria-hidden="false"] .modal__body { -ms-overflow-style:none; scrollbar-width:none; }
+.modal[aria-hidden="false"] .card-body::-webkit-scrollbar,
+.modal[aria-hidden="false"] .modal-body::-webkit-scrollbar,
+.modal[aria-hidden="false"] .modal__body::-webkit-scrollbar { width:0; height:0; }
 .modal-sheet .row { display:grid; grid-template-columns: minmax(180px, 260px) 1fr auto; gap:.75rem; align-items:end; }
 @media (max-width: 700px){ .modal-sheet .row { grid-template-columns: 1fr; } }
 

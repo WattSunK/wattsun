@@ -48,7 +48,11 @@
     return driversCache;
   }
 
-  function show() { modal.classList.add('show'); modal.setAttribute('aria-hidden', 'false'); }
+  function show() {
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+    try { document.documentElement.classList.add('ws-modal-open'); document.body.classList.add('ws-modal-open'); } catch {}
+  }
   function hide() {
     modal.classList.remove('show');
     modal.setAttribute('aria-hidden', 'true');
@@ -56,6 +60,7 @@
     fUnas.checked = false;
     fClrDt.checked = false;
     toggleDriverField();
+    try { document.documentElement.classList.remove('ws-modal-open'); document.body.classList.remove('ws-modal-open'); } catch {}
   }
 
   async function patch(id, payload) {

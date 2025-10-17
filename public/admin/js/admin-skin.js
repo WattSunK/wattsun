@@ -335,3 +335,29 @@
     if (e && e.target && e.target.id === 'btn-logout') { /* noop */ }
   });
 })();
+
+// --- Global modal open/close observer (covers custom shells) ---
+(function(){
+  function anyModalOpen(){
+    try {
+      if (document.querySelector('dialog[open]')) return true;
+      if (document.querySelector('.modal.show')) return true;
+      if (document.querySelector('.modal[aria-hidden="false"]')) return true;
+      return false;
+    } catch { return false; }
+  }
+  function syncLock(){
+    const open = anyModalOpen();
+    const root = document.documentElement;
+    if (open) { root.classList.add('ws-modal-open'); document.body.classList.add('ws-modal-open'); }
+    else { root.classList.remove('ws-modal-open'); document.body.classList.remove('ws-modal-open'); }
+  }
+  try {
+    const mo = new MutationObserver(syncLock);
+    mo.observe(document.body, { attributes:true, childList:true, subtree:true, attributeFilter:['open','aria-hidden','class','style'] });
+    document.addEventListener('close', syncLock, true);
+    document.addEventListener('keydown', function(e){ if (e.key==='Escape') setTimeout(syncLock,0); }, true);
+    // initial
+    syncLock();
+  } catch(_){}
+})();
