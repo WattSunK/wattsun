@@ -216,7 +216,7 @@ window.addEventListener("DOMContentLoaded", updateLoginUI);
         avatarBtn = document.createElement('button');
         avatarBtn.id = 'wsAvatarBtn';
         avatarBtn.className = 'ws-avatar-btn';
-        avatarBtn.title = 'Account';
+        avatarBtn.title = 'My Account';
         const bar = headerBar || document.querySelector('.header-bar');
         if (bar) bar.appendChild(avatarBtn); else document.body.appendChild(avatarBtn);
         avatarBtn.addEventListener('click', openAccountDrawer);
