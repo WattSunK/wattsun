@@ -114,7 +114,10 @@ router.get("/users", requireAdmin, (req, res) => {
 
   try {
     const total = db.prepare(countSQL).get(params).total ?? 0;
-    const rows = db.prepare(listSQL).all({ ...params, $per: per, $offset: offset });
+    // better-sqlite3 expects named parameters without the prefix in the binding object
+    const rows = db.prepare(listSQL).all({ ...Object.fromEntries(
+      Object.entries(params).map(([k,v]) => [k.replace(/^[$:@]/,''), v])
+    ), per, offset });
     return res.json({ success: true, page, per, total, users: rows });
   } catch (err) {
     return res
@@ -244,4 +247,3 @@ router.delete("/users/:id", requireAdmin, (req, res) => {
 });
 
 module.exports = router;
-
