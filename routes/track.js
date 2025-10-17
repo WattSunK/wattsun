@@ -64,13 +64,64 @@ function runQuery({ where, args, page, per }, res) {
     const rows = db.prepare(`
       SELECT 
          id, orderNumber, status, totalCents, depositCents, currency,
-         createdAt, fullName, email, phone, address
+         createdAt, completed_at, fullName, email, phone, address
        FROM orders
        ${where}
        ORDER BY datetime(createdAt) DESC
        LIMIT ? OFFSET ?`).all(...args, per, (page - 1) * per);
 
-    return res.json({ success: true, total, page, per, orders: rows });
+    // Harmonize fields for track.html
+    const itemStmt = db.prepare(
+      `SELECT name, qty, priceCents, depositCents FROM order_items WHERE order_id = ?`
+    );
+    const orders = rows.map((r) => {
+      let cartSummary = "";
+      try {
+        const items = itemStmt.all(r.id) || [];
+        cartSummary = items
+          .map((it) => {
+            const price = (Number(it.priceCents || 0) / 100) || 0;
+            const dep = (Number(it.depositCents || 0) / 100) || 0;
+            return `${it.name || ''} (x${it.qty || 1}): Price ${price}, Deposit ${dep}`.trim();
+          })
+          .filter(Boolean)
+          .join("\n");
+      } catch (_) {}
+
+      const totalNum = (Number(r.totalCents) || 0) / 100;
+      const depositNum = (Number(r.depositCents) || 0) / 100;
+
+      return {
+        // raw identifiers
+        id: r.id,
+        orderNumber: r.orderNumber || r.id,
+
+        // status + timestamps
+        status: r.status || "Pending",
+        createdAt: r.createdAt,
+        updatedAt: r.completed_at || r.updatedAt || r.createdAt,
+
+        // customer
+        fullName: r.fullName || r.name || "",
+        email: r.email,
+        phone: r.phone,
+
+        // address/payment
+        address: r.address,
+        deliveryAddress: r.address,
+        paymentType: r.paymentType || r.payment_method || r.payment || null,
+
+        // money
+        currency: r.currency || "KES",
+        total: totalNum,
+        deposit: depositNum,
+
+        // items summary for UI
+        cart_summary: cartSummary,
+      };
+    });
+
+    return res.json({ success: true, total, page, per, orders });
   } catch (e) {
     console.error("[track] query error", e);
     return res.status(500).json({ success: false, message: "DB error", detail: e.message });
