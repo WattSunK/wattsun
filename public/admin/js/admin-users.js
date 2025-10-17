@@ -655,6 +655,10 @@ const UsersModal = (() => {
       document.querySelectorAll('dialog[open]').forEach(d => {
         if (d !== el) { try { d.close(); } catch { d.removeAttribute('open'); } }
       });
+      const leftoverConfirm = document.getElementById('confirmModal');
+      if (leftoverConfirm && leftoverConfirm.hasAttribute('open')) {
+        try { leftoverConfirm.close(); } catch { leftoverConfirm.removeAttribute('open'); }
+      }
     } catch(_){}
     visible(true);
 
@@ -662,6 +666,21 @@ const UsersModal = (() => {
     try { document.documentElement.classList.add('ws-modal-open'); } catch {}
     // Bring to top in case another overlay left z-index behind
     try { el.style.zIndex = '2205'; } catch {}
+    try {
+      const card = el.querySelector('.modal-card') || el.firstElementChild;
+      const r = card ? card.getBoundingClientRect() : { width: 0, height: 0 };
+      if (!card || r.width < 10 || r.height < 10) {
+        if (card) {
+          card.style.display = 'flex';
+          card.style.flexDirection = 'column';
+          card.style.background = '#fff';
+          card.style.maxHeight = '90vh';
+        }
+        el.style.display = 'block';
+        el.removeAttribute('hidden');
+        el.setAttribute('open','open');
+      }
+    } catch(_){}
     try { (window.toast||console.log)(`Users modal: ${nextMode}`,'info'); } catch {}
 
     docKeyHandler = (e) => {
