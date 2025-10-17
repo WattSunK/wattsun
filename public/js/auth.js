@@ -248,6 +248,20 @@ window.addEventListener("DOMContentLoaded", updateLoginUI);
             <button id="wsDrawerSignOut">Sign out</button>
           </div>`;
         document.body.appendChild(panel);
+        try{
+          const isAdmin = !!user && ((String(user.type||'').toLowerCase()==='admin') || (String(user.role||'').toLowerCase()==='admin'));
+          if (isAdmin) {
+            const cont = panel.querySelector('.ws-drawer-content');
+            if (cont && !cont.querySelector('[data-admin-link]')){
+              const a = document.createElement('a');
+              a.className = 'ws-drawer-item';
+              a.href = '/dashboard.html#system-status';
+              a.textContent = 'Admin dashboard';
+              a.setAttribute('data-admin-link','1');
+              cont.insertBefore(a, cont.firstChild);
+            }
+          }
+        }catch(_){/* no-op */}
 
         document.getElementById('wsDrawerClose').addEventListener('click', closeAccountDrawer);
         document.getElementById('wsDrawerSignOut').addEventListener('click', function(){
