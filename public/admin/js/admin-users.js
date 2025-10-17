@@ -335,6 +335,7 @@ function syncTypesFromData() {
     const row = actEl.closest("[data-users-row]");
     const id = actEl.getAttribute("data-id") || row?.getAttribute("data-user-id") || "";
     if (!action && actEl.matches("a.ws-link, a.link")) action = "open-edit";
+    tlog('click', { action, id });
 
     switch (action) {
   case "open-view": {
@@ -481,18 +482,32 @@ const UsersModal = (() => {
   function q(id) { return document.getElementById(id); }
  
   function visible(v) {
-  if (!el) return;
-  if (el.tagName === "DIALOG") {
+    if (!el) return;
+    const asDialog = el && el.tagName === 'DIALOG';
     try {
-      if (v) el.showModal(); else el.close();
-    } catch {
-      // fallback for browsers w/o <dialog> support
-      el.hidden = !v;
+      if (v) {
+        if (asDialog && typeof el.showModal === 'function') {
+          el.showModal();
+        } else if (asDialog) {
+          el.setAttribute('open', 'open');
+        } else {
+          el.hidden = false;
+          el.style.display = '';
+        }
+      } else {
+        if (asDialog && typeof el.close === 'function') {
+          el.close();
+        } else if (asDialog) {
+          el.removeAttribute('open');
+        }
+        el.hidden = true;
+      }
+    } catch (_) {
+      // Ultimate fallback: attribute + display flip
+      if (v) { el.setAttribute('open','open'); el.hidden = false; el.style.display = ''; }
+      else { el.removeAttribute('open'); el.hidden = true; }
     }
-  } else {
-    el.hidden = !v;
   }
-}
 
 
   function fill(u) {
@@ -638,6 +653,8 @@ const UsersModal = (() => {
     visible(true);
 
     document.body.classList.add("ws-modal-open");
+    try { document.documentElement.classList.add('ws-modal-open'); } catch {}
+    try { (window.toast||console.log)(`Users modal: ${nextMode}`,'info'); } catch {}
 
     docKeyHandler = (e) => {
   if (e.key === "Escape") {
