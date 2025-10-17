@@ -39,6 +39,10 @@
         // close only when clicking the backdrop, not inside the dialog
         if (e.target === ov) { ov.style.display = 'none'; updateModalOpenState(); }
       });
+      // close buttons inside
+      ov.querySelectorAll('.modal-close,.modal-footer .btn.modal-close').forEach(btn=>{
+        btn.addEventListener('click', ()=>{ ov.style.display='none'; updateModalOpenState(); });
+      });
     });
 
     document.addEventListener('keydown', (e) => {

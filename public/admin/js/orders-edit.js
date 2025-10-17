@@ -109,8 +109,8 @@
   }
 
   const toast = (msg, type = "info") => (window.toast ? window.toast(msg, type) : alert(msg));
-  const openDialog  = () => { try { dlg.showModal(); } catch { dlg.setAttribute("open", "true"); } };
-  const closeDialog = () => { try { dlg.close(); }      catch { dlg.removeAttribute("open"); } };
+  const openDialog  = () => { try { dlg.showModal(); } catch { dlg.setAttribute("open", "true"); } document.documentElement.classList.add('ws-modal-open'); document.body.classList.add('ws-modal-open'); };
+  const closeDialog = () => { try { dlg.close(); }      catch { dlg.removeAttribute("open"); } document.documentElement.classList.remove('ws-modal-open'); document.body.classList.remove('ws-modal-open'); };
   const setSaving   = (on) => { if (btnSave) { btnSave.disabled = !!on; btnSave.textContent = on ? "Saving…" : "Save"; } };
 
   function buildStatusOptions(current) {

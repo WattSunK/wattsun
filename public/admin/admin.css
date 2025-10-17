@@ -72,6 +72,9 @@ body.admin-shell {
 :focus-visible { outline:2px solid var(--ws-focus);outline-offset:2px;}
 .sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,1px,1px);white-space:nowrap;border:0;}
 
+/* Lock page scroll when any modal is open */
+html.ws-modal-open, body.ws-modal-open, body.modal-open { overflow: hidden !important; }
+
 .muted{color:var(--ws-muted)}
 .danger{color:#ef4444}
 .vspace-8{height:8px}
@@ -504,6 +507,9 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
   overflow: auto;               /* <-- only this area scrolls */
   padding: 16px 20px;
 }
+
+/* Support dialog.modal with a direct .modal-body form (Dispatch create) */
+.modal > .modal-body { display:flex; flex-direction:column; width: min(96vw, 760px); max-height: 90vh; overflow: hidden; border-radius: 12px; background:#fff; }
 
 /* Keep actions aligned like Orders */
 .modal .modal-footer {
