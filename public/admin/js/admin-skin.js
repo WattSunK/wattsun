@@ -16,11 +16,15 @@
   function executeInlineScripts(scope) {
     const scripts = Array.from(scope.querySelectorAll("script"));
     for (const old of scripts) {
-      const s = document.createElement("script");
-      for (const attr of old.attributes) s.setAttribute(attr.name, attr.value);
-      s.textContent = old.textContent;
-      (document.body || document.documentElement).appendChild(s);
-      old.remove();
+      try {
+        const s = document.createElement("script");
+        for (const attr of old.attributes) s.setAttribute(attr.name, attr.value);
+        s.textContent = old.textContent;
+        (document.body || document.documentElement).appendChild(s);
+        old.remove();
+      } catch (e) {
+        console.error("[admin-skin] inline script error", e);
+      }
     }
   }
 
@@ -100,6 +104,17 @@
   if (initialLink) {
     setActive(initialLink);
     loadPartial(initialLink.getAttribute("data-partial"), initialLink.getAttribute("data-url"));
+    // Safety: if still busy after 4s, retry once
+    setTimeout(() => {
+      try {
+        if (contentEl && contentEl.getAttribute("aria-busy") === "true") {
+          const id = initialLink.getAttribute("data-partial");
+          const url = initialLink.getAttribute("data-url");
+          console.warn("[admin-skin] retrying initial partial load", id);
+          loadPartial(id, url);
+        }
+      } catch(_){/* ignore */}
+    }, 4000);
   }
 
   // ============================================================
