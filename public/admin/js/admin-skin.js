@@ -46,17 +46,37 @@
     ]);
   }
 
-  async function loadPartial(id, url) {
-    if (!contentEl) return;
-    // Proactively close any open modals/sheets before swapping views
+  function forceCloseAllModals(removeOrders = false){
     try {
-      const openDlgs = Array.from(document.querySelectorAll('dialog[open]'));
-      openDlgs.forEach(d => { try { d.close(); } catch { d.removeAttribute('open'); } });
-      const openSheets = Array.from(document.querySelectorAll('.modal.show, .modal[aria-hidden="false"]'));
-      openSheets.forEach(m => { m.classList.remove('show'); m.setAttribute('aria-hidden','true'); });
+      // Close native dialogs
+      Array.from(document.querySelectorAll('dialog')).forEach(d => {
+        try { d.close(); } catch(_) {}
+        d.removeAttribute('open');
+        d.setAttribute('aria-hidden','true');
+        d.style.display = 'none';
+      });
+      // Hide any custom modal containers
+      Array.from(document.querySelectorAll('.modal')).forEach(m => {
+        m.classList.remove('show');
+        m.setAttribute('aria-hidden','true');
+        m.style.display = 'none';
+      });
       document.documentElement.classList.remove('ws-modal-open');
       document.body.classList.remove('ws-modal-open');
+
+      if (removeOrders) {
+        ['#orderViewModal','#orderEditModal','#orderAddModal'].forEach(sel => {
+          const n = document.querySelector(sel);
+          if (n && n.parentNode) n.parentNode.removeChild(n);
+        });
+      }
     } catch(_){}
+  }
+
+  async function loadPartial(id, url) {
+    if (!contentEl) return;
+    // Proactively close and, if leaving Orders, remove order modals so they cannot overlay
+    forceCloseAllModals(id !== 'orders');
     contentEl.setAttribute("aria-busy", "true");
     contentEl.innerHTML = `<div class="loading"><span class="spinner"></span><span>Loading…</span></div>`;
 
@@ -73,6 +93,8 @@
         executeInlineScripts(contentEl);
       }
       contentEl.removeAttribute("aria-busy");
+      // Once the new view is in place, ensure no legacy modal remains
+      forceCloseAllModals(id !== 'orders');
       window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { id } }));
     } catch (err) {
       console.error("[admin-skin] failed to load partial", id, err);
