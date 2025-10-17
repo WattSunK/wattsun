@@ -49,6 +49,16 @@
     } catch(_) {}
   }
 
+  // Remove orders modals entirely (will be re-injected by Orders when needed)
+  function wsRemoveOrderModals() {
+    try {
+      ['#orderAddModal','#orderViewModal','#orderEditModal'].forEach(sel => {
+        const n = document.querySelector(sel);
+        if (n && n.parentNode) n.parentNode.removeChild(n);
+      });
+    } catch(_) {}
+  }
+
   async function loadPartial(id, url) {
     if (!contentEl) return;
     // Extra safety: close any open dialogs before swapping content
@@ -120,6 +130,15 @@
     setActive(initialLink);
     loadPartial(initialLink.getAttribute("data-partial"), initialLink.getAttribute("data-url"));
   }
+
+  // After any partial load, if it's not Orders, strip Orders modals from DOM
+  window.addEventListener('admin:partial-loaded', (e) => {
+    const id = e?.detail?.id || e?.detail?.partial || '';
+    if (String(id) !== 'orders') {
+      wsCloseAllDialogs();
+      wsRemoveOrderModals();
+    }
+  });
 
   // ============================================================
   // Global "Create" Actions (Add Order / Add Item)
