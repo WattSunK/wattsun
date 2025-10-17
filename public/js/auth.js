@@ -197,7 +197,7 @@ window.addEventListener("DOMContentLoaded", updateLoginUI);
         const style = document.createElement('style');
         style.id = 'wsAccountStyles';
         style.textContent = `
-          .ws-avatar-btn{ display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; background:#fadb14; color:#000; font-weight:800; cursor:pointer; border:none; margin-left:12px; }
+          .ws-avatar-btn{ position:absolute; right:56px; top:50%; transform:translateY(-50%); display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:50%; background:#fadb14; color:#000; font-weight:800; font-size:18px; cursor:pointer; border:none; margin-left:0; box-shadow:0 2px 8px rgba(0,0,0,.08); }
           /* Compact drawer: only as tall/wide as needed */
           #wsAccountPanel{ position:fixed; top:64px; right:12px; width:280px; max-height:calc(100vh - 88px); height:auto; background:#fff; border:1px solid #eee; border-radius:12px; box-shadow:-6px 10px 24px rgba(0,0,0,.14); transform:translateX(16px); opacity:0; pointer-events:none; z-index:2201; display:flex; flex-direction:column; overflow:hidden; transition:transform .18s ease, opacity .18s ease; }
           .ws-open #wsAccountPanel{ transform:none; opacity:1; pointer-events:auto; }
