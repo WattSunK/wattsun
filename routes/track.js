@@ -14,21 +14,22 @@ function toInt(v, def) {
   return Number.isFinite(n) && n > 0 ? n : def;
 }
 
-router.get("/", (req, res) => {
+function buildQueryParts(params = {}) {
   const {
     phone = "",
     email = "",
     orderNumber = "",
+    order = "", // alias from client
     id = "",
     status = "",
     page: pageIn,
     per: perIn,
-  } = req.query || {};
+  } = params;
 
   const page = toInt(pageIn, 1);
   const per = Math.min(50, toInt(perIn, 5));
 
-  const ident = (orderNumber || id || "").trim();
+  const ident = (orderNumber || order || id || "").trim();
   const phoneDigits = String(phone).replace(/[^\d]/g, "");
   const emailLower = String(email).toLowerCase();
   const statusLower = String(status).toLowerCase();
@@ -54,6 +55,10 @@ router.get("/", (req, res) => {
     args.push(statusLower);
   }
 
+  return { where, args, page, per };
+}
+
+function runQuery({ where, args, page, per }, res) {
   try {
     const total = db.prepare(`SELECT COUNT(*) AS n FROM orders ${where}`).get(...args)?.n || 0;
     const rows = db.prepare(`
@@ -70,6 +75,21 @@ router.get("/", (req, res) => {
     console.error("[track] query error", e);
     return res.status(500).json({ success: false, message: "DB error", detail: e.message });
   }
+}
+
+router.get("/", (req, res) => {
+  const qp = req.query || {};
+  return runQuery(buildQueryParts(qp), res);
+});
+
+// Support POST from existing clients: body JSON with { phone, status, order }
+router.post("/", (req, res) => {
+  const body = req.body || {};
+  // Allow email to be supplied via header as well
+  const emailHeader = req.get("X-WS-Email") || req.get("x-ws-email") || "";
+  const qp = { ...body };
+  if (!qp.email && emailHeader) qp.email = emailHeader;
+  return runQuery(buildQueryParts(qp), res);
 });
 
 module.exports = router;
