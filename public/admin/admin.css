@@ -54,6 +54,8 @@ body.admin-shell {
 .header-user .user-meta{ font-size:12px; color: var(--ws-muted); }
 .topbar-actions { display:flex;gap:10px;}
 .admin-content { padding:18px;overflow:auto;}
+/* When a modal is open, freeze background containers to prevent double scroll */
+body.ws-modal-open .admin-content { overflow: hidden !important; }
 
 /* ==================================================================
    Globals: buttons, focus, helpers
@@ -504,9 +506,13 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 /* Body takes remaining space and scrolls if needed */
 .modal .modal-body {
   flex: 1 1 auto;
-  overflow: auto;               /* <-- only this area scrolls */
+  overflow: auto;               /* scroll only if truly needed */
   padding: 16px 20px;
+  /* Hide scrollbars while preserving wheel/trackpad scrolling */
+  -ms-overflow-style: none;     /* IE/Edge */
+  scrollbar-width: none;        /* Firefox */
 }
+.modal .modal-body::-webkit-scrollbar { width: 0; height: 0; } /* WebKit */
 
 /* Support dialog.modal with a direct .modal-body form (Dispatch create) */
 .modal > .modal-body { display:flex; flex-direction:column; width: min(96vw, 760px); max-height: 90vh; overflow: hidden; border-radius: 12px; background:#fff; }
@@ -554,8 +560,13 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 .modal { padding: 0; border: 0; background: transparent; }
 .modal__sheet { width: min(96vw, 760px); max-height: 90vh; display: flex; flex-direction: column; }
 .modal__body { display: flex; flex-direction: column; gap: 1rem; overflow: auto; }
+/* Hide scrollbars for generic modal body variants */
+.modal__body { -ms-overflow-style: none; scrollbar-width: none; }
+.modal__body::-webkit-scrollbar { width: 0; height: 0; }
 /* Support legacy class used by Dispatch edit */
 .modal-sheet { width: min(96vw, 760px); max-height: 90vh; display:flex; flex-direction:column; background:#fff; border-radius:12px; padding:16px; box-shadow: var(--shadow); }
+.modal-sheet { -ms-overflow-style: none; scrollbar-width: none; }
+.modal-sheet::-webkit-scrollbar { width: 0; height: 0; }
 .modal-sheet .row { display:grid; grid-template-columns: minmax(180px, 260px) 1fr auto; gap:.75rem; align-items:end; }
 @media (max-width: 700px){ .modal-sheet .row { grid-template-columns: 1fr; } }
 

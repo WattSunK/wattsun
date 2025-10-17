@@ -704,6 +704,32 @@ document.addEventListener("keydown", docKeyHandler, true);
 })();
 
   // ---------------------------------------------------------------------
+  // Global safety net: ensure "Add User" opens even before wiring
+  // This captures clicks anywhere in the document for the common triggers
+  // and opens the Users modal. It is idempotent with the root-level handler.
+  // ---------------------------------------------------------------------
+  document.addEventListener('click', function(e){
+    try {
+      const t = e.target && (e.target.closest && e.target.closest('#addUserBtn,[data-users-action="open-create"]'));
+      if (!t) return;
+      // If Users section isn't mounted yet, let normal navigation occur
+      // (nav click loads the partial). Once present, open the modal.
+      const root = findRoot();
+      if (!root) return; // allow normal navigation to users tab
+
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      // Rehydrate to ensure elements are ready, then open
+      (async () => {
+        try { await rehydrate(); } catch {}
+        try { UsersModal.open('add', null); } catch {}
+      })();
+    } catch(_){}
+  }, true);
+
+  // ---------------------------------------------------------------------
   // Mount sentinel (uses findRoot so it works without explicit anchors)
   // ---------------------------------------------------------------------
   (function usersMountSentinel() {
