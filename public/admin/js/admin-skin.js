@@ -48,6 +48,15 @@
 
   async function loadPartial(id, url) {
     if (!contentEl) return;
+    // Proactively close any open modals/sheets before swapping views
+    try {
+      const openDlgs = Array.from(document.querySelectorAll('dialog[open]'));
+      openDlgs.forEach(d => { try { d.close(); } catch { d.removeAttribute('open'); } });
+      const openSheets = Array.from(document.querySelectorAll('.modal.show, .modal[aria-hidden="false"]'));
+      openSheets.forEach(m => { m.classList.remove('show'); m.setAttribute('aria-hidden','true'); });
+      document.documentElement.classList.remove('ws-modal-open');
+      document.body.classList.remove('ws-modal-open');
+    } catch(_){}
     contentEl.setAttribute("aria-busy", "true");
     contentEl.innerHTML = `<div class="loading"><span class="spinner"></span><span>Loading…</span></div>`;
 
@@ -59,8 +68,8 @@
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const html = await res.text();
       contentEl.innerHTML = html;
-      // Run inline scripts, except for the initial system-status where we keep it static to avoid any startup stalls
-      if (!WS_DIAG && id !== 'system-status') {
+      // Execute inline scripts contained in the partial (guards inside executeInlineScripts)
+      if (!WS_DIAG) {
         executeInlineScripts(contentEl);
       }
       contentEl.removeAttribute("aria-busy");

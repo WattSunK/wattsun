@@ -187,9 +187,9 @@
     const url = `${base}?page=${page}&per=${per}`;
     mark("load-start", { url });
 
-    const r = await fetch(url, { credentials: "include" });
-    const ct = r.headers.get("content-type") || "";
-    const body = ct.includes("json") ? await r.json() : await r.text();
+    let r = await fetch(url, { credentials: "include" });
+    let ct = r.headers.get("content-type") || "";
+    let body = ct.includes("json") ? await r.json() : await r.text();
 
     let list = [];
     if (Array.isArray(body)) list = body;
@@ -209,6 +209,17 @@
         }
       }
     }
+    // Fallback if admin base is empty or blocked
+    if ((!r.ok || list.length === 0) && base !== "/api/users") {
+      try {
+        const r2 = await fetch(`/api/users?page=${page}&per=${per}`, { credentials: "include" });
+        const ct2 = r2.headers.get("content-type") || "";
+        const b2 = ct2.includes("json") ? await r2.json() : await r2.text();
+        if (Array.isArray(b2)) list = b2;
+        else if (b2 && typeof b2 === 'object' && Array.isArray(b2.users)) list = b2.users;
+      } catch (_) { /* ignore */ }
+    }
+
     const rows = list.map(normalize);
     mark("load-done", { n: rows.length });
     return rows;
