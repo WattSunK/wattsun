@@ -52,9 +52,16 @@
     <section class="card">
       <div class="card-header">Delivery Addresses</div>
       <div class="card-body">
-        <div class="empty">
-          <div class="title">No addresses yet</div>
-          <div>Add a delivery address to get started.</div>
+        <div id="addrList" class="addresses-row" style="display:flex;gap:10px;flex-wrap:wrap;"></div>
+        <div class="vspace-8"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:640px;">
+          <input id="addrLabel" class="input" type="text" placeholder="Label (Home, Office)">
+          <input id="addrCity"  class="input" type="text" placeholder="City/Town">
+          <textarea id="addrText" class="input" placeholder="Full address" style="grid-column:1 / span 2;min-height:70px;"></textarea>
+          <label style="display:flex;align-items:center;gap:6px;"><input id="addrDefault" type="checkbox">Default</label>
+          <div style="text-align:right;">
+            <button id="addrSave" class="btn btn-primary" type="button">Add Address</button>
+          </div>
         </div>
       </div>
     </section>
@@ -65,9 +72,16 @@
     <section class="card">
       <div class="card-header">Payment Methods</div>
       <div class="card-body">
-        <div class="empty">
-          <div class="title">No payment methods</div>
-          <div>Add a card or mobile money method to save time at checkout.</div>
+        <div id="pmList" class="payments-row" style="display:flex;gap:10px;flex-wrap:wrap;"></div>
+        <div class="vspace-8"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:640px;">
+          <input id="pmKind" class="input" type="text" placeholder="Kind (Card, M-Pesa)">
+          <input id="pmMask" class="input" type="text" placeholder="Mask (**** 1234 / 07**)">
+          <input id="pmMeta" class="input" type="text" placeholder="Meta (optional JSON)" style="grid-column:1 / span 2;">
+          <label style="display:flex;align-items:center;gap:6px;"><input id="pmDefault" type="checkbox">Default</label>
+          <div style="text-align:right;">
+            <button id="pmSave" class="btn btn-primary" type="button">Add Method</button>
+          </div>
         </div>
       </div>
     </section>
@@ -78,9 +92,13 @@
     <section class="card">
       <div class="card-header">Email Settings</div>
       <div class="card-body">
-        <div class="empty">
-          <div class="title">Preferences</div>
-          <div>Pick the notifications you want to receive.</div>
+        <div style="display:flex;flex-direction:column;gap:8px;max-width:560px;">
+          <label style="display:flex;align-items:center;gap:8px;"><input id="emNews" type="checkbox"> Newsletter</label>
+          <label style="display:flex;align-items:center;gap:8px;"><input id="emOrders" type="checkbox"> Order updates</label>
+          <label style="display:flex;align-items:center;gap:8px;"><input id="emMkt" type="checkbox"> Marketing</label>
+          <div style="margin-top:6px;">
+            <button id="emSave" class="btn btn-primary" type="button">Save Preferences</button>
+          </div>
         </div>
       </div>
     </section>
@@ -110,7 +128,8 @@
 
     // Lightweight profile save stub (wire to /api/users/me later)
     const save = document.getElementById('btnSave');
-    if (save) {
+    // Skip stub if server-backed save is enabled (dashboard wires it)
+    if (save && !window.__USE_SERVER_PROFILE_SAVE) {
       save.addEventListener('click', async () => {
         save.classList.add('is-loading'); save.disabled = true;
         try {
@@ -197,5 +216,101 @@
     }
     const u0 = getUserFromStorage(); if (u0) hydrate(u0);
     window.addEventListener('storage', (e)=>{ if (e.key==='wattsunUser') { const u = getUserFromStorage(); if (u) hydrate(u); }});
+
+    // ---- Helpers (API) ----
+    async function jfetch(url, opts){
+      const r = await fetch(url, { credentials:'include', headers:{'Content-Type':'application/json'}, ...(opts||{}) });
+      const t = await r.text(); let j=null; try{ j = t?JSON.parse(t):null; }catch{}
+      if(!r.ok){ const msg = j?.error || j?.message || (r.status+" "+r.statusText); throw new Error(msg); }
+      return j;
+    }
+
+    // ---- Addresses ----
+    async function loadAddresses(){
+      try{
+        const data = await jfetch('/api/profile/addresses');
+        const list = Array.isArray(data.addresses)?data.addresses:[];
+        const host = document.getElementById('addrList'); if(!host) return;
+        host.innerHTML = list.map(a=>`<div class="card" style="padding:10px;min-width:240px;">
+            <div><strong>${a.label||'Address'}</strong> ${a.isDefault?'<span class="muted">(default)</span>':''}</div>
+            <div class="muted">${a.city||''}</div>
+            <div>${a.address||''}</div>
+            <div class="actions" style="margin-top:8px;">
+              <button class="btn btn-sm" data-addr-edit="${a.id}">Edit</button>
+              <button class="btn btn-sm" data-addr-del="${a.id}">Delete</button>
+            </div>
+        </div>`).join('') || '<div class="muted">No addresses yet.</div>';
+      }catch(e){ toast&&toast('Failed to load addresses','error'); }
+    }
+    async function saveAddress(id){
+      const body = {
+        label: document.getElementById('addrLabel')?.value.trim()||'',
+        address: document.getElementById('addrText')?.value.trim()||'',
+        city: document.getElementById('addrCity')?.value.trim()||'',
+        isDefault: !!document.getElementById('addrDefault')?.checked,
+      };
+      try{
+        if(id){ await jfetch('/api/profile/addresses/'+id,{ method:'PUT', body: JSON.stringify(body) }); }
+        else{ await jfetch('/api/profile/addresses',{ method:'POST', body: JSON.stringify(body) }); }
+        toast&&toast('Address saved','success');
+        document.getElementById('addrLabel').value='';
+        document.getElementById('addrText').value='';
+        document.getElementById('addrCity').value='';
+        document.getElementById('addrDefault').checked=false;
+        document.getElementById('addrSave').textContent='Add Address';
+        document.getElementById('addrSave').removeAttribute('data-edit');
+        loadAddresses();
+      }catch(e){ toast&&toast(e.message||'Save failed','error'); }
+    }
+    document.addEventListener('click',(e)=>{
+      const del=e.target.closest('[data-addr-del]'); if(del){ const id=del.getAttribute('data-addr-del'); jfetch('/api/profile/addresses/'+id,{method:'DELETE'}).then(()=>{toast&&toast('Deleted','success');loadAddresses();}).catch(err=>toast&&toast(err.message||'Delete failed','error')); }
+      const ed =e.target.closest('[data-addr-edit]'); if(ed){ const id=ed.getAttribute('data-addr-edit'); /* quick fetch list and prefill */ (async()=>{ const data=await jfetch('/api/profile/addresses'); const it=(data.addresses||[]).find(x=>String(x.id)===String(id)); if(it){ document.getElementById('addrLabel').value=it.label||''; document.getElementById('addrText').value=it.address||''; document.getElementById('addrCity').value=it.city||''; document.getElementById('addrDefault').checked=!!it.isDefault; const b=document.getElementById('addrSave'); b.textContent='Update Address'; b.setAttribute('data-edit',id);} })().catch(()=>{}); }
+    });
+    document.getElementById('addrSave')?.addEventListener('click',()=>{ const id=document.getElementById('addrSave')?.getAttribute('data-edit'); saveAddress(id); });
+
+    // ---- Payments ----
+    async function loadPayments(){
+      try{
+        const data = await jfetch('/api/profile/payments');
+        const list = Array.isArray(data.methods)?data.methods:[];
+        const host = document.getElementById('pmList'); if(!host) return;
+        host.innerHTML = list.map(p=>`<div class="card" style="padding:10px;min-width:240px;">
+          <div><strong>${p.kind||'Method'}</strong> ${p.isDefault?'<span class="muted">(default)</span>':''}</div>
+          <div class="muted">${p.mask||''}</div>
+          <div class="actions" style="margin-top:8px;">
+            <button class="btn btn-sm" data-pm-edit="${p.id}">Edit</button>
+            <button class="btn btn-sm" data-pm-del="${p.id}">Delete</button>
+          </div>
+        </div>`).join('') || '<div class="muted">No payment methods.</div>';
+      }catch(e){ toast&&toast('Failed to load methods','error'); }
+    }
+    async function savePayment(id){
+      let metaObj=null; const metaRaw=document.getElementById('pmMeta')?.value.trim(); if(metaRaw){ try{ metaObj=JSON.parse(metaRaw); }catch{ toast&&toast('Invalid JSON meta','error'); return; } }
+      const body={ kind:document.getElementById('pmKind')?.value.trim()||'', mask:document.getElementById('pmMask')?.value.trim()||'', meta:metaObj, isDefault:!!document.getElementById('pmDefault')?.checked };
+      try{
+        if(id){ await jfetch('/api/profile/payments/'+id,{method:'PUT', body:JSON.stringify(body)});} else { await jfetch('/api/profile/payments',{method:'POST', body:JSON.stringify(body)}); }
+        toast&&toast('Payment saved','success');
+        document.getElementById('pmKind').value=''; document.getElementById('pmMask').value=''; document.getElementById('pmMeta').value=''; document.getElementById('pmDefault').checked=false; const b=document.getElementById('pmSave'); b.textContent='Add Method'; b.removeAttribute('data-edit'); loadPayments();
+      }catch(e){ toast&&toast(e.message||'Save failed','error'); }
+    }
+    document.getElementById('pmSave')?.addEventListener('click',()=>{ const id=document.getElementById('pmSave')?.getAttribute('data-edit'); savePayment(id); });
+    document.addEventListener('click',(e)=>{
+      const del=e.target.closest('[data-pm-del]'); if(del){ const id=del.getAttribute('data-pm-del'); jfetch('/api/profile/payments/'+id,{method:'DELETE'}).then(()=>{toast&&toast('Deleted','success');loadPayments();}).catch(err=>toast&&toast(err.message||'Delete failed','error')); }
+      const ed =e.target.closest('[data-pm-edit]'); if(ed){ const id=ed.getAttribute('data-pm-edit'); (async()=>{ const data=await jfetch('/api/profile/payments'); const it=(data.methods||[]).find(x=>String(x.id)===String(id)); if(it){ document.getElementById('pmKind').value=it.kind||''; document.getElementById('pmMask').value=it.mask||''; document.getElementById('pmMeta').value=it.meta||''; document.getElementById('pmDefault').checked=!!it.isDefault; const b=document.getElementById('pmSave'); b.textContent='Update Method'; b.setAttribute('data-edit',id);} })().catch(()=>{}); }
+    });
+
+    // ---- Email Settings ----
+    async function loadEmailPrefs(){ try{ const d=await jfetch('/api/profile/email-settings'); const p=d.prefs||{}; document.getElementById('emNews').checked=!!p.newsletter; document.getElementById('emOrders').checked=!!p.order_updates; document.getElementById('emMkt').checked=!!p.marketing; }catch(e){}}
+    async function saveEmailPrefs(){ try{ const body={ newsletter:document.getElementById('emNews').checked, order_updates:document.getElementById('emOrders').checked, marketing:document.getElementById('emMkt').checked }; await jfetch('/api/profile/email-settings',{method:'PUT', body:JSON.stringify(body)}); toast&&toast('Preferences saved','success'); }catch(e){ toast&&toast(e.message||'Save failed','error'); } }
+    document.getElementById('emSave')?.addEventListener('click', saveEmailPrefs);
+
+    // Lazy-load data when visiting tabs
+    tabs.forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        if(btn.dataset.tab==='addresses') loadAddresses();
+        if(btn.dataset.tab==='payments')  loadPayments();
+        if(btn.dataset.tab==='emails')    loadEmailPrefs();
+      });
+    });
   })();
 </script>
