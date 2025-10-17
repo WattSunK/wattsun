@@ -334,30 +334,7 @@
     if (typeof window.toast === "function") window.toast(`Unknown create type: ${type}`, "error");
   });
 
-  // --- Cross-section order actions from other partials ---
-  // Capture clicks that indicate an order action from anywhere (e.g., Users table)
-  document.addEventListener('click', (e) => {
-    const t = e.target;
-    // View Order triggers: data-oid, data-order-id, or [data-open-order]
-    const viewBtn = t.closest?.('[data-oid],[data-order-id],[data-open-order]');
-    if (viewBtn) {
-      const id = viewBtn.getAttribute('data-oid') || viewBtn.getAttribute('data-order-id') || viewBtn.getAttribute('data-open-order');
-      if (id) {
-        e.preventDefault();
-        pendingCreateIntent = { type: 'view-order', id };
-        navigateTo('orders');
-        return;
-      }
-    }
-    // Add Order triggers from other sections
-    const addBtn = t.closest?.('[data-action="add-order"], [data-modal-target="#orderAddModal"], [data-open="order-add"]');
-    if (addBtn) {
-      e.preventDefault();
-      pendingCreateIntent = { type: 'order', source: 'cross' };
-      navigateTo('orders');
-      return;
-    }
-  }, true);
+  // Cross-section order hijacking removed; each module owns its own actions.
 })();
 
 // --- Topbar Home/Logout: resilient injector (idempotent) ---
