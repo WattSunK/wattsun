@@ -51,6 +51,8 @@
 
   async function loadPartial(id, url) {
     if (!contentEl) return;
+    // Extra safety: close any open dialogs before swapping content
+    try { wsCloseAllDialogs(); } catch {}
     contentEl.setAttribute("aria-busy", "true");
     contentEl.innerHTML = `<div class="loading"><span class="spinner"></span><span>Loading…</span></div>`;
 
