@@ -2,6 +2,7 @@
 (() => {
   const VERSION = (window.__ADMIN_VERSION__ || "0");
   const contentEl = document.getElementById("admin-content");
+  const WS_DIAG = /[?&]__diag=1\b/.test(location.search || "");
   const navLinks = Array.from(document.querySelectorAll(".admin-nav .nav-link"));
   const hardRefreshBtn = document.getElementById("hard-refresh");
 
@@ -58,7 +59,10 @@
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const html = await res.text();
       contentEl.innerHTML = html;
-      executeInlineScripts(contentEl);
+      // Run inline scripts, except for the initial system-status where we keep it static to avoid any startup stalls
+      if (!WS_DIAG && id !== 'system-status') {
+        executeInlineScripts(contentEl);
+      }
       contentEl.removeAttribute("aria-busy");
       window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { id } }));
     } catch (err) {
@@ -265,6 +269,7 @@
 
 // --- Topbar Home/Logout: resilient injector (idempotent) ---
 (function(){
+  if (typeof WS_DIAG !== 'undefined' && WS_DIAG) return; // disable in diagnostic mode
   function ensureTopbarButtons(root){
     try {
       var bar = root && root.querySelector ? root.querySelector('.topbar-actions') : document.querySelector('.topbar-actions');
@@ -372,15 +377,22 @@
       return false;
     } catch { return false; }
   }
+  let rafPending = false;
   function syncLock(){
-    const open = anyModalOpen();
-    const root = document.documentElement;
-    if (open) { root.classList.add('ws-modal-open'); document.body.classList.add('ws-modal-open'); }
-    else { root.classList.remove('ws-modal-open'); document.body.classList.remove('ws-modal-open'); }
+    if (rafPending) return; // throttle bursts
+    rafPending = true;
+    requestAnimationFrame(() => {
+      rafPending = false;
+      const open = anyModalOpen();
+      const root = document.documentElement;
+      if (open) { root.classList.add('ws-modal-open'); document.body.classList.add('ws-modal-open'); }
+      else { root.classList.remove('ws-modal-open'); document.body.classList.remove('ws-modal-open'); }
+    });
   }
   try {
     const mo = new MutationObserver(syncLock);
-    mo.observe(document.body, { attributes:true, childList:true, subtree:true, attributeFilter:['open','aria-hidden','class','style'] });
+    // Only observe attribute changes related to dialogs/modals; avoid childList churn
+    mo.observe(document.body, { attributes:true, subtree:true, attributeFilter:['open','aria-hidden','class'] });
     document.addEventListener('close', syncLock, true);
     document.addEventListener('keydown', function(e){ if (e.key==='Escape') setTimeout(syncLock,0); }, true);
     // initial
