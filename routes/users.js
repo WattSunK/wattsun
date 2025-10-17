@@ -35,6 +35,50 @@ router.get("/users/me", (req, res) => {
 });
 
 // ===========================
+// UPDATE current logged-in user
+// ===========================
+router.put("/users/me", (req, res) => {
+  const db = req.app.get("db");
+  const u = req.session?.user;
+  if (!u) {
+    return res.status(401).json({ success: false, error: "Not logged in" });
+  }
+
+  const { name, email, phone } = req.body || {};
+
+  // Basic validation (soft)
+  const nameVal = typeof name === "string" ? name.trim() : undefined;
+  const emailVal = typeof email === "string" ? email.trim() : undefined;
+  const phoneVal = typeof phone === "string" ? phone.trim() : undefined;
+
+  try {
+    const row = db
+      .prepare("SELECT id, name, email, phone, type, status, created_at FROM users WHERE id = ?")
+      .get(u.id);
+    if (!row) return res.status(404).json({ success: false, error: "User not found" });
+
+    const newName = nameVal !== undefined ? nameVal : row.name;
+    const newEmail = emailVal !== undefined ? emailVal : row.email;
+    const newPhone = phoneVal !== undefined ? phoneVal : row.phone;
+
+    db.prepare("UPDATE users SET name = ?, email = ?, phone = ? WHERE id = ?")
+      .run(newName, newEmail, newPhone, u.id);
+
+    const updated = db
+      .prepare("SELECT id, name, email, phone, type, status, created_at FROM users WHERE id = ?")
+      .get(u.id);
+
+    // Update session snapshot for convenience
+    try { req.session.user = { ...(req.session.user||{}), ...updated }; } catch {}
+
+    return res.json({ success: true, user: updated });
+  } catch (err) {
+    console.error("[users][PUT /users/me] error:", err);
+    return res.status(500).json({ success: false, error: "DB error", detail: err.message });
+  }
+});
+
+// ===========================
 // GET all users
 // ===========================
 router.get("/users", (req, res) => {

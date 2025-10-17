@@ -47,6 +47,10 @@
   <main class="admin-main">
     <header class="admin-topbar">
       <h1 class="page-title">Dashboard</h1>
+      <div id="headerUser" class="header-user" style="margin-left:auto; margin-right:12px; text-align:right;">
+        <div class="user-name" style="font-weight:600;"></div>
+        <div class="user-meta" style="font-size:12px; color:#777;"></div>
+      </div>
       <div class="topbar-actions">
         <!-- NEW: Home + Logout buttons -->
         <button id="btn-home" class="btn btn-ghost" type="button" title="Go to Home">Home</button>
@@ -129,6 +133,62 @@
 </script>
 
   <script>window.__ADMIN_VERSION__ = "20250906-02";</script>
+
+  <!-- Profile hydration + Save (server-backed) -->
+  <script>
+    (function(){
+      async function fetchMe(){
+        try{
+          const r = await fetch('/api/users/me', { credentials:'include' });
+          if(!r.ok) return null; const j = await r.json(); return j && (j.user || j);
+        }catch{ return null; }
+      }
+      function updateHeader(u){
+        const box = document.getElementById('headerUser'); if(!box) return;
+        const name = u?.name || u?.fullName || 'User';
+        const email = u?.email || '';
+        const phone = u?.phone || '';
+        const n = box.querySelector('.user-name'); if(n) n.textContent = name;
+        const m = box.querySelector('.user-meta'); if(m) m.textContent = [email, phone].filter(Boolean).join(' · ');
+      }
+      function fillProfileInputs(root,u){
+        if(!root || !u) return;
+        const fN = root.querySelector('#pf-name'); if(fN) fN.value = u.name || u.fullName || '';
+        const fE = root.querySelector('#pf-email'); if(fE) fE.value = u.email || '';
+        const fP = root.querySelector('#pf-phone'); if(fP) fP.value = u.phone || '';
+      }
+      async function attachProfileSave(root){
+        const btn = root.querySelector('#btnSave'); if(!btn || btn.dataset.bound) return; btn.dataset.bound = '1';
+        btn.addEventListener('click', async ()=>{
+          const body = {
+            name:  root.querySelector('#pf-name')?.value?.trim() || '',
+            email: root.querySelector('#pf-email')?.value?.trim() || '',
+            phone: root.querySelector('#pf-phone')?.value?.trim() || ''
+          };
+          try{
+            const r = await fetch('/api/users/me', {
+              method:'PUT', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+            });
+            const j = await r.json();
+            if(!r.ok || j.success===false){ toast && toast(j.error||'Save failed','error'); return; }
+            const me = j.user || j; updateHeader(me);
+            try{ localStorage.setItem('wattsunUser', JSON.stringify({success:true, user: me})); }catch{}
+            toast && toast('Profile saved','success');
+          }catch(e){ toast && toast('Network error','error'); }
+        });
+      }
+      async function boot(){
+        const me = await fetchMe(); if(me){ updateHeader(me); try{ localStorage.setItem('wattsunUser', JSON.stringify({success:true, user: me})); }catch{} }
+      }
+      window.addEventListener('admin:partial-loaded', async (e)=>{
+        if(e?.detail?.id === 'profile' || e?.detail?.name === 'profile'){
+          const me = await fetchMe(); if(me){ fillProfileInputs(document, me); }
+          attachProfileSave(document);
+        }
+      });
+      document.addEventListener('DOMContentLoaded', boot);
+    })();
+  </script>
 
   <!-- Load order-sensitive scripts in correct order -->
   <script src="/admin/js/admin-skin.js?v=20250918-01"></script>
