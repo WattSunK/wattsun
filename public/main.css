@@ -620,6 +620,41 @@ header .header-bar {
   padding: 6px 12px !important;               /* tighter vertical padding */
   min-height: 56px;                            /* stable height on desktop */
 }
+
+/* === Unified Cart Icon (header) === */
+.cart-icon-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+.cart-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-block;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  /* Inline SVG cart (white fill) */
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ffffff"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2S15.9 22 17 22s2-.9 2-2-.9-2-2-2zM7.16 14.26l.03.01L19 15c.78 0 1.45-.55 1.63-1.3l1.35-6.03A1.5 1.5 0 0020.53 6H6.21l-.2-1.02A1.5 1.5 0 004.54 4H3a1 1 0 000 2h1l2.2 10.59c.15.71.79 1.22 1.52 1.22H19a1 1 0 100-2H7.52l-.36-1.55z"/></svg>');
+}
+.cart-count-badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  background: #3E9F50;
+  color: #fff;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  padding: 0 5px;
+  font-size: 11px;
+  line-height: 16px;
+  display: none; /* shown when count > 0 */
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
 header .header-bar h1 {
   font-size: 2.2em !important;                 /* smaller than 3em */
   padding-top: 8px !important;

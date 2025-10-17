@@ -45,3 +45,24 @@ try {
     } catch (e) {}
   });
 } catch (e) {}
+
+// Global cart badge updater (optional on pages without badge)
+function wsUpdateCartBadge() {
+  try {
+    const cart = JSON.parse(localStorage.getItem('cart')) || [];
+    const count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    const badge = document.getElementById('cart-count-badge');
+    if (badge) {
+      if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+  } catch (e) {}
+}
+document.addEventListener('DOMContentLoaded', wsUpdateCartBadge);
+window.addEventListener('storage', function (e) {
+  if (e.key === 'cart') wsUpdateCartBadge();
+});
