@@ -65,44 +65,61 @@ function mergeOverlay(base, overlay) {
 // === LIST: GET /api/admin/orders?page=&per= ===
 router.get("/", (req, res) => {
   try {
-    const page = parseInt(req.query.page || "1", 10);
-    const per = parseInt(req.query.per || "10", 10);
+    const page = Math.max(1, parseInt(req.query.page || "1", 10));
+    const per = Math.max(1, parseInt(req.query.per || "10", 10));
     const offset = (page - 1) * per;
 
-    // --- revised query: include overlay + left join to ensure pending orders appear ---
-const total = db.prepare("SELECT COUNT(*) AS n FROM orders").get().n;
+    const q = String(req.query.q || "").trim();
+    const status = String(req.query.status || "").trim();
+    const from = String(req.query.from || "").trim();
+    const toRaw = String(req.query.to || "").trim();
+    const to = toRaw && toRaw.length === 10 ? `${toRaw} 23:59:59` : toRaw; // inclusive end-of-day if date only
 
-const rows = db
-  .prepare(`
-    SELECT 
-      o.id,
-      o.orderNumber,
-      o.fullName,
-      o.phone,
-      o.email,
-      COALESCE(a.status, o.status)                 AS status,
-      o.createdAt,
-      COALESCE(a.total_cents,   o.totalCents)      AS totalCents,
-      COALESCE(a.deposit_cents, o.depositCents)    AS depositCents,
-      COALESCE(a.currency,      o.currency)        AS currency,
-      a.notes                                      AS notes,
-      COALESCE(a.driver_id,     o.driverId)        AS driverId,
-      o.address
-    FROM orders o
-    LEFT JOIN admin_order_meta a
-    ON a.order_id = o.id
-    WHERE o.status != 'Deleted'
-    ORDER BY datetime(o.createdAt) DESC
-    LIMIT ? OFFSET ?
-  `)
-  .all(per, offset);
-    res.json({
-      success: true,
-      page,
-      per,
-      total,
-      orders: rows.map(mapRow),
-    });
+    const where = ["o.status != 'Deleted'"];
+    const params = [];
+    if (status) { where.push("COALESCE(a.status, o.status) = ?"); params.push(status); }
+    if (q) {
+      const like = `%${q}%`;
+      where.push("(o.orderNumber LIKE ? OR o.fullName LIKE ? OR o.phone LIKE ? OR o.email LIKE ?)");
+      params.push(like, like, like, like);
+    }
+    if (from) { where.push("datetime(o.createdAt) >= datetime(?)"); params.push(from); }
+    if (to)   { where.push("datetime(o.createdAt) <= datetime(?)"); params.push(to); }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const totalSql = `
+      SELECT COUNT(*) AS n
+      FROM orders o
+      LEFT JOIN admin_order_meta a ON a.order_id = o.id
+      ${whereSql}
+    `;
+    const total = db.prepare(totalSql).get(...params).n;
+
+    const listSql = `
+      SELECT 
+        o.id,
+        o.orderNumber,
+        o.fullName,
+        o.phone,
+        o.email,
+        COALESCE(a.status, o.status)                 AS status,
+        o.createdAt,
+        COALESCE(a.total_cents,   o.totalCents)      AS totalCents,
+        COALESCE(a.deposit_cents, o.depositCents)    AS depositCents,
+        COALESCE(a.currency,      o.currency)        AS currency,
+        a.notes                                      AS notes,
+        COALESCE(a.driver_id,     o.driverId)        AS driverId,
+        o.address
+      FROM orders o
+      LEFT JOIN admin_order_meta a ON a.order_id = o.id
+      ${whereSql}
+      ORDER BY datetime(o.createdAt) DESC
+      LIMIT ? OFFSET ?
+    `;
+    const rows = db.prepare(listSql).all(...params, per, offset);
+
+    res.json({ success: true, page, per, total, orders: rows.map(mapRow) });
   } catch (err) {
     console.error("[admin-orders] GET / failed:", err);
     res.status(500).json({ success: false, error: "SERVER_ERROR" });

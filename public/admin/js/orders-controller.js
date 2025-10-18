@@ -99,15 +99,23 @@
   }
  
   function renderPager() {
-    const pager = document.getElementById("ordersPager");
-    if (!pager) return;
     const pages = Math.max(1, Math.ceil(State.total / State.pageSize));
-    pager.innerHTML = `
-      <div class="pager">
-        <button class="btn prev" ${State.page <= 1 ? "disabled" : ""} data-page="prev">Prev</button>
-        <span class="pages">Page ${State.page} / ${pages}</span>
-        <button class="btn next" ${State.page >= pages ? "disabled" : ""} data-page="next">Next</button>
-      </div>`;
+    const pageEl = document.getElementById("ordersPageNum");
+    if (pageEl) pageEl.textContent = `Page ${State.page} / ${pages}`;
+
+    const first = document.getElementById("ordersFirst");
+    const prev  = document.getElementById("ordersPrev");
+    const next  = document.getElementById("ordersNext");
+    const last  = document.getElementById("ordersLast");
+    const atStart = State.page <= 1;
+    const atEnd   = State.page >= pages;
+    if (first) first.disabled = atStart;
+    if (prev)  prev.disabled  = atStart;
+    if (next)  next.disabled  = atEnd;
+    if (last)  last.disabled  = atEnd;
+
+    const meta = document.getElementById("ordersMeta");
+    if (meta) meta.textContent = `Showing ${State.rows.length} of ${State.total} entries`;
   }
 
   function applyFilters() {
@@ -118,6 +126,19 @@
   }
 
   // --- Data fetch (server-side aware) ---
+  function getFilters() {
+    const q      = document.getElementById("ordersSearch")?.value?.trim() || "";
+    const status = document.getElementById("ordersStatus")?.value?.trim() || "";
+    const from   = document.getElementById("ordersFrom")?.value?.trim()   || "";
+    const to     = document.getElementById("ordersTo")?.value?.trim()     || "";
+    return { q, status, from, to };
+  }
+
+  function getPer() {
+    const perEl = document.getElementById("ordersPer");
+    return Number(perEl?.value || State.pageSize || 10);
+  }
+
   async function fetchOrders() {
     const Data = getData();
     if (!Data || !Data.orders) {
@@ -135,10 +156,10 @@
       return [];
     };
 
-    const perEl = document.getElementById("ordersPer");
-    const per = Number(perEl?.value || State.pageSize || 10);
+    const per = getPer();
+    const { q, status, from, to } = getFilters();
 
-    const resp = await Data.orders.list({ page: State.page, per, q:"", status:"", phone:"" });
+    const resp = await Data.orders.list({ page: State.page, per, q, status, from, to });
 
     const rows = normalize(resp);
     State.raw = rows;
@@ -157,21 +178,27 @@
 
     ensureTableHooks();
 
-    $("#ordersSearch") && $("#ordersSearch").addEventListener("input",  (e) => { State.filter.q      = e.target.value; applyFilters(); renderRows(); renderPager(); });
-    $("#ordersStatus") && $("#ordersStatus").addEventListener("change", (e) => { State.filter.status = e.target.value; applyFilters(); renderRows(); renderPager(); });
-    $("#ordersPhone")  && $("#ordersPhone").addEventListener("input",   (e) => { State.filter.phone  = e.target.value; applyFilters(); renderRows(); renderPager(); });
+    // Filters and actions (server-driven)
+    $("#ordersSearch") && $("#ordersSearch").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { State.page = 1; fetchOrders().then(() => { renderRows(); renderPager(); }); }
+    });
+    $("#ordersSearchBtn") && $("#ordersSearchBtn").addEventListener("click", () => { State.page = 1; fetchOrders().then(() => { renderRows(); renderPager(); }); });
+    $("#ordersClearBtn") && $("#ordersClearBtn").addEventListener("click", () => {
+      ["ordersSearch","ordersStatus","ordersFrom","ordersTo"].forEach(id => { const el=document.getElementById(id); if (el) el.value = ""; });
+      State.page = 1; fetchOrders().then(() => { renderRows(); renderPager(); });
+    });
+    $("#ordersStatus") && $("#ordersStatus").addEventListener("change", () => { State.page = 1; fetchOrders().then(() => { renderRows(); renderPager(); }); });
+    $("#ordersFrom")   && $("#ordersFrom").addEventListener("change",   () => { State.page = 1; fetchOrders().then(() => { renderRows(); renderPager(); }); });
+    $("#ordersTo")     && $("#ordersTo").addEventListener("change",     () => { State.page = 1; fetchOrders().then(() => { renderRows(); renderPager(); }); });
+    $("#ordersPer")    && $("#ordersPer").addEventListener("change",    () => { State.page = 1; fetchOrders().then(() => { renderRows(); renderPager(); }); });
 
-    document.addEventListener("click", (e) => {
-      const btn = e.target.closest(".pager .btn");
-      if (!btn) return;
-      const dir = btn.getAttribute("data-page");
-      if (dir === "prev" && State.page > 1) State.page--;
-      if (dir === "next") {
-        const pages = Math.max(1, Math.ceil(State.total / State.pageSize));
-        if (State.page < pages) State.page++;
-      }
-      fetchOrders().then(() => { renderRows(); renderPager(); });
-    }, { passive: true });
+    // Pager buttons
+    const go = (p) => { State.page = Math.max(1, p); fetchOrders().then(() => { renderRows(); renderPager(); }); };
+    const pages = () => Math.max(1, Math.ceil(State.total / State.pageSize));
+    $("#ordersFirst") && $("#ordersFirst").addEventListener("click", () => go(1));
+    $("#ordersPrev")  && $("#ordersPrev").addEventListener("click",  () => go(State.page - 1));
+    $("#ordersNext")  && $("#ordersNext").addEventListener("click",  () => go(State.page + 1));
+    $("#ordersLast")  && $("#ordersLast").addEventListener("click",  () => go(pages()));
 
     document.addEventListener("click", (e) => {
       const viewBtn = e.target.closest(".btn-view[data-oid]");
