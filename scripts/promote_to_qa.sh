@@ -96,3 +96,6 @@ echo -e "🎯 Dev → QA Promotion complete."
 echo -e "Commit: ${CURRENT_SHA}"
 echo -e "QA DB:  $QA_DB"
 echo -e "============================================================${NC}"
+
+sudo bash "$ROOT/scripts/verify_qa_auth.sh"
+
