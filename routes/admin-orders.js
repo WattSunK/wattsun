@@ -91,7 +91,7 @@ router.get("/", (req, res) => {
     const totalSql = `
       SELECT COUNT(*) AS n
       FROM orders o
-      LEFT JOIN admin_order_meta a ON a.order_id = o.id
+      LEFT JOIN admin_order_meta a ON a.order_id = o.orderNumber
       ${whereSql}
     `;
     const total = db.prepare(totalSql).get(...params).n;
@@ -112,7 +112,7 @@ router.get("/", (req, res) => {
         COALESCE(a.driver_id,     o.driverId)        AS driverId,
         o.address
       FROM orders o
-      LEFT JOIN admin_order_meta a ON a.order_id = o.id
+      LEFT JOIN admin_order_meta a ON a.order_id = o.orderNumber
       ${whereSql}
       ORDER BY datetime(o.createdAt) DESC
       LIMIT ? OFFSET ?
