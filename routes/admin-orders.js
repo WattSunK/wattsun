@@ -106,7 +106,11 @@ router.get("/", (req, res) => {
         COALESCE(a.status, o.status)                 AS status,
         o.createdAt,
         COALESCE(a.total_cents,   o.totalCents)      AS totalCents,
-        COALESCE(a.deposit_cents, o.depositCents)    AS depositCents,
+        COALESCE(
+          a.deposit_cents,
+          o.depositCents,
+          (SELECT COALESCE(SUM(oi.depositCents),0) FROM order_items oi WHERE oi.order_id = o.id)
+        )                                              AS depositCents,
         COALESCE(a.currency,      o.currency)        AS currency,
         a.notes                                      AS notes,
         COALESCE(a.driver_id,     o.driverId)        AS driverId,
@@ -157,7 +161,15 @@ router.get("/:id", (req, res) => {
       )
       .get(base.orderNumber);
 
+    // Fallback: if no top-level depositCents, compute from items
     const merged = mergeOverlay(base, overlay);
+    try {
+      const sumRow = db.prepare("SELECT COALESCE(SUM(depositCents),0) AS c FROM order_items WHERE order_id = ?").get(base.id);
+      const itemsDeposit = (sumRow && typeof sumRow.c === 'number') ? sumRow.c : 0;
+      if (merged && (merged.depositCents == null || Number(merged.depositCents) === 0) && itemsDeposit > 0) {
+        merged.depositCents = itemsDeposit;
+      }
+    } catch {}
     return res.json({ success: true, order: mapRow(merged) });
   } catch (err) {
     console.error("[admin-orders] GET /:id failed:", err);
