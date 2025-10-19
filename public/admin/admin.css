@@ -194,9 +194,12 @@ textarea.input {
   font-size:.95rem;
 }
 
-.pager{display:flex;align-items:center;gap:8px}
+.pager{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;white-space:nowrap}
 .page-indicator{min-width:8ch;text-align:center;margin:0 8px}
 .pager button { height:34px;min-width:34px;border-radius:10px; }
+/* Keep pager on a single row even on small screens */
+.table-meta .pager{flex-wrap:nowrap;white-space:nowrap;min-width:max-content}
+.table-meta{overflow-x:auto}
 
 /* ==================================================================
    Toasts
