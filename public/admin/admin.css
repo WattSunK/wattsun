@@ -525,7 +525,9 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 #orderAddModal  .modal-body { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 /* Users modal: remove dialog scroll, let body scroll only */
 #users-modal { overflow: hidden; }
-#users-modal .modal-body { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+#users-modal .modal-card { max-height: 90vh; display:flex; flex-direction:column; overflow:hidden; }
+#users-modal .modal-body { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding-bottom: 80px; }
+#users-modal .modal-footer { position: sticky; bottom: 0; background:#fff; border-top:1px solid var(--ws-border); }
 
 /* Support dialog.modal with a direct .modal-body form (Dispatch create) */
 .modal > .modal-body { display:flex; flex-direction:column; width: min(96vw, 760px); max-height: 90vh; overflow: hidden; border-radius: 12px; background:#fff; }
