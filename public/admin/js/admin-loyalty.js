@@ -292,12 +292,17 @@
     ensurePager();
     const prev = els.pager?.querySelector(".pager-prev");
     const next = els.pager?.querySelector(".pager-next");
+    const ind  = els.pager?.querySelector('#loyaltyPageNum');
     const hasPrev = state.page > 1;
     const hasNext = (state.total != null)
       ? (state.page < Math.ceil(state.total / state.limit))
       : (state.lastCount === state.limit);
     if (prev) prev.disabled = !hasPrev;
     if (next) next.disabled = !hasNext;
+    if (ind) {
+      const pages = (state.total != null) ? Math.max(1, Math.ceil(state.total / state.limit)) : null;
+      ind.textContent = pages ? `Page ${state.page} / ${pages}` : `Page ${state.page}`;
+    }
   }
 
   function wirePager(){
@@ -328,6 +333,9 @@
   }
 
   function wireFilters(){
+    // Prevent form submit from reloading the page on Enter
+    const form = document.getElementById('loyalty-filters');
+    if (form && !form.dataset.bound) { form.dataset.bound = '1'; form.addEventListener('submit', (e)=> e.preventDefault()); }
     if (els.searchInput){
       on(els.searchInput, "input", debounce(()=>{ state.page=1; refreshActiveTab(); }, 300));
     }

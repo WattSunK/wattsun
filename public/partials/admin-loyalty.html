@@ -64,7 +64,7 @@
       <div class="group" style="margin-left:auto; display:flex; align-items:flex-end; gap:0.5rem;">
         <div>
           <label for="loyaltySearch">Search</label>
-          <input class="input" id="loyaltySearch" name="q" placeholder="Find record…"/>
+          <input class="input" id="loyaltySearch" name="q" type="search" aria-label="Search loyalty" placeholder="Find record…"/>
         </div>
         <button class="btn" id="loyaltyClearBtn" type="button">Clear</button>
         <button class="btn" id="loyaltyRefreshBtn" type="button">Refresh</button>
@@ -160,11 +160,9 @@
     <footer class="table-meta" style="display:flex; align-items:center; justify-content:space-between;">
       <div class="meta" id="loyaltyMeta">0 results</div>
       <div class="pager" id="loyaltyPager">
-        <button class="btn btn--small">First</button>
-        <button class="btn btn--small">« Prev</button>
-        <span>1</span>
-        <button class="btn btn--small">Next »</button>
-        <button class="btn btn--small">Last</button>
+        <button class="btn pager-prev" type="button" aria-label="Previous">Prev</button>
+        <span class="page-indicator" id="loyaltyPageNum">Page 1</span>
+        <button class="btn pager-next" type="button" aria-label="Next">Next</button>
       </div>
     </footer>
   </div>

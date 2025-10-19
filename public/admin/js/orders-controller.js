@@ -310,6 +310,7 @@
     }
 
     try { dlg.showModal(); } catch { dlg.setAttribute("open", "true"); }
+    try { document.documentElement.classList.add('ws-modal-open'); document.body.classList.add('ws-modal-open'); } catch {}
   }
 
   window.addEventListener("orders:view", (e) => {
@@ -355,6 +356,6 @@
     const dlg = document.getElementById("orderViewModal");
     if (!dlg) return;
     try { dlg.close(); } catch { dlg.removeAttribute("open"); }
+    try { document.documentElement.classList.remove('ws-modal-open'); document.body.classList.remove('ws-modal-open'); } catch {}
   });
 })();
-
