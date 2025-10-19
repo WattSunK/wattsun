@@ -1,7 +1,7 @@
 // public/admin/js/admin-items.js
 // Items list: fetch, search, per-page, pagination, status toggle, Add/Edit/Delete, categories modal, PRIORITY save
 (function () {
-  let PAGE_SIZE = 15;
+  let PAGE_SIZE = 10;
   let allItems = [];
   let filtered = [];
   let currentPage = 1;
@@ -427,7 +427,7 @@
     root.dataset.inited = '1';
 
     // initial page size if select exists
-    if ($('items-per-page')) PAGE_SIZE = parseInt($('items-per-page').value,10) || 15;
+    if ($('items-per-page')) PAGE_SIZE = parseInt($('items-per-page').value,10) || 10;
 
     wireModalBasics(); // ✅ ensure backdrop/Esc close works (once)
     await loadCategoriesIntoSelects();
