@@ -733,6 +733,7 @@ document.addEventListener("keydown", docKeyHandler, true);
     }
 
     document.body.classList.remove("ws-modal-open");
+    try { document.documentElement.classList.remove('ws-modal-open'); } catch {}
   }
 
   function ensureEls() {
