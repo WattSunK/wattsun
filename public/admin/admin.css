@@ -302,17 +302,18 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 #orderViewModal .modal-card,
 #orderEditModal .ws-modal-card {
   width: min(640px, 96vw);
-  max-height: 85vh;
-  overflow: auto;
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 8px 16px;
+  max-height: 90vh;           /* match generic modal sizing */
+  overflow: hidden;           /* prevent nested scrollbar; body will scroll */
+  display: flex;              /* header/body/footer vertical layout */
+  flex-direction: column;
   border: 1px solid var(--ws-border);
   border-radius: 12px;
   background: #fff;
   box-shadow: var(--shadow);
-  padding: 16px;
 }
+
+/* Ensure the dialog itself never scrolls; only the card body does */
+#orderViewModal { overflow: hidden; }
 
 /* Ensure inputs in both modals expand nicely */
 #orderViewModal .input,
@@ -513,6 +514,9 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
   overflow: auto;               /* <-- only this area scrolls */
   padding: 16px 20px;
 }
+
+/* View modal: avoid horizontal scrollbar while allowing vertical */
+#orderViewModal .modal-body { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 
 /* Support dialog.modal with a direct .modal-body form (Dispatch create) */
 .modal > .modal-body { display:flex; flex-direction:column; width: min(96vw, 760px); max-height: 90vh; overflow: hidden; border-radius: 12px; background:#fff; }
