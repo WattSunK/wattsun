@@ -290,8 +290,12 @@
 
   function setMeta(count, total=null) {
     if (!els.meta) return;
-    const p = state.page, l = state.limit, s = (p-1)*l + 1, e = (p-1)*l + count;
-    els.meta.textContent = total!=null ? `${s}–${e} of ${fmtInt(total)}` : `${count} row(s)`;
+    const p = state.page, l = state.limit;
+    let e = (p - 1) * l + count;
+    if (count === 0) e = 0;
+    els.meta.textContent = total != null
+      ? `Showing ${e} of ${fmtInt(total)} entries`
+      : `Showing ${e} entries`;
   }
 
   function updatePager(){
@@ -1405,3 +1409,4 @@ const noAction = isFinal;
   }
 
 })();
+
