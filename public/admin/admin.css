@@ -314,6 +314,8 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 
 /* Ensure the dialog itself never scrolls; only the card body does */
 #orderViewModal { overflow: hidden; }
+#orderEditModal { overflow: hidden; }
+#orderAddModal  { overflow: hidden; }
 
 /* Ensure inputs in both modals expand nicely */
 #orderViewModal .input,
@@ -517,6 +519,8 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 
 /* View modal: avoid horizontal scrollbar while allowing vertical */
 #orderViewModal .modal-body { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+#orderEditModal .modal-body { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+#orderAddModal  .modal-body { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 
 /* Support dialog.modal with a direct .modal-body form (Dispatch create) */
 .modal > .modal-body { display:flex; flex-direction:column; width: min(96vw, 760px); max-height: 90vh; overflow: hidden; border-radius: 12px; background:#fff; }
