@@ -32,18 +32,17 @@
           <input id="usersSearch" type="search" placeholder="Search by name/email/phone" aria-label="Search users" />
         </div>
 
-        <div class="group per">
-          <label for="per-users">Per page</label>
-          <select id="per-users" aria-label="Per page">
-            <option>10</option>
-            <option>25</option>
-            <option>50</option>
-          </select>
-        </div>
-
         <div class="spacer"></div>
 
         <div class="pager" id="users-pagination">
+          <div class="per">
+            <label for="per-users">Per page</label>
+            <select id="per-users" aria-label="Per page">
+              <option>5</option>
+              <option selected>10</option>
+              <option>20</option>
+            </select>
+          </div>
           <button class="btn" aria-label="Previous" id="prev-users-pagination" type="button">‹</button>
           <span class="page-indicator"><span id="page-users-pagination">Page 1 / 1</span></span>
           <button class="btn" aria-label="Next" id="next-users-pagination" type="button">›</button>

@@ -64,7 +64,13 @@
     // Extra safety: close any open dialogs before swapping content
     try { wsCloseAllDialogs(); } catch {}
     contentEl.setAttribute("aria-busy", "true");
-    contentEl.innerHTML = `<div class="loading"><span class="spinner"></span><span>Loading…</span></div>`;
+    let loaderTimer = null;
+    let loaderShown = false;
+    // Show loader only if fetch takes longer than ~150ms to avoid flicker
+    loaderTimer = setTimeout(() => {
+      contentEl.innerHTML = `<div class="loading"><span class="spinner"></span><span>Loading…</span></div>`;
+      loaderShown = true;
+    }, 150);
 
     const bust = url.includes("?") ? `&v=${VERSION}` : `?v=${VERSION}`;
     const finalUrl = `${url}${bust}`;
@@ -73,12 +79,14 @@
       const res = await fetch(finalUrl, { credentials: "same-origin" });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const html = await res.text();
+      if (loaderTimer) { clearTimeout(loaderTimer); loaderTimer = null; }
       contentEl.innerHTML = html;
       executeInlineScripts(contentEl);
       contentEl.removeAttribute("aria-busy");
       window.dispatchEvent(new CustomEvent("admin:partial-loaded", { detail: { id } }));
     } catch (err) {
       console.error("[admin-skin] failed to load partial", id, err);
+      if (loaderTimer) { clearTimeout(loaderTimer); loaderTimer = null; }
       contentEl.innerHTML = `
         <div class="card">
           <div class="card-header">Failed to load</div>
