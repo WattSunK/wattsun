@@ -158,11 +158,21 @@
 
     <!-- Shared Meta Bar + Pagination -->
     <footer class="table-meta" style="display:flex; align-items:center; justify-content:space-between;">
-      <div class="meta" id="loyaltyMeta">0 results</div>
+      <div class="meta" id="loyaltyMeta">Showing 0 of 0 entries</div>
       <div class="pager" id="loyaltyPager">
-        <button class="btn pager-prev" type="button" aria-label="Previous">Prev</button>
-        <span class="page-indicator" id="loyaltyPageNum">Page 1</span>
+        <div class="per">
+          <label for="loyaltyPer">Per page</label>
+          <select id="loyaltyPer" class="input" aria-label="Per page">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+          </select>
+        </div>
+        <button class="btn pager-first" type="button" aria-label="First">First</button>
+        <button class="btn pager-prev" type="button" aria-label="Previous">Previous</button>
+        <span class="page-indicator" id="loyaltyPageNum">Page 1 / 1</span>
         <button class="btn pager-next" type="button" aria-label="Next">Next</button>
+        <button class="btn pager-last" type="button" aria-label="Last">Last</button>
       </div>
     </footer>
   </div>

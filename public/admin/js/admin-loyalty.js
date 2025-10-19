@@ -104,6 +104,7 @@
       notificationsBody: $("#loyaltyNotificationsBody"),
       meta:  $("#loyaltyMeta"),
       pager: $("#loyaltyPager"),
+      perSel: $("#loyaltyPer"),
     };
   }
 
@@ -195,6 +196,11 @@
     wireNewWithdrawalModal();
     wireManageModal();
 
+    // Initialize per-page from selector if present
+    if (els.perSel) {
+      const v = parseInt(els.perSel.value, 10);
+      if (Number.isFinite(v) && v > 0) state.limit = v;
+    }
     state.activeTab = "Withdrawals";
     showTab("Withdrawals");
     loadWithdrawals({ resetPage:true });
@@ -290,25 +296,47 @@
 
   function updatePager(){
     ensurePager();
-    const prev = els.pager?.querySelector(".pager-prev");
-    const next = els.pager?.querySelector(".pager-next");
+    const first = els.pager?.querySelector(".pager-first");
+    const prev  = els.pager?.querySelector(".pager-prev");
+    const next  = els.pager?.querySelector(".pager-next");
+    const last  = els.pager?.querySelector(".pager-last");
     const ind  = els.pager?.querySelector('#loyaltyPageNum');
     const hasPrev = state.page > 1;
+    const pages = (state.total != null) ? Math.max(1, Math.ceil(state.total / state.limit)) : null;
     const hasNext = (state.total != null)
-      ? (state.page < Math.ceil(state.total / state.limit))
+      ? (state.page < pages)
       : (state.lastCount === state.limit);
-    if (prev) prev.disabled = !hasPrev;
-    if (next) next.disabled = !hasNext;
+    if (first) first.disabled = !hasPrev;
+    if (prev)  prev.disabled  = !hasPrev;
+    if (next)  next.disabled  = !hasNext;
+    if (last)  last.disabled  = !(pages && state.page < pages);
     if (ind) {
-      const pages = (state.total != null) ? Math.max(1, Math.ceil(state.total / state.limit)) : null;
       ind.textContent = pages ? `Page ${state.page} / ${pages}` : `Page ${state.page}`;
+    }
+    // Also refresh the meta line to "Showing s to e of total entries"
+    if (els.meta) {
+      const p = state.page, l = state.limit;
+      const count = state.lastCount || 0;
+      let e = (p-1)*l + count;
+      if (count === 0) { e = 0; }
+      if (state.total != null) {
+        els.meta.textContent = `Showing ${e} of ${Number(state.total).toLocaleString()} entries`;
+      } else {
+        els.meta.textContent = `Showing ${e} entries`;
+      }
     }
   }
 
   function wirePager(){
     ensurePager();
-    const prev = els.pager?.querySelector(".pager-prev");
-    const next = els.pager?.querySelector(".pager-next");
+    const first = els.pager?.querySelector(".pager-first");
+    const prev  = els.pager?.querySelector(".pager-prev");
+    const next  = els.pager?.querySelector(".pager-next");
+    const last  = els.pager?.querySelector(".pager-last");
+    const per  = els.perSel;
+    on(first, "click", () => {
+      if (state.page>1){ state.page = 1; refreshActiveTab(); }
+    });
     on(prev, "click", () => {
       if (state.page>1){ state.page--; refreshActiveTab(); }
     });
@@ -316,6 +344,18 @@
       if (state.total == null && state.lastCount < state.limit) return;
       state.page++; refreshActiveTab();
     });
+    on(last, "click", () => {
+      if (state.total == null) return; // unknown total: no fast-last
+      const pages = Math.max(1, Math.ceil((state.total||0) / state.limit));
+      if (state.page < pages){ state.page = pages; refreshActiveTab(); }
+    });
+    if (per && !per.dataset.bound) {
+      per.dataset.bound = '1';
+      per.addEventListener('change', () => {
+        const v = parseInt(per.value, 10);
+        if (Number.isFinite(v) && v > 0) { state.limit = v; state.page = 1; refreshActiveTab(); }
+      });
+    }
   }
 
   function refreshActiveTab(){
