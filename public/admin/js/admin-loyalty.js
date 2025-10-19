@@ -414,10 +414,14 @@
     try{
       const data = await api(`/api/admin/loyalty/withdrawals${buildQuery()}`);
       const rows = Array.isArray(data)?data:(data.withdrawals||[]);
-      state.total = (typeof data.total==="number")?data.total:null;
-      state.lastCount = rows.length;
-      renderWithdrawalsRows(tbody, rows);
-      setMeta(rows.length, state.total);
+      let total = (typeof data.total==="number")?data.total:null;
+      if (total == null) total = rows.length; // fallback when API omits total
+      const start = (state.page-1)*state.limit;
+      const view = rows.length > state.limit ? rows.slice(start, start+state.limit) : rows;
+      state.total = total;
+      state.lastCount = view.length;
+      renderWithdrawalsRows(tbody, view);
+      setMeta(view.length, state.total);
       updatePager();
     }catch(err){
       showErrorRow(tbody, err, 9);
@@ -682,10 +686,14 @@ const noAction = isFinal;
     try{
       const data = await api(`/api/admin/loyalty/notifications${buildQuery()}`);
       const rows = Array.isArray(data)?data:(data.notifications||[]);
-      state.total = (typeof data.total==="number")?data.total:null;
-      state.lastCount = rows.length;
-      renderNotifRows(tbody, rows);
-      setMeta(rows.length, state.total);
+      let total = (typeof data.total==="number")?data.total:null;
+      if (total == null) total = rows.length; // fallback
+      const start = (state.page-1)*state.limit;
+      const view = rows.length > state.limit ? rows.slice(start, start+state.limit) : rows;
+      state.total = total;
+      state.lastCount = view.length;
+      renderNotifRows(tbody, view);
+      setMeta(view.length, state.total);
       updatePager();
     }catch(err){
       showErrorRow(tbody, err, 5);
@@ -1004,9 +1012,13 @@ const noAction = isFinal;
     try{
       const data = await api(`/api/admin/loyalty/accounts${buildQuery()}`);
       const rows = Array.isArray(data)?data:(data.accounts||[]);
-      state.total = (typeof data.total==="number")?data.total:null;
-      state.lastCount = rows.length;
-      const count = renderAccountsRows(tbody, rows);
+      let total = (typeof data.total==="number")?data.total:null;
+      if (total == null) total = rows.length; // fallback
+      const start = (state.page-1)*state.limit;
+      const view = rows.length > state.limit ? rows.slice(start, start+state.limit) : rows;
+      state.total = total;
+      state.lastCount = view.length;
+      const count = renderAccountsRows(tbody, view);
       setMeta(count, state.total);
       updatePager();
     }catch(err){
@@ -1049,10 +1061,14 @@ const noAction = isFinal;
       const rows = Array.isArray(data)
         ? data
         : (data.ledger || data.rows || data.items || []);
-      state.total = (typeof data.total==="number")?data.total:null;
-      state.lastCount = rows.length;
-      renderLedgerRows(tbody, rows);
-      setMeta(rows.length, state.total);
+      let total = (typeof data.total==="number")?data.total:null;
+      if (total == null) total = rows.length; // fallback
+      const start = (state.page-1)*state.limit;
+      const view = rows.length > state.limit ? rows.slice(start, start+state.limit) : rows;
+      state.total = total;
+      state.lastCount = view.length;
+      renderLedgerRows(tbody, view);
+      setMeta(view.length, state.total);
       updatePager();
     }catch(err){
       showErrorRow(tbody, err, 8);
