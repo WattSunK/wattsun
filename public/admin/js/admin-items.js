@@ -198,12 +198,13 @@
     let html = '';
     html += btn(1, 'First', page===1);
     html += btn(Math.max(1, page-1), 'Prev', page===1);
+    html += `<span class="page-indicator" id="itemsPageNum">Page ${page} / ${totalPages}</span>`;
     const windowSize = 7;
     let sp = Math.max(1, page - Math.floor(windowSize/2));
     let ep = Math.min(totalPages, sp + windowSize - 1);
     if (ep - sp + 1 < windowSize) sp = Math.max(1, ep - windowSize + 1);
     for(let p=sp; p<=ep; p++){
-      html += `<button data-page="${p}" class="btn btn-sm ${p===page?'btn-warning':'btn-outline-warning'} mx-1">${p}</button>`;
+      html += `<button type="button" data-page="${p}" class="btn btn-sm ${p===page?'btn-warning':'btn-outline-warning'} mx-1">${p}</button>`;
     }
     html += btn(Math.min(totalPages, page+1), 'Next', page===totalPages);
     html += btn(totalPages, 'Last', page===totalPages);
@@ -216,7 +217,7 @@
       if (!isNaN(p)) gotoPage(p);
     };
 
-    function btn(p,label,disabled){ return `<button data-page="${p}" class="btn btn-sm btn-outline-warning mx-1" ${disabled?'disabled':''}>${label}</button>`; }
+    function btn(p,label,disabled){ return `<button type="button" data-page="${p}" class="btn btn-sm btn-outline-warning mx-1" ${disabled?'disabled':''}>${label}</button>`; }
   }
 
   function gotoPage(p){

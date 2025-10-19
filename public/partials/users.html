@@ -3,11 +3,11 @@
     <div class="card-header card-header--tight">
       <h2 class="h2">Users</h2>
       <div class="spacer"></div>
-      <button class="btn btn-primary" id="addUserBtn" data-users-action="open-create">+ Add User</button>
+      <button class="btn btn-primary" id="addUserBtn" data-users-action="open-create" type="button">+ Add User</button>
     </div>
 
     <div class="card-body">
-      <div class="filters-bar">
+      <div class="filters-bar" id="usersFilters">
         <div class="group">
           <label for="userType">Type</label>
           <select id="userType">
@@ -29,12 +29,12 @@
 
         <div class="group">
           <label for="usersSearch">Search</label>
-          <input id="usersSearch" type="search" placeholder="Search by name/email/phone" />
+          <input id="usersSearch" type="search" placeholder="Search by name/email/phone" aria-label="Search users" />
         </div>
 
-        <div class="group">
+        <div class="group per">
           <label for="per-users">Per page</label>
-          <select id="per-users">
+          <select id="per-users" aria-label="Per page">
             <option>10</option>
             <option>25</option>
             <option>50</option>
@@ -44,9 +44,9 @@
         <div class="spacer"></div>
 
         <div class="pager" id="users-pagination">
-          <button class="btn" aria-label="Previous" id="prev-users-pagination">‹</button>
-          <span class="page-indicator"><span id="page-users-pagination">1</span></span>
-          <button class="btn" aria-label="Next" id="next-users-pagination">›</button>
+          <button class="btn" aria-label="Previous" id="prev-users-pagination" type="button">‹</button>
+          <span class="page-indicator"><span id="page-users-pagination">Page 1 / 1</span></span>
+          <button class="btn" aria-label="Next" id="next-users-pagination" type="button">›</button>
         </div>
       </div>
 

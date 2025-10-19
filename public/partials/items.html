@@ -3,7 +3,7 @@
   <div class="card-header card-header--tight items-header">
     <div class="items-header__left">
       <h2 class="h2">Items</h2>
-      <button id="btn-add-item" class="btn btn-primary">+ Add Item</button>
+      <button id="btn-add-item" class="btn btn-primary" type="button">+ Add Item</button>
     </div>
     <div class="spacer"></div>
   </div>
@@ -17,15 +17,18 @@
     </div>
 
     <div class="filters-row__right">
-      <input id="search-text" class="input" placeholder="Search by name/SKU/category" />
-      <button id="items-search-btn" class="btn">Search</button>
-      <button id="items-clear-btn" class="btn">Clear</button>
-      <select id="items-per-page" class="input perpage">
-        <option value="15" selected>15</option>
-        <option value="25">25</option>
-        <option value="50">50</option>
-      </select>
-      <button id="btn-manage-categories" class="btn">Manage Categories</button>
+      <input id="search-text" class="input" type="search" placeholder="Search by name/SKU/category" aria-label="Search items" />
+      <button id="items-search-btn" class="btn" type="button">Search</button>
+      <button id="items-clear-btn" class="btn" type="button">Clear</button>
+      <div class="per">
+        <label for="items-per-page">Per page</label>
+        <select id="items-per-page" class="input perpage" aria-label="Per page">
+          <option value="15" selected>15</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+        </select>
+      </div>
+      <button id="btn-manage-categories" class="btn" type="button">Manage Categories</button>
     </div>
   </div>
 
