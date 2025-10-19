@@ -105,12 +105,13 @@ router.get("/", (req, res) => {
         o.email,
         COALESCE(a.status, o.status)                 AS status,
         o.createdAt,
-        COALESCE(a.total_cents,   o.totalCents)      AS totalCents,
+        /* If overlay/base totals are zero, fall back to non-zero sources */
+        COALESCE(NULLIF(a.total_cents, 0), NULLIF(o.totalCents, 0), o.totalCents) AS totalCents,
         COALESCE(
-          a.deposit_cents,
-          o.depositCents,
+          NULLIF(a.deposit_cents, 0),
+          NULLIF(o.depositCents, 0),
           (SELECT COALESCE(SUM(oi.depositCents),0) FROM order_items oi WHERE oi.order_id = o.id)
-        )                                              AS depositCents,
+        ) AS depositCents,
         COALESCE(a.currency,      o.currency)        AS currency,
         a.notes                                      AS notes,
         COALESCE(a.driver_id,     o.driverId)        AS driverId,
