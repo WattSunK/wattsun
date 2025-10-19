@@ -91,7 +91,7 @@ router.get("/", (req, res) => {
     const totalSql = `
       SELECT COUNT(*) AS n
       FROM orders o
-      LEFT JOIN admin_order_meta a ON a.order_id = o.orderNumber
+      LEFT JOIN admin_order_meta a ON (a.order_id = o.orderNumber OR a.order_id = CAST(o.id AS TEXT))
       ${whereSql}
     `;
     const total = db.prepare(totalSql).get(...params).n;

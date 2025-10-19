@@ -509,6 +509,8 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
   flex: 0 0 auto;
   padding: 16px 20px;
 }
+/* Header layout supports right-aligned Close button */
+.modal .modal-header{ display:flex; align-items:center; justify-content:space-between; }
 
 /* Body takes remaining space and scrolls if needed */
 .modal .modal-body {
@@ -521,6 +523,9 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; }
 #orderViewModal .modal-body { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 #orderEditModal .modal-body { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 #orderAddModal  .modal-body { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+/* Users modal: remove dialog scroll, let body scroll only */
+#users-modal { overflow: hidden; }
+#users-modal .modal-body { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 
 /* Support dialog.modal with a direct .modal-body form (Dispatch create) */
 .modal > .modal-body { display:flex; flex-direction:column; width: min(96vw, 760px); max-height: 90vh; overflow: hidden; border-radius: 12px; background:#fff; }
