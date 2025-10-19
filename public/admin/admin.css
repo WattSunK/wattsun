@@ -74,6 +74,9 @@ body.admin-shell {
 
 /* Lock page scroll when any modal is open */
 html.ws-modal-open, body.ws-modal-open, body.modal-open { overflow: hidden !important; }
+/* Also lock the scrollable admin content area when a modal is open */
+html.ws-modal-open .admin-content,
+body.ws-modal-open .admin-content { overflow: hidden !important; }
 
 .muted{color:var(--ws-muted)}
 .danger{color:#ef4444}

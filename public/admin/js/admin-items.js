@@ -281,8 +281,9 @@
 
   // ---------- Search / Filter / Per-page (delegated)
   document.addEventListener('click', (e)=>{
-    if (e.target?.id === 'search-button') applyFilters(1);
-    if (e.target?.id === 'clear-button'){
+    const id = e.target?.id || '';
+    if (id === 'search-button' || id === 'items-search-btn') applyFilters(1);
+    if (id === 'clear-button'  || id === 'items-clear-btn'){
       const s = $('search-text'); const c = $('category-filter');
       if (s) s.value = ''; if (c) c.value = '';
       applyFilters(1);
