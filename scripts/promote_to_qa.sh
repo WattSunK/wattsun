@@ -1,9 +1,9 @@
 #!/bin/bash
 # ============================================================
-# 🚀 promote_to_qa.sh — Dev → QA Promotion (Main-Only Sync)
+# ⚡ promote_to_qa.sh — Optimized Dev → QA Promotion (Incremental Rsync)
 # ============================================================
 # 1️⃣ Fetch latest origin/main (without touching local DEV branches)
-# 2️⃣ Export that code into QA environment
+# 2️⃣ Incrementally sync code into QA environment
 # 3️⃣ Copy DEV DB → QA DB (/qa/data/)
 # 4️⃣ Run loyalty_reset.sh qa (cleanup + reseed)
 # 5️⃣ Restart QA backend and verify health
@@ -23,7 +23,7 @@ CYAN='\033[1;36m'
 NC='\033[0m'
 
 echo -e "${CYAN}============================================================"
-echo -e "🚀  WattSun — Promote Dev → QA (Main-Only)"
+echo -e "🚀  WattSun — Promote Dev → QA (Optimized Incremental Rsync)"
 echo -e "============================================================${NC}"
 
 # --- Step 1️⃣: Fetch latest main ---
@@ -38,20 +38,20 @@ else
   exit 1
 fi
 
-# --- Step 2️⃣: Sync QA code to origin/main (without touching DEV branch) ---
-echo -e "${YELLOW}📦 Exporting origin/main snapshot into QA folder...${NC}"
-sudo rsync -a --delete \
+# --- Step 2️⃣: Incremental Rsync (Main → QA) ---
+echo -e "${YELLOW}📦 Syncing origin/main → QA folder (incremental)...${NC}"
+sudo rsync -a --info=progress2 --delete \
   --exclude='qa/data/' \
   --exclude='qa/logs/' \
   --exclude='qa/run/' \
   --exclude='qa/scripts/' \
   --exclude='.git/' \
+  --exclude='node_modules/' \
   "$ROOT/" "$QA_ROOT/"
-(
-  cd "$QA_ROOT"
-  sudo -u 53Bret git checkout --force origin/main >/dev/null 2>&1 || true
-)
-echo -e "${GREEN}✅ QA folder updated to origin/main snapshot.${NC}"
+
+sudo chown -R 53Bret:users "$QA_ROOT"
+sudo chmod -R u+rw "$QA_ROOT"
+echo -e "${GREEN}✅ Incremental rsync completed successfully.${NC}"
 
 # --- Step 3️⃣: Copy Dev → QA database ---
 echo -e "${YELLOW}📦 Copying DEV → QA database ...${NC}"
@@ -73,7 +73,7 @@ sudo chown 53Bret:users "$QA_DB"
 sudo chmod 664 "$QA_DB"
 echo -e "${GREEN}✅ QA database replaced from DEV baseline.${NC}"
 
-# --- Step 4️⃣: Run loyalty reset for QA (new DB path) ---
+# --- Step 4️⃣: Run loyalty reset for QA ---
 if [ ! -x "$ROOT/scripts/loyalty_reset.sh" ]; then
   echo -e "${RED}❌ loyalty_reset.sh not found or not executable.${NC}"
   exit 1
