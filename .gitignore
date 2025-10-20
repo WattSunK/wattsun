@@ -1,7 +1,9 @@
 # === Runtime & Environment Protection ===
 data/
-logs/
-run/
+logs/*
+!logs/.gitkeep
+run/*
+!run/.gitkeep
 .env
 .env.*
 public/uploads/
