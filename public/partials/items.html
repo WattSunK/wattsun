@@ -3,7 +3,7 @@
   <div class="card-header card-header--tight items-header">
     <div class="items-header__left">
       <h2 class="h2">Items</h2>
-      <button id="btn-add-item" class="btn btn-primary">+ Add Item</button>
+      <button id="btn-add-item" class="btn btn-primary" type="button">+ Add Item</button>
     </div>
     <div class="spacer"></div>
   </div>
@@ -17,15 +17,18 @@
     </div>
 
     <div class="filters-row__right">
-      <input id="search-text" class="input" placeholder="Search by name/SKU/category" />
-      <button id="items-search-btn" class="btn">Search</button>
-      <button id="items-clear-btn" class="btn">Clear</button>
-      <select id="items-per-page" class="input perpage">
-        <option value="15" selected>15</option>
-        <option value="25">25</option>
-        <option value="50">50</option>
-      </select>
-      <button id="btn-manage-categories" class="btn">Manage Categories</button>
+      <input id="search-text" class="input" type="search" placeholder="Search by name/SKU/category" aria-label="Search items" />
+      <button id="items-search-btn" class="btn" type="button">Search</button>
+      <button id="items-clear-btn" class="btn" type="button">Clear</button>
+      <div class="per">
+        <label for="items-per-page">Per page</label>
+        <select id="items-per-page" class="input perpage" aria-label="Per page">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="20">20</option>
+        </select>
+      </div>
+      <button id="btn-manage-categories" class="btn" type="button">Manage Categories</button>
     </div>
   </div>
 
@@ -70,10 +73,15 @@
   .modal{background:#fff;border-radius:12px;width:min(92vw,720px);max-height:90vh;
          margin:6vh auto;box-shadow:0 10px 40px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden}
   .modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px}
-  .modal-body{flex:1 1 auto;overflow:auto;padding:16px 20px}
+  /* Avoid visible scrollbars while still allowing vertical scrolling */
+  .modal-body{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;padding:16px 20px;overscroll-behavior:contain}
+  .modal-body::-webkit-scrollbar{display:none}
+  .modal-body{scrollbar-width:none;-ms-overflow-style:none}
   .modal-footer{display:flex;gap:8px;justify-content:flex-end;padding:12px 20px;border-top:1px solid #eee}
   .modal-close{font-size:20px;line-height:1}
-  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  /* Prevent long inputs from forcing horizontal overflow */
+  .grid-2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+  .grid-2 input,.grid-2 select,.grid-2 textarea{width:100%;box-sizing:border-box}
   @media (max-width: 760px){ .grid-2{grid-template-columns:1fr} }
 </style>
 

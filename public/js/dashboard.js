@@ -77,12 +77,12 @@ document.addEventListener("DOMContentLoaded", () => {
         content.innerHTML = `<div class="p-3"></div>`;
       }
 
-      // Ensure canonical Orders controller is loaded, then init.
-      await ensureScript("/public/admin/js/admin-orders.js", () => typeof window.initAdminOrders === "function");
-      if (typeof window.initAdminOrders === "function") {
-        window.initAdminOrders();
+      // Ensure canonical Orders controller is loaded, then boot it.
+      await ensureScript("/admin/js/orders-controller.js", () => typeof window.__WS_ORDERS_FORCE_BOOT === "function");
+      if (typeof window.__WS_ORDERS_FORCE_BOOT === "function") {
+        window.__WS_ORDERS_FORCE_BOOT();
       } else {
-        console.error("initAdminOrders() not found after loading admin-orders.js");
+        console.error("orders-controller not ready after load");
       }
       window.dispatchEvent(new CustomEvent("admin:section-activated", { detail: { name: "orders" }}));
       return;

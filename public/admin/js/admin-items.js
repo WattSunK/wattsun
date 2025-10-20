@@ -1,7 +1,7 @@
 // public/admin/js/admin-items.js
 // Items list: fetch, search, per-page, pagination, status toggle, Add/Edit/Delete, categories modal, PRIORITY save
 (function () {
-  let PAGE_SIZE = 15;
+  let PAGE_SIZE = 10;
   let allItems = [];
   let filtered = [];
   let currentPage = 1;
@@ -198,12 +198,13 @@
     let html = '';
     html += btn(1, 'First', page===1);
     html += btn(Math.max(1, page-1), 'Prev', page===1);
+    html += `<span class="page-indicator" id="itemsPageNum">Page ${page} / ${totalPages}</span>`;
     const windowSize = 7;
     let sp = Math.max(1, page - Math.floor(windowSize/2));
     let ep = Math.min(totalPages, sp + windowSize - 1);
     if (ep - sp + 1 < windowSize) sp = Math.max(1, ep - windowSize + 1);
     for(let p=sp; p<=ep; p++){
-      html += `<button data-page="${p}" class="btn btn-sm ${p===page?'btn-warning':'btn-outline-warning'} mx-1">${p}</button>`;
+      html += `<button type="button" data-page="${p}" class="btn btn-sm ${p===page?'btn-warning':'btn-outline-warning'} mx-1">${p}</button>`;
     }
     html += btn(Math.min(totalPages, page+1), 'Next', page===totalPages);
     html += btn(totalPages, 'Last', page===totalPages);
@@ -216,7 +217,7 @@
       if (!isNaN(p)) gotoPage(p);
     };
 
-    function btn(p,label,disabled){ return `<button data-page="${p}" class="btn btn-sm btn-outline-warning mx-1" ${disabled?'disabled':''}>${label}</button>`; }
+    function btn(p,label,disabled){ return `<button type="button" data-page="${p}" class="btn btn-sm btn-outline-warning mx-1" ${disabled?'disabled':''}>${label}</button>`; }
   }
 
   function gotoPage(p){
@@ -280,8 +281,9 @@
 
   // ---------- Search / Filter / Per-page (delegated)
   document.addEventListener('click', (e)=>{
-    if (e.target?.id === 'search-button') applyFilters(1);
-    if (e.target?.id === 'clear-button'){
+    const id = e.target?.id || '';
+    if (id === 'search-button' || id === 'items-search-btn') applyFilters(1);
+    if (id === 'clear-button'  || id === 'items-clear-btn'){
       const s = $('search-text'); const c = $('category-filter');
       if (s) s.value = ''; if (c) c.value = '';
       applyFilters(1);
@@ -426,7 +428,7 @@
     root.dataset.inited = '1';
 
     // initial page size if select exists
-    if ($('items-per-page')) PAGE_SIZE = parseInt($('items-per-page').value,10) || 15;
+    if ($('items-per-page')) PAGE_SIZE = parseInt($('items-per-page').value,10) || 10;
 
     wireModalBasics(); // ✅ ensure backdrop/Esc close works (once)
     await loadCategoriesIntoSelects();

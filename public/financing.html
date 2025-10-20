@@ -266,10 +266,7 @@
 <a aria-current="page" class="active" href="financing.html">Financing</a>
 <a href="projects.html">Projects</a>
 <a href="contact.html">Contact</a>
-<span id="cartLinkWrapper" style="display:none; position: relative;">
-  <a href="cart.html" style="position:relative; display:inline-block;">
-    ðŸ›’
-    <span id="cartCount" style="font-weight:bold; background:#3E9F50; color:white; padding:2px 6px; border-radius:50%; font-size:0.8em; vertical-align:top;"></span>
+<a class="cart-icon-link" href="cart.html" aria-label="View cart"><span class="cart-icon"><svg class="cart-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a 2 2 0 1 0 .001 3.999A2 2 0 0 0 17 18zM6 6h13l-1.5 7.5H8.2L6.9 4.8 4 4"/></svg><span id="cart-count-badge" class="cart-count-badge">0</span></span></a>
     <!-- Desktop badge for cart count -->
     <span class="cart-count-badge" id="cart-count-badge">0</span>
   </a>
@@ -285,11 +282,11 @@
 <label for="system">Select System Size:</label>
 <select id="system" required="">
 <option value="">-- Select --</option>
-<option value="150000">1 kW â€“ KES 150,000</option>
-<option value="400000">3 kW â€“ KES 400,000</option>
-<option value="700000">6 kW â€“ KES 700,000</option>
-<option value="1050000">9 kW â€“ KES 1,050,000</option>
-<option value="1420000">12â€¯kW â€“ KES 1,420,000</option>
+<option value="150000">1 kW – KES 150,000</option>
+<option value="400000">3 kW – KES 400,000</option>
+<option value="700000">6 kW – KES 700,000</option>
+<option value="1050000">9 kW – KES 1,050,000</option>
+<option value="1420000">12 kW – KES 1,420,000</option>
 </select>
 <label for="deposit">Your Deposit (KES):</label>
 <input id="deposit" min="0" required="" type="number"/>
@@ -300,16 +297,9 @@
 <div class="result" id="result"></div>
 <div class="disclaimer">* This is an indicative estimate. Actual loan terms may vary.</div>
 </div>
-<footer>
-  Â© 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
-</footer>
+<footer style="margin-top:48px;width:100%;background:linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);color:#6b5100;text-align:center;font-size:1.05rem;padding:16px 0 6px;letter-spacing:.01em;"><div class="footer-contacts"><a href="mailto:info@wattsun.co.ke" style="color:#6b5100;text-decoration:underline;">info@wattsun.co.ke</a></div><p>© 2025 WattSun Solar. All rights reserved.</p></footer>
 <script>(function(){try{document.querySelectorAll('footer.mobile-nav').forEach(el=>el.remove());var st=document.createElement('style');st.textContent='footer:not(.mobile-nav){display:block !important;}';document.head.appendChild(st);}catch(e){}})();</script>
-<footer class="mobile-nav">
-<a aria-label="Home" href="index.html">ðŸ </a>
-<a aria-label="Account" href="account.html">ðŸ‘¤</a>
-<a aria-label="Cart" href="cart.html">ðŸ›’<span id="cart-count" style="position: absolute; top: 6px; right: 10px; background: red; color: white; font-size: 11px; min-width: 16px; height: 16px; border-radius: 8px; padding: 0 5px; text-align: center; display: flex; align-items: center; justify-content: center;">0</span></a>
-<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">â˜°</a>
-</footer>
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   const loanForm = document.getElementById("loanForm");
@@ -397,7 +387,7 @@ document.addEventListener("DOMContentLoaded", function () {
       btn.onclick = function() {
         const kit = JSON.parse(localStorage.getItem('loanKit'));
         const cart = JSON.parse(localStorage.getItem('cart')) || [];
-        const name = "Loan Kit â€“ " + kit.system;
+        const name = "Loan Kit – " + kit.system;
         // Find duplicate loan kit in cart (same name, deposit, term, monthly)
         const found = cart.find(item =>
           item.name === name &&
@@ -480,5 +470,14 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <script defer src="/js/auth.js"></script>
+  <script src="main.js?v=20251020"></script>
 </body>
 </html>
+
+
+
+
+
+
+
+

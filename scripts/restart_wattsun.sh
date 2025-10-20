@@ -12,6 +12,10 @@ local ROOT="/volume1/web/wattsun"
 local LOG_FILE="$ROOT/logs/${NAME}.log"
 
 
+# Ensure required directories exist per instance
+mkdir -p "$ROOT/logs" "$ROOT/run/$NAME"
+
+
 echo "==========================================================="
 echo "▶️ Launching ${NAME^^} Environment"
 echo "PORT=$PORT"
@@ -26,6 +30,14 @@ export SQLITE_DB="$ROOT/data/$NAME/wattsun.$NAME.db"
 export SQLITE_MAIN="$ROOT/data/$NAME/wattsun.$NAME.db"
 
 
+# Prefer per-env dotenv files if present (server.js also handles this)
+if [ "$NAME" = "qa" ] && [ -f "$ROOT/.env.qa" ]; then
+  export DOTENV_CONFIG_PATH="$ROOT/.env.qa"
+elif [ -f "$ROOT/.env" ]; then
+  export DOTENV_CONFIG_PATH="$ROOT/.env"
+fi
+
+
 
 echo "🌐 Environment for ${NAME^^}:"
 echo "NODE_ENV=$NODE_ENV"
@@ -34,16 +46,19 @@ echo "SQLITE_DB=$SQLITE_DB"
 echo "------------------------------------------------------------"
 
 
+cd "$ROOT"
+
 nohup env NODE_ENV=$NODE_ENV \
 SQLITE_MAIN=$SQLITE_MAIN \
 DB_PATH_USERS=$DB_PATH_USERS \
 DB_PATH_INVENTORY=$DB_PATH_INVENTORY \
 SQLITE_DB=$SQLITE_DB \
 PORT=$PORT \
+DOTENV_CONFIG_PATH=${DOTENV_CONFIG_PATH:-} \
 node server.js > "$LOG_FILE" 2>&1 &
 
 
-echo $! > "/volume1/web/wattsun/run/${NAME}/app.pid"
+echo $! > "$ROOT/run/${NAME}/app.pid"
 sleep 2
 
 

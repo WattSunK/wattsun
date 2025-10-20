@@ -242,14 +242,14 @@
     if (!els.pager) return;
 
     const mk = (p, label, dis = false, act = false) =>
-      `<button class="btn btn-sm ${act ? "btn-outline" : "btn-light"} ${dis ? "is-disabled" : ""}"
-        data-users-action="page" data-page="${p}" ${dis ? "disabled" : ""}>${label}</button>`;
+      `<button type="button" class="btn btn-sm ${act ? "btn-outline" : "btn-light"} ${dis ? "is-disabled" : ""}" data-users-action="page" data-page="${p}" ${dis ? "disabled" : ""}>${label}</button>`;
 
     let html = "";
     html += mk(1, "«", page === 1);
     html += mk(Math.max(1, page - 1), "‹", page === 1);
     const win = 5, s = Math.max(1, page - Math.floor(win / 2)), e = Math.min(pages, s + win - 1);
     for (let p = s; p <= e; p++) html += mk(p, String(p), false, p === page);
+    html += `<span class="page-indicator" id="usersPageNum">Page ${page} / ${pages}</span>`;
     html += mk(Math.min(pages, page + 1), "›", page === pages);
     html += mk(pages, "»", page === pages);
     els.pager.innerHTML = html;
@@ -733,6 +733,7 @@ document.addEventListener("keydown", docKeyHandler, true);
     }
 
     document.body.classList.remove("ws-modal-open");
+    try { document.documentElement.classList.remove('ws-modal-open'); } catch {}
   }
 
   function ensureEls() {

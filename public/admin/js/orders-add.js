@@ -77,6 +77,7 @@
     if (isDialog(dlg) && typeof dlg.showModal === "function") dlg.showModal();
     else dlg.classList.remove("hidden");
     $("#oa_fullName")?.focus();
+    try { document.documentElement.classList.add('ws-modal-open'); document.body.classList.add('ws-modal-open'); } catch {}
   }
 
   function closeDialog() {
@@ -84,6 +85,7 @@
     if (!dlg) return;
     if (isDialog(dlg) && typeof dlg.close === "function") dlg.close();
     else dlg.classList.add("hidden");
+    try { document.documentElement.classList.remove('ws-modal-open'); document.body.classList.remove('ws-modal-open'); } catch {}
   }
 
   function toast(msg, type = "info") {
@@ -243,6 +245,7 @@
       if (!dlg) return;
       if (isDialog(dlg) && typeof dlg.close === "function") dlg.close();
       else dlg.classList.add("hidden");
+      try { document.documentElement.classList.remove('ws-modal-open'); document.body.classList.remove('ws-modal-open'); } catch {}
     });
 
     // Honor the broadcast used by orders.html

@@ -46,23 +46,7 @@
       align-items: center;
       position: relative;
     }
-    .cart-count-badge {
-      position: absolute;
-      top: -0.7em;
-      right: -0.7em;
-      background: red;
-      color: white;
-      border-radius: 50%;
-      padding: 2px 6px;
-      font-size: 0.7em;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 0.13em #0001;
-      transition: background 0.2s;
-      pointer-events: none;
-      z-index: 1;
-    }
+    .cart-count-badge { position: absolute; top: -0.7em; right: -0.7em; background: #19c37d; color: #fff; border-radius: 50%; min-width: 18px; height: 18px; font-size: 0.8em; display: none; align-items: center; justify-content: center; box-shadow: 0 0 0.13em #0001; transition: background 0.2s; pointer-events: none; z-index: 1; }
 
     /* === Mobile Sticky Footer === */
     .mobile-nav {
@@ -198,14 +182,7 @@ footer {
 <a href="financing.html">Financing</a>
 <a href="projects.html">Projects</a>
 <a href="contact.html">Contact</a>
-<!-- Cart Icon START -->
-<a aria-label="View shopping cart" class="cart-icon-link" href="/cart.html" title="View cart">
-  <span class="cart-icon">
-    ðŸ›’
-    <span id="cart-count-badge" class="cart-count-badge" style="background:#19c37d; color:white; font-weight:bold;">0</span>
-  </span>
-</a>
-<!-- Cart Icon END --></nav>
+<!-- Cart Icon START --><a class="cart-icon-link" href="cart.html" aria-label="View cart"><span class="cart-icon"><svg class="cart-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a 2 2 0 1 0 .001 3.999A2 2 0 0 0 17 18zM6 6h13l-1.5 7.5H8.2L6.9 4.8 4 4"/></svg><span id="cart-count-badge" class="cart-count-badge">0</span></span></a><!-- Cart Icon END --></nav>
 </header>
 <div class="container" style="flex: 1;">
 <h2>Available Solar Systems</h2>
@@ -256,79 +233,14 @@ footer {
   document.addEventListener('DOMContentLoaded', loadProducts);
 </script>
 
-<footer class="mobile-nav">
-<a aria-label="Home" href="index.html">ðŸ </a>
-<a aria-label="Account" href="account.html">ðŸ‘¤</a>
-<a aria-label="Cart" href="cart.html">ðŸ›’<span id="cart-count" style="background:#19c37d; color:white;">0</span></a>
-<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">â˜°</a>
-</footer>
-<script>
-    function syncCartToBackend() {
-      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-      fetch("/api/cart", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cart)
-      }).catch(console.error);
-    }
-
-    function addToCart(item, price, inputId, description) {
-      const depositValue = document.getElementById(inputId).value;
-      const deposit = Number(depositValue);
-      if (!deposit || isNaN(deposit) || deposit <= 0) {
-        alert("Please enter a valid deposit amount.");
-        return;
-      }
-      let cart = JSON.parse(localStorage.getItem("cart")) || [];
-      const index = cart.findIndex(prod => prod.name === item);
-      if (index !== -1) {
-        cart[index].quantity = (cart[index].quantity || 1) + 1;
-        cart[index].deposit = deposit;
-        if (description) cart[index].description = description;
-      } else {
-        cart.push({ name: item, price: price, quantity: 1, deposit: deposit, description: description });
-      }
-      localStorage.setItem("cart", JSON.stringify(cart));
-      syncCartToBackend();
-      updateCartCountBadge();
-      const toast = document.getElementById("toast");
-      toast.style.display = "block";
-      setTimeout(() => toast.style.display = "none", 3000);
-      // Clear deposit input field after adding to cart
-      document.getElementById(inputId).value = '';
-    }
-
-    function updateCartCountBadge() {
-      let count = 0;
-      try {
-        const cart = JSON.parse(localStorage.getItem("cart")) || [];
-        count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-      } catch (e) {}
-      const badge = document.getElementById('cart-count-badge');
-      if (badge) badge.textContent = count, badge.style.display = count > 0 ? 'flex' : 'none';
-      const mobileCount = document.getElementById('cart-count');
-      if (mobileCount) mobileCount.textContent = count;
-    }
-
-    document.addEventListener('DOMContentLoaded', updateCartCountBadge);
-    window.addEventListener('storage', updateCartCountBadge);
-
-    document.querySelector('.nav-toggle').addEventListener('click', () => {
-      document.querySelector('header').classList.toggle('nav-open');
-    });
-    document.querySelectorAll('header nav a').forEach(link => {
-      link.addEventListener('click', () => document.querySelector('header').classList.remove('nav-open'));
-    });
-  </script>
-  <footer>
-    <div class="footer-inner">
-      Â© 2025 WattSun Solar Kenya |
-      <span class="footer-contacts">
-        <a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a>
-      </span>
-    </div>
-  </footer>
+<footer style="margin-top:48px;width:100%;background:linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);color:#6b5100;text-align:center;font-size:1.05rem;padding:16px 0 6px;letter-spacing:.01em;"><div class="footer-contacts"><a href="mailto:info@wattsun.co.ke" style="color:#6b5100;text-decoration:underline;">info@wattsun.co.ke</a></div><p>© 2025 WattSun Solar. All rights reserved.</p></footer>
   <script defer src="/js/auth.js"></script>
   <script>(function(){try{document.querySelectorAll('footer.mobile-nav').forEach(el=>el.remove());var st=document.createElement('style');st.textContent='footer:not(.mobile-nav){display:block !important;}';document.head.appendChild(st);}catch(e){}})();</script>
+  <script src="main.js?v=20251020"></script>
 </body>
 </html>
+
+
+
+
+

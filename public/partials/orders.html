@@ -2,15 +2,15 @@
   <div class="card-header card-header--tight">
     <h2 class="h2">Orders</h2>
     <div class="spacer"></div>
-    <button id="btnAddOrder_orders" class="btn btn-primary">Add Order</button>
+    <button id="btnAddOrder_orders" class="btn btn-primary" type="button">Add Order</button>
   </div>
 
   <!-- Filters -->
-  <div class="filters-bar">
+  <div class="filters-bar" id="ordersFilters">
     <div class="group">
-      <label>Status</label>
-      <select id="ordersStatus" class="input">
-        <option value="">All</option>
+      <label>Order Type</label>
+      <select id="ordersStatus" class="input" aria-label="Order Type">
+        <option value="">All types</option>
         <option>Pending</option>
         <option>Processing</option>
         <option>Confirmed</option>
@@ -23,31 +23,31 @@
 
     <div class="group">
       <label>From</label>
-      <input id="ordersFrom" class="input" type="date" placeholder="dd/mm/yyyy" />
+      <input id="ordersFrom" class="input" type="date" placeholder="dd/mm/yyyy" aria-label="From date" />
     </div>
 
     <div class="group">
       <label>To</label>
-      <input id="ordersTo" class="input" type="date" placeholder="dd/mm/yyyy" />
+      <input id="ordersTo" class="input" type="date" placeholder="dd/mm/yyyy" aria-label="To date" />
     </div>
 
     <div class="group grow">
       <label>Search</label>
-      <input id="ordersSearch" class="input" type="search" placeholder="Find order…" />
+      <input id="ordersSearch" class="input" type="search" placeholder="Find order…" aria-label="Search orders" />
     </div>
 
     <div class="group">
       <label>&nbsp;</label>
       <div class="row">
-        <button id="ordersSearchBtn" class="btn">Search</button>
-        <button id="ordersClearBtn" class="btn">Clear</button>
+        <button id="ordersSearchBtn" class="btn" type="button">Search</button>
+        <button id="ordersClearBtn" class="btn" type="button">Clear</button>
       </div>
     </div>
   </div>
 
   <!-- Table -->
   <div class="table-wrap">
-    <table id="ordersTable" class="table">
+    <table id="ordersTable" class="table" data-role="orders-table">
       <thead>
         <tr>
           <th>Order #</th>
@@ -71,19 +71,19 @@
     <div id="ordersMeta" class="group">Showing 0 of 0 entries</div>
     <div class="spacer"></div>
     <div class="pager" id="ordersPager">
-      <!-- INSERTED -->
-      <label for="ordersPer">Per page</label>
-      <select id="ordersPer" class="input">
-        <option value="5">5</option>
-        <option value="10" selected>10</option>
-        <option value="20">20</option>
-      </select>
-      <!-- END INSERT -->
-      <button class="btn" id="ordersFirst">First</button>
-      <button class="btn" id="ordersPrev">Previous</button>
-      <span class="page-indicator" id="ordersPageNum">1</span>
-      <button class="btn" id="ordersNext">Next</button>
-      <button class="btn" id="ordersLast">Last</button>
+      <div class="per">
+        <label for="ordersPer">Per page</label>
+        <select id="ordersPer" class="input" aria-label="Per page">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="20">20</option>
+        </select>
+      </div>
+      <button class="btn" id="ordersFirst" type="button">First</button>
+      <button class="btn" id="ordersPrev" type="button">Previous</button>
+      <span class="page-indicator" id="ordersPageNum">Page 1 / 1</span>
+      <button class="btn" id="ordersNext" type="button">Next</button>
+      <button class="btn" id="ordersLast" type="button">Last</button>
     </div>
   </div>
 </section>
@@ -96,10 +96,12 @@
     }));
   });
 
+  // Notify the shell a partial loaded
   window.dispatchEvent(new CustomEvent('admin:partial-loaded', {
     detail: { partial: 'orders', section: document.getElementById('ordersSection') }
   }));
 
+  // Boot the canonical controller once it is ready
   const tryBoot = () => {
     if (typeof window.__WS_ORDERS_FORCE_BOOT === 'function') {
       try { window.__WS_ORDERS_FORCE_BOOT(); } catch (_) {}
@@ -134,3 +136,4 @@
 })();
 </script>
 <!-- End of file: public/partials/orders.html -->
+

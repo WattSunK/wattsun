@@ -4,15 +4,53 @@
 // ✅ Ensure environment variables always load (even under sudo)
 // ============================================================
 const path = require("path");
-const dotenvPath = "/volume1/web/wattsun/.env";
-require("dotenv").config({ path: dotenvPath });
+const fs = require("fs");
+const dotenv = require("dotenv");
+
+const nodeEnv = String(process.env.NODE_ENV || "").toLowerCase();
+const explicitPath = process.env.DOTENV_CONFIG_PATH || process.env.ENV_FILE || "";
+const repoEnv = path.join(process.cwd(), ".env");
+const repoEnvQa = path.join(process.cwd(), ".env.qa");
+const nasEnv = "/volume1/web/wattsun/.env";
+
+let loadedFrom = null;
+function tryLoadEnv(p) {
+  try {
+    if (p && fs.existsSync(p)) {
+      const r = dotenv.config({ path: p });
+      if (!r.error) {
+        loadedFrom = p;
+        return true;
+      }
+    }
+  } catch (_) {
+    // ignore and fall through
+  }
+  return false;
+}
+
+if (!(explicitPath && tryLoadEnv(explicitPath))) {
+  if (nodeEnv === "qa") {
+    if (!tryLoadEnv(repoEnvQa)) {
+      if (!tryLoadEnv(repoEnv)) {
+        tryLoadEnv(nasEnv);
+      }
+    }
+  } else {
+    if (!tryLoadEnv(repoEnv)) {
+      if (!tryLoadEnv(repoEnvQa)) {
+        tryLoadEnv(nasEnv);
+      }
+    }
+  }
+}
+
+console.log(`[env] loaded from ${loadedFrom || '(system env / defaults)'}`);
 console.log("[env-check]", {
   SQLITE_MAIN: process.env.SQLITE_MAIN,
   SQLITE_DB: process.env.SQLITE_DB,
   DB_PATH_USERS: process.env.DB_PATH_USERS
 });
-
-console.log(`[env] loaded from ${dotenvPath}`);
 console.log(`[env] Active DB: ${process.env.SQLITE_MAIN}`);
 
 // ============================================================

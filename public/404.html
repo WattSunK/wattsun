@@ -1,11 +1,11 @@
-﻿<!DOCTYPE html>
-
+<!DOCTYPE html>
 <html lang="en">
-<head><meta content="width=device-width, initial-scale=1" name="viewport"/>
-<meta charset="utf-8"/>
-<title>Page Not Found | WattSun Solar</title>
-<link href="main.css" rel="stylesheet"/>
-<style>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Page Not Found | WattSun Solar</title>
+  <link rel="stylesheet" href="main.css" />
+  <style>
     body { text-align: center; padding: 4rem 2rem; }
     h1 { font-size: 3rem; margin-top: 2rem; }
     p { font-size: 1.3rem; color: #666; }
@@ -13,45 +13,55 @@
   </style>
 </head>
 <body>
-<header>
-<div class="header-bar">
-<h1 class="desktop-logo">
-<img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
-      WattSun Solar
-    </h1>
-<div class="logo-container">
-<img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
-<span class="brand-name">WattSun Solar</span>
-</div>
-<button aria-label="Open menu" class="nav-toggle">â˜°</button>
-</div>
-<nav>
-<a href="index.html">Home</a>
-<a href="solutions.html">Solutions</a>
-<a href="shop.html">Shop</a>
-<a href="financing.html">Financing</a>
-<a href="projects.html">Projects</a>
-<a href="contact.html">Contact</a>
-</nav>
-</header>
+  <header>
+    <div class="header-bar">
+      <h1 class="desktop-logo">
+        <img src="assets/logo/Wattsun Solar log2.png" alt="WattSun Solar Logo" style="width:60px; object-fit:contain; margin-right:10px;" />
+        WattSun Solar
+      </h1>
+      <div class="logo-container">
+        <img class="site-logo" src="assets/logo/Wattsun Solar log2.png" alt="WattSun Solar Logo" />
+        <span class="brand-name">WattSun Solar</span>
+      </div>
+      <button class="nav-toggle" aria-label="Open menu">Menu</button>
+    </div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="solutions.html">Solutions</a>
+      <a href="shop.html">Shop</a>
+      <a href="financing.html">Financing</a>
+      <a href="projects.html">Projects</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+  </header>
 
-<main style="text-align:center; padding: 4rem 2rem;">
-<h1 style="font-size: 3rem; margin-top: 2rem;">404</h1>
-<p style="font-size: 1.3rem; color: #666;">Sorry, the page youâ€™re looking for doesnâ€™t exist.</p>
-<a href="index.html" style="color: #228B22; text-decoration: underline; font-weight: bold;">Back to Home</a>
-</main>
+  <main style="text-align:center; padding: 4rem 2rem;">
+    <h1 style="font-size: 3rem; margin-top: 2rem;">404</h1>
+    <p style="font-size: 1.3rem; color: #666;">Sorry, the page you're looking for doesn't exist.</p>
+    <a href="index.html" style="color: #228B22; text-decoration: underline; font-weight: bold;">Back to Home</a>
+  </main>
 
-<footer>
-  <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
-  <p>© 2025 WattSun Solar. All rights reserved.</p>
-</footer>
-<script defer src="/js/auth.js"></script>
-<script>(function(){try{document.querySelectorAll('footer.mobile-nav').forEach(el=>el.remove());var st=document.createElement('style');st.textContent='footer:not(.mobile-nav){display:block !important;}';document.head.appendChild(st);}catch(e){}})();</script>
-<footer class="mobile-nav">
-<a aria-label="Home" href="index.html">ðŸ </a>
-<a aria-label="Account" href="account.html">ðŸ‘¤</a>
-<a aria-label="Cart" href="cart.html">ðŸ›’<span id="cart-count">0</span></a>
-<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">â˜°</a>
-</footer>
+  <footer>
+    <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
+    <p>© 2025 WattSun Solar. All rights reserved.</p>
+  </footer>
+
+  <script defer src="/js/auth.js"></script>
+  <script>
+    (function(){
+      try {
+        document.querySelectorAll('footer.mobile-nav').forEach(el => el.remove());
+        var st = document.createElement('style');
+        st.textContent = 'footer:not(.mobile-nav){display:block !important;}';
+        document.head.appendChild(st);
+      } catch(e) {}
+    })();
+  </script>
+  <footer class="mobile-nav">
+    <a aria-label="Home" href="index.html">Home</a>
+    <a aria-label="Account" href="account.html">Account</a>
+    <a aria-label="Cart" href="cart.html">Cart <span id="cart-count">0</span></a>
+    <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">Menu</a>
+  </footer>
 </body>
 </html>

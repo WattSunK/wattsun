@@ -57,6 +57,23 @@ if (loginForm) {
       closeLogin();
       // Ensure avatar and drawer render immediately without hard reload
       try { (window.updateLoginUI || window.wsOverrideUpdateLoginUI)?.(); } catch(e){}
+
+      // If a redirect target was requested (e.g., from Cart → Checkout), honor it now.
+      try {
+        var sp = new URLSearchParams(location.search);
+        var urlNext = sp.get('next');
+        var sessNext = null;
+        try { sessNext = sessionStorage.getItem('redirectAfterLogin'); } catch(e){}
+        var next = sessNext || urlNext;
+        if (next && /^\/[A-Za-z0-9._\-\/?#=&]*$/.test(next)) {
+          try { sessionStorage.removeItem('redirectAfterLogin'); } catch(e){}
+          localStorage.removeItem('redirectAfterLogin');
+          localStorage.removeItem('checkoutRedirect');
+          location.href = next;
+          return;
+        }
+      } catch (e) {}
+
       // Avoid full page reload to prevent flicker; UI already updated
     } catch (err) {
       console.error("[login] error:", err);
@@ -328,3 +345,70 @@ window.addEventListener("DOMContentLoaded", updateLoginUI);
   // Run immediately in case DOM is already ready
   try{ wsOverrideUpdateLoginUI(); }catch{}
 })();
+
+// --- Fallback: Standardize cart icon + provide addToCart if main.js not loaded ---
+(function(){
+  function standardizeCartLink(){
+    try {
+      var nav = document.querySelector('header nav');
+      if (!nav) return;
+      var link = nav.querySelector('a.cart-icon-link') || Array.from(nav.querySelectorAll('a')).find(function(a){
+        var href = (a.getAttribute('href')||'');
+        return /(^|\/)cart\.html(\?|$)/i.test(href);
+      });
+      if (!link) return;
+      link.classList.add('cart-icon-link');
+      var canonical = ''+
+        '<span class="cart-icon">'+
+          '<svg class="cart-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+
+            '<path fill="currentColor" d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a 2 2 0 1 0 .001 3.999A2 2 0 0 0 17 18zM6 6h13l-1.5 7.5H8.2L6.9 4.8 4 4"/>'+
+          '</svg>'+ 
+          '<span id="cart-count-badge" class="cart-count-badge">0</span>'+ 
+        '</span>';
+      link.innerHTML = canonical;
+      // Update immediately
+      try { if (typeof wsUpdateCartBadge === 'function') wsUpdateCartBadge(); } catch(e){}
+    } catch(e){}
+  }
+  document.addEventListener('DOMContentLoaded', standardizeCartLink);
+})();
+
+if (typeof window.addToCart !== 'function') {
+  window.addToCart = function(name, price, depositInputId, description){
+    try {
+      var p = Number(price) || 0;
+      var depEl = document.getElementById(depositInputId);
+      var dep = depEl ? parseInt(String(depEl.value||'').replace(/[^\d]/g,''),10) || 0 : 0;
+      var minDep = Math.ceil(p * 0.5);
+      if (dep < minDep) {
+        try {
+          var t = document.getElementById('toast');
+          if (t) { t.textContent = 'Minimum deposit is KES ' + minDep.toLocaleString('en-KE'); t.style.display='block'; setTimeout(function(){ t.style.display='none'; }, 1800); }
+          else alert('Minimum deposit is KES ' + minDep.toLocaleString('en-KE'));
+        } catch(e){ alert('Minimum deposit is KES ' + minDep.toLocaleString('en-KE')); }
+        depEl && depEl.focus();
+        return;
+      }
+      var cart = [];
+      try { cart = JSON.parse(localStorage.getItem('cart')) || []; } catch(e){}
+      cart.push({ name: name, description: description || '', quantity: 1, price: p, deposit: dep });
+      localStorage.setItem('cart', JSON.stringify(cart));
+      try { if (typeof wsUpdateCartBadge === 'function') wsUpdateCartBadge(); else updateCartBadgeFallback(); } catch(e){ updateCartBadgeFallback(); }
+      try {
+        var t2 = document.getElementById('toast');
+        if (t2) { t2.textContent = 'Added to cart!'; t2.style.display='block'; setTimeout(function(){ t2.style.display='none'; }, 1500); }
+        else alert('Added to cart!');
+      } catch(e){ alert('Added to cart!'); }
+    } catch(e) { console.error('addToCart failed', e); }
+  };
+  function updateCartBadgeFallback(){
+    try {
+      var cart = JSON.parse(localStorage.getItem('cart')) || [];
+      var count = cart.reduce(function(sum, item){ return sum + (item.quantity||1); }, 0);
+      var badge = document.getElementById('cart-count-badge');
+      if (badge){ badge.textContent = count; badge.style.display = count>0 ? 'flex' : 'none'; }
+      var mobile = document.getElementById('cart-count');
+      if (mobile){ mobile.textContent = count; }
+    } catch(e){}
+  }
+}

@@ -20,7 +20,6 @@ router.post("/", (req, res) => {
   const orderNumber = orderId;
   const status = "Pending";
   const totalCents = Math.trunc(items.reduce((s, i) => s + (parseFloat(i.price) || 0) * (i.quantity || 1), 0) * 100);
-  const depositCents = 0;
   const currency = "KES";
   const createdAt = new Date().toISOString();
 
@@ -35,6 +34,9 @@ router.post("/", (req, res) => {
 
   try {
     const tx = db.transaction(() => {
+      // Normalize items (price/deposit already converted above)
+      const depositCents = normItems.reduce((sum, it) => sum + (Number.isFinite(it.depositCents) ? it.depositCents : 0), 0);
+
       db.prepare(
         `INSERT INTO orders (id, orderNumber, fullName, email, phone, status, totalCents, address, depositCents, currency, createdAt)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -50,6 +52,9 @@ router.post("/", (req, res) => {
 
       db.prepare(`INSERT OR IGNORE INTO admin_order_meta (order_id, status, notes) VALUES (?, ?, ?)`)
         .run(orderId, "Pending", "");
+      // Persist the computed deposit into overlay for consistency
+      db.prepare(`UPDATE admin_order_meta SET deposit_cents = ?, updated_at = ? WHERE order_id = ?`)
+        .run(depositCents, createdAt, orderId);
 
       try {
         const nq = db.prepare(
@@ -80,7 +85,8 @@ router.post("/", (req, res) => {
 
     tx();
     console.log(`[checkout] Order committed successfully: ${orderId}`);
-    return res.json({ success: true, orderNumber, status, total: totalCents / 100, deposit: depositCents / 100, currency, createdAt });
+    // Return normalized monetary fields (units)
+    return res.json({ success: true, orderNumber, status, total: totalCents / 100, deposit: (normItems.reduce((s,i)=>s+(Number.isFinite(i.depositCents)?i.depositCents:0),0))/100, currency, createdAt });
   } catch (e) {
     console.error("[checkout] transaction error:", e);
     return res.status(500).json({ success: false, message: "DB error" });
@@ -88,4 +94,3 @@ router.post("/", (req, res) => {
 });
 
 module.exports = router;
-

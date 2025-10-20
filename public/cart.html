@@ -323,7 +323,7 @@
 <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
 <span class="brand-name">WattSun Solar</span>
 </div>
-<button aria-label="Menu" class="nav-toggle" onclick="toggleNav()">â˜°</button>
+<button aria-label="Menu" class="nav-toggle" onclick="toggleNav()">Menu</button>
 </div>
 <nav id="mainNav">
 <a href="index.html">Home</a>
@@ -335,10 +335,7 @@
 <a href="contact.html">Contact</a>
 <!-- Cart Icon START -->
 <a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
-<span class="cart-icon">
-          ðŸ›’
-          <span class="cart-count-badge" id="cart-count-badge">0</span>
-</span>
+<span class="cart-icon">Cart <span class="cart-count-badge" id="cart-count-badge">0</span></span>
 </a>
 <!-- Cart Icon END -->
 </nav>
@@ -369,16 +366,9 @@
 </div>
 </div>
 </div>
-<footer>
-    Â© 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
-</footer>
+<footer style="margin-top:48px;width:100%;background:linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);color:#6b5100;text-align:center;font-size:1.05rem;padding:16px 0 6px;letter-spacing:.01em;"><div class="footer-contacts"><a href="mailto:info@wattsun.co.ke" style="color:#6b5100;text-decoration:underline;">info@wattsun.co.ke</a></div><p>© 2025 WattSun Solar. All rights reserved.</p></footer>
 <script>(function(){try{document.querySelectorAll('footer.mobile-nav').forEach(el=>el.remove());var st=document.createElement('style');st.textContent='footer:not(.mobile-nav){display:block !important;}';document.head.appendChild(st);}catch(e){}})();</script>
-<footer class="mobile-nav">
-  <a aria-label="Home" href="index.html">ðŸ </a>
-  <a aria-label="Account" href="account.html">ðŸ‘¤</a>
-  <a aria-label="Cart" href="cart.html">ðŸ›’<span id="cart-count">0</span></a>
-  <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">â˜°</a>
-</footer>
+
 <script>
     // Hamburger menu logic
     function toggleNav() {
@@ -444,8 +434,8 @@
         if (isLoggedIn) {
           window.location.href = "checkout.html";
         } else {
-          localStorage.setItem("checkoutRedirect", "true");
-          window.location.href = "index.html";
+          try { sessionStorage.setItem("redirectAfterLogin","/checkout.html"); } catch(e){}
+          window.location.href = "index.html?next=/checkout.html";
         }
       });
     });
@@ -504,3 +494,11 @@ document.addEventListener('DOMContentLoaded', function () {
 <script defer src="/js/auth.js"></script>
 </body>
 </html>
+
+
+
+
+
+
+
+

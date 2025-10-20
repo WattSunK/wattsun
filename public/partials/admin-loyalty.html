@@ -64,7 +64,7 @@
       <div class="group" style="margin-left:auto; display:flex; align-items:flex-end; gap:0.5rem;">
         <div>
           <label for="loyaltySearch">Search</label>
-          <input class="input" id="loyaltySearch" name="q" placeholder="Find record…"/>
+          <input class="input" id="loyaltySearch" name="q" type="search" aria-label="Search loyalty" placeholder="Find record…"/>
         </div>
         <button class="btn" id="loyaltyClearBtn" type="button">Clear</button>
         <button class="btn" id="loyaltyRefreshBtn" type="button">Refresh</button>
@@ -158,13 +158,21 @@
 
     <!-- Shared Meta Bar + Pagination -->
     <footer class="table-meta" style="display:flex; align-items:center; justify-content:space-between;">
-      <div class="meta" id="loyaltyMeta">0 results</div>
+      <div class="meta" id="loyaltyMeta">Showing 0 of 0 entries</div>
       <div class="pager" id="loyaltyPager">
-        <button class="btn btn--small">First</button>
-        <button class="btn btn--small">« Prev</button>
-        <span>1</span>
-        <button class="btn btn--small">Next »</button>
-        <button class="btn btn--small">Last</button>
+        <div class="per">
+          <label for="loyaltyPer">Per page</label>
+          <select id="loyaltyPer" class="input" aria-label="Per page">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+          </select>
+        </div>
+        <button class="btn pager-first" type="button" aria-label="First">First</button>
+        <button class="btn pager-prev" type="button" aria-label="Previous">Previous</button>
+        <span class="page-indicator" id="loyaltyPageNum">Page 1 / 1</span>
+        <button class="btn pager-next" type="button" aria-label="Next">Next</button>
+        <button class="btn pager-last" type="button" aria-label="Last">Last</button>
       </div>
     </footer>
   </div>

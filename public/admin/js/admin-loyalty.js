@@ -104,6 +104,7 @@
       notificationsBody: $("#loyaltyNotificationsBody"),
       meta:  $("#loyaltyMeta"),
       pager: $("#loyaltyPager"),
+      perSel: $("#loyaltyPer"),
     };
   }
 
@@ -195,6 +196,11 @@
     wireNewWithdrawalModal();
     wireManageModal();
 
+    // Initialize per-page from selector if present
+    if (els.perSel) {
+      const v = parseInt(els.perSel.value, 10);
+      if (Number.isFinite(v) && v > 0) state.limit = v;
+    }
     state.activeTab = "Withdrawals";
     showTab("Withdrawals");
     loadWithdrawals({ resetPage:true });
@@ -284,26 +290,57 @@
 
   function setMeta(count, total=null) {
     if (!els.meta) return;
-    const p = state.page, l = state.limit, s = (p-1)*l + 1, e = (p-1)*l + count;
-    els.meta.textContent = total!=null ? `${s}–${e} of ${fmtInt(total)}` : `${count} row(s)`;
+    const p = state.page, l = state.limit;
+    let e = (p - 1) * l + count;
+    if (count === 0) e = 0;
+    els.meta.textContent = total != null
+      ? `Showing ${e} of ${fmtInt(total)} entries`
+      : `Showing ${e} entries`;
   }
 
   function updatePager(){
     ensurePager();
-    const prev = els.pager?.querySelector(".pager-prev");
-    const next = els.pager?.querySelector(".pager-next");
+    const first = els.pager?.querySelector(".pager-first");
+    const prev  = els.pager?.querySelector(".pager-prev");
+    const next  = els.pager?.querySelector(".pager-next");
+    const last  = els.pager?.querySelector(".pager-last");
+    const ind  = els.pager?.querySelector('#loyaltyPageNum');
     const hasPrev = state.page > 1;
+    const pages = (state.total != null) ? Math.max(1, Math.ceil(state.total / state.limit)) : null;
     const hasNext = (state.total != null)
-      ? (state.page < Math.ceil(state.total / state.limit))
+      ? (state.page < pages)
       : (state.lastCount === state.limit);
-    if (prev) prev.disabled = !hasPrev;
-    if (next) next.disabled = !hasNext;
+    if (first) first.disabled = !hasPrev;
+    if (prev)  prev.disabled  = !hasPrev;
+    if (next)  next.disabled  = !hasNext;
+    if (last)  last.disabled  = !(pages && state.page < pages);
+    if (ind) {
+      ind.textContent = pages ? `Page ${state.page} / ${pages}` : `Page ${state.page}`;
+    }
+    // Also refresh the meta line to "Showing s to e of total entries"
+    if (els.meta) {
+      const p = state.page, l = state.limit;
+      const count = state.lastCount || 0;
+      let e = (p-1)*l + count;
+      if (count === 0) { e = 0; }
+      if (state.total != null) {
+        els.meta.textContent = `Showing ${e} of ${Number(state.total).toLocaleString()} entries`;
+      } else {
+        els.meta.textContent = `Showing ${e} entries`;
+      }
+    }
   }
 
   function wirePager(){
     ensurePager();
-    const prev = els.pager?.querySelector(".pager-prev");
-    const next = els.pager?.querySelector(".pager-next");
+    const first = els.pager?.querySelector(".pager-first");
+    const prev  = els.pager?.querySelector(".pager-prev");
+    const next  = els.pager?.querySelector(".pager-next");
+    const last  = els.pager?.querySelector(".pager-last");
+    const per  = els.perSel;
+    on(first, "click", () => {
+      if (state.page>1){ state.page = 1; refreshActiveTab(); }
+    });
     on(prev, "click", () => {
       if (state.page>1){ state.page--; refreshActiveTab(); }
     });
@@ -311,6 +348,18 @@
       if (state.total == null && state.lastCount < state.limit) return;
       state.page++; refreshActiveTab();
     });
+    on(last, "click", () => {
+      if (state.total == null) return; // unknown total: no fast-last
+      const pages = Math.max(1, Math.ceil((state.total||0) / state.limit));
+      if (state.page < pages){ state.page = pages; refreshActiveTab(); }
+    });
+    if (per && !per.dataset.bound) {
+      per.dataset.bound = '1';
+      per.addEventListener('change', () => {
+        const v = parseInt(per.value, 10);
+        if (Number.isFinite(v) && v > 0) { state.limit = v; state.page = 1; refreshActiveTab(); }
+      });
+    }
   }
 
   function refreshActiveTab(){
@@ -328,6 +377,9 @@
   }
 
   function wireFilters(){
+    // Prevent form submit from reloading the page on Enter
+    const form = document.getElementById('loyalty-filters');
+    if (form && !form.dataset.bound) { form.dataset.bound = '1'; form.addEventListener('submit', (e)=> e.preventDefault()); }
     if (els.searchInput){
       on(els.searchInput, "input", debounce(()=>{ state.page=1; refreshActiveTab(); }, 300));
     }
@@ -362,10 +414,14 @@
     try{
       const data = await api(`/api/admin/loyalty/withdrawals${buildQuery()}`);
       const rows = Array.isArray(data)?data:(data.withdrawals||[]);
-      state.total = (typeof data.total==="number")?data.total:null;
-      state.lastCount = rows.length;
-      renderWithdrawalsRows(tbody, rows);
-      setMeta(rows.length, state.total);
+      let total = (typeof data.total==="number")?data.total:null;
+      if (total == null) total = rows.length; // fallback when API omits total
+      const start = (state.page-1)*state.limit;
+      const view = rows.length > state.limit ? rows.slice(start, start+state.limit) : rows;
+      state.total = total;
+      state.lastCount = view.length;
+      renderWithdrawalsRows(tbody, view);
+      setMeta(view.length, state.total);
       updatePager();
     }catch(err){
       showErrorRow(tbody, err, 9);
@@ -630,10 +686,14 @@ const noAction = isFinal;
     try{
       const data = await api(`/api/admin/loyalty/notifications${buildQuery()}`);
       const rows = Array.isArray(data)?data:(data.notifications||[]);
-      state.total = (typeof data.total==="number")?data.total:null;
-      state.lastCount = rows.length;
-      renderNotifRows(tbody, rows);
-      setMeta(rows.length, state.total);
+      let total = (typeof data.total==="number")?data.total:null;
+      if (total == null) total = rows.length; // fallback
+      const start = (state.page-1)*state.limit;
+      const view = rows.length > state.limit ? rows.slice(start, start+state.limit) : rows;
+      state.total = total;
+      state.lastCount = view.length;
+      renderNotifRows(tbody, view);
+      setMeta(view.length, state.total);
       updatePager();
     }catch(err){
       showErrorRow(tbody, err, 5);
@@ -952,9 +1012,13 @@ const noAction = isFinal;
     try{
       const data = await api(`/api/admin/loyalty/accounts${buildQuery()}`);
       const rows = Array.isArray(data)?data:(data.accounts||[]);
-      state.total = (typeof data.total==="number")?data.total:null;
-      state.lastCount = rows.length;
-      const count = renderAccountsRows(tbody, rows);
+      let total = (typeof data.total==="number")?data.total:null;
+      if (total == null) total = rows.length; // fallback
+      const start = (state.page-1)*state.limit;
+      const view = rows.length > state.limit ? rows.slice(start, start+state.limit) : rows;
+      state.total = total;
+      state.lastCount = view.length;
+      const count = renderAccountsRows(tbody, view);
       setMeta(count, state.total);
       updatePager();
     }catch(err){
@@ -997,10 +1061,14 @@ const noAction = isFinal;
       const rows = Array.isArray(data)
         ? data
         : (data.ledger || data.rows || data.items || []);
-      state.total = (typeof data.total==="number")?data.total:null;
-      state.lastCount = rows.length;
-      renderLedgerRows(tbody, rows);
-      setMeta(rows.length, state.total);
+      let total = (typeof data.total==="number")?data.total:null;
+      if (total == null) total = rows.length; // fallback
+      const start = (state.page-1)*state.limit;
+      const view = rows.length > state.limit ? rows.slice(start, start+state.limit) : rows;
+      state.total = total;
+      state.lastCount = view.length;
+      renderLedgerRows(tbody, view);
+      setMeta(view.length, state.total);
       updatePager();
     }catch(err){
       showErrorRow(tbody, err, 8);
@@ -1357,3 +1425,4 @@ const noAction = isFinal;
   }
 
 })();
+

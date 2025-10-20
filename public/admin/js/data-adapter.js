@@ -23,7 +23,7 @@
     if (!res.ok) {
       let body = "";
       try { body = await res.text(); } catch {}
-      const err = new Error(`GET ${url} → ${res.status} ${res.statusText}`);
+      const err = new Error(`GET ${url} - ${res.status} ${res.statusText}`);
       err.status = res.status;
       err.body = body;
       throw err;
@@ -31,25 +31,32 @@
     return res.json();
   }
 
+  function toCentsMaybe(v){
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.round(n) : null;
+  }
+
   // Normalizers
   function normalizeOrder(o) {
     return {
-      id:          o.id || o.orderNumber || "",
-      orderNumber: o.orderNumber || o.id || "—",
-      fullName:    o.fullName || o.customerName || o.name || "—",
-      phone:       o.phone || "",
-      email:       o.email || "",
-      status:      o.status || "—",
-      createdAt:   o.createdAt || o.date || null,
-      totalCents:  Number.isFinite(o.totalCents) ? o.totalCents : 0,
-      currency:    o.currency || "KES",
+      id:            o.id || o.orderNumber || "",
+      orderNumber:   o.orderNumber || o.id || "",
+      fullName:      o.fullName || o.customerName || o.name || "",
+      phone:         o.phone || "",
+      email:         o.email || "",
+      status:        o.status || "",
+      createdAt:     o.createdAt || o.date || null,
+      totalCents:    toCentsMaybe(o.totalCents) ?? 0,
+      depositCents:  toCentsMaybe(o.depositCents) ?? toCentsMaybe(o.deposit_amount_cents) ?? toCentsMaybe(o.displayDepositCents) ?? toCentsMaybe(o.deposit),
+      currency:      o.currency || "KES",
     };
   }
 
   function normalizeUser(u) {
     return {
       id: u.id,
-      name: u.name || u.fullName || "—",
+      name: u.name || u.fullName || "",
       email: u.email || "",
       phone: u.phone || "",
       type: u.type || u.role || "",
@@ -60,14 +67,13 @@
   const Data = {
     orders: {
       /**
-       * list({ page=1, per=10, q, status, from, to })
-       * → { success, page, per, total, orders:[...] , raw }
+       * list({ page=1, per=10, q, status, from, to }) -> { success, page, per, total, orders, raw }
        */
       async list({ page = 1, per = 10, q, status, from, to } = {}) {
         const url = `${ORDERS_URL}${qs({ page, per, q, status, from, to })}`;
-        // console.debug("[AdminData] GET", url);
         const json = await getJSON(url);
-        const orders = Array.isArray(json.orders) ? json.orders.map(normalizeOrder) : [];
+        const src = Array.isArray(json.orders) ? json.orders : (Array.isArray(json) ? json : []);
+        const orders = src.map(normalizeOrder);
         return {
           success: json.success !== false,
           page: Number(json.page) || page,
@@ -81,12 +87,10 @@
 
     users: {
       /**
-       * list({ type, q, page=1, per=50 })
-       * → { success, total, users:[...] , raw }
+       * list({ type, q, page=1, per=50 }) -> { success, total, users, raw }
        */
       async list({ type, q, page = 1, per = 50 } = {}) {
         const url = `${USERS_URL}${qs({ type, q, page, per })}`;
-        // console.debug("[AdminData] GET", url);
         const json = await getJSON(url);
         const arr = Array.isArray(json.users) ? json.users : (Array.isArray(json) ? json : []);
         const users = arr.map(normalizeUser);

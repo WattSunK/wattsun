@@ -1,7 +1,7 @@
 // public/admin/js/orders-controller.js
 (function () {
   "use strict";
-  const DEBUG = false;                        // flip to true when debugging
+  const DEBUG = false;
   const dbg = (...a) => { if (DEBUG) console.log("[orders-controller]", ...a); };
 
   const getData = () => window.WattSunAdminData;
@@ -17,16 +17,16 @@
     sort:   { key: "createdAt", dir: "desc" },
   };
 
-  const $    = (s, r = document) => r.querySelector(s);
+  const $ = (s, r = document) => r.querySelector(s);
 
   function fmtMoney(cents, currency) {
-    if (!Number.isFinite(cents)) return "—";
+    if (!Number.isFinite(cents)) return "";
     const v = cents / 100;
     try {
       return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "KES", maximumFractionDigits: 2 }).format(v);
     } catch { return `${currency || "KES"} ${v.toFixed(2)}`; }
   }
-  const fmtDT = (iso) => { try { return new Date(iso).toLocaleString(); } catch { return iso || "—"; } };
+  const fmtDT = (iso) => { try { return new Date(iso).toLocaleString(); } catch { return iso || ""; } };
 
   function ensureTableHooks() {
     const table = document.querySelector('table[data-role="orders-table"]') || document.getElementById("ordersTable");
@@ -34,19 +34,17 @@
     if (table && !table.id) table.id = "ordersTable";
     if (tbody && !tbody.id) tbody.id = "ordersTbody";
   }
-  
-  // normalize cents-or-units-or-string into *cents* (integer) or null
+
+  // Normalize into cents (integer). Numbers are treated as cents; strings with decimals are treated as units.
   function toCentsMaybe(v) {
     if (v == null || v === "") return null;
+    if (typeof v === "number") return Math.round(v);
     if (typeof v === "string") {
       const s = v.replace(/[^\d.,-]/g, "").replace(/,/g, "");
       if (!s) return null;
       const n = Number(s);
       if (!Number.isFinite(n)) return null;
-      return n < 100000 ? Math.round(n * 100) : Math.round(n);
-    }
-    if (typeof v === "number") {
-      return v < 100000 ? Math.round(v * 100) : Math.round(v);
+      return s.includes('.') ? Math.round(n * 100) : Math.round(n);
     }
     return null;
   }
@@ -57,24 +55,24 @@
 
     const rowsHtml = State.rows.map((o) => {
       const id     = o.orderNumber || o.id || "";
-      const name   = o.fullName || o.name || o.customerName || o.customer || "—";
-      const phone  = o.phone || o.customerPhone || o.contactPhone || "—";
-      const when   = o.createdAt ? new Date(o.createdAt).toLocaleString() : "—";
+      const name   = o.fullName || o.name || o.customerName || o.customer || "";
+      const phone  = o.phone || o.customerPhone || o.contactPhone || "";
+      const when   = o.createdAt ? new Date(o.createdAt).toLocaleString() : "";
 
       // --- totals (fallback aware) ---
-      const totalCents = toCentsMaybe(o.totalCents) ?? toCentsMaybe(o.totalAmountCents);
-      const total      = totalCents != null ? fmtMoney(totalCents, o.currency) : "—";
+      const totalCents = toCentsMaybe(o.totalCents) ?? toCentsMaybe(o.totalAmountCents) ?? toCentsMaybe(o.total);
+      const total      = totalCents != null ? fmtMoney(totalCents, o.currency) : "";
 
       const status = o.status || "Pending";
 
       // --- deposit (fallback aware) ---
       const depCents =
-        toCentsMaybe(o.displayDepositCents) ??
         toCentsMaybe(o.depositCents) ??
         toCentsMaybe(o.depositAmountCents) ??
+        toCentsMaybe(o.displayDepositCents) ??
         toCentsMaybe(o.deposit);
 
-      const deposit = depCents != null ? fmtMoney(depCents, o.currency) : "—";
+      const deposit = depCents != null ? fmtMoney(depCents, o.currency) : "";
 
       return `
         <tr data-id="${id}">
@@ -97,27 +95,47 @@
 
     tbody.innerHTML = rowsHtml || `<tr><td colspan="8" style="text-align:center;padding:12px;">No data yet</td></tr>`;
   }
- 
+
   function renderPager() {
-    const pager = document.getElementById("ordersPager");
-    if (!pager) return;
     const pages = Math.max(1, Math.ceil(State.total / State.pageSize));
-    pager.innerHTML = `
-      <div class="pager">
-        <button class="btn prev" ${State.page <= 1 ? "disabled" : ""} data-page="prev">Prev</button>
-        <span class="pages">Page ${State.page} / ${pages}</span>
-        <button class="btn next" ${State.page >= pages ? "disabled" : ""} data-page="next">Next</button>
-      </div>`;
+    const pageEl = document.getElementById("ordersPageNum");
+    if (pageEl) pageEl.textContent = `Page ${State.page} / ${pages}`;
+
+    const first = document.getElementById("ordersFirst");
+    const prev  = document.getElementById("ordersPrev");
+    const next  = document.getElementById("ordersNext");
+    const last  = document.getElementById("ordersLast");
+    const atStart = State.page <= 1;
+    const atEnd   = State.page >= pages;
+    if (first) first.disabled = atStart;
+    if (prev)  prev.disabled  = atStart;
+    if (next)  next.disabled  = atEnd;
+    if (last)  last.disabled  = atEnd;
+
+    const meta = document.getElementById("ordersMeta");
+    if (meta) meta.textContent = `Showing ${State.rows.length} of ${State.total} entries`;
   }
 
   function applyFilters() {
-    // For server-side filtering later; currently just re-renders local State.rows
     State.rows = [...State.raw];
     State.total = State.rows.length;
     State.page  = Math.min(State.page, Math.max(1, Math.ceil(State.total / State.pageSize)));
   }
 
   // --- Data fetch (server-side aware) ---
+  function getFilters() {
+    const q      = document.getElementById("ordersSearch")?.value?.trim() || "";
+    const status = document.getElementById("ordersStatus")?.value?.trim() || "";
+    const from   = document.getElementById("ordersFrom")?.value?.trim()   || "";
+    const to     = document.getElementById("ordersTo")?.value?.trim()     || "";
+    return { q, status, from, to };
+  }
+
+  function getPer() {
+    const perEl = document.getElementById("ordersPer");
+    return Number(perEl?.value || State.pageSize || 10);
+  }
+
   async function fetchOrders() {
     const Data = getData();
     if (!Data || !Data.orders) {
@@ -135,10 +153,10 @@
       return [];
     };
 
-    const perEl = document.getElementById("ordersPer");
-    const per = Number(perEl?.value || State.pageSize || 10);
+    const per = getPer();
+    const { q, status, from, to } = getFilters();
 
-    const resp = await Data.orders.list({ page: State.page, per, q:"", status:"", phone:"" });
+    const resp = await Data.orders.list({ page: State.page, per, q, status, from, to });
 
     const rows = normalize(resp);
     State.raw = rows;
@@ -157,21 +175,27 @@
 
     ensureTableHooks();
 
-    $("#ordersSearch") && $("#ordersSearch").addEventListener("input",  (e) => { State.filter.q      = e.target.value; applyFilters(); renderRows(); renderPager(); });
-    $("#ordersStatus") && $("#ordersStatus").addEventListener("change", (e) => { State.filter.status = e.target.value; applyFilters(); renderRows(); renderPager(); });
-    $("#ordersPhone")  && $("#ordersPhone").addEventListener("input",   (e) => { State.filter.phone  = e.target.value; applyFilters(); renderRows(); renderPager(); });
+    // Filters and actions (server-driven)
+    $("#ordersSearch") && $("#ordersSearch").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { State.page = 1; fetchOrders().then(() => { renderRows(); renderPager(); }); }
+    });
+    $("#ordersSearchBtn") && $("#ordersSearchBtn").addEventListener("click", () => { State.page = 1; fetchOrders().then(() => { renderRows(); renderPager(); }); });
+    $("#ordersClearBtn") && $("#ordersClearBtn").addEventListener("click", () => {
+      ["ordersSearch","ordersStatus","ordersFrom","ordersTo"].forEach(id => { const el=document.getElementById(id); if (el) el.value = ""; });
+      State.page = 1; fetchOrders().then(() => { renderRows(); renderPager(); });
+    });
+    $("#ordersStatus") && $("#ordersStatus").addEventListener("change", () => { State.page = 1; fetchOrders().then(() => { renderRows(); renderPager(); }); });
+    $("#ordersFrom")   && $("#ordersFrom").addEventListener("change",   () => { State.page = 1; fetchOrders().then(() => { renderRows(); renderPager(); }); });
+    $("#ordersTo")     && $("#ordersTo").addEventListener("change",     () => { State.page = 1; fetchOrders().then(() => { renderRows(); renderPager(); }); });
+    $("#ordersPer")    && $("#ordersPer").addEventListener("change",    () => { State.page = 1; fetchOrders().then(() => { renderRows(); renderPager(); }); });
 
-    document.addEventListener("click", (e) => {
-      const btn = e.target.closest(".pager .btn");
-      if (!btn) return;
-      const dir = btn.getAttribute("data-page");
-      if (dir === "prev" && State.page > 1) State.page--;
-      if (dir === "next") {
-        const pages = Math.max(1, Math.ceil(State.total / State.pageSize));
-        if (State.page < pages) State.page++;
-      }
-      fetchOrders().then(() => { renderRows(); renderPager(); });
-    }, { passive: true });
+    // Pager buttons
+    const go = (p) => { State.page = Math.max(1, p); fetchOrders().then(() => { renderRows(); renderPager(); }); };
+    const pages = () => Math.max(1, Math.ceil(State.total / State.pageSize));
+    $("#ordersFirst") && $("#ordersFirst").addEventListener("click", () => go(1));
+    $("#ordersPrev")  && $("#ordersPrev").addEventListener("click",  () => go(State.page - 1));
+    $("#ordersNext")  && $("#ordersNext").addEventListener("click",  () => go(State.page + 1));
+    $("#ordersLast")  && $("#ordersLast").addEventListener("click",  () => go(pages()));
 
     document.addEventListener("click", (e) => {
       const viewBtn = e.target.closest(".btn-view[data-oid]");
@@ -245,28 +269,28 @@
     await ensureModals();
     const dlg = document.getElementById("orderViewModal");
     if (!dlg) { console.warn("[Orders] #orderViewModal not found after ensure"); return; }
-    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = (val ?? "—"); };
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = (val ?? ""); };
 
-    set("ov_orderNumber", o.orderNumber || o.id || "—");
+    set("ov_orderNumber", o.orderNumber || o.id || "");
     set("ov_status",      o.status || "Pending");
-    set("ov_createdAt",   o.createdAt ? fmtDT(o.createdAt) : "—");
-    set("ov_address",     o.address || o.shippingAddress || "—");
-    set("ov_fullName",    o.fullName || o.name || o.customerName || o.customer || "—");
-    set("ov_phone",       o.phone || "—");
-    set("ov_email",       o.email || "—");
+    set("ov_createdAt",   o.createdAt ? fmtDT(o.createdAt) : "");
+    set("ov_address",     o.address || o.shippingAddress || "");
+    set("ov_fullName",    o.fullName || o.name || o.customerName || o.customer || "");
+    set("ov_phone",       o.phone || "");
+    set("ov_email",       o.email || "");
 
-    const totalCents = toCentsMaybe(o.totalCents) ?? toCentsMaybe(o.totalAmountCents);
-    set("ov_total", totalCents != null ? fmtMoney(totalCents, o.currency) : "—");
+    const totalCents = toCentsMaybe(o.totalCents) ?? toCentsMaybe(o.totalAmountCents) ?? toCentsMaybe(o.total);
+    set("ov_total", totalCents != null ? fmtMoney(totalCents, o.currency) : "");
 
     const depC =
-      toCentsMaybe(o.displayDepositCents) ??
       toCentsMaybe(o.depositCents) ??
       toCentsMaybe(o.depositAmountCents) ??
+      toCentsMaybe(o.displayDepositCents) ??
       toCentsMaybe(o.deposit);
 
-    set("ov_deposit", depC != null ? fmtMoney(depC, o.currency) : "—");
+    set("ov_deposit", depC != null ? fmtMoney(depC, o.currency) : "");
 
-    set("ov_currency",    o.currency || "—");
+    set("ov_currency",    o.currency || "");
 
     const body = document.getElementById("ov_items");
     if (body) {
@@ -278,7 +302,7 @@
           (Number(qty) * (it.priceCents ?? 0));
         return `<tr>
           <td class="num">${qty}</td>
-          <td>${it.name || it.sku || "—"}</td>
+          <td>${it.name || it.sku || ""}</td>
           <td class="num">${fmtMoney(lineTotalCents, o.currency)}</td>
         </tr>`;
       }).join("");
@@ -286,6 +310,7 @@
     }
 
     try { dlg.showModal(); } catch { dlg.setAttribute("open", "true"); }
+    try { document.documentElement.classList.add('ws-modal-open'); document.body.classList.add('ws-modal-open'); } catch {}
   }
 
   window.addEventListener("orders:view", (e) => {
@@ -294,35 +319,33 @@
     if (!o) return;
     openViewModalWithData(o);
   });
-// Listen for Add Order form submit (dispatched from orders-add.html)
-window.addEventListener("orders:add:submit", async (e) => {
-  try {
-    const formData = Object.fromEntries(e.detail.entries());
 
-    const r = await fetch("/api/admin/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(formData)
-    });
+  // Listen for Add Order form submit (dispatched from orders-add.html)
+  window.addEventListener("orders:add:submit", async (e) => {
+    try {
+      const formData = Object.fromEntries(e.detail.entries());
 
-    if (!r.ok) throw new Error(`Add order failed: ${r.status}`);
-    const data = await r.json();
+      const r = await fetch("/api/admin/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(formData)
+      });
 
-    if (data.success) {
-      console.log("[orders-controller] Order added:", data.orderNumber);
-      // Option A: reload the page to refresh the table
-      location.reload();
-      // Option B: or emit a custom event to refresh table without reload:
-      // window.dispatchEvent(new Event("orders:refresh"));
-    } else {
-      alert("Failed to add order: " + (data.error || "Unknown error"));
+      if (!r.ok) throw new Error(`Add order failed: ${r.status}`);
+      const data = await r.json();
+
+      if (data.success) {
+        console.log("[orders-controller] Order added:", data.orderNumber);
+        location.reload();
+      } else {
+        alert("Failed to add order: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("Add order failed", err);
+      alert("Failed to add order.");
     }
-  } catch (err) {
-    console.error("Add order failed", err);
-    alert("Failed to add order.");
-  }
-});
+  });
 
   document.addEventListener("click", (e) => {
     const btn = e.target.closest("#orderViewModal button, #orderViewModal [data-close]");
@@ -333,5 +356,6 @@ window.addEventListener("orders:add:submit", async (e) => {
     const dlg = document.getElementById("orderViewModal");
     if (!dlg) return;
     try { dlg.close(); } catch { dlg.removeAttribute("open"); }
+    try { document.documentElement.classList.remove('ws-modal-open'); document.body.classList.remove('ws-modal-open'); } catch {}
   });
 })();
