@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
@@ -354,6 +354,7 @@
 </style>
 </head>
 <body>
+<div id="toast" style="display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#c62828; color:white; padding:12px 20px; border-radius:8px; font-size:0.95em; box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:9999; transition:opacity 0.3s ease;">Please enter your delivery address.</div>
 <header>
 <div class="header-bar">
 <h1 class="desktop-logo">
@@ -437,7 +438,7 @@
 </div>
 </div>
 <footer style="margin-top:48px;width:100%;background:linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);color:#6b5100;text-align:center;font-size:1.05rem;padding:16px 0 6px;letter-spacing:.01em;"><div class="footer-contacts"><a href="mailto:info@wattsun.co.ke" style="color:#6b5100;text-decoration:underline;">info@wattsun.co.ke</a></div><p>&copy; 2025 WattSun Solar. All rights reserved.</p></footer>
-<script>(function(){try{document.querySelectorAll('footer.mobile-nav').forEach(el=>el.remove());var st=document.createElement('style');st.textContent='footer:not(.mobile-nav){display:block !important;}';document.head.appendChild(st);}catch(e){}})();</script>
+
 
 <script>
     // Hamburger menu logic
@@ -688,7 +689,7 @@ return; // ensure the guarded code after this does not run
     const cart = getCart();
 
     if (!cart.length) { alert("Your cart is empty."); return; }
-    if (!address)     { alert("Please enter your delivery address."); return; }
+    if (!address)     { if (typeof showToast==="function") showToast("Please enter your delivery address."); else alert("Please enter your delivery address."); return; }
 
     // Normalize cart for legacy backend (display logic untouched)
     const legacyCart = cart.map(it => ({
@@ -762,7 +763,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }, true);
 });
-</script></body>
+</script>  <script src="main.js?v=20251020"></script>`n</body>
 </html>
 <!-- SQL-only checkout override -->
 <script>
@@ -793,7 +794,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const phone    = document.getElementById('phone')?.value || "";
     const address  = document.getElementById('address')?.value || "";
     const delivery = document.getElementById('deliveryAddress')?.value || address;
-    if (!String(address).trim()) { alert('Please enter your delivery address.'); try{document.getElementById('address').focus();}catch(e){} return; }
+    if (!String(address).trim()) { if (typeof showToast==="function") showToast("Please enter your delivery address."); else alert("Please enter your delivery address."); try{document.getElementById('address').focus();}catch(e){} return; }
    // Try both visible and hidden total elements
 let deposit = 0;
 const depInput = document.getElementById('deposit');
@@ -843,5 +844,6 @@ else if (depTotal) {
   btn.addEventListener("click", submitSqlOrder, { capture: true });
 })();
 </script>
+
 
 
