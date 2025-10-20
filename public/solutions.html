@@ -1,748 +1,108 @@
-<!DOCTYPE html>
-
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta content="width=device-width, initial-scale=1" name="viewport"/><meta charset="utf-8"/>
-<title>Solar Solutions | WattSun Solar</title>
-<link href="main.css" rel="stylesheet"/>
-<style>
+  <meta charset="utf-8" />
+  <title>Solar Solutions | WattSun Solar</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="main.css" />
+  <style>
     body { background: #f6f9f5; }
-    /* Page-specific styles only, do NOT touch header/footer */
-    .solutions-calc-cta {
-      text-align: center;
-      margin: 38px auto 20px auto;
-    }
-    .solutions-calc-cta .loan-btn {
-      font-size: 1.16em;
-      padding: 15px 42px;
-      border-radius: 28px;
-      box-shadow: 0 2px 14px rgba(247,183,51,0.12);
-      display: inline-block;
-      font-weight: 600;
-      margin-bottom: 7px;
-    }
-    .solutions-calc-cta .loan-btn:hover {
-      background: linear-gradient(90deg, #fcf6ba 0%, #f7b733 100%);
-      color: #b37900 !important;
-      transform: translateY(-1px) scale(1.03);
-    }
-    .solutions-calc-cta .calc-desc {
-      color: #9c861a;
-      margin-top: 7px;
-      font-size: 0.99em;
-    }
-    .section-card {
-      max-width: 900px;
-      width: 100%;
-      margin: 34px auto 0 auto;
-      padding: 26px 10px 22px 10px;
-      background: #fff;
-      border-radius: 18px;
-      box-shadow: 0 2.5px 18px rgba(247,183,51,0.07), 0 1.5px 7px rgba(44,62,80,0.04);
-    }
-    .centered-section-title {
-      text-align: center;
-      font-size: 2.01em;
-      color: #b47d08;
-      font-weight: bold;
-      margin-bottom: 15px;
-      margin-top: 5px;
-      letter-spacing: 0.2px;
-    }
-    .card-table-container, .packages-row { margin: 0 auto 12px auto; }
-    .card-footer { text-align: center; margin-top: 8px; }
-    .loan-btn { margin: 0 auto 7px auto;}
-    .table-note { text-align:center; color:#887b19; font-size:0.94em;}
-    .packages-row {
-      display: flex;
-      justify-content: center;
-      gap: 24px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-    }
-    .package-tier {
-      background: #faf9f6;
-      border-radius: 15px;
-      box-shadow: 0 1.5px 9px rgba(32,120,12,0.04);
-      padding: 18px 22px 16px 22px;
-      min-width: 160px;
-      max-width: 240px;
-      flex: 1 1 180px;
-    }
-    .package-tier h3 {
-      color: #b47d08;
-      font-size: 1.08em;
-      margin-bottom: 7px;
-      margin-top: 0;
-      font-weight: bold;
-    }
-    .package-tier ul { padding-left: 20px; font-size:0.98em;}
-    @media (max-width: 900px) {
-      .section-card, .solutions-calc-cta { padding-left: 1vw; padding-right: 1vw; }
-      .packages-row { flex-direction: column; gap: 18px;}
-      nav a { padding: 11px 10px 11px 10px; font-size: 1em;}
-      header h1 { font-size: 2em; }
-    }
-  
-html, body {
-  width: 100vw;
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-body { background: #fafafa; }
-.container {
-  max-width: 950px;
-  width: 95vw;
-  margin: 44px auto;
-  padding: 38px 12px 30px 12px;
-  background: #fff;
-  border-radius: 13px;
-  box-shadow: 0 4px 20px rgba(247,183,51,0.10), 0 1.5px 9px rgba(0,0,0,0.04);
-  box-sizing: border-box;
-}
-h2 {
-  text-align: center;
-  margin-bottom: 30px;
-  font-size: 2em;
-  font-weight: bold;
-  color: #b47d08;
-}
-.table-wrapper {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: auto;
-  box-sizing: border-box;
-  background: #fff;
-  border-radius: 10px;
-}
-table {
-  width: 100%;
-  min-width: 0;
-  border-collapse: separate;
-  border-spacing: 0;
-  background: #fff;
-  margin-bottom: 22px;
-  border-radius: 10px;
-  box-shadow: 0 1px 8px rgba(0,0,0,0.07);
-  overflow: hidden;
-  table-layout: auto;
-  font-size: 0.97em;
-  box-sizing: border-box;
-}
-th, td {
-  text-align: left;
-  padding: 14px 8px;
-  border-bottom: 1px solid #f2e2b6;
-  font-size: 1em;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-}
-th {
-  background-color: #f9eabb;
-  color: #444;
-  font-weight: bold;
-  text-align: center;
-}
-/* Compact numeric columns */
-th.compact-col, td.compact-col {
-  width: 68px;
-  min-width: 48px;
-  max-width: 80px;
-  text-align: right;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-variant-numeric: tabular-nums;
-  padding-left: 0;
-  padding-right: 0;
-}
-/* Product column - widest */
-td.product-col {
-  text-align: left;
-  font-weight: 500;
-  min-width: 180px;
-  max-width: 320px;
-  width: 38%;
-  word-break: break-word;
-  white-space: normal;
-}
-.total {
-  text-align: right;
-  margin-top: 15px;
-  font-size: 1.15em;
-  font-weight: bold;
-  color: #3E9F50;
-}
-/* --- Actions (Buttons) --- */
-.actions {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  margin-top: 30px;
-  margin-bottom: 36px;
-  width: 100%;
-}
-.actions .btn,
-.actions .btn-clear {
-  min-width: 120px;
-  max-width: 170px;
-  width: auto !important;
-  font-size: 1em;
-  padding: 9px 18px;
-  margin: 0;
-  display: inline-block;
-  box-sizing: border-box;
-}
-.btn {
-  border: none;
-  border-radius: 8px;
-  color: #fff;
-  background: linear-gradient(90deg, #f7b733 0%, #fcf6ba 100%);
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(247,183,51, 0.14);
-  letter-spacing: 0.5px;
-  text-decoration: none;
-  transition: background 0.3s, transform 0.2s, box-shadow 0.2s;
-}
-.btn:hover {
-  background: linear-gradient(90deg, #fcf6ba 0%, #f7b733 100%);
-  color: #b37900 !important;
-  transform: translateY(-2px) scale(1.03);
-  box-shadow: 0 6px 20px rgba(247,183,51, 0.20);
-}
-/* Hamburger & mobile nav styles */
-.nav-toggle {
-  display: none;
-  font-size: 2rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  margin-left: auto;
-}
-@media (max-width: 800px) {
-  .nav-toggle {
-    display: inline-block;
-    z-index: 1001;
-    position: absolute;
-    top: 18px;
-    right: 20px;
-  }
-  nav {
-    display: none;
-    flex-direction: column;
-    background: #fff;
-    position: absolute;
-    right: 0;
-    top: 60px;
-    width: 80vw;
-    border-radius: 0 0 0 20px;
-    box-shadow: 0 10px 32px #ccc;
-    padding: 30px 0 30px 0;
-    z-index: 1000;
-  }
-  nav.active {
-    display: flex !important;
-  }
-  nav a {
-    margin: 12px 0;
-    font-size: 1.3em;
-    padding-left: 28px;
-    color: #333;
-    border-bottom: 1px solid #eee;
-    width: 100%;
-    display: block;
-    text-align: left;
-  }
-  nav span {
-    display: block;
-    padding-left: 28px;
-    margin: 12px 0 0 0;
-  }
-}
-@media (max-width: 700px) {
-  .container {
-    width: 100vw !important;
-    max-width: 100vw !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    box-sizing: border-box !important;
-  }
-  .table-wrapper {
-    width: 100vw !important;
-    max-width: 100vw !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-    margin-left: 0 !important;
-  }
-  table {
-    width: 100vw !important;
-    max-width: 100vw !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
-    table-layout: fixed !important;
-  }
-  .col-unit, .col-total-deposit {
-    display: none;
-  }
-  th, td {
-    font-size: 0.96em;
-    padding: 8px 3px;
-    min-width: 36px;
-    max-width: 90px;
-  }
-  td.product-col {
-    width: 35% !important;
-    min-width: 100px !important;
-    max-width: 180px !important;
-    white-space: nowrap !important;
-  }
-  .actions {
-    flex-direction: column !important;
-    align-items: center !important;
-    gap: 12px !important;
-  }
-  .actions .btn,
-  .actions .btn-clear {
-    width: 80vw !important;
-    max-width: 96vw !important;
-    min-width: 0 !important;
-    font-size: 1em;
-  }
-}
-@media (max-width: 900px) {
-  .container { padding: 18px 5vw; }
-  table th, table td { font-size: 0.98em; }
-  .btn, .btn-clear { width: 100%; margin: 10px 0; }
-}
-@media (max-width: 700px) {
-  .container {
-    width: 100vw !important;
-    max-width: 100vw !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    box-sizing: border-box !important;
-  }
-  .table-wrapper {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-  }
-  th.col-desc, td.col-desc, th.col-unit, td.col-unit, th.col-total-deposit, td.col-total-deposit {
-    display: none !important;
-  }
-  td.product-col {
-    width: 40% !important;
-    min-width: 80px !important;
-    max-width: 140px !important;
-    white-space: nowrap !important;
-  }
-  table {
-    table-layout: fixed !important;
-  }
-  th, td {
-    padding: 8px 6px !important;
-    font-size: 0.9em !important;
-  }
-  .actions {
-    flex-direction: column !important;
-    align-items: center !important;
-    gap: 12px !important;
-  }
-  .actions .btn, .actions .btn-clear {
-    width: 80vw !important;
-    max-width: 96vw !important;
-    min-width: 0 !important;
-  }
-}
-/* Cart Icon in NavBar */
-.cart-icon-link {
-  position: relative;
-  display: inline-block;
-  text-decoration: none;
-  color: inherit;
-  vertical-align: middle;
-  margin-left: 10px;
-}
-.cart-icon {
-  font-size: 1.24em;
-  display: flex;
-  align-items: center;
-  position: relative;
-}
-.cart-count-badge {
-  position: absolute;
-  top: -0.7em;
-  right: -0.7em;
-  background: #19c37d;
-  color: #fff;
-  font-size: 0.8em;
-  min-width: 1.15em;
-  height: 1.15em;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  box-shadow: 0 0 0.13em #0001;
-  transition: background 0.2s;
-  pointer-events: none;
-  z-index: 1;
-  display: none;
-}
-
-/* === Mobile Sticky Footer === */
-.mobile-nav {
-  display: none;
-}
-@media (max-width: 768px) {
-  .mobile-nav {
-    display: flex;
-    position: fixed;
-    bottom: 0;
-    height: 56px;
-    width: 100%;
-    background-color: #f4a940;
-    justify-content: space-around;
-    align-items: center;
-    z-index: 1000;
-    box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
-    padding: 0;
-  }
-  .mobile-nav a {
-    font-size: 20px;
-    height: 56px;
-    line-height: 56px;
-    padding: 0;
-    margin: 0;
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-    color: black;
-    position: relative;
-  }
-  #cart-count {
-    position: absolute;
-    top: 6px;
-    right: 10px;
-    background: red;
-    color: white;
-    font-size: 11px;
-    min-width: 16px;
-    height: 16px;
-    border-radius: 8px;
-    padding: 0 5px;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-}
-        
-nav a:hover,
-nav a:active,
-nav a:focus {
-  color: #00a651;
-  font-weight: bold;
-}
-    
-            @media (max-width: 768px) {
-            }
-            
-
-/* === Logo Formatting from cart.html === */
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-    }
-      }
-      }
-      }
-      }
-      }
-    }
-      }
-      }
-      }
-      }
-      }
-      }
-      }
-      }
-    }
-    }
-      }
-      }
-      }
-      }
-      }
-      }
-      }
-      }
-    }
-    }
-    }
-    }
-    @media (max-width: 768px) {
-      header {
-      }
-    }
-    }
-    @media (max-width: 768px) {
-      }
-      }
-      }
-    }</style>
+    .solutions-calc-cta { text-align:center; margin: 38px auto 20px; }
+    .solutions-calc-cta .loan-btn { font-size: 1.16em; padding: 15px 42px; border-radius: 28px; box-shadow: 0 2px 14px rgba(247,183,51,0.12); display:inline-block; font-weight:600; margin-bottom:7px; }
+    .solutions-calc-cta .calc-desc { color:#9c861a; margin-top:7px; font-size:.99em; }
+    .section-card { max-width: 900px; width:100%; margin: 34px auto 0; padding: 26px 10px 22px; background:#fff; border-radius:18px; box-shadow: 0 2.5px 18px rgba(247,183,51,0.07), 0 1.5px 7px rgba(44,62,80,0.04); }
+    .centered-section-title { text-align:center; font-size:2.01em; color:#b47d08; font-weight:bold; margin:5px 0 15px; letter-spacing:.2px; }
+  </style>
 </head>
 <body>
 <header>
-<div class="header-bar">
-<h1 class="desktop-logo">
-<img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
-        WattSun Solar
-      </h1>
-<div class="logo-container">
-<img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
-<span class="brand-name">WattSun Solar</span>
-</div>
-
-<button aria-label="Open menu" class="nav-toggle">☰</button>
-</div>
-<nav>
-<a href="index.html">Home</a>
-<a href="solutions.html">Solutions</a>
-<a href="shop.html">Shop</a>
-<a href="calculators/calculator.html">Calculator</a>
-<a href="financing.html">Financing</a>
-<a href="projects.html">Projects</a>
-<a href="contact.html">Contact</a>
-<!--<a href="cart.html">�� Cart</a>-->
-</nav>
+  <div class="header-bar">
+    <h1 class="desktop-logo">
+      <img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width:60px;object-fit:contain;margin-right:10px;" />
+      WattSun Solar
+    </h1>
+    <div class="logo-container">
+      <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png" />
+      <span class="brand-name">WattSun Solar</span>
+    </div>
+    <button class="nav-toggle" aria-label="Menu">Menu</button>
+  </div>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="solutions.html" aria-current="page">Solutions</a>
+    <a href="shop.html">Shop</a>
+    <a href="calculators/calculator.html">Calculator</a>
+    <a href="financing.html">Financing</a>
+    <a href="projects.html">Projects</a>
+    <a href="myaccount/track.html">Track Order</a>
+    <a href="contact.html">Contact</a>
+    <a class="cart-icon-link" href="cart.html" aria-label="View cart" title="View cart">
+      <span class="cart-icon">Cart <span id="cart-count-badge" class="cart-count-badge">0</span></span>
+    </a>
+  </nav>
 </header>
-<div class="solutions-calc-cta">
-<a class="loan-btn" href="calculators/calculator.html">
-    Try our Solar Kit Calculator
-  </a>
-<div class="calc-desc">
-    Use our interactive calculator to find your perfect package.
+
+<main>
+  <section class="solutions-calc-cta">
+    <a class="loan-btn" href="calculators/calculator.html">Try our Solar Kit Calculator</a>
+    <div class="calc-desc">Use our interactive calculator to find your perfect package.</div>
+  </section>
+
+  <section class="section-card">
+    <h2 class="centered-section-title">Residential Solar Packages</h2>
+    <div class="card-table-container">
+      <table class="styled-table">
+        <thead>
+          <tr>
+            <th>Capacity</th>
+            <th>Access (KES)</th>
+            <th>Suitable For</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1 kW</td>
+            <td>150,000</td>
+            <td>💡 1–2 rooms, 📺 TV, 🔋 phone charging</td>
+          </tr>
+          <tr>
+            <td>3 kW</td>
+            <td>400,000</td>
+            <td>🏠 Small home, 🧊 fridge, 📺 TV, 🌐 internet</td>
+          </tr>
+          <tr>
+            <td>6 kW</td>
+            <td>720,000</td>
+            <td>🏠 Full house: appliances, entertainment, 💧 water pump</td>
+          </tr>
+          <tr>
+            <td>9 kW</td>
+            <td>1,050,000</td>
+            <td>👨‍👩‍👧‍👦 Large family homes, partial A/C</td>
+          </tr>
+          <tr>
+            <td>12 kW</td>
+            <td>1,420,000</td>
+            <td>🔋 Premium homes, backup + solar split loads</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="card-footer">
+        <a class="loan-btn" href="shop.html">Buy Now</a>
+        <p class="table-note">* Prices are estimates for standard hybrid systems. Custom quotes available upon request.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer style="margin-top:48px;width:100%;background:linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);color:#6b5100;text-align:center;font-size:1.05rem;padding:16px 0 6px;letter-spacing:.01em;">
+  <div class="footer-contacts">
+    <a href="mailto:info@wattsun.co.ke" style="color:#6b5100;text-decoration:underline;">info@wattsun.co.ke</a>
   </div>
-</div>
-<div class="section-card">
-<h2 class="centered-section-title">Residential Solar Packages</h2>
-<div class="card-table-container">
-<table class="styled-table">
-<thead>
-<tr>
-<th>Capacity</th>
-<th>Access (KES)</th>
-<th>Suitable For</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1 kW</td>
-<td>150,000</td>
-<td>1�2 rooms, TV, phone charging</td>
-</tr>
-<tr>
-<td>3 kW</td>
-<td>400,000</td>
-<td>Small home, fridge, TV, internet</td>
-</tr>
-<tr>
-<td>6 kW</td>
-<td>720,000</td>
-<td>Full house: appliances, entertainment, water pump</td>
-</tr>
-<tr>
-<td>9 kW</td>
-<td>1,050,000</td>
-<td>Large family homes, partial A/C</td>
-</tr>
-<tr>
-<td>12 kW</td>
-<td>1,420,000</td>
-<td>Premium homes, backup + solar split loads</td>
-</tr>
-</tbody>
-</table>
-<div class="card-footer">
-<a class="loan-btn" href="shop.html">Buy Now</a>
-<p class="table-note">* Prices are estimates for standard hybrid systems. Custom quotes available upon request.</p>
-</div>
-</div>
-</div>
-<div class="section-card">
-<h2 class="centered-section-title">Our Installation Packages</h2>
-<div class="packages-row">
-<div class="package-tier">
-<h3>Access</h3>
-<ul>
-<li>Standard solar panels + mounting</li>
-<li>Installation &amp; commissioning</li>
-<li>25-year panel &amp; service warranty</li>
-</ul>
-</div>
-<div class="package-tier">
-<h3>Premium</h3>
-<ul>
-<li>High-efficiency panels</li>
-<li>30-year panel &amp; service warranty</li>
-</ul>
-</div>
-<div class="package-tier">
-<h3>Excellence</h3>
-<ul>
-<li>Maxeon-grade solar panels</li>
-<li>40-year panel &amp; service warranty</li>
-<li>Micro-inverters &amp; monitoring</li>
-</ul>
-</div>
-</div>
-<div class="packages-footer">
-<p class="table-note" style="margin-top: 7px;">* All packages include installation, grid connection, monitoring setup, and long-term warranty.</p>
-</div>
-</div>
-<div class="section-card">
-<h2 class="centered-section-title">Compare Our Packages</h2>
-<div class="card-table-container">
-<table class="styled-table">
-<thead>
-<tr>
-<th>Feature</th>
-<th>Access</th>
-<th>Premium</th>
-<th>Excellence</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Panel Warranty</td>
-<td>25 years</td>
-<td>30 years</td>
-<td>40 years</td>
-</tr>
-<tr>
-<td>Output Warranty</td>
-<td>85% @ 30 yrs</td>
-<td>87% @ 30 yrs</td>
-<td>88% @ 40 yrs</td>
-</tr>
-<tr>
-<td>System Type</td>
-<td>Basic + Grid</td>
-<td>High Output</td>
-<td>Top-tier + Micro-inverter</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<!-- CTA Section, as in your screenshot -->
-<div style="text-align:center; margin:52px auto 0 auto;">
-<h2 style="font-size:2em; font-weight:700; color:#222; margin-bottom:8px;">
-    Ready to Start?
-  </h2>
-<div style="color:#444; font-size:1.13em; margin-bottom:32px;">
-    Request a quote or speak to an expert today.
-  </div>
-<a href="contact.html" onmouseout="this.style.background='linear-gradient(90deg, #ffe180 0%, #ffd449 100%)'; this.style.color='#184211';" onmouseover="this.style.background='linear-gradient(90deg, #ffd449 0%, #ffe180 100%)'; this.style.color='#0c4906';" style="
-      display: inline-block;
-      background: linear-gradient(90deg, #ffe180 0%, #ffd449 100%);
-      color: #184211;
-      font-weight: 700;
-      font-size: 1.15em;
-      padding: 15px 38px 14px 38px;
-      border: none;
-      border-radius: 2em;
-      box-shadow: 0 2px 12px rgba(247,183,51,0.09);
-      letter-spacing: 0.02em;
-      text-decoration: none;
-      transition: background 0.14s, color 0.13s, transform 0.13s;
-      margin-bottom: 9px;
-    ">
-    Get a Free Quote
-  </a>
-</div>
-<footer style="margin-top:48px;width:100%;background:linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);color:#6b5100;text-align:center;font-size:1.05rem;padding:16px 0 6px;letter-spacing:.01em;"><div class="footer-contacts"><a href="mailto:info@wattsun.co.ke" style="color:#6b5100;text-decoration:underline;">info@wattsun.co.ke</a></div><p>� 2025 WattSun Solar. All rights reserved.</p></footer>
-<script>(function(){try{document.querySelectorAll('footer.mobile-nav').forEach(el=>el.remove());var st=document.createElement('style');st.textContent='footer:not(.mobile-nav){display:block !important;}';document.head.appendChild(st);}catch(e){}})();</script>
-<script>
-  const navToggle = document.querySelector('.nav-toggle');
-  const header = document.querySelector('header');
-  navToggle.addEventListener('click', function() {
-    header.classList.toggle('nav-open');
-  });
-  document.querySelectorAll('header nav a').forEach(link => {
-    link.addEventListener('click', () => header.classList.remove('nav-open'));
-  });
-</script>
-<script src="main.js">
+  <p>&copy; 2025 WattSun Solar. All rights reserved.</p>
+</footer>
 
-document.addEventListener('DOMContentLoaded', function() {
-  document.body.addEventListener('click', function(e) {
-    const header = document.querySelector('header');
-    if (!header) return;
-    const nav = header.querySelector('nav');
-    const navToggle = header.querySelector('.nav-toggle');
-    if (
-      header.classList.contains('nav-open') &&
-      !nav.contains(e.target) &&
-      !navToggle.contains(e.target)
-    ) {
-      header.classList.remove('nav-open');
-    }
-  }, true);
-});
-
-</script>
-<footer class="mobile-nav">
-<a aria-label="Home" href="index.html">��</a>
-<a aria-label="Account" href="account.html">��</a>
-<a aria-label="Cart" href="cart.html">��<span id="cart-count">0</span></a>
-<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
-</footer><script>
-function updateCartCountBadge() {
-  let count = 0;
-  try {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  } catch (e) {}
-
-  const badge = document.getElementById('cart-count-badge');
-  const mobileCount = document.getElementById('cart-count');
-  if (badge) {
-    if (count > 0) {
-      badge.textContent = count;
-      badge.style.display = 'flex';
-    } else {
-      badge.style.display = 'none';
-    }
-  }
-  if (mobileCount) {
-    mobileCount.textContent = count;
-  }
-}
-document.addEventListener('DOMContentLoaded', updateCartCountBadge);
-window.addEventListener('storage', updateCartCountBadge);
-</script>
+<script src="main.js"></script>
 <script defer src="/js/auth.js"></script>
 </body>
 </html>
-
-
