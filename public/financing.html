@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 
 <html lang="en">
 <head>
@@ -257,7 +257,7 @@
 <span class="brand-name">WattSun Solar</span>
 </div>
 
-<button aria-label="Open menu" class="nav-toggle" >â˜°</button>
+<button aria-label="Open menu" class="nav-toggle" >☰</button>
 </div>
 <nav>
 <a href="index.html">Home</a>
@@ -268,7 +268,7 @@
 <a href="contact.html">Contact</a>
 <span id="cartLinkWrapper" style="display:none; position: relative;">
   <a href="cart.html" style="position:relative; display:inline-block;">
-    ›’
+    ��
     <span id="cartCount" style="font-weight:bold; background:#3E9F50; color:white; padding:2px 6px; border-radius:50%; font-size:0.8em; vertical-align:top;"></span>
     <!-- Desktop badge for cart count -->
     <span class="cart-count-badge" id="cart-count-badge">0</span>
@@ -285,11 +285,11 @@
 <label for="system">Select System Size:</label>
 <select id="system" required="">
 <option value="">-- Select --</option>
-<option value="150000">1 kW – KES 150,000</option>
-<option value="400000">3 kW – KES 400,000</option>
-<option value="700000">6 kW – KES 700,000</option>
-<option value="1050000">9 kW – KES 1,050,000</option>
-<option value="1420000">12 kW – KES 1,420,000</option>
+<option value="150000">1 kW � KES 150,000</option>
+<option value="400000">3 kW � KES 400,000</option>
+<option value="700000">6 kW � KES 700,000</option>
+<option value="1050000">9 kW � KES 1,050,000</option>
+<option value="1420000">12 kW � KES 1,420,000</option>
 </select>
 <label for="deposit">Your Deposit (KES):</label>
 <input id="deposit" min="0" required="" type="number"/>
@@ -300,15 +300,13 @@
 <div class="result" id="result"></div>
 <div class="disclaimer">* This is an indicative estimate. Actual loan terms may vary.</div>
 </div>
-<footer>
-  © 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
-</footer>
+<footer style="margin-top:48px;width:100%;background:linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);color:#6b5100;text-align:center;font-size:1.05rem;padding:16px 0 6px;letter-spacing:.01em;"><div class="footer-contacts"><a href="mailto:info@wattsun.co.ke" style="color:#6b5100;text-decoration:underline;">info@wattsun.co.ke</a></div><p>� 2025 WattSun Solar. All rights reserved.</p></footer>
 <script>(function(){try{document.querySelectorAll('footer.mobile-nav').forEach(el=>el.remove());var st=document.createElement('style');st.textContent='footer:not(.mobile-nav){display:block !important;}';document.head.appendChild(st);}catch(e){}})();</script>
 <footer class="mobile-nav">
-<a aria-label="Home" href="index.html"> </a>
-<a aria-label="Account" href="account.html">‘¤</a>
-<a aria-label="Cart" href="cart.html">›’<span id="cart-count" style="position: absolute; top: 6px; right: 10px; background: red; color: white; font-size: 11px; min-width: 16px; height: 16px; border-radius: 8px; padding: 0 5px; text-align: center; display: flex; align-items: center; justify-content: center;">0</span></a>
-<a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">â˜°</a>
+  <a aria-label="Home" href="index.html">Home</a>
+  <a aria-label="Account" href="account.html">Account</a>
+  <a aria-label="Cart" href="cart.html">Cart <span id=\"cart-count\">0</span></a>
+  <a aria-label="Menu" href=\"javascript:void(0);\" onclick=\"document.querySelector('.nav-toggle').click();\">Menu</a>
 </footer>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
@@ -397,7 +395,7 @@ document.addEventListener("DOMContentLoaded", function () {
       btn.onclick = function() {
         const kit = JSON.parse(localStorage.getItem('loanKit'));
         const cart = JSON.parse(localStorage.getItem('cart')) || [];
-        const name = "Loan Kit – " + kit.system;
+        const name = "Loan Kit � " + kit.system;
         // Find duplicate loan kit in cart (same name, deposit, term, monthly)
         const found = cart.find(item =>
           item.name === name &&
@@ -482,3 +480,5 @@ document.addEventListener('DOMContentLoaded', function () {
 <script defer src="/js/auth.js"></script>
 </body>
 </html>
+
+

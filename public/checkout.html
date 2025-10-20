@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
@@ -364,7 +364,7 @@
 <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
 <span class="brand-name">WattSun Solar</span>
 </div>
-<button aria-label="Menu" class="nav-toggle" onclick="toggleNav()">â˜°</button>
+<button aria-label="Menu" class="nav-toggle" onclick="toggleNav()">☰</button>
 </div>
 <nav id="mainNav">
 <a href="index.html">Home</a>
@@ -377,7 +377,7 @@
 <!-- Cart Icon START -->
 <a aria-label="View shopping cart" class="cart-icon-link" href="cart.html" title="View cart">
 <span class="cart-icon">
-          ›’
+          ��
           <span class="cart-count-badge" id="cart-count-badge">0</span>
 </span>
 </a>
@@ -436,15 +436,13 @@
 <div class="total" id="totalAmount">Total Deposit: KES 0</div>
 </div>
 </div>
-<footer>
-    © 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
-</footer>
+<footer style="margin-top:48px;width:100%;background:linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);color:#6b5100;text-align:center;font-size:1.05rem;padding:16px 0 6px;letter-spacing:.01em;"><div class="footer-contacts"><a href="mailto:info@wattsun.co.ke" style="color:#6b5100;text-decoration:underline;">info@wattsun.co.ke</a></div><p>� 2025 WattSun Solar. All rights reserved.</p></footer>
 <script>(function(){try{document.querySelectorAll('footer.mobile-nav').forEach(el=>el.remove());var st=document.createElement('style');st.textContent='footer:not(.mobile-nav){display:block !important;}';document.head.appendChild(st);}catch(e){}})();</script>
 <footer class="mobile-nav">
-  <a aria-label="Home" href="index.html"> </a>
-  <a aria-label="Account" href="account.html">‘¤</a>
-  <a aria-label="Cart" href="cart.html">›’<span id="cart-count">0</span></a>
-  <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">â˜°</a>
+  <a aria-label="Home" href="index.html">��</a>
+  <a aria-label="Account" href="account.html">��</a>
+  <a aria-label="Cart" href="cart.html">��<span id="cart-count">0</span></a>
+  <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">☰</a>
 </footer>
 <script>
     // Hamburger menu logic
@@ -499,7 +497,7 @@ document.addEventListener("DOMContentLoaded", function () {
     catch { return []; }
   }
   function formatKES(n){ try { return Number(n||0).toLocaleString(); } catch { return String(n||0); } }
-  // --- Normalize cart for SQL/ADR-001 backend (priceCents â†’ KES) ---
+  // --- Normalize cart for SQL/ADR-001 backend (priceCents → KES) ---
   function normalizeCartItems(cart){
     return cart.map(it => ({
       id: it.productId || it.id || it.sku || it.code || it.name,
@@ -812,7 +810,7 @@ else if (depTotal) {
   deposit = Number(match || 0);
 }
         let items = await getCartItems();
-    // normalize cents â†’ KES if present
+    // normalize cents → KES if present
     items = items.map(i => ({
       ...i,
       price: i.priceCents ? i.priceCents / 100 : i.price,
@@ -849,3 +847,4 @@ else if (depTotal) {
   btn.addEventListener("click", submitSqlOrder, { capture: true });
 })();
 </script>
+
