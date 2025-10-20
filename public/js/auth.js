@@ -341,8 +341,14 @@ window.addEventListener("DOMContentLoaded", updateLoginUI);
       });
       if (!link) return;
       link.classList.add('cart-icon-link');
-      var badge = link.querySelector('#cart-count-badge');
-      if (!badge) link.innerHTML = '<span class="cart-icon">Cart <span id="cart-count-badge" class="cart-count-badge">0</span></span>';
+      var canonical = ''+
+        '<span class="cart-icon">'+
+          '<svg class="cart-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+
+            '<path fill="currentColor" d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a 2 2 0 1 0 .001 3.999A2 2 0 0 0 17 18zM6 6h13l-1.5 7.5H8.2L6.9 4.8 4 4"/>'+
+          '</svg>'+ 
+          '<span id="cart-count-badge" class="cart-count-badge">0</span>'+ 
+        '</span>';
+      link.innerHTML = canonical;
       // Update immediately
       try { if (typeof wsUpdateCartBadge === 'function') wsUpdateCartBadge(); } catch(e){}
     } catch(e){}

@@ -246,9 +246,8 @@ try {
       var canonical = ''+
         '<span class="cart-icon">'+
           '<svg class="cart-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+
-            '<path fill="currentColor" d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 .001 3.999A2 2 0 0 0 17 18zM6 6h13l-1.5 7.5H8.2L6.9 4.8 4 4"/>'+
+            '<path fill="currentColor" d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a 2 2 0 1 0 .001 3.999A2 2 0 0 0 17 18zM6 6h13l-1.5 7.5H8.2L6.9 4.8 4 4"/>'+
           '</svg>'+ 
-          '<span class="cart-label">Cart</span>'+ 
           '<span id="cart-count-badge" class="cart-count-badge">0</span>'+ 
         '</span>';
       link.innerHTML = canonical;
