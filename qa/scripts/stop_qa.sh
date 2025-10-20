@@ -16,3 +16,13 @@ else
   p=$(ss -lptn 'sport = :3000' | awk 'NR>1 {print $NF}' | sed 's/.*pid=\([0-9]\+\).*/\1/')
   [ -n "$p" ] && sudo kill "$p" && echo "[qa] Port 3000 process killed." || echo "[qa] Nothing running on 3000."
 fi
+# Stop notifications worker if running
+WORKER_PIDFILE="/volume1/web/wattsun/qa/run/worker.pid"
+if [ -f "$WORKER_PIDFILE" ]; then
+  WPID=$(cat "$WORKER_PIDFILE")
+  if kill -0 "$WPID" 2>/dev/null; then
+    echo "[qa] Stopping notifications_worker (PID $WPID)..."
+    kill "$WPID" 2>/dev/null || true
+  fi
+  rm -f "$WORKER_PIDFILE"
+fi

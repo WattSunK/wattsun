@@ -13,10 +13,21 @@
 // - Marks rows Sent/Failed with timestamps and error text
 // - Safe to run concurrently if you keep batch sizes small
 
-require('dotenv').config();
-const sqlite3 = require('sqlite3').verbose();
+const fs = require('fs');
 const path = require('path');
+const dotenv = require('dotenv');
 const nodemailer = require('nodemailer');
+const sqlite3 = require('sqlite3').verbose();
+
+// Load .env and optional ENV_FILE overlay (e.g., .env.qa)
+function loadEnv() {
+  dotenv.config();
+  const candidate = process.env.ENV_FILE || path.join(process.cwd(), 'env');
+  if (candidate && fs.existsSync(candidate)) {
+    dotenv.config({ path: candidate, override: true });
+  }
+}
+loadEnv();
 
 // ---------- Config ----------
 const DB_PATH = process.env.DB_PATH_USERS || process.env.SQLITE_DB || path.join(process.cwd(), 'data/dev/wattsun.dev.db');
