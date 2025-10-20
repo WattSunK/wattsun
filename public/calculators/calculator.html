@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ï»¿<!DOCTYPE html>
 
 <html lang="en">
 <head><meta charset="utf-8"/>
@@ -112,7 +112,7 @@
 </div>
 
 
-<button aria-label="Menu" class="nav-toggle" onclick="toggleNav()">â˜°</button>
+<button aria-label="Menu" class="nav-toggle" onclick="toggleNav()">Menu</button>
 </div>
 <nav>
 <a href="../index.html">Home</a>
@@ -124,10 +124,12 @@
 <a href="../contact.html">Contact</a>
 <!-- Cart Icon START -->
 <a aria-label="View shopping cart" class="cart-icon-link" href="../cart.html" title="View cart">
-<span class="cart-icon">
-        ›’
-        <span class="cart-count-badge" id="cart-count-badge">0</span>
-</span>
+  <span class="cart-icon">
+    <svg class="cart-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path fill="currentColor" d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a 2 2 0 1 0 .001 3.999A2 2 0 0 0 17 18zM6 6h13l-1.5 7.5H8.2L6.9 4.8 4 4"/>
+    </svg>
+    <span class="cart-count-badge" id="cart-count-badge">0</span>
+  </span>
 </a>
 <!-- Cart Icon END -->
 </nav>
@@ -145,7 +147,7 @@
 <!-- Lighting & Devices (expanded) -->
 <div class="calc-section" id="section-lighting">
 <div class="calc-section-header" onclick="toggleSection('section-lighting')">
-<span class="calc-chevron" id="chevron-lighting">â–¼</span> Lighting &amp; Devices
+<span class="calc-chevron" id="chevron-lighting">&rsaquo;</span> Lighting &amp; Devices
       </div>
 <div class="calc-section-body calc-grid">
 <label for="led_bulb">LED Bulbs</label>
@@ -167,7 +169,7 @@
 <!-- Kitchen Appliances (collapsed by default) -->
 <div class="calc-section collapsed" id="section-kitchen">
 <div class="calc-section-header" onclick="toggleSection('section-kitchen')">
-<span class="calc-chevron" id="chevron-kitchen">â–¼</span> Kitchen Appliances
+<span class="calc-chevron" id="chevron-kitchen">&rsaquo;</span> Kitchen Appliances
       </div>
 <div class="calc-section-body calc-grid">
 <label for="fridge">Fridge</label>
@@ -189,7 +191,7 @@
 <!-- Heavy Loads (collapsed by default) -->
 <div class="calc-section collapsed" id="section-heavy">
 <div class="calc-section-header" onclick="toggleSection('section-heavy')">
-<span class="calc-chevron" id="chevron-heavy">â–¼</span> Heavy Loads
+<span class="calc-chevron" id="chevron-heavy">&rsaquo;</span> Heavy Loads
       </div>
 <div class="calc-section-body calc-grid">
 <label for="pump">Water Pump (small)</label>
@@ -263,7 +265,7 @@
 <div id="sizingOverlay"></div>
 <!-- Notification Bubble -->
 <div class="cart-notification" id="cart-notification">Added to cart!</div>
-<footer style="margin-top:48px;width:100%;background:linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);color:#6b5100;text-align:center;font-size:1.05rem;padding:16px 0 6px;letter-spacing:.01em;"><div class="footer-contacts"><a href="mailto:info@wattsun.co.ke" style="color:#6b5100;text-decoration:underline;">info@wattsun.co.ke</a></div><p>© 2025 WattSun Solar. All rights reserved.</p></footer>
+<footer style="margin-top:48px;width:100%;background:linear-gradient(90deg,#f7b733 0%,#fcf6ba 100%);color:#6b5100;text-align:center;font-size:1.05rem;padding:16px 0 6px;letter-spacing:.01em;"><div class="footer-contacts"><a href="mailto:info@wattsun.co.ke" style="color:#6b5100;text-decoration:underline;">info@wattsun.co.ke</a></div><p>&copy; 2025 WattSun Solar. All rights reserved.</p></footer>
 <script>(function(){try{document.querySelectorAll('footer.mobile-nav').forEach(el=>el.remove());var st=document.createElement('style');st.textContent='footer:not(.mobile-nav){display:block !important;}';document.head.appendChild(st);}catch(e){}})();</script>
 <script src="calculator.js"></script>
 
@@ -292,8 +294,15 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }, true);
 });
-</script></body>
+</script>
+<script src="../main.js?v=20251020"></script>
+</body>
 </html>
+
+
+
+
+
 
 
 
