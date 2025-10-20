@@ -57,6 +57,23 @@ if (loginForm) {
       closeLogin();
       // Ensure avatar and drawer render immediately without hard reload
       try { (window.updateLoginUI || window.wsOverrideUpdateLoginUI)?.(); } catch(e){}
+
+      // If a redirect target was requested (e.g., from Cart → Checkout), honor it now.
+      try {
+        var sp = new URLSearchParams(location.search);
+        var urlNext = sp.get('next');
+        var sessNext = null;
+        try { sessNext = sessionStorage.getItem('redirectAfterLogin'); } catch(e){}
+        var next = sessNext || urlNext;
+        if (next && /^\/[A-Za-z0-9._\-\/?#=&]*$/.test(next)) {
+          try { sessionStorage.removeItem('redirectAfterLogin'); } catch(e){}
+          localStorage.removeItem('redirectAfterLogin');
+          localStorage.removeItem('checkoutRedirect');
+          location.href = next;
+          return;
+        }
+      } catch (e) {}
+
       // Avoid full page reload to prevent flicker; UI already updated
     } catch (err) {
       console.error("[login] error:", err);
