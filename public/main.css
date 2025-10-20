@@ -5,6 +5,43 @@ body {
     padding: 0;
     color: #333;
 }
+
+/* --- Runtime glyph fixes (do not depend on page encoding) --- */
+/* Replace corrupted hamburger text with a reliable label */
+.nav-toggle{ color: transparent !important; position: relative; }
+.nav-toggle::after{ content: 'Menu'; color: #111; }
+
+/* Replace broken close button glyphs (×) rendered from corrupted text */
+[onclick="closeLogin()"],
+[onclick="closeSignup()"],
+[onclick="closePasswordReset()"]{
+  color: transparent !important;
+  position: relative;
+}
+[onclick="closeLogin()"]::after,
+[onclick="closeSignup()"]::after,
+[onclick="closePasswordReset()"]::after{
+  content: '×';
+  color: #999;
+  position: absolute;
+  inset: 0;
+  display: inline-block;
+  text-align: center;
+  line-height: 1.1em;
+}
+
+/* Feature icon placeholders: avoid showing unknown glyphs */
+.feature-icon{ color: transparent; position: relative; }
+.feature-icon::after{ content: '*'; color: #b39708; }
+
+/* Footer copyright: ensure © renders correctly even if source text is corrupted */
+footer p{ visibility: hidden; position: relative; }
+footer p::after{
+  content: '© 2025 WattSun Solar. All rights reserved.';
+  visibility: visible;
+  position: absolute;
+  left: 0; right: 0;
+}
 header {
     background: linear-gradient(90deg, #ffc371 0%, #ffb347 100%);
     padding: 0;
