@@ -42,6 +42,13 @@ footer p::after{
   position: absolute;
   left: 0; right: 0;
 }
+
+/* --- Canonical Cart Icon component --- */
+.cart-icon-link { position: relative; display: inline-block; color: inherit; text-decoration: none; }
+.cart-icon { display: inline-flex; align-items: center; gap: 6px; position: relative; }
+.cart-svg { width: 1.1em; height: 1.1em; display: inline-block; }
+.cart-label { font-weight: 700; }
+.cart-count-badge { position: absolute; top: -8px; right: -14px; background: #19c37d; color: #fff; font-size: .8em; min-width: 18px; height: 18px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-weight: 700; box-shadow: 0 0 2px #0002; z-index: 2; }
 header {
     background: linear-gradient(90deg, #ffc371 0%, #ffb347 100%);
     padding: 0;

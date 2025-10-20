@@ -67,6 +67,25 @@ window.addEventListener('storage', function (e) {
   if (e.key === 'cart') wsUpdateCartBadge();
 });
 
+// --- Light cache-bust for core assets ---
+(function(){
+  var VER = '20251020';
+  function bust(){
+    try {
+      var link = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+        .find(function(l){ return /(^|\/)main\.css($|\?)/.test(l.getAttribute('href')||''); });
+      if (link){
+        var href = link.getAttribute('href');
+        if (href && href.indexOf('v=') === -1){
+          var sep = href.indexOf('?') === -1 ? '?' : '&';
+          link.setAttribute('href', href + sep + 'v=' + VER);
+        }
+      }
+    } catch(e){}
+  }
+  document.addEventListener('DOMContentLoaded', bust);
+})();
+
 // --- Global glyph sanitizer ---
 // Fixes replacement characters (�) that slipped into some content during encoding.
 try {
@@ -218,29 +237,21 @@ try {
       if (!header) return;
       var nav = header.querySelector('nav');
       if (!nav) return;
-      // Prefer explicit cart-icon-link first
-      var link = nav.querySelector('a.cart-icon-link');
-      if (!link) {
-        // Otherwise, find any link to cart.html
-        link = Array.from(nav.querySelectorAll('a')).find(function(a){
-          var href = (a.getAttribute('href')||'');
-          return /(^|\/)cart\.html(\?|$)/i.test(href);
-        });
-      }
+      var link = nav.querySelector('a.cart-icon-link') || Array.from(nav.querySelectorAll('a')).find(function(a){
+        var href = (a.getAttribute('href')||'');
+        return /(^|\/)cart\.html(\?|$)/i.test(href);
+      });
       if (!link) return;
       link.classList.add('cart-icon-link');
-      // Normalize inner markup and badge
-      var badge = link.querySelector('#cart-count-badge');
-      if (!badge) {
-        link.innerHTML = '<span class="cart-icon">Cart <span id="cart-count-badge" class="cart-count-badge">0</span></span>';
-      } else {
-        var label = link.querySelector('.cart-icon');
-        if (!label) {
-          link.innerHTML = 'Cart ' + badge.outerHTML;
-        } else {
-          label.firstChild && (label.firstChild.nodeType===3 ? (label.firstChild.nodeValue='Cart ') : null);
-        }
-      }
+      var canonical = ''+
+        '<span class="cart-icon">'+
+          '<svg class="cart-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+
+            '<path fill="currentColor" d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 .001 3.999A2 2 0 0 0 17 18zM6 6h13l-1.5 7.5H8.2L6.9 4.8 4 4"/>'+
+          '</svg>'+ 
+          '<span class="cart-label">Cart</span>'+ 
+          '<span id="cart-count-badge" class="cart-count-badge">0</span>'+ 
+        '</span>';
+      link.innerHTML = canonical;
       wsUpdateCartBadge();
     } catch(e){}
   }
