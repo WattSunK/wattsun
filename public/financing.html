@@ -268,7 +268,7 @@
 <a href="contact.html">Contact</a>
 <span id="cartLinkWrapper" style="display:none; position: relative;">
   <a href="cart.html" style="position:relative; display:inline-block;">
-    ðŸ›’
+    ›’
     <span id="cartCount" style="font-weight:bold; background:#3E9F50; color:white; padding:2px 6px; border-radius:50%; font-size:0.8em; vertical-align:top;"></span>
     <!-- Desktop badge for cart count -->
     <span class="cart-count-badge" id="cart-count-badge">0</span>
@@ -285,11 +285,11 @@
 <label for="system">Select System Size:</label>
 <select id="system" required="">
 <option value="">-- Select --</option>
-<option value="150000">1 kW â€“ KES 150,000</option>
-<option value="400000">3 kW â€“ KES 400,000</option>
-<option value="700000">6 kW â€“ KES 700,000</option>
-<option value="1050000">9 kW â€“ KES 1,050,000</option>
-<option value="1420000">12â€¯kW â€“ KES 1,420,000</option>
+<option value="150000">1 kW – KES 150,000</option>
+<option value="400000">3 kW – KES 400,000</option>
+<option value="700000">6 kW – KES 700,000</option>
+<option value="1050000">9 kW – KES 1,050,000</option>
+<option value="1420000">12 kW – KES 1,420,000</option>
 </select>
 <label for="deposit">Your Deposit (KES):</label>
 <input id="deposit" min="0" required="" type="number"/>
@@ -301,13 +301,13 @@
 <div class="disclaimer">* This is an indicative estimate. Actual loan terms may vary.</div>
 </div>
 <footer>
-  Â© 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
+  © 2025 WattSun Solar Kenya | <div class="footer-contacts"><a href="mailto:info@wattsun.co.ke">info@wattsun.co.ke</a></div>
 </footer>
 <script>(function(){try{document.querySelectorAll('footer.mobile-nav').forEach(el=>el.remove());var st=document.createElement('style');st.textContent='footer:not(.mobile-nav){display:block !important;}';document.head.appendChild(st);}catch(e){}})();</script>
 <footer class="mobile-nav">
-<a aria-label="Home" href="index.html">ðŸ </a>
-<a aria-label="Account" href="account.html">ðŸ‘¤</a>
-<a aria-label="Cart" href="cart.html">ðŸ›’<span id="cart-count" style="position: absolute; top: 6px; right: 10px; background: red; color: white; font-size: 11px; min-width: 16px; height: 16px; border-radius: 8px; padding: 0 5px; text-align: center; display: flex; align-items: center; justify-content: center;">0</span></a>
+<a aria-label="Home" href="index.html"> </a>
+<a aria-label="Account" href="account.html">‘¤</a>
+<a aria-label="Cart" href="cart.html">›’<span id="cart-count" style="position: absolute; top: 6px; right: 10px; background: red; color: white; font-size: 11px; min-width: 16px; height: 16px; border-radius: 8px; padding: 0 5px; text-align: center; display: flex; align-items: center; justify-content: center;">0</span></a>
 <a aria-label="Menu" href="javascript:void(0);" onclick="document.querySelector('.nav-toggle').click();">â˜°</a>
 </footer>
 <script>
@@ -397,7 +397,7 @@ document.addEventListener("DOMContentLoaded", function () {
       btn.onclick = function() {
         const kit = JSON.parse(localStorage.getItem('loanKit'));
         const cart = JSON.parse(localStorage.getItem('cart')) || [];
-        const name = "Loan Kit â€“ " + kit.system;
+        const name = "Loan Kit – " + kit.system;
         // Find duplicate loan kit in cart (same name, deposit, term, monthly)
         const found = cart.find(item =>
           item.name === name &&
