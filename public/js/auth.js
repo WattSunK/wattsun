@@ -328,3 +328,64 @@ window.addEventListener("DOMContentLoaded", updateLoginUI);
   // Run immediately in case DOM is already ready
   try{ wsOverrideUpdateLoginUI(); }catch{}
 })();
+
+// --- Fallback: Standardize cart icon + provide addToCart if main.js not loaded ---
+(function(){
+  function standardizeCartLink(){
+    try {
+      var nav = document.querySelector('header nav');
+      if (!nav) return;
+      var link = nav.querySelector('a.cart-icon-link') || Array.from(nav.querySelectorAll('a')).find(function(a){
+        var href = (a.getAttribute('href')||'');
+        return /(^|\/)cart\.html(\?|$)/i.test(href);
+      });
+      if (!link) return;
+      link.classList.add('cart-icon-link');
+      var badge = link.querySelector('#cart-count-badge');
+      if (!badge) link.innerHTML = '<span class="cart-icon">Cart <span id="cart-count-badge" class="cart-count-badge">0</span></span>';
+      // Update immediately
+      try { if (typeof wsUpdateCartBadge === 'function') wsUpdateCartBadge(); } catch(e){}
+    } catch(e){}
+  }
+  document.addEventListener('DOMContentLoaded', standardizeCartLink);
+})();
+
+if (typeof window.addToCart !== 'function') {
+  window.addToCart = function(name, price, depositInputId, description){
+    try {
+      var p = Number(price) || 0;
+      var depEl = document.getElementById(depositInputId);
+      var dep = depEl ? parseInt(String(depEl.value||'').replace(/[^\d]/g,''),10) || 0 : 0;
+      var minDep = Math.ceil(p * 0.5);
+      if (dep < minDep) {
+        try {
+          var t = document.getElementById('toast');
+          if (t) { t.textContent = 'Minimum deposit is KES ' + minDep.toLocaleString('en-KE'); t.style.display='block'; setTimeout(function(){ t.style.display='none'; }, 1800); }
+          else alert('Minimum deposit is KES ' + minDep.toLocaleString('en-KE'));
+        } catch(e){ alert('Minimum deposit is KES ' + minDep.toLocaleString('en-KE')); }
+        depEl && depEl.focus();
+        return;
+      }
+      var cart = [];
+      try { cart = JSON.parse(localStorage.getItem('cart')) || []; } catch(e){}
+      cart.push({ name: name, description: description || '', quantity: 1, price: p, deposit: dep });
+      localStorage.setItem('cart', JSON.stringify(cart));
+      try { if (typeof wsUpdateCartBadge === 'function') wsUpdateCartBadge(); else updateCartBadgeFallback(); } catch(e){ updateCartBadgeFallback(); }
+      try {
+        var t2 = document.getElementById('toast');
+        if (t2) { t2.textContent = 'Added to cart!'; t2.style.display='block'; setTimeout(function(){ t2.style.display='none'; }, 1500); }
+        else alert('Added to cart!');
+      } catch(e){ alert('Added to cart!'); }
+    } catch(e) { console.error('addToCart failed', e); }
+  };
+  function updateCartBadgeFallback(){
+    try {
+      var cart = JSON.parse(localStorage.getItem('cart')) || [];
+      var count = cart.reduce(function(sum, item){ return sum + (item.quantity||1); }, 0);
+      var badge = document.getElementById('cart-count-badge');
+      if (badge){ badge.textContent = count; badge.style.display = count>0 ? 'flex' : 'none'; }
+      var mobile = document.getElementById('cart-count');
+      if (mobile){ mobile.textContent = count; }
+    } catch(e){}
+  }
+}

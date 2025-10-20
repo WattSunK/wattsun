@@ -154,3 +154,127 @@ try {
   }
   document.addEventListener('DOMContentLoaded', enhancePackagesTable);
 })();
+
+// --- Rebuild Residential Packages block if markup got corrupted ---
+(function(){
+  function buildPackagesHTML(){
+    return (
+      '<div class="card-table-container">'+
+        '<table class="styled-table">'+
+          '<thead><tr>'+ 
+            '<th>Capacity</th><th>Access (KES)</th><th>Suitable For</th>'+ 
+          '</tr></thead>'+ 
+          '<tbody>'+ 
+            '<tr><td>1 kW</td><td>150,000</td><td>💡 1–2 rooms, 📺 TV, 🔋 phone charging</td></tr>'+ 
+            '<tr><td>3 kW</td><td>400,000</td><td>🏠 Small home, 🧊 fridge, 📺 TV, 🌐 internet</td></tr>'+ 
+            '<tr><td>6 kW</td><td>720,000</td><td>🏠 Full house: appliances, entertainment, 💧 water pump</td></tr>'+ 
+            '<tr><td>9 kW</td><td>1,050,000</td><td>👨‍👩‍👧‍👦 Large family homes, partial A/C</td></tr>'+ 
+            '<tr><td>12 kW</td><td>1,420,000</td><td>🔋 Premium homes, backup + solar split loads</td></tr>'+ 
+          '</tbody>'+ 
+        '</table>'+ 
+        '<div class="card-footer">'+
+          '<a class="loan-btn" href="shop.html">Buy Now</a>'+ 
+          '<p class="table-note">* Prices are estimates for standard hybrid systems. Custom quotes available upon request.</p>'+ 
+        '</div>'+ 
+      '</div>'
+    );
+  }
+  function needsRebuild(container){
+    if (!container) return false;
+    const hasTable = !!container.querySelector('table');
+    if (hasTable) return false;
+    const txt = container.textContent || '';
+    return /Capacity\s+Access\s*\(KES\)\s+Suitable For/.test(txt);
+  }
+  function run(){
+    try{
+      const cards = Array.from(document.querySelectorAll('.section-card'));
+      cards.forEach(function(card){
+        const titleEl = card.querySelector('h2, .centered-section-title');
+        if (!titleEl) return;
+        const title = (titleEl.textContent||'').trim().toLowerCase();
+        if (title !== 'residential solar packages') return;
+
+        let container = card.querySelector('.card-table-container');
+        if (!container){
+          container = document.createElement('div');
+          container.className = 'card-table-container';
+          card.appendChild(container);
+        }
+        if (needsRebuild(container)){
+          container.innerHTML = buildPackagesHTML();
+        }
+      });
+    }catch(e){}
+  }
+  document.addEventListener('DOMContentLoaded', run);
+})();
+
+// --- Standardize Cart Icon across pages ---
+(function(){
+  function standardize() {
+    try {
+      var header = document.querySelector('header');
+      if (!header) return;
+      var nav = header.querySelector('nav');
+      if (!nav) return;
+      // Prefer explicit cart-icon-link first
+      var link = nav.querySelector('a.cart-icon-link');
+      if (!link) {
+        // Otherwise, find any link to cart.html
+        link = Array.from(nav.querySelectorAll('a')).find(function(a){
+          var href = (a.getAttribute('href')||'');
+          return /(^|\/)cart\.html(\?|$)/i.test(href);
+        });
+      }
+      if (!link) return;
+      link.classList.add('cart-icon-link');
+      // Normalize inner markup and badge
+      var badge = link.querySelector('#cart-count-badge');
+      if (!badge) {
+        link.innerHTML = '<span class="cart-icon">Cart <span id="cart-count-badge" class="cart-count-badge">0</span></span>';
+      } else {
+        var label = link.querySelector('.cart-icon');
+        if (!label) {
+          link.innerHTML = 'Cart ' + badge.outerHTML;
+        } else {
+          label.firstChild && (label.firstChild.nodeType===3 ? (label.firstChild.nodeValue='Cart ') : null);
+        }
+      }
+      wsUpdateCartBadge();
+    } catch(e){}
+  }
+  document.addEventListener('DOMContentLoaded', standardize);
+})();
+
+// --- Global Add to Cart (for Shop and others) ---
+window.addToCart = function(name, price, depositInputId, description){
+  try {
+    var p = Number(price) || 0;
+    var depEl = document.getElementById(depositInputId);
+    var dep = depEl ? parseInt(String(depEl.value||'').replace(/[^\d]/g,''),10) || 0 : 0;
+    var minDep = Math.ceil(p * 0.5);
+    if (dep < minDep) {
+      showToast('Minimum deposit is KES ' + minDep.toLocaleString('en-KE'));
+      depEl && depEl.focus();
+      return;
+    }
+    var cart = [];
+    try { cart = JSON.parse(localStorage.getItem('cart')) || []; } catch(e){}
+    cart.push({ name: name, description: description || '', quantity: 1, price: p, deposit: dep });
+    localStorage.setItem('cart', JSON.stringify(cart));
+    wsUpdateCartBadge();
+    showToast('Added to cart!');
+  } catch(e) { console.error('addToCart failed', e); }
+};
+
+function showToast(msg){
+  try {
+    var t = document.getElementById('toast');
+    if (!t){ alert(msg); return; }
+    t.textContent = msg;
+    t.style.display = 'block';
+    t.style.opacity = '1';
+    setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ t.style.display='none'; }, 300); }, 1800);
+  } catch(e){ alert(msg); }
+}
