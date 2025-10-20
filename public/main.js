@@ -114,3 +114,43 @@ try {
     document.querySelectorAll('.feature-icon').forEach(function (el) { el.textContent = '*'; });
   });
 } catch (e) {}
+
+// --- Solutions page enhancements: add emojis + en–dash to packages table ---
+(function(){
+  function headerHas(cols, labels){
+    if (!cols || cols.length < labels.length) return false;
+    const texts = Array.from(cols).map(c=> (c.textContent||'').trim().toLowerCase());
+    return labels.every(l => texts.includes(l.toLowerCase()));
+  }
+  function enhancePackagesTable(){
+    try {
+      const tables = document.querySelectorAll('table.styled-table');
+      tables.forEach(function(tbl){
+        const thead = tbl.querySelector('thead');
+        const tbody = tbl.querySelector('tbody');
+        if (!thead || !tbody) return;
+        const ths = thead.querySelectorAll('th');
+        if (!headerHas(ths, ['Capacity','Access (KES)','Suitable For'])) return;
+
+        const map = {
+          '1 kw': '💡 1–2 rooms, 📺 TV, 🔋 phone charging',
+          '3 kw': '🏠 Small home, 🧊 fridge, 📺 TV, 🌐 internet',
+          '6 kw': '🏠 Full house: appliances, entertainment, 💧 water pump',
+          '9 kw': '👨‍👩‍👧‍👦 Large family homes, partial A/C',
+          '12 kw': '🔋 Premium homes, backup + solar split loads'
+        };
+
+        Array.from(tbody.rows).forEach(function(row){
+          const capCell = row.cells && row.cells[0];
+          const suitCell = row.cells && row.cells[2];
+          if (!capCell || !suitCell) return;
+          const key = (capCell.textContent||'').trim().toLowerCase();
+          if (map[key]) suitCell.textContent = map[key];
+          // ensure 1-2 uses en–dash everywhere
+          suitCell.textContent = suitCell.textContent.replace(/(\b1)-(2\b)/g, '1–2');
+        });
+      });
+    } catch(e){}
+  }
+  document.addEventListener('DOMContentLoaded', enhancePackagesTable);
+})();

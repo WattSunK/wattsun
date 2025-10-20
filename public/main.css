@@ -259,6 +259,8 @@ h2, .centered-section-title {
     border-top-right-radius: 8px;
     font-size: 1.09em;
 }
+.section-card .styled-table thead th { border-radius: 8px; }
+.section-card .styled-table thead th + th { border-left: 2px solid rgba(0,0,0,0.05); }
 .styled-table td {
     padding: 11px 10px;
     border-bottom: 1px solid #f8e7a5;
