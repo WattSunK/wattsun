@@ -1,12 +1,12 @@
 #!/bin/bash
 # ============================================================
-# ⚡ promote_to_qa.sh — Optimized Dev → QA Promotion (Incremental Rsync)
+# ⚡ promote_to_qa.sh — Optimized Dev → QA Promotion (Fast Local Rsync)
 # ============================================================
-# 1️⃣ Fetch latest origin/main (without touching local DEV branches)
-# 2️⃣ Incrementally sync code into QA environment
-# 3️⃣ Copy DEV DB → QA DB (/qa/data/)
-# 4️⃣ Run loyalty_reset.sh qa (cleanup + reseed)
-# 5️⃣ Restart QA backend and verify health
+# 1️⃣ Fetch latest origin/main
+# 2️⃣ Incrementally sync code into QA environment (rsync local mode)
+# 3️⃣ Copy DEV DB → QA DB
+# 4️⃣ Run loyalty_reset.sh qa
+# 5️⃣ Restart QA backend + verify health
 # ============================================================
 
 set -e
@@ -23,7 +23,7 @@ CYAN='\033[1;36m'
 NC='\033[0m'
 
 echo -e "${CYAN}============================================================"
-echo -e "🚀  WattSun — Promote Dev → QA (Optimized Incremental Rsync)"
+echo -e "🚀  WattSun — Promote Dev → QA (Fast Incremental Rsync)"
 echo -e "============================================================${NC}"
 
 # --- Step 1️⃣: Fetch latest main ---
@@ -38,16 +38,26 @@ else
   exit 1
 fi
 
-# --- Step 2️⃣: Incremental Rsync (Main → QA) ---
+# --- Step 2️⃣: Incremental Rsync (local, safe mode) ---
 echo -e "${YELLOW}📦 Syncing origin/main → QA folder (incremental)...${NC}"
-sudo rsync -a --info=progress2 --delete \
+mkdir -p "$QA_ROOT"
+
+RSYNC_CMD="sudo rsync -aHAX --inplace --partial --size-only --no-whole-file \
+  --info=progress2 --delete \
   --exclude='qa/data/' \
   --exclude='qa/logs/' \
   --exclude='qa/run/' \
   --exclude='qa/scripts/' \
   --exclude='.git/' \
   --exclude='node_modules/' \
-  "$ROOT/" "$QA_ROOT/"
+  \"$ROOT/\" \"$QA_ROOT/\""
+
+echo -e "${CYAN}Running: $RSYNC_CMD${NC}"
+eval $RSYNC_CMD || {
+  echo -e "${YELLOW}⚠️ Rsync exited abnormally — retrying once...${NC}"
+  sleep 3
+  eval $RSYNC_CMD || { echo -e "${RED}❌ Rsync failed after retry. Aborting.${NC}"; exit 1; }
+}
 
 sudo chown -R 53Bret:users "$QA_ROOT"
 sudo chmod -R u+rw "$QA_ROOT"
@@ -91,6 +101,7 @@ export DB_PATH_USERS="$QA_DB"
 export SQLITE_DB="$QA_DB"
 export DB_PATH_INVENTORY="$QA_ROOT/data/qa/inventory.qa.db"
 export SQLITE_MAIN="$QA_DB"
+
 sudo bash "$QA_ROOT/scripts/stop_qa.sh" || true
 sudo bash "$QA_ROOT/scripts/start_qa.sh"
 sleep 5
