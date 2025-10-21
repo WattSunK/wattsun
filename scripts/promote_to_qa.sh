@@ -91,8 +91,8 @@ export DB_PATH_USERS="$QA_DB"
 export SQLITE_DB="$QA_DB"
 export DB_PATH_INVENTORY="$QA_ROOT/data/qa/inventory.qa.db"
 export SQLITE_MAIN="$QA_DB"
-sudo bash "$QA_ROOT/scripts/stop_qa.sh" || true
-sudo bash "$QA_ROOT/scripts/start_qa.sh"
+sudo bash /volume1/web/wattsun/scripts/stop_qa.sh || true
+sudo bash /volume1/web/wattsun/scripts/start_qa.sh
 sleep 5
 
 # --- Step 6️⃣: Verify Health ---
