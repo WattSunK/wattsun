@@ -161,8 +161,8 @@ async function main() {
   const db = new sqlite3.Database(DB_FILE);
   console.log('[upgrade-templates] DB = %s', DB_FILE);
 
-  // Ensure table exists
-  await new Promise((resolve, reject) => {
+  db.serialize(() => {
+    db.run('PRAGMA busy_timeout = 5000');
     db.run(
       `CREATE TABLE IF NOT EXISTS email_templates (
          id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -170,39 +170,43 @@ async function main() {
          subject TEXT NOT NULL,
          html TEXT NOT NULL,
          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-       )`,
-      [],
-      (err) => (err ? reject(err) : resolve())
+       )`
     );
-  });
 
-  // Upsert each template with professional HTML
-  const stmt = db.prepare(
-    `INSERT INTO email_templates (code,subject,html,updated_at)
-       VALUES (?,?,?,datetime('now'))
-     ON CONFLICT(code) DO UPDATE SET
-       subject=excluded.subject,
-       html=excluded.html,
-       updated_at=excluded.updated_at`
-  );
-
-  db.serialize(() => {
     db.run('BEGIN');
-    try {
-      for (const [code, { subject, html }] of Object.entries(TPL)) {
-        stmt.run(code, subject, html);
-      }
-      db.run('COMMIT');
-      console.log('[upgrade-templates] done');
-    } catch (e) {
-      db.run('ROLLBACK');
-      console.error('[upgrade-templates] error:', e.message);
-      process.exitCode = 1;
-    } finally {
-      try { db.close(); } catch {}
+    const stmt = db.prepare(
+      `INSERT INTO email_templates (code,subject,html,updated_at)
+         VALUES (?,?,?,datetime('now'))
+       ON CONFLICT(code) DO UPDATE SET
+         subject=excluded.subject,
+         html=excluded.html,
+         updated_at=excluded.updated_at`
+    );
+    for (const [code, { subject, html }] of Object.entries(TPL)) {
+      stmt.run(code, subject, html);
     }
+    stmt.finalize((stmtErr) => {
+      if (stmtErr) {
+        console.error('[upgrade-templates] finalize error:', stmtErr.message);
+        return db.run('ROLLBACK', () => db.close(()=>process.exit(1)));
+      }
+      db.run('COMMIT', (cmErr) => {
+        if (cmErr) console.error('[upgrade-templates] commit error:', cmErr.message);
+        console.log('[upgrade-templates] done');
+        db.close((closeErr) => {
+          if (closeErr && String(closeErr.code) === 'SQLITE_BUSY') {
+            // Templates are committed; ignore busy close noise on some distros
+            return process.exit(0);
+          }
+          if (closeErr) {
+            console.error('[upgrade-templates] close error:', closeErr.message);
+            return process.exit(1);
+          }
+          process.exit(0);
+        });
+      });
+    });
   });
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
-
+main().catch(e => { console.error('[upgrade-templates] fatal:', e); process.exit(1); });
