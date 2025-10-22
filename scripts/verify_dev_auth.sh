@@ -7,7 +7,17 @@ PORT=3001
 BASE_URL="http://127.0.0.1:$PORT"
 EMAIL="dev_autotest@example.com"
 PHONE="+254799000111"
-PASS="Pass123"
+# Load password from Dev env
+PASS=""
+if [ -f "/volume1/web/wattsun/.env" ]; then
+  # shellcheck disable=SC1091
+  set -a; . "/volume1/web/wattsun/.env"; set +a
+  PASS="${SANITY_PASSWORD:-${ADMIN_BOOTSTRAP_PASSWORD:-}}"
+fi
+if [ -z "$PASS" ]; then
+  echo "[dev] ERROR: No SANITY_PASSWORD/ADMIN_BOOTSTRAP_PASSWORD in /volume1/web/wattsun/.env"
+  exit 1
+fi
 TMP="/tmp/dev_auth_test.json"
 
 echo "==========================================================="

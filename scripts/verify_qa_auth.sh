@@ -7,7 +7,20 @@ PORT=3000
 BASE_URL="http://127.0.0.1:$PORT"
 EMAIL="qa_autotest@example.com"
 PHONE="+254799000222"
-PASS="Pass123"
+# Load password from QA env file(s)
+PASS=""
+for F in "/volume1/web/wattsun/qa/.env.qa" "/volume1/web/wattsun/.env.qa"; do
+  if [ -z "$PASS" ] && [ -f "$F" ]; then
+    # shellcheck disable=SC1090
+    set -a; . "$F"; set +a
+    PASS="${SANITY_PASSWORD:-${ADMIN_BOOTSTRAP_PASSWORD:-}}"
+  fi
+done
+if [ -z "$PASS" ]; then
+  echo "[qa] ERROR: No SANITY_PASSWORD/ADMIN_BOOTSTRAP_PASSWORD found in QA env (.env.qa)."
+  echo "      Set SANITY_PASSWORD in /volume1/web/wattsun/.env.qa"
+  exit 1
+fi
 TMP="/tmp/qa_auth_test.json"
 
 echo "==========================================================="
