@@ -45,7 +45,8 @@ function requestReset(req, res) {
     if (info.changes === 0) {
       return res.status(404).json({ ok: false, error: "Email not found" });
     }
-    return res.json({ ok: true, token, expires: expiry }); // dev: token included
+    // Do not leak reset token in API response
+    return res.json({ ok: true, expires: expiry });
   } catch (e) {
     console.error("[reset] request error:", e);
     return res.status(500).json({ ok: false, error: "Database error" });

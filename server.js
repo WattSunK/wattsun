@@ -166,6 +166,51 @@ app.use((req, _res, next) => {
   next();
 });
 
+// Basic security headers (helmet-lite without dependency)
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  // Allow inline styles used across pages, but keep scripts to self + inline due to existing inline scripts.
+  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+  if ((process.env.NODE_ENV || '').toLowerCase() === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+  }
+  next();
+});
+
+/* =========================
+   Lightweight rate limiting (per IP, in-memory)
+   ========================= */
+function makeRateLimiter({ windowMs = 60_000, max = 10, key = (req)=> (req.headers['x-forwarded-for'] || req.ip || 'unknown') }){
+  const hits = new Map(); // key -> { count, ts }
+  return function limiter(req, res, next){
+    const k = typeof key === 'function' ? key(req) : key;
+    const now = Date.now();
+    const slot = hits.get(k);
+    if (!slot || (now - slot.ts) > windowMs) {
+      hits.set(k, { count: 1, ts: now });
+      return next();
+    }
+    if (slot.count >= max) {
+      const retry = Math.ceil((slot.ts + windowMs - now)/1000);
+      res.setHeader('Retry-After', String(Math.max(retry,1)));
+      return res.status(429).json({ success:false, error:{ code:'RATE_LIMIT', message:'Too many requests. Please try again shortly.' } });
+    }
+    slot.count++;
+    next();
+  };
+}
+
+// Apply targeted limits
+const limitLogin   = makeRateLimiter({ windowMs: 10 * 60_000, max: 10 });    // 10 per 10 minutes per IP
+const limitReset   = makeRateLimiter({ windowMs: 60 * 60_000, max: 5 });     // 5 per hour per IP
+const limitContact = makeRateLimiter({ windowMs: 60 * 60_000, max: 20 });    // 20 per hour per IP
+
+app.use('/api/login', limitLogin);
+app.use('/api/reset', limitReset);          // covers /reset, /reset-request, /reset/confirm, /reset-confirm
+app.use('/api/contact', limitContact);
+
 // Normalize session fields so checks work everywhere (older code used “type”, some used “role”)
 app.use((req, _res, next) => {
   const u = req.session?.user;
@@ -186,9 +231,6 @@ app.get("/api/_whoami", (req, res) => {
    ========================= */
 
 function requireAdmin(req, res, next) {
-  // Let diagnostics under /api/admin/_diag pass without auth
-  if (req.path && req.path.startsWith("/_diag")) return next();
-
   const u = req.session?.user || req.user || null;
   const isAdmin = !!u && (u.type === "Admin" || u.role === "Admin");
   if (!isAdmin) {
@@ -265,7 +307,7 @@ app.use("/api/admin/loyalty", require("./routes/admin-loyalty"));
 app.use("/api/admin", require("./routes/admin-loyalty-withdrawals"));
 
 // Diagnostics (left open by gate’s exception)
-app.use("/api/admin/_diag", require("./routes/admin-diagnostics"));
+// app.use("/api/admin/_diag", require("./routes/admin-diagnostics")); // removed
 
 // Optional: orders meta endpoint (kept where clients expect it)
 app.use("/api/admin/orders/meta", require("./routes/admin-orders-meta"));

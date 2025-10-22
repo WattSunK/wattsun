@@ -206,22 +206,44 @@ footer {
       const items = await res.json();
       box.innerHTML = "";
       items.forEach((prod, idx) => {
-        const img = prod.image ? "/images/products/" + prod.image : "/images/placeholder.jpg";
+        const imgPath = prod.image ? "/images/products/" + prod.image : "/images/placeholder.jpg";
         const price = parsePrice(prod.price);
         const id = "dep_" + idx;
-        const card = document.createElement("div");
-        card.className = "product-card";
-        const safeDesc = (prod.description || "").replace(/'/g, "");
-        card.innerHTML = `
-          <img src="${img}" alt="${prod.name}" onerror="this.src='/images/placeholder.jpg'" />
-          <div class="product-info">
-            <h3>${prod.name}</h3>
-            <p>${prod.description}</p>
-            <p>Total Price: KES ${price.toLocaleString()}</p>
-          </div>
-          <input id="${id}" placeholder="Enter your deposit (KES)" type="number"/>
-          <button class="loan-btn" onclick="addToCart('${prod.name}', ${price}, '${id}', '${safeDesc}')">Add to Cart</button>
-        `;
+
+        const card = document.createElement('div');
+        card.className = 'product-card';
+
+        const img = document.createElement('img');
+        img.src = imgPath;
+        img.alt = String(prod.name || 'Product');
+        img.onerror = function(){ this.src='/images/placeholder.jpg'; };
+        card.appendChild(img);
+
+        const info = document.createElement('div');
+        info.className = 'product-info';
+        const h3 = document.createElement('h3');
+        h3.textContent = String(prod.name || '');
+        const pDesc = document.createElement('p');
+        pDesc.textContent = String(prod.description || '');
+        const pTotal = document.createElement('p');
+        pTotal.textContent = 'Total Price: KES ' + price.toLocaleString();
+        info.appendChild(h3);
+        info.appendChild(pDesc);
+        info.appendChild(pTotal);
+        card.appendChild(info);
+
+        const input = document.createElement('input');
+        input.id = id;
+        input.type = 'number';
+        input.placeholder = 'Enter your deposit (KES)';
+        card.appendChild(input);
+
+        const btn = document.createElement('button');
+        btn.className = 'loan-btn';
+        btn.textContent = 'Add to Cart';
+        btn.addEventListener('click', () => addToCart(String(prod.name||''), price, id, String(prod.description||'')));
+        card.appendChild(btn);
+
         box.appendChild(card);
       });
     } catch (e) {
