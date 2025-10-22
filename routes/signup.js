@@ -33,6 +33,15 @@ router.post(["/", "/signup"], (req, res) => {
       return res.status(400).json({ success: false, error: { code: "MISSING_FIELDS", message: "Missing email or password" } });
     }
 
+    // Enforce strong password policy if enabled
+    try {
+      const row = db.prepare("SELECT value FROM admin_settings WHERE key='enforce_strong_passwords' LIMIT 1").get();
+      const enforce = !row || /(1|true|yes)/i.test(String(row.value || '1'));
+      if (enforce && !isStrongPassword(password)) {
+        return res.status(400).json({ success: false, error: { code: "WEAK_PASSWORD", message: "Password must be at least 8 characters and include upper, lower, and a number" } });
+      }
+    } catch (_) {}
+
     const hashedPassword = hashPassword(password);
 
     // Check if user already exists by email (case-insensitive) or phone
@@ -57,4 +66,11 @@ router.post(["/", "/signup"], (req, res) => {
 });
 
 module.exports = router;
-
+function isStrongPassword(pw) {
+  if (typeof pw !== 'string') return false;
+  if (pw.length < 8) return false;
+  const hasLower = /[a-z]/.test(pw);
+  const hasUpper = /[A-Z]/.test(pw);
+  const hasDigit = /\d/.test(pw);
+  return hasLower && hasUpper && hasDigit;
+}

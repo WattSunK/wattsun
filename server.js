@@ -133,14 +133,38 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Load session timeout from admin_settings, default to 5 minutes (min 5)
+let sessionTimeoutMinutes = 5;
+try {
+  const row = sqliteDb.prepare("SELECT value FROM admin_settings WHERE key='session_timeout_minutes' LIMIT 1").get();
+  if (row && row.value != null) {
+    const n = Number(row.value);
+    if (Number.isFinite(n)) sessionTimeoutMinutes = Math.max(5, Math.floor(n));
+  }
+} catch (_) {}
+const SESSION_MAX_AGE_MS = sessionTimeoutMinutes * 60 * 1000;
+app.set('sessionMaxAgeMs', SESSION_MAX_AGE_MS);
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "wattsecret",
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false }, // set true only behind HTTPS + proxy
+    rolling: true,
+    cookie: { secure: false, sameSite: 'lax', maxAge: SESSION_MAX_AGE_MS }, // set secure true when behind HTTPS
   })
 );
+
+// Keep cookie expiry aligned if admin updates the timeout at runtime
+app.use((req, _res, next) => {
+  try {
+    const ms = app.get('sessionMaxAgeMs');
+    if (req.session && ms && Number.isFinite(ms)) {
+      req.session.cookie.maxAge = ms;
+    }
+  } catch (_) {}
+  next();
+});
 
 // Normalize session fields so checks work everywhere (older code used “type”, some used “role”)
 app.use((req, _res, next) => {

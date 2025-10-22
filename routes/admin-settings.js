@@ -70,6 +70,53 @@ router.put("/settings", (req, res) => {
 });
 
 // ------------------------------------------------------------
+// Security / User Management settings
+//   - enforce_strong_passwords (0|1)
+//   - allow_password_reset (0|1)
+//   - session_timeout_minutes (integer, minimum 5)
+// ------------------------------------------------------------
+
+router.get("/security", (_req, res) => {
+  ensureTable();
+  const keys = ["enforce_strong_passwords", "allow_password_reset", "session_timeout_minutes"];
+  const m = getMap(keys);
+  const minutes = Math.max(5, Number(m.session_timeout_minutes || 5));
+  res.json({
+    success: true,
+    security: {
+      enforceStrongPasswords: /(1|true|yes)/i.test(m.enforce_strong_passwords || "1"),
+      allowPasswordReset: /(1|true|yes)/i.test(m.allow_password_reset || "1"),
+      sessionTimeoutMinutes: minutes,
+    }
+  });
+});
+
+router.put("/security", (req, res) => {
+  ensureTable();
+  const b = req.body || {};
+
+  if (b.enforceStrongPasswords !== undefined) {
+    upsert("enforce_strong_passwords", (/^(true|1|yes)$/i.test(String(b.enforceStrongPasswords)) ? 1 : 0));
+  }
+  if (b.allowPasswordReset !== undefined) {
+    upsert("allow_password_reset", (/^(true|1|yes)$/i.test(String(b.allowPasswordReset)) ? 1 : 0));
+  }
+  if (b.sessionTimeoutMinutes !== undefined) {
+    let mins = Number(b.sessionTimeoutMinutes);
+    if (!Number.isFinite(mins)) return res.status(400).json({ success:false, error:{ code:"BAD_INPUT", message:"sessionTimeoutMinutes must be a number" } });
+    if (mins < 5) mins = 5; // enforce minimum 5 minutes
+    upsert("session_timeout_minutes", mins);
+    try {
+      const ms = mins * 60 * 1000;
+      // allow server to adopt new timeout for subsequent requests
+      req.app?.set && req.app.set('sessionMaxAgeMs', ms);
+    } catch (_) {}
+  }
+
+  return res.json({ success: true });
+});
+
+// ------------------------------------------------------------
 // Company Information (Company Name, Support Email/Phone, Address)
 // ------------------------------------------------------------
 

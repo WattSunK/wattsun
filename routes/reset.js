@@ -26,6 +26,12 @@ function hashPassword(password) {
 }
 
 function requestReset(req, res) {
+  // Check if password resets are allowed (default: true)
+  try {
+    const row = db.prepare("SELECT value FROM admin_settings WHERE key='allow_password_reset' LIMIT 1").get();
+    const allowed = !row || /(1|true|yes)/i.test(String(row.value || '1'));
+    if (!allowed) return res.status(403).json({ ok: false, error: "Password reset is disabled by admin" });
+  } catch(_) {}
   const email = (req.body?.email ?? "").toString().trim().toLowerCase();
   if (!email) return res.status(400).json({ ok: false, error: "Missing email" });
 
@@ -47,6 +53,12 @@ function requestReset(req, res) {
 }
 
 function confirmReset(req, res) {
+  // Gate reset confirmation if disabled
+  try {
+    const row = db.prepare("SELECT value FROM admin_settings WHERE key='allow_password_reset' LIMIT 1").get();
+    const allowed = !row || /(1|true|yes)/i.test(String(row.value || '1'));
+    if (!allowed) return res.status(403).json({ ok: false, error: "Password reset is disabled by admin" });
+  } catch(_) {}
   const token = (req.body?.token ?? "").toString().trim();
   const password = (req.body?.password ?? "").toString();
   if (!token || !password)
@@ -82,4 +94,3 @@ router.post("/reset-request", requestReset);
 router.post("/reset-confirm", confirmReset);
 
 module.exports = router;
-
