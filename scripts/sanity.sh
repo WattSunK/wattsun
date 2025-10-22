@@ -15,8 +15,14 @@ fi
 # Ensure logged in (cookies.t in cwd)
 if [[ ! -f cookies.t ]]; then
   echo "Logging in (cookies.t not found)..."
+  EMAIL="${SANITY_EMAIL:-${ADMIN_BOOTSTRAP_EMAIL:-}}"
+  PASS="${SANITY_PASSWORD:-${ADMIN_BOOTSTRAP_PASSWORD:-}}"
+  if [[ -z "$EMAIL" || -z "$PASS" ]]; then
+    echo "Set SANITY_EMAIL and SANITY_PASSWORD in your environment before running."
+    exit 1
+  fi
   curl -s -c cookies.t -H 'Content-Type: application/json' \
-    -d '{"email":"skamunyu@gmail.com","password":"Pass123"}' \
+    -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}" \
     "$API/api/login" >/dev/null || { echo "Login failed"; exit 1; }
 fi
 

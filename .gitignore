@@ -6,6 +6,12 @@ run/*
 !run/.gitkeep
 .env
 .env.*
+env
+ssl/
+.cloudflared/
+infra/cloudflared/*.json
+**/token.txt
+cookies.t
 public/uploads/
 public/images/products/
 *.sqlite
