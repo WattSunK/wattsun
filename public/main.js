@@ -288,3 +288,33 @@ function showToast(msg){
     setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ t.style.display='none'; }, 300); }, 1800);
   } catch(e){ alert(msg); }
 }
+
+// --- Company email hydrator for public pages ---
+(function(){
+  async function hydrateEmail(){
+    try{
+      const r = await fetch('/api/public/company', { credentials:'same-origin' });
+      if(!r.ok) return;
+      const j = await r.json();
+      const email = j && j.company && j.company.supportEmail ? j.company.supportEmail : '';
+      if(!email) return;
+
+      // Explicit markers
+      document.querySelectorAll('a[data-company-email]').forEach(function(a){
+        a.setAttribute('href', 'mailto:' + email);
+        var txt = (a.textContent||'').trim();
+        if(!txt || txt.indexOf('@') !== -1) a.textContent = email;
+      });
+
+      // Common footer anchors and any mailto:info/support
+      function updateAnchor(a){ if(!a) return; a.href = 'mailto:' + email; var t=(a.textContent||'').trim(); if(!t || t.indexOf('@')!==-1) a.textContent = email; }
+      document.querySelectorAll('.footer-contacts a[href^="mailto:"]').forEach(updateAnchor);
+      document.querySelectorAll('a[href^="mailto:info@"], a[href^="mailto:support@"]').forEach(updateAnchor);
+
+      // Specific element id if present
+      var byId = document.getElementById('contactEmail');
+      if (byId) updateAnchor(byId);
+    }catch(_){ /* silent */ }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hydrateEmail); else hydrateEmail();
+})();

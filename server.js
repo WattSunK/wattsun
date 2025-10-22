@@ -305,6 +305,33 @@ app.post("/api/contact", async (req, res) => {
   }
 });
 
+// Public company info (no auth). Used by public pages to hydrate mailto, etc.
+app.get("/api/public/company", async (_req, res) => {
+  try {
+    const rows = await db("admin_settings").whereIn("key", [
+      "company_name",
+      "support_email",
+      "support_phone",
+      "physical_address",
+      "alerts_email",
+      "admin_email"
+    ]);
+    const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
+    const supportEmail = map.support_email || map.alerts_email || map.admin_email || "";
+    res.json({
+      success: true,
+      company: {
+        companyName: map.company_name || "WattSun Solar",
+        supportEmail,
+        supportPhone: map.support_phone || "",
+        physicalAddress: map.physical_address || "",
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ success:false, error: 'SERVER_ERROR' });
+  }
+});
+
 app.get("/api/admin/email", async (_req, res) => {
   try {
     const email = await getAdminEmail();
