@@ -69,5 +69,48 @@ router.put("/settings", (req, res) => {
   return res.json({ success: true });
 });
 
-module.exports = router;
+// ------------------------------------------------------------
+// Company Information (Company Name, Support Email/Phone, Address)
+// ------------------------------------------------------------
 
+router.get("/company", (_req, res) => {
+  ensureTable();
+  const keys = ["company_name", "support_email", "support_phone", "physical_address"];
+  const m = getMap(keys);
+  const out = {
+    companyName: m.company_name || "WattSun Solar",
+    supportEmail: m.support_email || "",
+    supportPhone: m.support_phone || "",
+    physicalAddress: m.physical_address || ""
+  };
+  res.json({ success: true, company: out });
+});
+
+router.put("/company", (req, res) => {
+  ensureTable();
+  const b = req.body || {};
+  const companyName = b.companyName != null ? String(b.companyName).trim() : undefined;
+  const supportEmail = b.supportEmail != null ? String(b.supportEmail).trim() : undefined;
+  const supportPhone = b.supportPhone != null ? String(b.supportPhone).trim() : undefined;
+  const physicalAddress = b.physicalAddress != null ? String(b.physicalAddress).trim() : undefined;
+
+  if (supportEmail !== undefined && supportEmail && !supportEmail.includes("@")) {
+    return res.status(400).json({ success:false, error:{ code:"BAD_EMAIL", message:"supportEmail must be a valid email" } });
+  }
+
+  try {
+    if (companyName !== undefined) upsert("company_name", companyName);
+    if (supportEmail !== undefined) {
+      upsert("support_email", supportEmail);
+      // Mirror to admin_email for legacy readers
+      if (supportEmail) upsert("admin_email", supportEmail);
+    }
+    if (supportPhone !== undefined) upsert("support_phone", supportPhone);
+    if (physicalAddress !== undefined) upsert("physical_address", physicalAddress);
+    return res.json({ success: true });
+  } catch (e) {
+    return res.status(500).json({ success:false, error:{ code:"SERVER_ERROR", message:e.message } });
+  }
+});
+
+module.exports = router;

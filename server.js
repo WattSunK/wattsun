@@ -256,8 +256,10 @@ app.use("/api", require("./routes/users")); // user CRUD + /users/me
 // Contact form helpers (safe mailer)
 async function getAdminEmail() {
   try {
-    const row = await db("admin_settings").where({ key: "admin_email" }).first();
-    return row ? row.value : null;
+    // Prefer support_email, fallback to alerts_email, then admin_email
+    const rows = await db("admin_settings").whereIn("key", ["support_email", "alerts_email", "admin_email"]);
+    const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
+    return map.support_email || map.alerts_email || map.admin_email || null;
   } catch {
     return null;
   }

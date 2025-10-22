@@ -322,16 +322,62 @@
 <!-- Page script (only minimal wiring for demo actions; real save hooks can be added later) -->
 <script>
   (function () {
-    function toast(msg) { console.log('[settings]', msg); }
+    function toast(msg, type){
+      try {
+        if (typeof window.toast === 'function') return window.toast(msg, type || 'info');
+      } catch (_) {}
+      console.log('[settings]', msg);
+    }
     function confirmDo(msg, fn) { if (confirm(msg)) fn(); }
 
     // Generic header refresh
     document.getElementById('btnSettingsRefresh')?.addEventListener('click', () => {
-      toast('Refreshing…'); location.reload();
+      const active = document.querySelector('.admin-nav .nav-link.is-active');
+      const id  = active?.getAttribute('data-partial') || 'settings';
+      const url = active?.getAttribute('data-url') || '/partials/settings.html';
+      if (window.AdminSkin && typeof window.AdminSkin.loadPartial === 'function') {
+        window.AdminSkin.loadPartial(id, url);
+      } else {
+        location.reload();
+      }
     });
 
-    // Company Info
-    document.getElementById('btnSaveCompany')?.addEventListener('click', () => toast('Company info saved.'));
+    // Company Info — hydrate from server and save
+    (async function initCompany(){
+      try {
+        const res = await fetch('/api/admin/company', { credentials: 'include' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const j = await res.json();
+        const c = j.company || {};
+        const s = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = String(v); };
+        s('companyName', c.companyName);
+        s('supportEmail', c.supportEmail);
+        s('supportPhone', c.supportPhone);
+        s('physicalAddress', c.physicalAddress);
+      } catch (e) { console.warn('[settings] load company:', e.message); }
+    })();
+
+    document.getElementById('btnSaveCompany')?.addEventListener('click', async () => {
+      try {
+        const payload = {
+          companyName: document.getElementById('companyName')?.value?.trim() || '',
+          supportEmail: document.getElementById('supportEmail')?.value?.trim() || '',
+          supportPhone: document.getElementById('supportPhone')?.value?.trim() || '',
+          physicalAddress: document.getElementById('physicalAddress')?.value?.trim() || ''
+        };
+        if (payload.supportEmail && !payload.supportEmail.includes('@')) {
+          toast('Please enter a valid Support Email.','error');
+          return;
+        }
+        const res = await fetch('/api/admin/company', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        toast('Company info saved.','success');
+      } catch (e) {
+        toast('Save failed: ' + (e.message || e), 'error');
+      }
+    });
 
     // User Mgmt
     document.getElementById('btnSaveUserMgmt')?.addEventListener('click', () => toast('User management saved.'));
@@ -365,17 +411,17 @@
           method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload)
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        toast('Notifications saved.');
+        toast('Notifications saved.','success');
       } catch (e) {
-        alert('Save failed: ' + (e.message || e));
+        toast('Save failed: ' + (e.message || e), 'error');
       }
     });
 
     // Integrations
-    document.getElementById('btnSaveIntegrations')?.addEventListener('click', () => toast('Integrations saved.'));
+    document.getElementById('btnSaveIntegrations')?.addEventListener('click', () => toast('Integrations saved.','success'));
 
     // Appearance
-    document.getElementById('btnSaveAppearance')?.addEventListener('click', () => toast('Appearance saved.'));
+    document.getElementById('btnSaveAppearance')?.addEventListener('click', () => toast('Appearance saved.','success'));
 
     // System Controls
     document.getElementById('btnBackup')?.addEventListener('click', () => alert('Backup started.'));
