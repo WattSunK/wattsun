@@ -1,8 +1,14 @@
 #!/bin/bash
 # ===========================================
-# ♻️ Restart WattSun QA Environment
+# Restart WattSun QA Environment
 # ===========================================
+set -euo pipefail
 
-"$(dirname "$0")/stop_qa.sh" || true
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+echo "[qa] restarting..."
+"$HERE/stop_qa.sh" || true
 sleep 1
-"$(dirname "$0")/start_qa.sh"
+"$HERE/start_qa.sh"
+echo "[qa] restart invoked; check /volume1/web/wattsun/qa/logs/app.out"
+
