@@ -269,6 +269,74 @@ async function updateDispatch(req, res) {
     }
 
     const fresh = await getAsync("SELECT * FROM dispatches WHERE id = ?", [id]);
+
+    // When a dispatch is marked Delivered, enqueue notifications (admin + customer)
+    try {
+      if (normalizedStatus && nextStatus !== prevStatus && nextStatus === "Delivered") {
+        // Resolve order details
+        const order = await getAsync(
+          `SELECT id, orderNumber, email, fullName FROM orders WHERE id = ? OR orderNumber = ? LIMIT 1`,
+          [existing.order_id, existing.order_id]
+        );
+
+        if (order) {
+          // Load admin notification settings
+          try { db.prepare(`CREATE TABLE IF NOT EXISTS admin_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')))`).run(); } catch (_) {}
+          let notifyDelivered = true;
+          let alertsEmail = null;
+          try {
+            const rows = db.prepare(`SELECT key,value FROM admin_settings WHERE key IN ('notify_order_delivered','alerts_email','admin_email')`).all();
+            const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
+            notifyDelivered = /(1|true|yes)/i.test(map.notify_order_delivered || '1');
+            alertsEmail = map.alerts_email || map.admin_email || process.env.SMTP_USER || null;
+          } catch (_) { /* ignore */ }
+
+          const payloadBase = {
+            id: order.id || order.orderNumber,
+            orderNumber: order.orderNumber || order.id,
+            name: order.fullName || '',
+            deliveredAt: new Date().toISOString(),
+          };
+
+          // Flexible insert (with or without dedupe_key)
+          const hasDedupe = (() => {
+            try {
+              const cols = db.prepare("PRAGMA table_info(notifications_queue)").all();
+              return Array.isArray(cols) && cols.some(c => c.name === 'dedupe_key');
+            } catch { return false; }
+          })();
+
+          const insertWithDedupe = (email, roleKey) => {
+            const k = `order_delivered_${roleKey}_${payloadBase.orderNumber}`;
+            db.prepare(
+              `INSERT OR IGNORE INTO notifications_queue (kind, user_id, email, payload, status, dedupe_key)
+               VALUES ('order_delivered', NULL, ?, ?, 'Queued', ?)`
+            ).run(email, JSON.stringify({ ...payloadBase, role: roleKey }), k);
+          };
+          const insertBasic = (email, roleKey) => {
+            db.prepare(
+              `INSERT INTO notifications_queue (kind, user_id, email, payload, status)
+               VALUES ('order_delivered', NULL, ?, ?, 'Queued')`
+            ).run(email, JSON.stringify({ ...payloadBase, role: roleKey }));
+          };
+
+          // Customer copy
+          if (order.email) {
+            if (hasDedupe) insertWithDedupe(order.email, 'customer');
+            else insertBasic(order.email, 'customer');
+          }
+
+          // Admin copy (controlled by notify_order_delivered)
+          if (alertsEmail && notifyDelivered) {
+            if (hasDedupe) insertWithDedupe(alertsEmail, 'admin');
+            else insertBasic(alertsEmail, 'admin');
+          }
+        }
+      }
+    } catch (notifyErr) {
+      console.warn('[admin-dispatch] delivered notify warning:', notifyErr.message);
+    }
+
     return res.json({ success: true, dispatch: fresh, history: histRow });
   } catch (err) {
     console.error("[admin-dispatch:update]", err);
@@ -280,4 +348,3 @@ async function updateDispatch(req, res) {
 router.patch("/:id", updateDispatch);
 
 module.exports = router;
-

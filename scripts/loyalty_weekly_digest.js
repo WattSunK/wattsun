@@ -3,14 +3,61 @@
  * scripts/loyalty_weekly_digest.js
  *
  * Adds note to weekly digests and safely ensures the note column exists.
+ *
+ * Enhancements:
+ *  - `--db <path>` flag to pick DB explicitly
+ *  - Defaults DB by env: SQLITE_DB/DB_PATH_USERS > NODE_ENV(qa/dev)
+ *  - Detects ledger timestamp column: `ts` or `created_at`
  */
 
+const fs = require("fs");
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
-require("dotenv").config();
 
-const DB = process.env.SQLITE_DB || path.join(process.cwd(), "data/dev", "wattsun.dev.db");
+// Load .env and optional overlay file at ./env or ENV_FILE
+function loadEnv() {
+  try { require("dotenv").config(); } catch (_) {}
+  const candidate = process.env.ENV_FILE || path.join(process.cwd(), "env");
+  if (fs.existsSync(candidate)) {
+    try { require("dotenv").config({ path: candidate, override: true }); } catch (_) {}
+  }
+}
+loadEnv();
+
+function parseArgs(argv) {
+  let db = null;
+  for (let i = 2; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--db" && argv[i + 1]) { db = argv[++i]; continue; }
+    if (a.startsWith("--db=")) { db = a.split("=", 2)[1]; continue; }
+  }
+  return { db };
+}
+
+function resolveDbPath() {
+  const { db } = parseArgs(process.argv);
+  if (db) return db;
+  if (process.env.SQLITE_DB) return process.env.SQLITE_DB;
+  if (process.env.DB_PATH_USERS) return process.env.DB_PATH_USERS;
+  const ROOT = process.env.ROOT || process.cwd();
+  const env = String(process.env.NODE_ENV || "").toLowerCase();
+  if (env === "qa") return path.join(ROOT, "data/qa/wattsun.qa.db");
+  return path.join(ROOT, "data/dev/wattsun.dev.db");
+}
+
+const DB = resolveDbPath();
 const db = new sqlite3.Database(DB);
+
+async function detectLedgerTsColumn() {
+  return new Promise((resolve) => {
+    db.all("PRAGMA table_info(loyalty_ledger);", [], (err, rows) => {
+      if (err) return resolve("ts");
+      const hasTs = rows.some((r) => r.name === "ts");
+      const hasCreatedAt = rows.some((r) => r.name === "created_at");
+      resolve(hasTs ? "ts" : (hasCreatedAt ? "created_at" : "ts"));
+    });
+  });
+}
 
 function ensureNoteColumn(callback) {
   db.get("PRAGMA table_info(notifications_queue);", (err, row) => {
@@ -25,16 +72,17 @@ function ensureNoteColumn(callback) {
   });
 }
 
-function main() {
+async function main() {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   console.log(`[weekly_digest] DB = ${DB}`);
   console.log(`[weekly_digest] since = ${since}`);
+  const tsCol = await detectLedgerTsColumn();
 
   db.all(
     `SELECT la.id AS account_id, la.user_id, u.email, la.points_balance AS balance, IFNULL(SUM(ll.points_delta), 0) AS weeklyPoints
      FROM loyalty_accounts la
      JOIN users u ON u.id = la.user_id
-     LEFT JOIN loyalty_ledger ll ON ll.account_id = la.id AND ll.created_at >= ?
+     LEFT JOIN loyalty_ledger ll ON ll.account_id = la.id AND ll.${tsCol} >= ?
      WHERE la.status='Active'
      GROUP BY la.id`,
     [since],

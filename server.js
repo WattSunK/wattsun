@@ -226,6 +226,7 @@ app.use("/api/admin", requireAdmin);
 // Orders (SQL, better-sqlite3)
 
 app.use("/api/admin/orders", require("./routes/admin-orders"));
+app.use("/api/admin", require("./routes/admin-settings"));
 
 
 // Dispatches (SQL)

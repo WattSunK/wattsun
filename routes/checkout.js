@@ -57,27 +57,51 @@ router.post("/", (req, res) => {
         .run(depositCents, createdAt, orderId);
 
       try {
-        const nq = db.prepare(
-          `INSERT OR IGNORE INTO notifications_queue (kind, user_id, email, payload, status, dedupe_key)
-           VALUES (?, ?, ?, ?, ?, ?)`
-        );
+        // Resolve notification settings
+        let adminEmail = null;
+        let notifyOrderPlaced = true;
+        try {
+          db.prepare("CREATE TABLE IF NOT EXISTS admin_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))) ").run();
+          const rows = db.prepare("SELECT key,value FROM admin_settings WHERE key IN ('alerts_email','admin_email','notify_order_placed')").all();
+          const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
+          adminEmail = map.alerts_email || map.admin_email || process.env.SMTP_USER || null;
+          notifyOrderPlaced = /(1|true|yes)/i.test(map.notify_order_placed || '1');
+        } catch (_) { /* ignore */ }
+
         const payloadBase = { id: orderId, name: fullName, phone, total: totalCents / 100, createdAt };
-        nq.run(
-          "order_created",
-          null,
-          email,
-          JSON.stringify({ ...payloadBase, kind: "order_created_admin" }),
-          "Queued",
-          `order_created_admin_${orderNumber}`
-        );
-        nq.run(
-          "order_created",
-          null,
-          email,
-          JSON.stringify({ ...payloadBase, kind: "order_created_customer" }),
-          "Queued",
-          `order_created_cust_${orderNumber}`
-        );
+
+        // Use a flexible insert that works whether optional columns (dedupe_key, note) exist or not
+        const hasDedupe = (() => {
+          try {
+            const cols = db.prepare("PRAGMA table_info(notifications_queue)").all();
+            return Array.isArray(cols) && cols.some(c => c.name === 'dedupe_key');
+          } catch { return false; }
+        })();
+
+        const insertWithDedupe = (userId, targetEmail, payload, key) => {
+          const nq = db.prepare(
+            `INSERT OR IGNORE INTO notifications_queue (kind, user_id, email, payload, status, dedupe_key)
+             VALUES (?, ?, ?, ?, 'Queued', ?)`
+          );
+          nq.run("order_created", userId, targetEmail, JSON.stringify(payload), key);
+        };
+        const insertBasic = (userId, targetEmail, payload) => {
+          const nq = db.prepare(
+            `INSERT INTO notifications_queue (kind, user_id, email, payload, status)
+             VALUES (?, ?, ?, ?, 'Queued')`
+          );
+          nq.run("order_created", userId, targetEmail, JSON.stringify(payload));
+        };
+
+        // Admin notification (if enabled)
+        if (adminEmail && notifyOrderPlaced) {
+          if (hasDedupe) insertWithDedupe(null, adminEmail, { ...payloadBase, role: "admin" }, `order_created_admin_${orderNumber}`);
+          else insertBasic(null, adminEmail, { ...payloadBase, role: "admin" });
+        }
+
+        // Customer notification
+        if (hasDedupe) insertWithDedupe(null, email, { ...payloadBase, role: "customer" }, `order_created_cust_${orderNumber}`);
+        else insertBasic(null, email, { ...payloadBase, role: "customer" });
       } catch (notifyErr) {
         console.warn("[checkout] notifications insert warning:", notifyErr.message);
       }

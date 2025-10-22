@@ -66,12 +66,23 @@ function getProgramSettings(code = "STAFF") {
   }
   if (base.duration_months && !base.durationMonths) base.durationMonths = Number(base.duration_months);
   if (!Number.isFinite(base.durationMonths)) base.durationMonths = 12;
+  if (!Array.isArray(base.eligibleUserTypes) || base.eligibleUserTypes.length === 0) {
+    base.eligibleUserTypes = ["Staff"];
+  }
   return Promise.resolve(base);
 }
 
+function normalizeEligible(arr) {
+  const list = Array.isArray(arr)
+    ? arr
+    : (typeof arr === 'string' ? arr.split(',') : []);
+  const out = list.map(v => String(v).trim().toLowerCase()).filter(Boolean);
+  return out.length ? out : ['staff'];
+}
 function isEligibleUser(u, eligibleUserTypes) {
   const t = String(u?.type || u?.role || "").trim().toLowerCase();
-  return eligibleUserTypes.map(v => String(v).toLowerCase()).includes(t);
+  const elig = normalizeEligible(eligibleUserTypes);
+  return elig.includes(t);
 }
 
 function sqlGetAccount(programId, userId) {
@@ -259,4 +270,3 @@ router.get("/me", requireAuth, async (req, res) => {
 });
 
 module.exports = router;
-

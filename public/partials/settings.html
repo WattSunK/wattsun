@@ -336,8 +336,40 @@
     // User Mgmt
     document.getElementById('btnSaveUserMgmt')?.addEventListener('click', () => toast('User management saved.'));
 
-    // Notifications
-    document.getElementById('btnSaveNotifications')?.addEventListener('click', () => toast('Notifications saved.'));
+    // Notifications: hydrate + save via /api/admin/settings
+    (async function initNotifications(){
+      try {
+        const res = await fetch('/api/admin/settings', { credentials: 'include' });
+        const data = await res.json();
+        const s = data.settings || {};
+        const elPlaced = document.getElementById('notifyOrderPlaced');
+        const elDelivered = document.getElementById('notifyOrderDelivered');
+        const elThresh = document.getElementById('lowStockThreshold');
+        const elAlerts = document.getElementById('alertsEmail');
+        if (elPlaced) elPlaced.checked = !!s.notifyOrderPlaced;
+        if (elDelivered) elDelivered.checked = !!s.notifyOrderDelivered;
+        if (elThresh && Number.isFinite(Number(s.lowStockThreshold))) elThresh.value = String(s.lowStockThreshold);
+        if (elAlerts && s.alertsEmail != null) elAlerts.value = s.alertsEmail;
+      } catch (e) { console.warn('[settings] load notifications:', e.message); }
+    })();
+
+    document.getElementById('btnSaveNotifications')?.addEventListener('click', async () => {
+      try {
+        const payload = {
+          notifyOrderPlaced: !!document.getElementById('notifyOrderPlaced')?.checked,
+          notifyOrderDelivered: !!document.getElementById('notifyOrderDelivered')?.checked,
+          lowStockThreshold: Number(document.getElementById('lowStockThreshold')?.value || 0),
+          alertsEmail: String(document.getElementById('alertsEmail')?.value || '').trim(),
+        };
+        const res = await fetch('/api/admin/settings', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        toast('Notifications saved.');
+      } catch (e) {
+        alert('Save failed: ' + (e.message || e));
+      }
+    });
 
     // Integrations
     document.getElementById('btnSaveIntegrations')?.addEventListener('click', () => toast('Integrations saved.'));
