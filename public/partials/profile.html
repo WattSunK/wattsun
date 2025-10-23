@@ -171,7 +171,46 @@
         const doc  = new DOMParser().parseFromString(html, 'text/html');
 
         const section = doc.querySelector('section.ws-orders') || doc.body;
-        host.innerHTML = ''; host.appendChild(section);
+        host.innerHTML = '';
+
+        // Also bring over the inline <style> rules that myorders.html defines
+        // so the filters and table format correctly when embedded.
+        const inlineStyles = [...doc.querySelectorAll('style')];
+        inlineStyles.forEach(st => {
+          const copy = document.createElement('style');
+          copy.textContent = st.textContent || '';
+          host.appendChild(copy);
+        });
+
+        // Bridge ws-* styles to Admin/Loyalty look & tokens
+        // 1) Add Admin classes to existing elements
+        try {
+          const addCls = (sel, ...cls) => section.querySelectorAll(sel).forEach(el => el.classList.add(...cls));
+          section.querySelector('.ws-filters')?.classList.add('filters-bar');
+          addCls('#wsType, #wsFrom, #wsTo, #wsQuery', 'input');
+          addCls('#wsSearchBtn, #wsClearBtn', 'btn');
+          addCls('#wsFirst, #wsPrev, #wsNext, #wsLast', 'btn');
+        } catch {}
+
+        // 2) Local style overrides to harmonize remaining ws-* visuals
+        const bridge = document.createElement('style');
+        bridge.textContent = `
+          /* Scope to Profile > Orders panel only */
+          [data-tabpanel="orders"] .ws-filters { margin: 8px 0 12px; }
+          [data-tabpanel="orders"] .ws-filter-left { display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; }
+          [data-tabpanel="orders"] .ws-filter-right { min-width:240px; }
+          [data-tabpanel="orders"] .ws-input { height:34px; box-sizing:border-box; padding:6px 10px; border:1px solid var(--ws-border); border-radius:10px; background:#fff; }
+          [data-tabpanel="orders"] .ws-input:focus { outline:none; border-color:#f59e0b; box-shadow:0 0 0 2px rgba(245,158,11,.2); }
+          [data-tabpanel="orders"] .ws-btn { height:34px; appearance:none; border:1px solid var(--ws-border); background:#fff; padding:8px 12px; border-radius:10px; cursor:pointer; box-shadow:var(--shadow-soft); }
+          [data-tabpanel="orders"] .ws-btn:hover { border-color: var(--ws-gold); }
+          [data-tabpanel="orders"] .ws-btn-yellow { background:#fff; color:inherit; border-color: var(--ws-border); }
+          [data-tabpanel="orders"] .ws-btn-outline { background:#fff; }
+          /* Remove inner card chrome since parent is already a card */
+          [data-tabpanel="orders"] .ws-card { background:transparent; border:0; box-shadow:none; padding:0; }
+        `;
+        host.appendChild(bridge);
+
+        host.appendChild(section);
 
         // Ensure /js/myorders.js is present, then init
         if (typeof window.initMyOrders !== 'function') {
