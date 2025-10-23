@@ -1,10 +1,12 @@
 <!-- Profile with Local Tabs (Orders embedded as a panel) -->
-<nav class="subtabs" role="tablist" aria-label="Account sections">
-  <button class="subtab is-active" role="tab" aria-selected="true" data-tab="profile">Profile</button>
-  <button class="subtab" role="tab" aria-selected="false" data-tab="orders">Orders</button>
-  <button class="subtab" role="tab" aria-selected="false" data-tab="addresses">Delivery Addresses</button>
-  <button class="subtab" role="tab" aria-selected="false" data-tab="payments">Payment Methods</button>
-  <button class="subtab" role="tab" aria-selected="false" data-tab="emails">Email Settings</button>
+<!-- Use the same button styles/active state as Loyalty tabs -->
+<nav class="btn-group" role="tablist" aria-label="Account sections" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px;">
+  <button class="btn btn--active" role="tab" aria-selected="true" data-tab="profile">Profile</button>
+  <button class="btn btn--ghost" role="tab" aria-selected="false" data-tab="orders">Orders</button>
+  <button class="btn btn--ghost" role="tab" aria-selected="false" data-tab="addresses">Delivery Addresses</button>
+  <button class="btn btn--ghost" role="tab" aria-selected="false" data-tab="payments">Payment Methods</button>
+  <button class="btn btn--ghost" role="tab" aria-selected="false" data-tab="emails">Email Settings</button>
+  
 </nav>
 
 <div class="tabpanels">
@@ -107,13 +109,16 @@
 
 <script>
   (function(){
-    const tabs   = [...document.querySelectorAll('.subtab')];
+    // Match Loyalty tab behavior (btn group with btn--active)
+    const tabs   = [...document.querySelectorAll('nav[role="tablist"] .btn[data-tab]')];
     const panels = [...document.querySelectorAll('.tabpanel')];
 
     function activateLocal(name){
       tabs.forEach(t => {
         const on = t.dataset.tab === name;
-        t.classList.toggle('is-active', on);
+        // Toggle active style to match Loyalty tabs
+        t.classList.toggle('btn--active', on);
+        t.classList.toggle('btn--ghost', !on);
         t.setAttribute('aria-selected', on ? 'true' : 'false');
       });
       panels.forEach(p => p.hidden = (p.dataset.tabpanel !== name));
