@@ -48,11 +48,11 @@ cd "$ROOT"
 
 # Dependencies check
 if [ ! -d node_modules ] || [ ! -f node_modules/better-sqlite3/package.json ]; then
-  echo "[qa] âš™ï¸ Installing dependencies..."
+  echo "[qa] Installing dependencies..."
   npm ci --omit=dev || npm install --omit=dev
-  echo "[qa] âœ… Dependencies verified."
+  echo "[qa] Dependencies verified."
 else
-  echo "[qa] ðŸ§± Dependencies OK â€” proceeding."
+  echo "[qa] Dependencies OK proceeding."
 fi
 
 find node_modules -type f -name "*.node" -exec chmod 755 {} \; 2>/dev/null || true

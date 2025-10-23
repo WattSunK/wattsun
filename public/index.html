@@ -52,6 +52,7 @@
 </style>
   
 </head>
+<body>
 <!-- Environment Banner -->
 <script>
 (async () => {
@@ -75,15 +76,12 @@
   `;
   banner.textContent =
     env === "QA"
-      ? "QA Environment — Build v2025.10.13"
-      : "DEV Environment — Build v2025.10.13";
+      ? "QA Environment - Build v2025.10.23"
+      : "DEV Environment - Build v2025.10.23";
   document.body.prepend(banner);
 })();
 </script>
 <!-- End Environment Banner -->
-
-
-<body>
 
 <!-- Login Modal -->
 <div id="loginModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2000;background:rgba(0,0,0,0.36);justify-content:center;align-items:center;">
@@ -336,7 +334,7 @@
       label.style.cursor = "pointer";
       label.addEventListener("click", () => {
         const target = user.type === "Admin" ? "/dashboard.html#system-status" : "/myaccount/userdash.html";
-        console.log("[auth] login success", data);
+        console.log("[auth] login success");
             window.location.href = target;
       });
       logout.addEventListener("click", () => {
@@ -370,7 +368,7 @@
     localStorage.removeItem("redirectAfterLogin");
     localStorage.removeItem("checkoutRedirect");
 
-    console.log("[auth] login success", data);
+    console.log("[auth] login success");
             window.location.href = dest;
   }
 
@@ -467,6 +465,23 @@ document.addEventListener("DOMContentLoaded", function () {
     } catch (e) {}
   });
 </script>
+  
+  <script>
+    // Normalize UI characters and footer copyright on load
+    document.addEventListener('DOMContentLoaded', function () {
+      try {
+        document
+          .querySelectorAll('button[onclick="closeLogin()"], button[onclick="closeSignup()"]')
+          .forEach(function (btn) {
+            btn.textContent = '×';
+            btn.setAttribute('aria-label', 'Close modal');
+          });
+        var fp = document.querySelector('footer p');
+        if (fp) fp.innerHTML = '&copy; 2025 WattSun Solar. All rights reserved.';
+      } catch (e) {}
+    });
+  </script>
 
-  <script src="main.js?v=20251020"></script>`n</body>
+  <script src="main.js?v=20251020"></script>
+</body>
 </html>
