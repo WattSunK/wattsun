@@ -55,34 +55,50 @@
   </div>
 </section>
 
+<!-- Use Admin tokens/styles so this page matches the Dashboard look even when standalone -->
+<link rel="stylesheet" href="/admin/admin.css"/>
 <link rel="stylesheet" href="/main.css"/>
 
 <style>
+  /* Standalone Orders page styled with Admin tokens */
   .ws-orders{ max-width:1180px; }
   .ws-title{ margin:6px 0 12px; font-size:22px; }
 
+  /* Filters bar (match .filters-bar in admin.css) */
   .ws-filters{
-    display:flex; align-items:center; justify-content:space-between;
-    gap:12px; margin-bottom:12px;
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    background:var(--ws-panel); border:1px solid var(--ws-border);
+    border-radius:var(--radius); padding:10px; margin:12px 0;
+    box-shadow:var(--shadow-soft);
   }
-  .ws-filter-left{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .ws-filter-left{ display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; }
   .ws-filter-right{ min-width:260px; }
-  .ws-input{ padding:8px 10px; border-radius:8px; border:1px solid #e5e5e5; background:#fff; font-size:14px; outline:none; }
-  .ws-input:focus{ box-shadow:0 0 0 3px rgba(255,229,143,.5); border-color:#ffd666; }
 
-  .ws-btn{ appearance:none; border:none; border-radius:8px; padding:8px 14px; font-weight:600; cursor:pointer; }
-  .ws-btn-yellow{ background:#f0c419; }
-  .ws-btn-yellow:hover{ filter:brightness(.98); }
-  .ws-btn-outline{ background:#fff; border:1px solid #d9d9d9; }
-  .ws-btn-outline:hover{ background:#fafafa; }
+  /* Inputs (match Admin .input and filter inputs) */
+  .ws-input{
+    padding:6px 10px; border:1px solid var(--ws-border); border-radius:10px;
+    background:#fff; font-size:.95rem; outline:none; height:34px; box-sizing:border-box;
+  }
+  .ws-input:focus{ border-color:#f59e0b; box-shadow:0 0 0 2px rgba(245,158,11,.2); }
 
-  .ws-card{ background:#fff; border:1px solid #f0e6bf; border-radius:10px; box-shadow:0 8px 18px rgba(0,0,0,.05); padding:10px; }
+  /* Buttons (match Admin .btn) */
+  .ws-btn{
+    appearance:none; border:1px solid var(--ws-border); background:#fff;
+    padding:8px 12px; border-radius:10px; cursor:pointer; box-shadow:var(--shadow-soft);
+    height:34px; font-weight:600;
+  }
+  .ws-btn:hover{ border-color:var(--ws-gold); }
+  .ws-btn-yellow{ background:#fff; color:inherit; } /* keep neutral like Admin buttons */
+  .ws-btn-outline{ background:#fff; }
+
+  /* Card + Table (match Admin .card + .table) */
+  .ws-card{ background:var(--ws-panel); border:1px solid var(--ws-border); border-radius:var(--radius); box-shadow:var(--shadow-soft); padding:10px; }
   .ws-table{ width:100%; border-collapse:separate; border-spacing:0; }
   .ws-table thead th{
-    text-align:left; font-weight:700; font-size:13px; padding:12px;
-    background:#fffdf3; border-bottom:1px solid #f0e6bf;
+    text-align:left; padding:12px; background:#fff9ed; color:#5b4b1a; border-bottom:1px solid var(--ws-border); font-weight:700;
   }
-  .ws-table tbody td{ padding:12px; border-bottom:1px solid #f5f5f5; font-size:14px; vertical-align:top; }
+  .ws-table tbody td{ padding:10px 12px; border-bottom:1px solid var(--ws-border); font-size:14px; vertical-align:top; }
+  .ws-table tbody tr:hover{ background:#fffdfa; }
   .ws-table a{ color:#1f6fd6; text-decoration:none; }
   .ws-table a:hover{ text-decoration:underline; }
 
@@ -90,11 +106,13 @@
     border-radius:6px; background:#ffe58f; border:1px solid #fadb14; cursor:pointer; }
   .ws-action:active{ transform:scale(.98); }
 
-  .ws-table-meta{ display:flex; align-items:center; justify-content:space-between; padding:10px 6px 2px; font-size:13px; color:#555; }
-  .ws-pager{ display:flex; align-items:center; gap:8px; }
-  .ws-page{ border:1px solid #e0e0e0; background:#fff; border-radius:6px; padding:6px 10px; cursor:pointer; }
-  .ws-page-num{ display:inline-block; min-width:28px; text-align:center; border:1px solid #fadb14; background:#fffbe6; border-radius:6px; padding:6px 0; }
+  /* Pager (match Admin .table-meta + .pager) */
+  .ws-table-meta{ display:flex; align-items:center; justify-content:space-between; padding:.5rem 0; font-size:13px; color:var(--ws-muted); }
+  .ws-pager{ display:flex; align-items:center; gap:8px; flex-wrap:nowrap; white-space:nowrap; }
+  .ws-page{ height:34px; min-width:34px; border-radius:10px; border:1px solid var(--ws-border); background:#fff; padding:0 10px; cursor:pointer; }
+  .ws-page-num{ display:inline-block; min-width:8ch; text-align:center; border:1px solid var(--ws-border); background:#fff; border-radius:10px; padding:6px 8px; }
 
+  /* Field sizing */
   #wsQuery{ width:100%; }
   #wsType{ min-width:170px; }
   #wsFrom,#wsTo{ min-width:150px; }
