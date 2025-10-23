@@ -187,9 +187,13 @@
         try {
           const addCls = (sel, ...cls) => section.querySelectorAll(sel).forEach(el => el.classList.add(...cls));
           section.querySelector('.ws-filters')?.classList.add('filters-bar');
-          addCls('#wsType, #wsFrom, #wsTo, #wsQuery', 'input');
+          // Important: don't add global .input (it sets width:100% causing stacking)
           addCls('#wsSearchBtn, #wsClearBtn', 'btn');
           addCls('#wsFirst, #wsPrev, #wsNext, #wsLast', 'btn');
+          // Ensure inputs are inline-sized
+          ['#wsType','#wsFrom','#wsTo','#wsQuery'].forEach(sel => {
+            section.querySelectorAll(sel).forEach(el => { el.style.width = 'auto'; el.style.maxWidth = 'unset'; });
+          });
         } catch {}
 
         // 2) Local style overrides to harmonize remaining ws-* visuals
@@ -197,9 +201,10 @@
         bridge.textContent = `
           /* Scope to Profile > Orders panel only */
           [data-tabpanel="orders"] .ws-filters { margin: 8px 0 12px; }
-          [data-tabpanel="orders"] .ws-filter-left { display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; }
-          [data-tabpanel="orders"] .ws-filter-right { min-width:240px; }
-          [data-tabpanel="orders"] .ws-input { height:34px; box-sizing:border-box; padding:6px 10px; border:1px solid var(--ws-border); border-radius:10px; background:#fff; }
+          [data-tabpanel="orders"] .ws-filter-left { display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; flex: 1 1 auto; }
+          [data-tabpanel="orders"] .ws-filter-right { min-width:260px; flex: 0 0 260px; }
+          [data-tabpanel="orders"] #wsQuery { width: 100%; }
+          [data-tabpanel="orders"] .ws-input { height:34px; box-sizing:border-box; padding:6px 10px; border:1px solid var(--ws-border); border-radius:10px; background:#fff; width:auto; max-width:none; }
           [data-tabpanel="orders"] .ws-input:focus { outline:none; border-color:#f59e0b; box-shadow:0 0 0 2px rgba(245,158,11,.2); }
           [data-tabpanel="orders"] .ws-btn { height:34px; appearance:none; border:1px solid var(--ws-border); background:#fff; padding:8px 12px; border-radius:10px; cursor:pointer; box-shadow:var(--shadow-soft); }
           [data-tabpanel="orders"] .ws-btn:hover { border-color: var(--ws-gold); }
