@@ -29,6 +29,21 @@ echo -e "============================================================${NC}"
 # --- Step 1️⃣: Fetch latest main ---
 echo -e "${YELLOW}🧩 Fetching latest main from GitHub...${NC}"
 cd "$ROOT" || exit 1
+
+# Pre-flight: Git SHA + clean status + health ping (non-fatal)
+LOCAL_SHA=$(sudo -u 53Bret git rev-parse HEAD 2>/dev/null | cut -c1-7 || true)
+GIT_STATUS=$(sudo -u 53Bret git status --porcelain 2>/dev/null || true)
+if [ -z "$GIT_STATUS" ]; then
+  CLEAN_STATUS="CLEAN"
+else
+  CHANGES=$(printf "%s" "$GIT_STATUS" | wc -l | tr -d '[:space:]')
+  CLEAN_STATUS="DIRTY (${CHANGES} changes)"
+fi
+PRE_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/api/health || true)
+echo -e "${CYAN}Pre-flight summary:${NC}"
+echo -e " - Local HEAD: ${LOCAL_SHA:-unknown}"
+echo -e " - Working tree: ${CLEAN_STATUS}"
+echo -e " - QA health (pre): HTTP ${PRE_HEALTH}"
 if [ -d .git ]; then
   sudo -u 53Bret git fetch origin main
   CURRENT_SHA=$(sudo -u 53Bret git rev-parse origin/main | cut -c1-7)
@@ -40,12 +55,13 @@ fi
 
 # --- Step 2️⃣: Optimized local rsync (no compression, no socket IO) ---
 echo -e "${YELLOW}📦 Syncing origin/main → QA folder (optimized)...${NC}"
-sudo rsync -aHAX --whole-file --no-compress \
-  --delete --info=progress2 \
+sudo rsync -a --whole-file --no-compress \
+  --delete --delete-delay --omit-dir-times --info=progress2 \
   --exclude='qa/data/' \
   --exclude='qa/logs/' \
   --exclude='qa/run/' \
   --exclude='qa/scripts/' \
+  --exclude='/qa/***' \
   --exclude='.git/' \
   --exclude='node_modules/' \
   "$ROOT/" "$QA_ROOT/" || {
