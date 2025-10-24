@@ -8,7 +8,7 @@ set -euo pipefail
 export NODE_ENV=qa
 export PORT=3000
 export ROOT="/volume1/web/wattsun/qa"
-export WATTSUN_DB_ROOT="$ROOT/data/qa"
+export WATTSUN_DB_ROOT="/volume1/web/wattsun/data/qa"
 export DB_PATH_USERS="$WATTSUN_DB_ROOT/wattsun.qa.db"
 export DB_PATH_INVENTORY="$WATTSUN_DB_ROOT/inventory.qa.db"
 export SQLITE_DB="$DB_PATH_USERS"
