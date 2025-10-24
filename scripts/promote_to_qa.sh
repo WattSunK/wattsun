@@ -30,6 +30,19 @@ echo -e "============================================================${NC}"
 echo -e "${YELLOW}🧩 Fetching latest main from GitHub...${NC}"
 cd "$ROOT" || exit 1
 
+# Safety guard: enforce expected QA path layout
+if [[ "$QA_ROOT" != "$ROOT/qa" ]]; then
+  echo -e "${RED}QA_ROOT must be $ROOT/qa (got $QA_ROOT). Aborting to avoid recursion.${NC}"
+  exit 1
+fi
+
+# Optional one-time cleanup: enable with DELETE_EXCLUDED_ONCE=1
+DELETE_EXCLUDED_FLAG=""
+if [ "${DELETE_EXCLUDED_ONCE:-0}" = "1" ]; then
+  DELETE_EXCLUDED_FLAG="--delete-excluded"
+  echo -e "${YELLOW}Enabling one-time cleanup with --delete-excluded (DELETE_EXCLUDED_ONCE=1)${NC}"
+fi
+
 # Pre-flight: Git SHA + clean status + health ping (non-fatal)
 LOCAL_SHA=$(sudo -u 53Bret git rev-parse HEAD 2>/dev/null | cut -c1-7 || true)
 GIT_STATUS=$(sudo -u 53Bret git status --porcelain 2>/dev/null || true)
@@ -55,13 +68,14 @@ fi
 
 # --- Step 2️⃣: Optimized local rsync (no compression, no socket IO) ---
 echo -e "${YELLOW}📦 Syncing origin/main → QA folder (optimized)...${NC}"
-sudo rsync -a --whole-file --no-compress \
-  --delete --delete-delay --omit-dir-times --info=progress2 \
+sudo -u 53Bret rsync -a --whole-file --no-compress \
+  --delete --delete-delay --omit-dir-times --info=progress2 --prune-empty-dirs ${DELETE_EXCLUDED_FLAG} \
+  --exclude='qa/***' \
+  --exclude='qa/' \
   --exclude='qa/data/' \
   --exclude='qa/logs/' \
   --exclude='qa/run/' \
   --exclude='qa/scripts/' \
-  --exclude='/qa/***' \
   --exclude='.git/' \
   --exclude='node_modules/' \
   "$ROOT/" "$QA_ROOT/" || {
