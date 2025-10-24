@@ -13,10 +13,12 @@ ENV="${1:-qa}"
 
 case "$ENV" in
   qa|QA)
-    DB="/volume1/web/wattsun/data/qa/wattsun.qa.db"
+    # Align with scripts/start_qa.sh
+    DEFAULT_DB="/volume1/web/wattsun/qa/data/qa/wattsun.qa.db"
     ;;
   dev|DEV)
-    DB="/volume1/web/wattsun/data/dev/wattsun.dev.db"
+    # Align with scripts/start_dev.sh
+    DEFAULT_DB="/volume1/web/wattsun/data/dev/wattsun.dev.db"
     ;;
   *)
     echo "Usage: $0 [dev|qa]"
@@ -24,10 +26,17 @@ case "$ENV" in
     ;;
 esac
 
+# Allow caller to override target DB path (e.g., from promote_to_qa.sh)
+DB="${DB_OVERRIDE:-$DEFAULT_DB}"
+
 echo "============================================================"
 echo "ðŸ§© WattSun Loyalty Reset Utility (Data-Only, Final)"
 echo "Target environment: ${ENV^^}"
-echo "Database: $DB"
+if [ -n "${DB_OVERRIDE:-}" ]; then
+  echo "Database: $DB (via DB_OVERRIDE)"
+else
+  echo "Database: $DB"
+fi
 echo "============================================================"
 
 # 1ï¸âƒ£ Verify database exists
