@@ -2,8 +2,11 @@
 # ============================================================
 # ⚡ WattSun — Optimized QA Rebuild from DEV Baseline
 # ============================================================
-# Fast, safe promotion: sync code (excluding heavy dirs + scripts),
-# copy DEV DBs, and restart QA. No nesting or duplication.
+# Safe and fast rebuild:
+# - Recreates missing QA directories
+# - Copies DEV DBs
+# - Rsyncs main code (excluding heavy/runtime dirs)
+# - Restarts QA
 # ============================================================
 
 set -euo pipefail
@@ -22,13 +25,21 @@ DEV_DATA="$ROOT/data/dev"
 QA_DATA="$ROOT/data/qa"
 QA_ROOT="$ROOT/qa"
 
-# --- 1️⃣ Stop existing QA processes ---
+# --- 1️⃣ Stop QA processes ---
 echo "🛑 Stopping QA processes..."
 pkill -f "$QA_ROOT/server.js" 2>/dev/null || true
 pkill -f "$QA_ROOT/scripts/notifications_worker.js" 2>/dev/null || true
 sleep 1
 
-# --- 2️⃣ Backup any existing QA DBs ---
+# --- 2️⃣ Bootstrap QA directories ---
+echo "📁 Ensuring QA directory structure..."
+mkdir -p "$QA_ROOT" "$QA_DATA"
+for d in routes public services src test tools; do
+  mkdir -p "$QA_ROOT/$d"
+done
+echo "✅ QA base folders ready: $(ls -1 "$QA_ROOT" | xargs)"
+
+# --- 3️⃣ Backup existing QA DBs ---
 if compgen -G "$QA_DATA/*.db" > /dev/null; then
   TS=$(date +%Y%m%d_%H%M%S)
   BACKUP_DIR="$ROOT/backups/qa_rebuild_$TS"
@@ -37,16 +48,15 @@ if compgen -G "$QA_DATA/*.db" > /dev/null; then
   cp -v "$QA_DATA"/*.db "$BACKUP_DIR"/ || true
 fi
 
-# --- 3️⃣ Copy fresh Dev DBs ---
-echo "🧱 Copying DEV DBs → QA ..."
-mkdir -p "$QA_DATA"
+# --- 4️⃣ Copy Dev DBs to QA ---
+echo "🧱 Copying DEV databases to QA..."
 cp -v "$DEV_DATA"/wattsun.dev.db "$QA_DATA"/wattsun.qa.db
 cp -v "$DEV_DATA"/inventory.dev.db "$QA_DATA"/inventory.qa.db
 chmod 664 "$QA_DATA"/*.db
 chown 53Bret:users "$QA_DATA"/*.db 2>/dev/null || true
 
-# --- 4️⃣ Fast rsync (optimized) ---
-echo "📁 Syncing code (optimized)..."
+# --- 5️⃣ Optimized rsync (skip runtime + scripts) ---
+echo "🔄 Syncing Dev code → QA (optimized)..."
 rsync -a --delete \
   --exclude ".git" \
   --exclude "node_modules" \
@@ -61,19 +71,23 @@ rsync -a --delete \
   --info=progress2 \
   ./ "$QA_ROOT/"
 
-# --- 5️⃣ Start QA ---
+# --- 6️⃣ Start QA server ---
 echo "🚀 Starting QA environment..."
 if [ -f "$ROOT/scripts/start_qa.sh" ]; then
   sudo bash "$ROOT/scripts/start_qa.sh"
 else
-  echo "⚠️  start_qa.sh missing in root; please start QA manually."
+  echo "⚠️  start_qa.sh not found; start manually."
 fi
 
-# --- 6️⃣ Verify health ---
-echo "🔍 Checking QA health..."
+# --- 7️⃣ Health check ---
+echo "🔍 Checking QA health (port 3000)..."
 sleep 5
-curl -fsS http://127.0.0.1:3000/api/health || echo "⚠️  QA health check failed."
+if curl -fsS http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
+  echo "✅ QA /api/health → OK"
+else
+  echo "⚠️  QA health check failed; check logs or port usage."
+fi
 
 echo "============================================================"
-echo "✅ Rebuild complete. Logs: $LOG_FILE"
+echo "✅ QA rebuild complete. Log: $LOG_FILE"
 echo "============================================================"
