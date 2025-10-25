@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 # ===========================================
 # ðŸŸ¨ WattSun QA Environment Startup (Self-Contained)
 # ===========================================

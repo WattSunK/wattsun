@@ -48,8 +48,8 @@ done
 # 3️⃣ Server & worker process checks
 # -------------------------------------------------------------
 echo -e "\n[3/7] ⚙️  Checking running processes..."
-pgrep -af "wattsun/server.js" >/dev/null && echo "✅ Backend server running" || echo "❌ Server not running"
-pgrep -af "notifications_worker.js" >/dev/null && echo "✅ Notifications worker active" || echo "⚠️ Worker not running"
+ps -ef | grep "wattsun/server.js" >/dev/null && echo "✅ Backend server running" || echo "❌ Server not running"
+ps -ef | grep "notifications_worker.js" >/dev/null && echo "✅ Notifications worker active" || echo "⚠️ Worker not running"
 
 # -------------------------------------------------------------
 # 4️⃣ API health tests

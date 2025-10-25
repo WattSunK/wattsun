@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 set -e
 
 # ============================================================
@@ -14,7 +14,7 @@ ENV="${1:-qa}"
 case "$ENV" in
   qa|QA)
     # Align with scripts/start_qa.sh
-    DEFAULT_DB="/volume1/web/wattsun/qa/data/qa/wattsun.qa.db"
+    DEFAULT_DB="/volume1/web/wattsun/data/qa/wattsun.qa.db"
     ;;
   dev|DEV)
     # Align with scripts/start_dev.sh
