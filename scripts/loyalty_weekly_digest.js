@@ -41,7 +41,17 @@ function resolveDbPath() {
   if (process.env.DB_PATH_USERS) return process.env.DB_PATH_USERS;
   const ROOT = process.env.ROOT || process.cwd();
   const env = String(process.env.NODE_ENV || "").toLowerCase();
-  if (env === "qa") return path.join(ROOT, "data/qa/wattsun.qa.db");
+  if (env === "qa") {
+    const qaCandidates = [
+      path.resolve(ROOT, "data/qa/wattsun.qa.db"),
+      path.resolve(ROOT, "../data/qa/wattsun.qa.db"),
+      path.resolve(ROOT, "../../data/qa/wattsun.qa.db")
+    ];
+    for (const candidate of qaCandidates) {
+      if (fs.existsSync(candidate)) return candidate;
+    }
+    return qaCandidates[0];
+  }
   return path.join(ROOT, "data/dev/wattsun.dev.db");
 }
 
