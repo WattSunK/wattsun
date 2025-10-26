@@ -28,3 +28,8 @@ Thumbs.db
 *.bak
 *.swp
 qa/
+# Runtime logs and environment files
+logs/
+run/
+*.out
+last_sha
