@@ -9,6 +9,11 @@ export NODE_ENV=qa
 export PORT=3000
 export ROOT="/volume1/web/wattsun/qa"
 ROOT_PARENT="$(dirname "$ROOT")"
+WORKER_SCRIPT="$ROOT_PARENT/scripts/notifications_worker.js"
+if [ ! -f "$WORKER_SCRIPT" ]; then
+  echo "[qa] Missing worker script at $WORKER_SCRIPT"
+  exit 1
+fi
 export WATTSUN_DB_ROOT="$ROOT_PARENT/data/qa"
 export DB_PATH_USERS="$WATTSUN_DB_ROOT/wattsun.qa.db"
 export DB_PATH_INVENTORY="$WATTSUN_DB_ROOT/inventory.qa.db"
@@ -87,14 +92,17 @@ if [ -f "$WORKER_PID" ] && kill -0 "$(cat "$WORKER_PID")" 2>/dev/null; then
 else
   echo "[qa] Starting notifications_worker.js..."
   cd "$ROOT"
-  nohup env NODE_ENV=$NODE_ENV \
-    SQLITE_MAIN=$SQLITE_MAIN \
-    DB_PATH_USERS=$DB_PATH_USERS \
-    DB_PATH_INVENTORY=$DB_PATH_INVENTORY \
-    SQLITE_DB=$SQLITE_DB \
-    PORT=$PORT \
-    ENV_FILE=$ENV_FILE \
-    node "$ROOT/scripts/notifications_worker.js" >> "$WORKER_LOG_OUT" 2>> "$WORKER_LOG_ERR" &
+  nohup env \
+    NODE_ENV="$NODE_ENV" \
+    PORT="$PORT" \
+    ROOT="$ROOT" \
+    WATTSUN_DB_ROOT="$WATTSUN_DB_ROOT" \
+    DB_PATH_USERS="$DB_PATH_USERS" \
+    DB_PATH_INVENTORY="$DB_PATH_INVENTORY" \
+    SQLITE_DB="$SQLITE_DB" \
+    SQLITE_MAIN="$SQLITE_MAIN" \
+    ENV_FILE="$ENV_FILE" \
+    node "$WORKER_SCRIPT" >> "$WORKER_LOG_OUT" 2>> "$WORKER_LOG_ERR" &
   echo $! > "$WORKER_PID"
   echo "[qa] notifications_worker started (PID $(cat "$WORKER_PID")) — logs: $WORKER_LOG_OUT"
 fi
