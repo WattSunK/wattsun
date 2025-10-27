@@ -92,6 +92,7 @@ if [ -f "$WORKER_PID" ] && kill -0 "$(cat "$WORKER_PID")" 2>/dev/null; then
 else
   echo "[qa] Starting notifications_worker.js..."
   cd "$ROOT"
+  echo "[qa] Worker DB_PATH_USERS=$DB_PATH_USERS"
   nohup env \
     NODE_ENV="$NODE_ENV" \
     PORT="$PORT" \
@@ -103,6 +104,7 @@ else
     SQLITE_MAIN="$SQLITE_MAIN" \
     ENV_FILE="$ENV_FILE" \
     node "$WORKER_SCRIPT" >> "$WORKER_LOG_OUT" 2>> "$WORKER_LOG_ERR" &
+  chown -R 53Bret:users "$ROOT/logs" 2>/dev/null || true
   echo $! > "$WORKER_PID"
-  echo "[qa] notifications_worker started (PID $(cat "$WORKER_PID")) — logs: $WORKER_LOG_OUT"
+  echo "[qa] notifications_worker started (PID $(cat "$WORKER_PID")) - logs: $WORKER_LOG_OUT"
 fi
