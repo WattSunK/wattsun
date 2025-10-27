@@ -93,17 +93,17 @@ else
   echo "[qa] Starting notifications_worker.js..."
   cd "$ROOT"
   echo "[qa] Worker DB_PATH_USERS=$DB_PATH_USERS"
-  nohup env \
-    NODE_ENV="$NODE_ENV" \
+  nohup env NODE_ENV="$NODE_ENV" \
     PORT="$PORT" \
     ROOT="$ROOT" \
     WATTSUN_DB_ROOT="$WATTSUN_DB_ROOT" \
     DB_PATH_USERS="$DB_PATH_USERS" \
     DB_PATH_INVENTORY="$DB_PATH_INVENTORY" \
-    SQLITE_DB="$SQLITE_DB" \
-    SQLITE_MAIN="$SQLITE_MAIN" \
+    SQLITE_DB="$DB_PATH_USERS" \
+    SQLITE_MAIN="$DB_PATH_USERS" \
     ENV_FILE="$ENV_FILE" \
-    node "$WORKER_SCRIPT" >> "$WORKER_LOG_OUT" 2>> "$WORKER_LOG_ERR" &
+    bash -c "SQLITE_MAIN=$DB_PATH_USERS DB_PATH_USERS=$DB_PATH_USERS SQLITE_DB=$DB_PATH_USERS node $WORKER_SCRIPT" \
+    >> "$WORKER_LOG_OUT" 2>> "$WORKER_LOG_ERR" &
   chown -R 53Bret:users "$ROOT/logs" 2>/dev/null || true
   echo $! > "$WORKER_PID"
   echo "[qa] notifications_worker started (PID $(cat "$WORKER_PID")) - logs: $WORKER_LOG_OUT"
