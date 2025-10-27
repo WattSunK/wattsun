@@ -29,6 +29,11 @@ function loadEnv() {
 }
 loadEnv();
 
+// Explicit QA DB paths
+process.env.DB_PATH_USERS = '/volume1/web/wattsun/data/qa/wattsun.qa.db';
+process.env.SQLITE_MAIN = '/volume1/web/wattsun/data/qa/wattsun.qa.db';
+process.env.SQLITE_DB = '/volume1/web/wattsun/data/qa/wattsun.qa.db';
+
 // ---------- Config ----------
 const DB_PATH =
   process.env.SQLITE_MAIN ||
