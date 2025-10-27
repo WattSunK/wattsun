@@ -30,7 +30,13 @@ function loadEnv() {
 loadEnv();
 
 // ---------- Config ----------
-const DB_PATH = process.env.DB_PATH_USERS || process.env.SQLITE_DB || path.join(process.cwd(), 'data/dev/wattsun.dev.db');
+const DB_PATH =
+  process.env.SQLITE_MAIN ||
+  process.env.DB_PATH_USERS ||
+  process.env.SQLITE_DB ||
+  path.join(__dirname, "../data/dev/wattsun.dev.db");
+
+console.log(`[worker:init] Using DB_PATH=${DB_PATH}`);
 const BATCH = parseInt(process.env.WORKER_BATCH || '20', 10);
 const INTERVAL = parseInt(process.env.WORKER_INTERVAL_MS || '60000', 10);
 const DRY_RUN = !!(process.env.NOTIFY_DRY_RUN && String(process.env.NOTIFY_DRY_RUN) !== '0' && String(process.env.NOTIFY_DRY_RUN).toLowerCase() !== 'false');
