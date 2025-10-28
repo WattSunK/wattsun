@@ -5,11 +5,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (!toggle || !links || !header) return;
 
+  document
+    .querySelectorAll(
+      '.nav-links a[href*="/calculators/calculator.html"], .nav-links a[href*="/myaccount/track.html"]'
+    )
+    .forEach((el) => el.remove());
+  document
+    .querySelectorAll(
+      '.mobile-footer a[href*="/calculators/calculator.html"], .mobile-footer a[href*="/myaccount/track.html"]'
+    )
+    .forEach((el) => el.remove());
+
   const closeMenu = () => {
     links.classList.remove('open');
     header.classList.remove('nav-open');
     toggle.setAttribute('aria-expanded', 'false');
   };
+  closeMenu();
 
   toggle.addEventListener('click', () => {
     const isOpen = links.classList.toggle('open');
@@ -22,6 +34,10 @@ document.addEventListener('DOMContentLoaded', () => {
       closeMenu();
     }
   });
+  document.querySelectorAll(
+    '.logo-link'
+  ).forEach((logoEl) => logoEl.addEventListener('click', closeMenu));
+
 
   document.addEventListener('click', (event) => {
     if (!toggle.contains(event.target) && !links.contains(event.target)) {
@@ -29,3 +45,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+

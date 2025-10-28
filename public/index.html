@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
@@ -148,12 +148,16 @@
 <header>
   <div class="header-bar">
     <h1 class="desktop-logo">
-      <img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
-      WattSun Solar
+      <a class="logo-link" href="/index.html">
+        <img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
+        <span>WattSun Solar</span>
+      </a>
     </h1>
     <div class="logo-container">
-      <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
-      <span class="brand-name">WattSun Solar</span>
+      <a class="logo-link" href="/index.html">
+        <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
+        <span class="brand-name">WattSun Solar</span>
+      </a>
     </div>
     <div class="header-actions">
       <button onclick="openLogin()" id="loginBtn" style="background:#f4a940;color:white;border:none;padding:7px 18px;border-radius:5px;font-weight:600;font-size:1em;cursor:pointer;">Login</button>
@@ -166,21 +170,16 @@
       <span></span>
     </button>
   </div>
-  <nav id="primary-navigation" class="nav-links" aria-label="Primary navigation">
-    <a href="/index.html" class="active">Home</a>
-    <a href="/solutions.html">Solutions</a>
-    <a href="/shop.html">Shop</a>
-    <a href="/calculators/calculator.html">Calculator</a>
-    <a href="/financing.html">Financing</a>
-    <a href="/projects.html">Projects</a>
-    <a href="/myaccount/track.html">Track Order</a>
-    <a href="/contact.html">Contact</a>
-    <a class="cart-icon-link" href="/cart.html" aria-label="View cart" title="View cart">
-      <span class="cart-icon">
-        <svg class="cart-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a 2 2 0 1 0 .001 3.999A2 2 0 0 0 17 18zM6 6h13l-1.5 7.5H8.2L6.9 4.8 4 4"/></svg>
-        <span id="cart-count-badge" class="cart-count-badge">0</span>
-      </span>
-    </a>
+    <nav id="primary-navigation" class="nav-links" aria-label="Primary navigation">
+    <a href="/index.html" class="nav-link-item active" aria-label="Home" aria-current="page"><i class="fas fa-home" aria-hidden="true"></i><span class="nav-text">Home</span></a>
+    <a href="/solutions.html" class="nav-link-item" aria-label="Solutions"><i class="fas fa-lightbulb" aria-hidden="true"></i><span class="nav-text">Solutions</span></a>
+    <a href="/shop.html" class="nav-link-item" aria-label="Shop"><i class="fas fa-store" aria-hidden="true"></i><span class="nav-text">Shop</span></a>
+    <!-- <a href="/calculators/calculator.html" class="nav-link-item" aria-label="Calculator"><i class="fas fa-solar-panel" aria-hidden="true"></i><span class="nav-text">Calculator</span></a> -->
+    <a href="/financing.html" class="nav-link-item" aria-label="Financing"><i class="fas fa-coins" aria-hidden="true"></i><span class="nav-text">Financing</span></a>
+    <a href="/projects.html" class="nav-link-item" aria-label="Projects"><i class="fas fa-diagram-project" aria-hidden="true"></i><span class="nav-text">Projects</span></a>
+    <!-- <a href="/myaccount/track.html" class="nav-link-item" aria-label="Track Order"><i class="fas fa-truck" aria-hidden="true"></i><span class="nav-text">Track Order</span></a> -->
+    <a href="/contact.html" class="nav-link-item" aria-label="Contact"><i class="fas fa-envelope" aria-hidden="true"></i><span class="nav-text">Contact</span></a>
+    <a class="nav-link-item cart-icon-link" href="/cart.html" aria-label="View cart" title="View cart"><span class="cart-icon"><i class="fas fa-shopping-cart" aria-hidden="true"></i><span class="nav-text">Cart</span><span id="cart-count-badge" class="cart-count-badge">0</span></span></a>
   </nav>
 </header>
 <!-- ...rest of your body (unchanged) ... -->
@@ -279,8 +278,6 @@
 <footer class="mobile-footer" aria-label="Mobile navigation">
   <a href="/index.html" class="active"><i class="fas fa-home" aria-hidden="true"></i><span>Home</span></a>
   <a href="/shop.html"><i class="fas fa-store" aria-hidden="true"></i><span>Shop</span></a>
-  <a href="/calculators/calculator.html"><i class="fas fa-solar-panel" aria-hidden="true"></i><span>Calc</span></a>
-  <a href="/myaccount/track.html"><i class="fas fa-truck" aria-hidden="true"></i><span>Track</span></a>
   <a href="/myaccount/myorders.html"><i class="fas fa-user" aria-hidden="true"></i><span>Account</span></a>
 </footer>
 
@@ -479,3 +476,4 @@ document.addEventListener("DOMContentLoaded", function () {
   <script src="main.js?v=20251020"></script>
 </body>
 </html>
+
