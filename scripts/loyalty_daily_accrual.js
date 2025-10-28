@@ -39,9 +39,17 @@ function parseArgs(argv) {
 function resolveDbPath() {
   const { db } = parseArgs(process.argv);
   if (db) return db;
-  if (process.env.SQLITE_DB) return process.env.SQLITE_DB;
-  if (process.env.DB_PATH_USERS) return process.env.DB_PATH_USERS;
-  const ROOT = process.env.ROOT || process.cwd();
+  const envKeys = [
+    "SQLITE_MAIN",
+    "SQLITE_DB",
+    "DB_PATH_USERS",
+    "WATTSUN_DB_PATH",
+    "DB_PATH_ADMIN"
+  ];
+  for (const key of envKeys) {
+    if (process.env[key]) return process.env[key];
+  }
+  const ROOT = process.env.ROOT ? path.resolve(process.env.ROOT) : path.resolve(__dirname, "..");
   const env = String(process.env.NODE_ENV || "").toLowerCase();
   if (env === "qa") {
     const qaCandidates = [
@@ -94,11 +102,12 @@ async function hasDailyLogTable(db) {
 }
 
 (async function main() {
+  const head = (msg) => console.log(`[loyalty_daily_accrual] ${msg}`);
   const DB_FILE = resolveDbPath();
+  head(`resolved_db_path = ${DB_FILE}`);
   const db = openDb(DB_FILE);
   const start = Date.now();
   const todayLocal = new Date().toISOString().slice(0, 10);
-  const head = (msg) => console.log(`[loyalty_daily_accrual] ${msg}`);
 
   try {
     const tsCol = await detectLedgerTsColumn(db);
@@ -115,7 +124,6 @@ async function hasDailyLogTable(db) {
       }
     }
 
-    head(`DB = ${DB_FILE}`);
     head(`accrual_date = ${todayLocal}`);
     head(`ledger_ts_column = ${tsCol}`);
     head(`guard_uq_daily = ${hasUqDaily}`);

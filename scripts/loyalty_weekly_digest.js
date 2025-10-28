@@ -37,9 +37,17 @@ function parseArgs(argv) {
 function resolveDbPath() {
   const { db } = parseArgs(process.argv);
   if (db) return db;
-  if (process.env.SQLITE_DB) return process.env.SQLITE_DB;
-  if (process.env.DB_PATH_USERS) return process.env.DB_PATH_USERS;
-  const ROOT = process.env.ROOT || process.cwd();
+  const envKeys = [
+    "SQLITE_MAIN",
+    "SQLITE_DB",
+    "DB_PATH_USERS",
+    "WATTSUN_DB_PATH",
+    "DB_PATH_ADMIN"
+  ];
+  for (const key of envKeys) {
+    if (process.env[key]) return process.env[key];
+  }
+  const ROOT = process.env.ROOT ? path.resolve(process.env.ROOT) : path.resolve(__dirname, "..");
   const env = String(process.env.NODE_ENV || "").toLowerCase();
   if (env === "qa") {
     const qaCandidates = [
@@ -56,6 +64,7 @@ function resolveDbPath() {
 }
 
 const DB = resolveDbPath();
+console.log(`[weekly_digest] resolved_db_path = ${DB}`);
 const db = new sqlite3.Database(DB);
 
 async function detectLedgerTsColumn() {
@@ -84,7 +93,6 @@ function ensureNoteColumn(callback) {
 
 async function main() {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  console.log(`[weekly_digest] DB = ${DB}`);
   console.log(`[weekly_digest] since = ${since}`);
   const tsCol = await detectLedgerTsColumn();
 
