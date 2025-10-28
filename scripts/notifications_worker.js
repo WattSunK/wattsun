@@ -74,6 +74,17 @@ async function getTransporter() {
   return transporter;
 }
 
+async function sendMail(recipient, subject, html) {
+  const tx = await getTransporter();
+  if (!tx) return;
+  await tx.sendMail({
+    from: SMTP_FROM,
+    to: recipient,
+    subject,
+    html
+  });
+}
+
 // ---------- Template rendering ----------
 function renderTemplate(html, payload) {
   return html.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => {
@@ -134,34 +145,43 @@ async function processOnce() {
     console.log('[worker] No queued notifications.');
     return 0;
   }
-  const tx = await getTransporter();
   let sent = 0;
-  for (const r of rows) {
+  for (const row of rows) {
     try {
-      const payload = (() => { try { return JSON.parse(r.payload || '{}'); } catch { return {}; } })();
-      const toEmail = r.email || (await getUserEmail(r.user_id));
-      if (!toEmail) {
-        await markFailed(r.id, 'No recipient email (user or queue email missing)');
+      const payload = (() => { try { return JSON.parse(row.payload || '{}'); } catch { return {}; } })();
+
+      // --- Determine recipient
+      const recipient = row.email || (await getUserEmail(row.user_id)) || null;
+
+      // --- Skip if no destination
+      if (!recipient) {
+        console.log(`[worker:skip] id=${row.id} has no email address, skipping`);
         continue;
       }
-      const subject = renderTemplate(r.subject || `WattSun: ${r.kind}`, payload);
-      const html = renderTemplate(r.html || `<p>${r.kind}</p><pre>${JSON.stringify(payload, null, 2)}</pre>`, payload);
 
-      if (!DRY_RUN && tx) {
-        await tx.sendMail({
-          from: SMTP_FROM,
-          to: toEmail,
-          subject,
-          html
-        });
-      } else {
-        console.log('[worker][DRY_RUN] Would send to', toEmail, 'subject:', subject);
+      // --- Prepare subject + HTML
+      const subject = renderTemplate(row.subject || `[${row.kind}] notification`, payload);
+      const html = renderTemplate(row.html || `<p>Automatic ${row.kind} notification.</p>`, payload);
+
+      // --- Send or simulate
+      try {
+        if (DRY_RUN) {
+          console.log(`[worker][DRY_RUN] Would send to ${recipient} subject: ${subject}`);
+          await markSent(row.id);
+        } else {
+          await sendMail(recipient, subject, html);
+          await markSent(row.id);
+          console.log(`[worker:sent] Email → ${recipient}`);
+        }
+      } catch (err) {
+        await markFailed(row.id, err.message || String(err));
+        console.error(`[worker:error] Send failed for id=${row.id}:`, err);
+        continue;
       }
-      await markSent(r.id);
       sent++;
     } catch (e) {
       console.error('[worker] send failed:', e.message);
-      try { await markFailed(r.id, e.message); } catch {}
+      try { await markFailed(row.id, e.message); } catch {}
     }
   }
   console.log(`[worker] Processed ${rows.length}, sent=${sent}, dryRun=${DRY_RUN}`);
