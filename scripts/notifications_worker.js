@@ -51,6 +51,11 @@ const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
 const SMTP_FROM = process.env.SMTP_FROM || (SMTP_USER || 'no-reply@wattsun.local');
 
+console.log(`[worker:debug] SMTP_USER=${SMTP_USER || '(none)'}`);
+console.log(`[worker:debug] SMTP_PASS=${SMTP_PASS ? '[hidden]' : '(none)'}`);
+console.log(`[worker:debug] SMTP_HOST=${SMTP_HOST || '(default)'}`);
+console.log(`[worker:debug] DRY_RUN=${DRY_RUN}`);
+
 // ---------- DB ----------
 const db = new sqlite3.Database(DB_PATH);
 
@@ -67,9 +72,12 @@ async function getTransporter() {
       tls: { rejectUnauthorized: false }
     });
     // quick verify
-    await transporter.verify().catch(e => {
-      console.warn('[worker] SMTP verify failed:', e.message);
-    });
+    try {
+      await transporter.verify();
+      console.log('[worker:debug] SMTP connection verified');
+    } catch (e) {
+      console.error('[worker:debug] SMTP verify failed:', e.message);
+    }
   }
   return transporter;
 }
@@ -77,12 +85,14 @@ async function getTransporter() {
 async function sendMail(recipient, subject, html) {
   const tx = await getTransporter();
   if (!tx) return;
-  await tx.sendMail({
+  const info = await tx.sendMail({
     from: SMTP_FROM,
     to: recipient,
     subject,
     html
   });
+  console.log('[worker:debug] sendMail() result:', info);
+  return info;
 }
 
 // ---------- Template rendering ----------
@@ -167,11 +177,10 @@ async function processOnce() {
       try {
         if (DRY_RUN) {
           console.log(`[worker][DRY_RUN] Would send to ${recipient} subject: ${subject}`);
-          await markSent(row.id);
         } else {
           await sendMail(recipient, subject, html);
           await markSent(row.id);
-          console.log(`[worker:sent] Email → ${recipient}`);
+          console.log(`[worker:sent] Email -> ${recipient}`);
         }
       } catch (err) {
         await markFailed(row.id, err.message || String(err));
@@ -207,3 +216,10 @@ main().catch(e => {
   console.error('[worker] fatal:', e);
   process.exit(1);
 });
+
+
+
+
+
+
+
