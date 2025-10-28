@@ -121,11 +121,13 @@ header nav {
 }
 .nav-links a.active,
 .nav-link-item.active {
-    color: #2e7d32;
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.25);
 }
 .nav-link-item:hover,
 .nav-link-item:focus {
-    color: #17b169;
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.25);
 }
 .nav-links.open {
     display: flex;
@@ -138,8 +140,10 @@ header nav {
     color: inherit;
 }
 .logo-link:hover,
-.logo-link:focus {
+.logo-link:focus,
+.logo-link:visited {
     color: inherit;
+    text-decoration: none;
 }
 .logo-link span {
     font-weight: 600;
@@ -334,8 +338,8 @@ header nav a {
     letter-spacing: 0.2px;
 }
 header nav a:hover {
-    color: #17b169;
-    text-shadow: 0 1px 8px #fff5;
+    color: #fff;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.25);
 }
 
 /* HERO SECTION */

@@ -5,6 +5,7 @@
   <title>Solar Solutions | WattSun Solar</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="main.css?v=20251020" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrL3uFOW9vyvyehZ9erjRzMJ6qdNqGd+HEGhj2U1WPR4r6k6V2Q==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
   <style>
     body { background: #f6f9f5; }
     .solutions-calc-cta { text-align:center; margin: 38px auto 20px; }
@@ -20,36 +21,42 @@
     .packages-footer { text-align:center; }
   </style>
 </head>
-<body>
+<body class="has-mobile-footer">
 <header>
   <div class="header-bar">
     <h1 class="desktop-logo">
-      <img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width:60px;object-fit:contain;margin-right:10px;" />
-      WattSun Solar
+      <a class="logo-link" href="/index.html">
+        <img alt="WattSun Solar Logo" src="assets/logo/Wattsun Solar log2.png" style="width: 60px; object-fit: contain; margin-right: 10px;"/>
+        <span>WattSun Solar</span>
+      </a>
     </h1>
     <div class="logo-container">
-      <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png" />
-      <span class="brand-name">WattSun Solar</span>
+      <a class="logo-link" href="/index.html">
+        <img alt="WattSun Solar Logo" class="site-logo" src="assets/logo/Wattsun Solar log2.png"/>
+        <span class="brand-name">WattSun Solar</span>
+      </a>
     </div>
-    <button class="nav-toggle" aria-label="Menu">Menu</button>
+    <div class="header-actions">
+      <button onclick="openLogin()" id="loginBtn" style="background:#f4a940;color:white;border:none;padding:7px 18px;border-radius:5px;font-weight:600;font-size:1em;cursor:pointer;">Login</button>
+      <span id="loggedInUser" style="display:none;font-size:1em;color:#222;"></span>
+      <button id="logoutBtn" style="display:none;background:#f0701a;color:white;border:none;padding:7px 14px;border-radius:5px;font-size:1em;cursor:pointer;">Logout</button>
+    </div>
+    <button id="menu-toggle" class="menu-toggle" aria-label="Toggle navigation" aria-controls="primary-navigation" aria-expanded="false">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
   </div>
-  <nav>
-    <a href="index.html">Home</a>
-    <a href="solutions.html" aria-current="page">Solutions</a>
-    <a href="shop.html">Shop</a>
-    <a href="calculators/calculator.html">Calculator</a>
-    <a href="financing.html">Financing</a>
-    <a href="projects.html">Projects</a>
-    <a href="myaccount/track.html">Track Order</a>
-    <a href="contact.html">Contact</a>
-    <a class="cart-icon-link" href="cart.html" aria-label="View cart" title="View cart">
-      <span class="cart-icon">
-        <svg class="cart-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path fill="currentColor" d="M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a 2 2 0 1 0 .001 3.999A2 2 0 0 0 17 18zM6 6h13l-1.5 7.5H8.2L6.9 4.8 4 4"/>
-        </svg>
-        <span id="cart-count-badge" class="cart-count-badge">0</span>
-      </span>
-    </a>
+  <nav id="primary-navigation" class="nav-links" aria-label="Primary navigation">
+    <a href="/index.html" class="nav-link-item" aria-label="Home"><i class="fas fa-home" aria-hidden="true"></i><span class="nav-text">Home</span></a>
+    <a href="/solutions.html" class="nav-link-item active" aria-label="Solutions" aria-current="page"><i class="fas fa-lightbulb" aria-hidden="true"></i><span class="nav-text">Solutions</span></a>
+    <a href="/shop.html" class="nav-link-item" aria-label="Shop"><i class="fas fa-store" aria-hidden="true"></i><span class="nav-text">Shop</span></a>
+    <!-- <a href="/calculators/calculator.html" class="nav-link-item" aria-label="Calculator"><i class="fas fa-solar-panel" aria-hidden="true"></i><span class="nav-text">Calculator</span></a> -->
+    <a href="/financing.html" class="nav-link-item" aria-label="Financing"><i class="fas fa-coins" aria-hidden="true"></i><span class="nav-text">Financing</span></a>
+    <a href="/projects.html" class="nav-link-item" aria-label="Projects"><i class="fas fa-diagram-project" aria-hidden="true"></i><span class="nav-text">Projects</span></a>
+    <!-- <a href="/myaccount/track.html" class="nav-link-item" aria-label="Track Order"><i class="fas fa-truck" aria-hidden="true"></i><span class="nav-text">Track Order</span></a> -->
+    <a href="/contact.html" class="nav-link-item" aria-label="Contact"><i class="fas fa-envelope" aria-hidden="true"></i><span class="nav-text">Contact</span></a>
+    <a class="nav-link-item cart-icon-link" href="/cart.html" aria-label="View cart"><span class="cart-icon"><i class="fas fa-shopping-cart" aria-hidden="true"></i><span class="nav-text">Cart</span><span id="cart-count-badge" class="cart-count-badge">0</span></span></a>
   </nav>
 </header>
 
