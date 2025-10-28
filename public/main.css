@@ -95,7 +95,7 @@ header nav {
 .nav-links {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: center;
     flex-wrap: wrap;
     gap: 1rem;
     width: 100%;
@@ -105,10 +105,13 @@ header nav {
     align-items: center;
     gap: 8px;
     text-decoration: none;
-    color: inherit;
+    color: #fff;
     font-weight: 600;
     letter-spacing: 0.01em;
     transition: color 0.2s ease;
+}
+.nav-link-item:visited {
+    color: #fff;
 }
 .nav-link-item i {
     font-size: 1rem;
@@ -119,6 +122,10 @@ header nav {
 .nav-links a.active,
 .nav-link-item.active {
     color: #2e7d32;
+}
+.nav-link-item:hover,
+.nav-link-item:focus {
+    color: #17b169;
 }
 .nav-links.open {
     display: flex;
@@ -139,19 +146,29 @@ header nav {
     letter-spacing: 0.01em;
 }
 header .header-bar {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-wrap: wrap;
+    position: relative;
 }
 header .header-bar h1 {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    text-align: left !important;
+    justify-content: center;
+    text-align: center;
     flex: 1 1 auto;
-    margin: 0 16px 0 0;
+    margin: 0;
     gap: 12px;
+}
+.header-actions {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+.header-actions button {
+    white-space: nowrap;
 }
 .has-mobile-footer {
     padding-bottom: 60px;
@@ -217,6 +234,21 @@ header .header-bar h1 {
         gap: 0;
         width: 100%;
     }
+    header .header-bar {
+        justify-content: flex-start;
+    }
+    header .header-bar h1 {
+        justify-content: flex-start;
+        text-align: left;
+    }
+    .logo-container {
+        justify-content: flex-start;
+    }
+    .header-actions {
+        position: static;
+        transform: none;
+        margin-left: auto;
+    }
     .nav-link-item {
         color: #222;
         width: 100%;
@@ -240,6 +272,9 @@ header .header-bar h1 {
 @media (min-width: 769px) {
     .has-mobile-footer {
         padding-bottom: 0;
+    }
+    .menu-toggle {
+        display: none;
     }
 }
 header {
