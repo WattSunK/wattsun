@@ -8,9 +8,18 @@ const dotenv = require("dotenv");
 
 // --- Always force explicit .env.qa when none loaded ---
 const defaultEnv = "/volume1/web/wattsun/.env.qa";
-const envPath = process.env.ENV_FILE && fs.existsSync(process.env.ENV_FILE)
-  ? process.env.ENV_FILE
-  : defaultEnv;
+const qaScopedEnv = "/volume1/web/wattsun/qa/.env.qa";
+
+let envPath = null;
+if (process.env.ENV_FILE && fs.existsSync(process.env.ENV_FILE)) {
+  envPath = process.env.ENV_FILE;
+} else if (fs.existsSync(qaScopedEnv)) {
+  envPath = qaScopedEnv;
+} else if (fs.existsSync(defaultEnv)) {
+  envPath = defaultEnv;
+} else {
+  envPath = process.env.ENV_FILE || qaScopedEnv;
+}
 
 if (fs.existsSync(envPath)) {
   console.log(`[loyalty] Loading environment from ${envPath}`);
