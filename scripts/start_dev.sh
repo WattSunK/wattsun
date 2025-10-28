@@ -5,6 +5,7 @@
 
 set -euo pipefail
 
+export ENV_FILE=/volume1/web/wattsun/.env
 export NODE_ENV=development
 export PORT=3001
 export ROOT="/volume1/web/wattsun"
