@@ -12,7 +12,7 @@
 set -eu
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-BACKUP_ROOT="/volume1/backups/wattsun"
+BACKUP_ROOT="/volume1/web/backups/wattsun"
 TS="$(date +%Y-%m-%d_%H%M%S)"
 OUT_DIR="$BACKUP_ROOT/$TS"
 LOG_FILE="$OUT_DIR/backup.log"
