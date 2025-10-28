@@ -33,6 +33,26 @@ echo -e "${CYAN}============================================================"
 echo -e "🧩 Step 1 of 6 — Fetching latest main branch from GitHub..."
 echo -e "============================================================${NC}"
 cd "$ROOT" || exit 1
+# ============================================================
+# Tag / Branch Selection
+# ============================================================
+sudo -u 53Bret git fetch --all --tags
+
+if [ -n "${1:-}" ]; then
+  TARGET="$1"
+else
+  TARGET=$(git describe --tags "$(git rev-list --tags --max-count=1)" 2>/dev/null || true)
+fi
+
+if [ -z "$TARGET" ]; then
+  TARGET="origin/main"
+  echo -e "${YELLOW}No tags found - defaulting to ${TARGET}${NC}"
+else
+  echo -e "${GREEN}Using latest tag: ${TARGET}${NC}"
+fi
+
+sudo -u 53Bret git checkout "$TARGET"
+sudo -u 53Bret git reset --hard "$TARGET"
 
 # Safety guard: enforce expected QA path layout
 if [[ "$QA_ROOT" != "$ROOT/qa" ]]; then
@@ -63,20 +83,12 @@ echo -e " - Local HEAD: ${LOCAL_SHA:-unknown}"
 echo -e " - Working tree: ${CLEAN_STATUS}"
 echo -e " - QA health (pre): HTTP ${PRE_HEALTH}"
 
-if [ -d .git ]; then
-  sudo -u 53Bret git fetch origin main
-  CURRENT_SHA=$(sudo -u 53Bret git rev-parse origin/main | cut -c1-7)
-  echo -e "${GREEN}✅ Latest origin/main = ${CURRENT_SHA}${NC}"
-
-  # Ensure local working tree matches latest origin/main before rsync
-  echo -e "${YELLOW}🔄 Updating local working tree to match origin/main...${NC}"
-  sudo -u 53Bret git checkout main
-  sudo -u 53Bret git reset --hard origin/main
-  echo -e "${GREEN}✅ Local working tree now matches origin/main${NC}"
-else
-  echo -e "${RED}❌ Git repository not found at $ROOT${NC}"
+if [ ! -d .git ]; then
+  echo -e "${RED}Git error: Git repository not found at $ROOT${NC}"
   exit 1
 fi
+
+CURRENT_SHA=$(sudo -u 53Bret git rev-parse HEAD 2>/dev/null | cut -c1-7 || true)
 
 # ============================================================
 # 📦 Step 2 of 6 — Copying files to QA (optimized rsync)
@@ -92,6 +104,7 @@ sudo -u 53Bret rsync -a --whole-file --no-compress \
   --exclude='qa/data/' \
   --exclude='qa/logs/' \
   --exclude='qa/run/' \
+  --exclude='.env.qa' \
   --exclude='qa/scripts/' \
   --exclude='.git/' \
   --exclude='node_modules/' \
@@ -209,6 +222,7 @@ echo -e "${CYAN}📊 QA user table count: ${QA_USERS}${NC}"
 
 echo -e "${GREEN}============================================================"
 echo -e "🎯 Dev → QA Promotion complete."
-echo -e "Commit (main): ${CURRENT_SHA}"
+echo -e "Commit (${TARGET}): ${CURRENT_SHA}"
 echo -e "QA DB:  $QA_DB"
 echo -e "============================================================${NC}"
+
