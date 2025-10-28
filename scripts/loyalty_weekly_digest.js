@@ -1,32 +1,30 @@
-#!/usr/bin/env node
 /**
- * scripts/loyalty_weekly_digest.js
- *
- * Adds note to weekly digests and safely ensures the note column exists.
- *
- * Enhancements:
- *  - `--db <path>` flag to pick DB explicitly
- *  - Defaults DB by env: SQLITE_DB/DB_PATH_USERS > NODE_ENV(qa/dev)
- *  - Detects ledger timestamp column: `ts` or `created_at`
+ * Environment-safe loader for QA/DEV
  */
-
 const fs = require("fs");
-const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
+const sqlite3 = require("sqlite3").verbose();
+const dotenv = require("dotenv");
 
-// --- Ensure ENV_FILE default ---
-process.env.ENV_FILE = process.env.ENV_FILE || "/volume1/web/wattsun/.env.qa";
-try { require("dotenv").config({ path: process.env.ENV_FILE }); } catch (_) {}
+// --- Always force explicit .env.qa when none loaded ---
+const defaultEnv = "/volume1/web/wattsun/.env.qa";
+const envPath = process.env.ENV_FILE && fs.existsSync(process.env.ENV_FILE)
+  ? process.env.ENV_FILE
+  : defaultEnv;
 
-// Load .env and optional overlay file at ./env or ENV_FILE
-function loadEnv() {
-  try { require("dotenv").config(); } catch (_) {}
-  const candidate = process.env.ENV_FILE || path.join(process.cwd(), "env");
-  if (fs.existsSync(candidate)) {
-    try { require("dotenv").config({ path: candidate, override: true }); } catch (_) {}
-  }
+if (fs.existsSync(envPath)) {
+  console.log(`[loyalty] Loading environment from ${envPath}`);
+  dotenv.config({ path: envPath, override: true });
+} else {
+  console.warn(`[loyalty] WARNING: Environment file not found at ${envPath}`);
 }
-loadEnv();
+
+// Validate loaded DB path envs
+if (process.env.SQLITE_MAIN) {
+  console.log(`[loyalty] SQLITE_MAIN=${process.env.SQLITE_MAIN}`);
+} else {
+  console.warn("[loyalty] WARNING: SQLITE_MAIN not set — fallback to dev path will be used");
+}
 
 function parseArgs(argv) {
   let db = null;
