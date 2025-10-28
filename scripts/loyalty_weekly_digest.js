@@ -14,6 +14,10 @@ const fs = require("fs");
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 
+// --- Ensure ENV_FILE default ---
+process.env.ENV_FILE = process.env.ENV_FILE || "/volume1/web/wattsun/.env.qa";
+try { require("dotenv").config({ path: process.env.ENV_FILE }); } catch (_) {}
+
 // Load .env and optional overlay file at ./env or ENV_FILE
 function loadEnv() {
   try { require("dotenv").config(); } catch (_) {}
