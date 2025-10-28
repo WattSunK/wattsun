@@ -115,7 +115,7 @@ header nav {
     left: 0;
     right: 0;
     background: linear-gradient(90deg, #fbb034, #ffdd00);
-    display: none;
+    display: none !important;
     justify-content: space-around;
     align-items: center;
     padding: 6px 0;
@@ -180,9 +180,9 @@ header nav {
     .nav-links a:last-child {
         border-bottom: none;
     }
-    .mobile-footer {
-        display: flex;
-    }
+  .mobile-footer {
+    display: flex !important;
+  }
 }
 
 @media (min-width: 769px) {
