@@ -19,11 +19,11 @@ const dotenv = require('dotenv');
 const nodemailer = require('nodemailer');
 const sqlite3 = require('sqlite3').verbose();
 
-// --- Environment Loader (override for QA) ---
+// --- Force QA environment load ---
 const envPath =
   process.env.ENV_FILE && fs.existsSync(process.env.ENV_FILE)
     ? process.env.ENV_FILE
-    : '/volume1/web/wattsun/qa/.env.qa';
+    : "/volume1/web/wattsun/qa/.env.qa";
 
 console.log(`[worker:init] Loading environment from ${envPath}`);
 dotenv.config({ path: envPath, override: true });
