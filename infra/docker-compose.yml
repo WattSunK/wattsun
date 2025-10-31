@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+  marketplace:
+    build: ../
+    container_name: marketplace
+    ports:
+      - "3101:3101"
+    depends_on:
+      - postgres
+      - invoiceninja
+    environment:
+      - NODE_ENV=production
+    networks: [marketplace-net]
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: marketuser
+      POSTGRES_PASSWORD: marketpass
+      POSTGRES_DB: marketplace
+    volumes:
+      - /volume1/docker/postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks: [marketplace-net]
+
+  invoiceninja:
+    image: invoiceninja/invoiceninja:5
+    container_name: invoiceninja
+    restart: always
+    ports:
+      - "9000:9000"
+    environment:
+      APP_URL=http://invoiceninja:9000
+      IN_USER_EMAIL=admin@marketplace.local
+      IN_PASSWORD=Admin123
+      DB_TYPE=pgsql
+      DB_HOST=postgres
+      DB_DATABASE=invoiceninja
+      DB_USERNAME=marketuser
+      DB_PASSWORD=marketpass
+    volumes:
+      - /volume1/docker/invoiceninja:/var/www/app/storage
+    networks: [marketplace-net]
+
+networks:
+  marketplace-net:
+    driver: bridge
