@@ -45,5 +45,13 @@ else
   echo "[qa] ⚠️ restart_qa.sh not found"
 fi
 
+# --- Restart Cloudflared tunnel after QA backend comes online
+echo "[qa] Restarting Cloudflared tunnel..."
+if bash /volume1/web/wattsun/scripts/start_cloudflared.sh >/dev/null 2>&1; then
+  echo "[qa] ✅ Cloudflared tunnel restarted after QA backend"
+else
+  echo "[qa] ⚠️ Cloudflared tunnel restart failed"
+fi
+
 echo "Restart sequence complete."
 echo "============================================================"
