@@ -55,10 +55,10 @@
 
     const b = el("enrollBtn");
     if (b) {
+      b.disabled = false;
       b.style.display = "inline-block";
       b.classList?.remove("hidden");
     }
-    applyEnrollEligibility();
   }
 
   function showAccount() {
@@ -68,11 +68,6 @@
     show("accountCard", "block");
     const b = el("enrollBtn");
     if (b) b.style.display = "none";
-    const note = el("enrollBtnNote");
-    if (note) {
-      note.textContent = "";
-      note.style.display = "none";
-    }
   }
 
   async function api(path, opts = {}) {
@@ -95,90 +90,6 @@
   let program = null;
   let account = null;
   let rank = null;
-  let eligibleTypes = [];
-  let canEnrollUser = true;
-  let currentUserType = "";
-
-  const normalizeType = (val) => String(val || "").trim().toLowerCase();
-
-  function readCurrentUserType() {
-    let type = "";
-    try {
-      if (typeof getCurrentUser === "function") {
-        const u = getCurrentUser();
-        if (u) type = String(u.type || u.role || "");
-      }
-    } catch (_) {}
-    if (!type) {
-      try {
-        const raw = window?.localStorage?.getItem("wattsunUser");
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && parsed.user) {
-            type = String(parsed.user.type || parsed.user.role || "");
-          }
-        }
-      } catch (_) {}
-    }
-    if (!type) {
-      try {
-        const u = window?.WS_AUTH?.user;
-        if (u) type = String(u.type || u.role || "");
-      } catch (_) {}
-    }
-    return type.trim();
-  }
-
-  const isElementVisible = (node) => {
-    if (!node) return false;
-    if (node.offsetParent !== null) return true;
-    try {
-      const rects = node.getClientRects();
-      return rects && rects.length > 0;
-    } catch (_) {
-      return false;
-    }
-  };
-
-  function applyEnrollEligibility() {
-    const btn = el("enrollBtn");
-    if (btn) {
-      btn.disabled = !canEnrollUser;
-      if (canEnrollUser) btn.removeAttribute("aria-disabled");
-      else btn.setAttribute("aria-disabled", "true");
-    }
-    const note = el("enrollBtnNote");
-    if (note) {
-      if (btn && !canEnrollUser && isElementVisible(btn)) {
-        const allowedText = eligibleTypes.length ? eligibleTypes.join(", ") : "eligible";
-        const userText = currentUserType || "your account";
-        note.textContent = `Enrollment is available to ${allowedText} users. You are logged in as ${userText}.`;
-        note.style.display = "block";
-      } else {
-        note.textContent = "";
-        note.style.display = "none";
-      }
-    }
-  }
-
-  function syncEnrollEligibility(programInfo) {
-    const configured = Array.isArray(programInfo?.eligibleUserTypes) && programInfo.eligibleUserTypes.length
-      ? programInfo.eligibleUserTypes
-      : ["Staff"];
-    eligibleTypes = configured;
-    currentUserType = readCurrentUserType();
-
-    const allowed = new Set(configured.map(normalizeType).filter(Boolean));
-    if (allowed.size === 0) {
-      canEnrollUser = true;
-    } else if (!currentUserType) {
-      canEnrollUser = true;
-    } else {
-      canEnrollUser = allowed.has(normalizeType(currentUserType));
-    }
-
-    applyEnrollEligibility();
-  }
 
   const euro = (pts) => {
     const epp = (program && program.eurPerPoint) || 1;
@@ -248,15 +159,6 @@
     account = data.account || null;
     rank    = (data.rank !== undefined) ? data.rank : null;
 
-    if (program) {
-      syncEnrollEligibility(program);
-    } else {
-      eligibleTypes = [];
-      canEnrollUser = true;
-      currentUserType = "";
-      applyEnrollEligibility();
-    }
-
     const withdrawCard = el("withdrawCard");
     const historyCard  = el("historyCard");
 
@@ -273,11 +175,6 @@
       const b = el("enrollBtn"); if (b) b.style.display = "none";
       if (withdrawCard) withdrawCard.style.display = "none";
       if (historyCard) historyCard.style.display = "none";
-      const note = el("enrollBtnNote");
-      if (note) {
-        note.textContent = "";
-        note.style.display = "none";
-      }
       return;
     }
 
@@ -285,6 +182,12 @@
 
     if (!account) {
       showEmpty();
+      const b = el("enrollBtn");
+      if (b) {
+        b.disabled = false;
+        b.style.display = "inline-block";
+        b.classList?.remove("hidden");
+      }
       if (withdrawCard) withdrawCard.style.display = "none";
       if (historyCard) historyCard.style.display = "none";
       return;
