@@ -1,5 +1,6 @@
 #!/bin/sh
 # Wait for QA backend to come up before starting Cloudflared
+echo "[cloudflared] Starting Cloudflared QA tunnel..."
 echo "[cloudflared] Waiting 45s for QA backend..."
 sleep 45
 ###############################################################################
